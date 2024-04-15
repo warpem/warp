@@ -1,0 +1,40 @@
+﻿<UserControl x:Class="Warp.Controls.Dialog2DDefocusUpdate"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+               xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Adjust particle defocus" FontSize="24" Margin="0,20" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="50" />
+            </Grid.RowDefinitions>
+            <s:ValueSlider Value="{Binding Tasks.InputPixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Coordinates use {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.001" FontSize="18" />
+
+            <RadioButton Name="RadioSkip" Grid.Row="2" IsChecked="{Binding Tasks.AdjustDefocusSkipExcluded}" Content="Skip particles from excluded items" FontSize="18" GroupName="Missing" />
+            <RadioButton Name="RadioDelete" Grid.Row="3" IsChecked="{Binding Tasks.AdjustDefocusDeleteExcluded}" Content="Delete particles from excluded items" FontSize="18" GroupName="Missing" />
+            
+            <CheckBox Name="CheckFilter" Grid.Row="5" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="6" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            
+            <m:MetroProgressBar Name="ProgressWrite" Grid.Row="7" Visibility="Hidden" />
+            
+            <StackPanel Name="PanelButtons" Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="ButtonWrite" Content="UPDATE VALUES" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonWrite_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </Grid>
+        <StackPanel Height="30"/>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,795 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CudaCompile Include="src/Backprojection.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/BoxNet2.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/C2DNet.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/CTF.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/CubeNet.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/CubicGPU.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/Deconv.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/Defects.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/MPARefine.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/ParticleMultiBody.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/ParticleNMA.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/ParticleSoftBody.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/PCA.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/Raycast.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/RealspaceProjection.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\Motion.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src/Tools.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\BinaryManipulation\Binarize.cu">
+      <Filter>GTOM\src\BinaryManipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\BinaryManipulation\Dilate.cu">
+      <Filter>GTOM\src\BinaryManipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\BinaryManipulation\DistanceMap.cu">
+      <Filter>GTOM\src\BinaryManipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\CCF.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\LocalPeaks.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\Peak.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\Picker.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\ProbabilisticPicker.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\Realspace.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\SimilarityMatrix.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\SubTomograms.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Correlation\TomoPicker.cu">
+      <Filter>GTOM\src\Correlation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CTF\CommonPSF.cu">
+      <Filter>GTOM\src\CTF</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CTF\Correct.cu">
+      <Filter>GTOM\src\CTF</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CTF\Periodogram.cu">
+      <Filter>GTOM\src\CTF</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CTF\RotationalAverage.cu">
+      <Filter>GTOM\src\CTF</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CTF\Simulate.cu">
+      <Filter>GTOM\src\CTF</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CTF\Wiener.cu">
+      <Filter>GTOM\src\CTF</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\cubicPrefilter2D.cu">
+      <Filter>GTOM\src\Cubic Splines</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\cubicPrefilter3D.cu">
+      <Filter>GTOM\src\Cubic Splines</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\cubicTex.cu">
+      <Filter>GTOM\src\Cubic Splines</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\PCHIP.cu">
+      <Filter>GTOM\src\Cubic Splines</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\internal\bspline_kernel.cu">
+      <Filter>GTOM\src\Cubic Splines\internal</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\internal\cubicPrefilter_kernel.cu">
+      <Filter>GTOM\src\Cubic Splines\internal</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\internal\cubicTexKernels.cu">
+      <Filter>GTOM\src\Cubic Splines\internal</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\internal\math_func.cu">
+      <Filter>GTOM\src\Cubic Splines\internal</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\CubicSplines\internal\version.cu">
+      <Filter>GTOM\src\Cubic Splines\internal</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\FFT\FFT.cu">
+      <Filter>GTOM\src\FFT</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\FFT\FFTRemap.cu">
+      <Filter>GTOM\src\FFT</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\FFT\FFTResize.cu">
+      <Filter>GTOM\src\FFT</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\FFT\IFFT.cu">
+      <Filter>GTOM\src\FFT</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Arithmetics.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Boolean.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\CompositeArithmetics.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Dev.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Extraction.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Histogram.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\IndexOf.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Insertion.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\LocalStd.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\MakeAtlas.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\MinMax.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\MinMaxMonolithic.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Padding.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Polynomials.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Reductions.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\Sum.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Generics\SumMinMax.cu">
+      <Filter>GTOM\src\Generics</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\AngularSpacing.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\Euler.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\GridSpacing.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\HermitianSymmetry.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\InterpolateIrregular.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\Memory.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\TextureObject.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Helpers\TypeConversion.cu">
+      <Filter>GTOM\src\Helpers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\AnisotropicLowpass.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\Bandpass.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\BeamTilt.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\Distort.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\Dose.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\LocalLowpass.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\Norm.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\ImageManipulation\Xray.cu">
+      <Filter>GTOM\src\Image Manipulation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Masking\ConeMask.cu">
+      <Filter>GTOM\src\Masking</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Masking\IrregularSphereMask.cu">
+      <Filter>GTOM\src\Masking</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Masking\RectangleMask.cu">
+      <Filter>GTOM\src\Masking</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Masking\Remap.cu">
+      <Filter>GTOM\src\Masking</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Masking\SphereMask.cu">
+      <Filter>GTOM\src\Masking</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Masking\Windows.cu">
+      <Filter>GTOM\src\Masking</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Projection\Backward.cu">
+      <Filter>GTOM\src\Projection</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Projection\Forward.cu">
+      <Filter>GTOM\src\Projection</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Projection\PseudoAtoms.cu">
+      <Filter>GTOM\src\Projection</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Projection\RaySum.cu">
+      <Filter>GTOM\src\Projection</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Projection\Weighting.cu">
+      <Filter>GTOM\src\Projection</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Reconstruction\RecFourier.cu">
+      <Filter>GTOM\src\Reconstruction</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Reconstruction\RecFourierAdd.cu">
+      <Filter>GTOM\src\Reconstruction</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Reconstruction\RecSIRT.cu">
+      <Filter>GTOM\src\Reconstruction</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Reconstruction\RecWBP.cu">
+      <Filter>GTOM\src\Reconstruction</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\Backproject.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\BackprojectShifted.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\BackprojectTomo.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\ConvertWeights.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\DiffRemap.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\Misc.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\Project.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\ProjectShifted.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Relion\StoreWeights.cu">
+      <Filter>GTOM\src\Relion</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Resolution\AnisotropicFSC.cu">
+      <Filter>GTOM\src\Resolution</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Resolution\FSC.cu">
+      <Filter>GTOM\src\Resolution</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Resolution\LocalFilter.cu">
+      <Filter>GTOM\src\Resolution</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Resolution\LocalFSC.cu">
+      <Filter>GTOM\src\Resolution</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Resolution\LocalFSCBFac.cu">
+      <Filter>GTOM\src\Resolution</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Bin.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Combined.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Coordinates.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\FFTLines.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\FitMagAnisotropy.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\MagAnisotropy.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Rotation.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Scale.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Shift.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="gtom\src\Transformation\Warp2D.cu">
+      <Filter>GTOM\src\Transformation</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\DFT.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src/Device.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/Post.cu">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/Angles.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/Bessel.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/Correlation.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/EER.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/Einspline.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/FFT.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/FSC.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DeviceMemory.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/RelionProjector.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/Symmetry.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/TiffNative.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src/WeightOptimization.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="gtom\src\Helpers\KaiserBessel.cpp">
+      <Filter>GTOM\src\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="gtom\src\IO\em.cpp">
+      <Filter>GTOM\src\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="gtom\src\IO\mrc.cpp">
+      <Filter>GTOM\src\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="gtom\src\IO\raw.cpp">
+      <Filter>GTOM\src\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="gtom\src\Helpers\Misc.cpp">
+      <Filter>GTOM\src\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\complex.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\ctf.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\error.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\euler.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\fftw.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\filename.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\funcs.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\healpix_sampling.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\image.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\mask.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\matrix1d.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\matrix2d.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\memory.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\metadata_container.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\metadata_label.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\metadata_table.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\multidim_array.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\numerical_recipes.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\projector.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\strings.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\symmetries.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\tabfuncs.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\transformations.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\Healpix_2.15a\cxxutils.cc">
+      <Filter>LibLION\Healpix</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\Healpix_2.15a\healpix_base.cc">
+      <Filter>LibLION\Healpix</Filter>
+    </ClCompile>
+    <ClCompile Include="liblion\backprojector.cpp">
+      <Filter>LibLION\src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Float16.cpp">
+      <Filter>CPU</Filter>
+    </ClCompile>
+    <ClCompile Include="src\einspline\bspline_create.cpp">
+      <Filter>einspline</Filter>
+    </ClCompile>
+    <ClCompile Include="src\einspline\bspline_data.cpp">
+      <Filter>einspline</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include/Functions.h" />
+    <ClInclude Include="gtom\include\Angles.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Binary.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Correlation.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\CTF.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\CubicInterp.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\helper_math.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\DeviceFunctions.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\FFT.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Generics.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\GTOM.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Helper.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\ImageManipulation.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\IO.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Masking.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Prerequisites.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Projection.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Reconstruction.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Relion.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Resolution.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="gtom\include\Transformation.cuh">
+      <Filter>GTOM\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\avx_helper.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\complex.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\ctf.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\error.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\euler.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\fftw.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\filename.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\funcs.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\healpix_sampling.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\image.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\macros.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\mask.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\matrix1d.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\matrix2d.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\memory.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\metadata_container.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\metadata_label.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\metadata_table.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\multidim_array.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\numerical_recipes.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\projector.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\rwMRC.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\strings.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\symmetries.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\tabfuncs.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\transformations.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\liblion.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\arr.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\cxxutils.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\datatypes.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\geom_utils.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\healpix_base.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\lsconstants.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\message_error.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\openmp_support.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\pointing.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\Healpix_2.15a\vec3.h">
+      <Filter>LibLION\Healpix</Filter>
+    </ClInclude>
+    <ClInclude Include="liblion\backprojector.h">
+      <Filter>LibLION\include</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\aligned_alloc.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\bspline.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\bspline_base.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\bspline_create.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\bspline_eval_sse_s.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\bspline_eval_std_s.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\bspline_structs.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+    <ClInclude Include="src\einspline\config.h">
+      <Filter>einspline</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="einspline">
+      <UniqueIdentifier>{dbd6ae0e-2b0a-4945-bbd7-8473bd484f5d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU">
+      <UniqueIdentifier>{fe5e6b8b-4911-425b-90c3-ea9dd2cdbcd2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CPU">
+      <UniqueIdentifier>{74d4c024-e934-4de7-8714-7e88b859db22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM">
+      <UniqueIdentifier>{34174d45-779d-4ab9-8e74-93b0e6d2bcf1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\include">
+      <UniqueIdentifier>{47649363-be2c-462d-9b73-e253a160a472}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src">
+      <UniqueIdentifier>{a107b6e3-7d42-4594-9e80-0f7b3967912e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\BinaryManipulation">
+      <UniqueIdentifier>{5dbb06da-d447-49ae-913b-931e3f38ec3d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Correlation">
+      <UniqueIdentifier>{32a53de3-95c1-4777-b171-0cdf9d559f2f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\CTF">
+      <UniqueIdentifier>{a70b9174-79f7-4d9d-97d7-b2946cbcdde9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Cubic Splines">
+      <UniqueIdentifier>{eb427bb4-2c55-488c-b1d7-253b167a5db3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\FFT">
+      <UniqueIdentifier>{71cbed52-6194-4505-abd6-b5b6cb6d8882}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Generics">
+      <UniqueIdentifier>{39af9233-3eb1-4fd2-bbe3-c385fb3602d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Cubic Splines\internal">
+      <UniqueIdentifier>{0852db6e-f4fa-455f-990f-0e5c473bd42a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Helpers">
+      <UniqueIdentifier>{fe8a263e-e643-4558-923b-f3ae1296a7ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Image Manipulation">
+      <UniqueIdentifier>{905db393-0990-409b-9122-872f41afac8b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\IO">
+      <UniqueIdentifier>{8af8f93b-5494-485e-bc7b-6c80b2d4a451}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Masking">
+      <UniqueIdentifier>{8d9d2479-5e77-4868-aade-e2b4d8619245}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Projection">
+      <UniqueIdentifier>{5e02a5b9-82d3-4a99-8b26-925b31425ddd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Reconstruction">
+      <UniqueIdentifier>{d2685822-4823-48f3-91fb-096aa09c2016}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Relion">
+      <UniqueIdentifier>{152e3349-a7b7-4001-8373-589bb58ecd23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Resolution">
+      <UniqueIdentifier>{683d87a9-cc1b-4495-a1f5-9b6e45f55ad2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GTOM\src\Transformation">
+      <UniqueIdentifier>{f96b1f17-4513-4f4e-a6fe-f7d3eb40eec5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="LibLION">
+      <UniqueIdentifier>{d99a8159-4c5b-4b03-9651-0b19529e4048}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="LibLION\include">
+      <UniqueIdentifier>{0a32e446-6c70-4fa7-86b0-9e8183f9b2d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="LibLION\src">
+      <UniqueIdentifier>{ea1722fd-d73a-4ce6-81e2-34a6add779b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="LibLION\Healpix">
+      <UniqueIdentifier>{714fdb52-e677-4dda-9d0e-b02ce8229591}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

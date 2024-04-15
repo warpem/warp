@@ -1,0 +1,27 @@
+﻿<UserControl x:Class="Warp.NyanBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:gif="http://wpfanimatedgif.codeplex.com"
+             xmlns:local="clr-namespace:Warp"
+             mc:Ignorable="d" 
+             d:DesignHeight="75" d:DesignWidth="300">
+    <Grid>
+        <m:MetroProgressBar Name="BarIndeterminate" IsIndeterminate="True" />
+        <Rectangle Name="RectangleRainbow" Width="100" Height="40" HorizontalAlignment="Left" Opacity="0.5">
+            <Rectangle.Fill>
+                <VisualBrush x:Name="VisualBrushRainbow" TileMode="Tile" Viewport="0,0,0.125,1.01">
+                    <VisualBrush.Visual>
+                        <Image gif:ImageBehavior.AnimatedSource="nyanrainbow.gif" gif:ImageBehavior.AnimateInDesignMode="True" HorizontalAlignment="Stretch" />
+                    </VisualBrush.Visual>
+                </VisualBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+        <Image Name="ImageMouse" gif:ImageBehavior.AnimatedSource="nyanmouse.gif" Height="54" gif:ImageBehavior.AnimateInDesignMode="True" HorizontalAlignment="Left" />
+        <Canvas>
+            <TextBlock Name="TextFood" Text="🍏" FontSize="30" FontFamily="Segoe UI Emoji" />
+        </Canvas>
+    </Grid>
+</UserControl>

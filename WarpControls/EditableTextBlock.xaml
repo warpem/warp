@@ -1,0 +1,16 @@
+﻿<UserControl x:Class="Sparta.EditableTextBlock"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             x:Name="MainControl"
+             FontSize="12"
+             Cursor="IBeam"
+             Focusable="True"
+             MouseLeftButtonDown="UserControl_MouseDown">
+    <Grid>
+        <TextBlock Name="ShowText" Text="{Binding ElementName=MainControl, Path=Text}" Foreground="{Binding ElementName=MainControl, Path=Foreground}" />
+        <TextBox Name="EditText" Text="{Binding ElementName=MainControl, Path=Text, Mode=TwoWay}" MinHeight="0" Height="{Binding ElementName=ShowText, Path=ActualHeight}" Padding="-6,-4,-6,-10" BorderThickness="0" Visibility="Collapsed" LostFocus="EditText_LostFocus" KeyDown="EditText_KeyDown" />
+    </Grid>
+</UserControl>

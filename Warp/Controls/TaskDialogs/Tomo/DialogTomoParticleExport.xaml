@@ -1,0 +1,93 @@
+﻿<UserControl x:Class="Warp.Controls.DialogTomoParticleExport"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Export sub-tomograms" FontSize="24" Margin="0,20" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="15" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <CheckBox Name="CheckOneInputPerItem" IsChecked="{Binding Tasks.InputOnePerItem}" Content="One input file per tilt series" FontSize="18" />
+            <RadioButton Grid.Row="1" GroupName="CoordinateMode">
+                <s:ValueSlider Name="SliderImportAngPix"  Grid.Row="1" Value="{Binding Tasks.InputPixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Coordinates use {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+            </RadioButton>
+            <RadioButton Name="CheckNormalizedCoords" Grid.Row="2" GroupName="CoordinateMode" IsChecked="{Binding Tasks.TomoSubReconstructNormalizedCoords}" Content="Coordinates are normalized" FontSize="18" />
+            <s:ValueSlider Name="TextPixelSizeExport"  Grid.Row="3" Value="{Binding Tasks.TomoSubReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Output will be scaled to {0} Å/px" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+
+            <s:ValueSlider Name="SliderBoxSize" Grid.Row="5" Value="{Binding Tasks.TomoSubReconstructBox, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Box size is {0} px" MinValue="2" MaxValue="10000" StepSize="2" FontSize="18" />
+            <s:ValueSlider Name="SliderParticleDiameter" Grid.Row="6" Value="{Binding Tasks.TomoSubReconstructDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Particle diameter is {0} Å" MinValue="2" MaxValue="10000" StepSize="1" FontSize="18" />
+
+            <StackPanel Grid.Row="8" Orientation="Horizontal">
+                <RadioButton Name="RadioVolume" GroupName="VolumeSeries" IsChecked="{Binding Tasks.TomoSubReconstructVolume}" Content="Volumes" FontSize="18" />
+                <RadioButton Name="RadioSeries" GroupName="VolumeSeries" IsChecked="{Binding Tasks.TomoSubReconstructSeries}" Content="Image series" FontSize="18" Margin="16,0,0,0" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="10" Orientation="Horizontal">
+                <CheckBox Name="CheckShiftParticles"></CheckBox>
+                <s:ValueSlider Name="SliderShiftParticlesX" TextFormat="Shift by {0}" Value="{Binding Tasks.TomoSubReconstructShiftX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="-9999" MaxValue="9999" FontSize="18" VerticalAlignment="Center" />
+                <s:ValueSlider Name="SliderShiftParticlesY" TextFormat=", {0}" Value="{Binding Tasks.TomoSubReconstructShiftY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="-9999" MaxValue="9999" FontSize="18" VerticalAlignment="Center" />
+                <s:ValueSlider Name="SliderShiftParticlesZ" TextFormat=", {0} Å" Value="{Binding Tasks.TomoSubReconstructShiftZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="-9999" MaxValue="9999" FontSize="18" VerticalAlignment="Center" />
+            </StackPanel>
+            <CheckBox Name="CheckPrerotate" Grid.Row="11" IsChecked="{Binding Tasks.TomoSubReconstructPrerotated}" Content="Pre-rotate particles" FontSize="18" />
+            <CheckBox Name="CheckLimitDose" Grid.Row="12" IsChecked="{Binding Tasks.TomoSubReconstructDoLimitDose}" FontSize="18">
+                <s:ValueSlider Name="SliderNTilts" Value="{Binding Tasks.TomoSubReconstructNTilts, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Limit to first {0} tilts by dose" MinValue="1" MaxValue="10000" StepSize="1" FontSize="18" />
+            </CheckBox>
+
+            <CheckBox Name="CheckInvert" Grid.Row="14" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Name="CheckNormalize" Grid.Row="15" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
+            <CheckBox Name="CheckPreflip" Grid.Row="16" IsChecked="{Binding Tasks.OutputNormalize}" Content="Normalize output volumes" FontSize="18" />
+            <CheckBox Name="CheckSparse" Grid.Row="17" IsChecked="{Binding Tasks.TomoSubReconstructMakeSparse}" Content="Make 3D CTF sparse" FontSize="18" />
+
+            <CheckBox Name="CheckRelative" Grid.Row="19" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR" FontSize="18" />
+            <CheckBox Name="CheckCPU" Grid.Row="20" IsChecked="{Binding Tasks.UseCPU}" Content="Use CPU for some steps" FontSize="18" />
+
+            <CheckBox Name="CheckFilter" Grid.Row="22" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="23" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Grid.Row="24" Orientation="Vertical">
+                <warp:NyanBar x:Name="ProgressWrite" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="0,12,0,8" Visibility="Collapsed" />
+
+                <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="50">
+                    <Button Name="ButtonWrite" Content="EXPORT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonWrite_OnClick" />
+                    <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Margin="24,0,0,0" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+                </StackPanel>
+
+                <StackPanel Name="PanelRemaining" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom" Visibility="Collapsed">
+                    <TextBlock Name="TextRemaining" Text="--:--:--" Foreground="Black" FontSize="24" VerticalAlignment="Center" />
+                    <Button Name="ButtonAbort" Content="🗙" FontSize="18" FontWeight="Heavy" Foreground="Red" Margin="6,0,0,0" VerticalAlignment="Center" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonAbort_OnClick" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+        <StackPanel Height="30"/>
+    </StackPanel>
+</UserControl>

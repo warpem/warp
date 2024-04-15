@@ -1,0 +1,78 @@
+﻿<UserControl x:Class="Warp.Controls.TaskDialogs.TwoD.Dialog2DMatch"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:local="clr-namespace:Warp.Controls"
+             xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Match micrographs" FontSize="24" Margin="0,20" />
+        <Grid Name="PanelConfiguration">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="50" />
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
+            <s:FormattedTextBlock Name="TextTemplateName"  TextFormat="Template is {0}" Value="template.mrc" FontSize="18" />
+            <StackPanel Grid.Row="1" Orientation="Horizontal">
+                <s:ValueSlider Name="SliderTomoMatchTemplatePixel" Value="{Binding Tasks.TomoMatchTemplatePixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Template pixel size: {0} Å " MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+                <s:ValueSlider Name="SliderTomoMatchTemplateDiameter" Value="{Binding Tasks.TomoMatchTemplateDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=", diameter: {0} Å " MinValue="1" MaxValue="100000" StepSize="2" FontSize="18" />
+            </StackPanel>
+            <s:ValueSlider Name="SliderTomoMatchFraction" Grid.Row="2" Value="{Binding Tasks.TomoMatchTemplateFraction, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Use {0} % of template " MinValue="1" MaxValue="100" StepSize="1" FontSize="18" />
+
+            <s:ValueSlider Name="SliderTomoMatchPixel" Grid.Row="4" Value="{Binding Tasks.TomoFullReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Matching pixel size: {0} Å " MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+            <CheckBox Grid.Row="5" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Grid.Row="6" IsChecked="{Binding Tasks.TomoMatchWhitenSpectrum}" Content="Whiten noise spectrum" FontSize="18" />
+
+            <StackPanel Orientation="Horizontal" Grid.Row="8">
+                <TextBlock Text="Symmetry:  " FontSize="18" />
+                <warp:SymmetrySelector Value="{Binding Tasks.TomoMatchSymmetry, Mode=TwoWay}" FontSize="18" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Grid.Row="9">
+                <s:ValueSlider Value="{Binding Tasks.TomoMatchHealpixOrder, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}x angular subdivision" MinValue="1" MaxValue="10" StepSize="1" FontSize="18" />
+                <s:FormattedTextBlock Value="{Binding Tasks.TomoMatchHealpixAngle, Mode=TwoWay}" TextFormat=" ({0} ° steps)" FontSize="18" />
+            </StackPanel>
+            <s:FormattedTextBlock Grid.Row="10" Value="{Binding Tasks.TomoMatchRecommendedAngPix}" TextFormat="{}{0:F2} Å/px or better recommended for this sampling rate" FontSize="18" />
+
+            <s:ValueSlider Name="SliderTomoMatchNResults" Grid.Row="12" Value="{Binding Tasks.TomoMatchNResults, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Store {0} best results " MinValue="1" MaxValue="100000000" StepSize="1" FontSize="18" />
+
+            <CheckBox Name="CheckFilter" Grid.Row="14" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="15" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Grid.Row="16" Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="ButtonMatch"  Content="MATCH" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonMatch_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Margin="24,0,0,0" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </Grid>
+        <Grid Name="PanelProgress" Margin="0,10,0,0" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="40" />
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
+            <WrapPanel Name="PanelGrids" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" />
+            <m:MetroProgressBar Name="ProgressOverall" Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Top" IsIndeterminate="False" />
+            <Button Name="ButtonAbort" Grid.Row="3" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="Red" HorizontalAlignment="Center" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonAbort_OnClick" />
+        </Grid>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,40 @@
+﻿<UserControl x:Class="Sparta.ValueSlider"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:l="clr-namespace:Sparta"
+             mc:Ignorable="d" Loaded="UserControl_Loaded"
+             x:Name="MainControl">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <l:TextFormatConverter x:Key="textFormatConverter" />
+            <l:LeftPartFormatConverter x:Key="leftPartFormatConverter" />
+            <l:RightPartFormatConverter x:Key="rightPartFormatConverter" />
+            <l:RoundDoubleConverter x:Key="roundedDoubleConverter" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding ElementName=MainControl, Path=TextFormat, Converter={StaticResource leftPartFormatConverter}}" FontSize="{Binding ElementName=MainControl, Path=FontSize}" Foreground="{Binding ElementName=MainControl, Path=Foreground}" Margin="0" VerticalAlignment="Top" />
+            <StackPanel Orientation="Vertical" Background="Transparent" VerticalAlignment="Top" PreviewMouseWheel="EditPanel_OnPreviewMouseWheel">
+                <l:EditableTextBlock Text="{Binding ElementName=MainControl, Path=StringValue, Mode=TwoWay}" 
+                       x:Name="ValueBlock" 
+                       HorizontalAlignment="Left"
+                       FontSize="{Binding ElementName=MainControl, Path=FontSize}" 
+                       Foreground="{Binding ElementName=MainControl, Path=Foreground}" 
+                       Margin="0"
+                       IsManuallyTriggered="True"
+                       PreviewMouseDown="ValueBlock_MouseDown" 
+                       MouseUp="ValueBlock_MouseUp" 
+                       Cursor="SizeNS"
+                       EditCompleted="ValueBlock_OnEditCompleted">
+                </l:EditableTextBlock>
+                <Canvas>
+                    <Line Name="LineDashes" StrokeThickness="1" X2="{Binding ElementName=ValueBlock, Path=ActualWidth}" Stroke="{Binding ElementName=MainControl, Path=UnderlineColor}" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased" />
+                </Canvas>
+            </StackPanel>
+            <TextBlock Text="{Binding ElementName=MainControl, Path=TextFormat, Converter={StaticResource rightPartFormatConverter}}" FontSize="{Binding ElementName=MainControl, Path=FontSize}" Foreground="{Binding ElementName=MainControl, Path=Foreground}" Margin="0" VerticalAlignment="Top" />
+        </StackPanel>        
+    </Grid>
+</UserControl>

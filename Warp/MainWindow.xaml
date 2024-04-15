@@ -1,0 +1,664 @@
+﻿<m:MetroWindow x:Class="Warp.MainWindow"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+               xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+               xmlns:wc="clr-namespace:Warp;assembly=WarpControls"
+               xmlns:w="clr-namespace:Warp.Controls"
+               xmlns:l="clr-namespace:Warp"
+               xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+               xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+               xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
+               Title="Durchlichtelektronenmikroskopiebilddatenentzerrungswerkzeug 1.1.0 beta"
+               UseLayoutRounding="True" 
+               ShowTitleBar="True" 
+               SnapsToDevicePixels="False" 
+               FontSize="13" 
+               TitleBarHeight="30"
+               SizeToContent="Manual"
+               GlowBrush="#41b1e1"
+               MinWidth="1536"
+               MinHeight="1030"
+               Width="1536"
+               Height="1180">
+    <m:MetroWindow.WindowTitleBrush>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#41b1e1" Offset="0.0" />
+            <GradientStop Color="#41b1e1" Offset="0.50" />
+            <GradientStop Color="#ffc456" Offset="0.501" />
+            <GradientStop Color="#ffc456" Offset="1.0" />
+        </LinearGradientBrush>
+    </m:MetroWindow.WindowTitleBrush>
+    <Window.Resources>
+        <ResourceDictionary>
+            <l:NyquistAngstromConverter x:Key="nyquistAngstromConverter" />
+        </ResourceDictionary>
+    </Window.Resources>
+    <m:MetroWindow.RightWindowCommands>
+        <m:WindowCommands>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Name="ButtonUpdateAvailable" Content="UPDATE AVAILABLE" Visibility="Collapsed" FontSize="16" FontWeight="Medium" Foreground="Black" Margin="20,0,10,0" VerticalAlignment="Center" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonUpdateAvailable_OnClick" />
+                <Button Name="SwitchDayNight" Content="🔆" FontSize="18" FontWeight="Medium" Foreground="Black" Margin="20,-2,20,0" VerticalAlignment="Center" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="SwitchDayNight_OnClick" />
+                <StackPanel Name="PanelGPUStats" Orientation="Horizontal" VerticalAlignment="Center" />
+            </StackPanel>
+        </m:WindowCommands>
+    </m:MetroWindow.RightWindowCommands>
+    <Grid>
+        <Grid Name="TabRawData">
+            <Grid.InputBindings>
+                <KeyBinding Key="Left" Command="{Binding HotKeyLeft, RelativeSource={RelativeSource FindAncestor, AncestorType=m:MetroWindow}}"/>
+                <KeyBinding Key="Right" Command="{Binding HotKeyRight, RelativeSource={RelativeSource FindAncestor, AncestorType=m:MetroWindow}}"/>
+                <KeyBinding Key="W" Modifiers="Ctrl" Command="{Binding HotKeyW, RelativeSource={RelativeSource FindAncestor, AncestorType=m:MetroWindow}}"/>
+                <KeyBinding Key="E" Modifiers="Ctrl" Command="{Binding HotKeyE, RelativeSource={RelativeSource FindAncestor, AncestorType=m:MetroWindow}}"/>
+                <KeyBinding Key="R" Modifiers="Ctrl" Command="{Binding HotKeyR, RelativeSource={RelativeSource FindAncestor, AncestorType=m:MetroWindow}}"/>
+                <KeyBinding Key="F" Modifiers="Ctrl" Command="{Binding HotKeyF, RelativeSource={RelativeSource FindAncestor, AncestorType=m:MetroWindow}}"/>
+            </Grid.InputBindings>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Name="ColumnMainPreprocessing" Width="450" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <Grid Name="GridMainPreprocessing" VerticalAlignment="Stretch">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="80" />
+                    </Grid.RowDefinitions>
+                    <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Grid.Column="0" Orientation="Vertical" Margin="4,0">
+                            <StackPanel Orientation="Horizontal" Margin="6,8,0,8">
+                                <Button Name="ButtonOptionsSave" Content="SAVE SETTINGS" FontWeight="Medium" Foreground="CornflowerBlue"  Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonOptionsSave_OnClick" />
+                                <Button Name="ButtonOptionsLoad" Content="LOAD SETTINGS" FontWeight="Medium" Foreground="CornflowerBlue" Margin="16,0,0,0"  Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonOptionsLoad_OnClick" />
+                                <Button Name="ButtonOptionsAdopt" Content="ADOPT SETTINGS FROM MOVIE" FontWeight="Medium" Foreground="CornflowerBlue" Margin="16,0,0,0" Visibility="Hidden"  Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonOptionsAdopt_OnClick" />
+                            </StackPanel>
+                            <Label Content="Input" FontSize="18" />
+                            <Grid Name="GridOptionsIO" Margin="6,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Data: " />
+                                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                    <Button Name="ButtonInputPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonInputPath_OnClick">
+                                        <TextBlock Name="ButtonInputPathText" TextTrimming="CharacterEllipsis" MaxWidth="300">Select folder...</TextBlock>
+                                    </Button>
+                                    <TextBlock Text=" — " />
+                                    <Button Name="ButtonInputExtension" Content="{Binding Import.Extension}" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonInputExtension_OnClick" />
+                                    <Popup Name="PopupInputExtension" PlacementTarget="{Binding ElementName=ButtonInputExtension}" IsOpen="False" StaysOpen="False" PopupAnimation="Fade">
+                                        <Border Background="{DynamicResource MahApps.Brushes.ThemeBackground}" BorderBrush="{DynamicResource MahApps.Brushes.ThemeForeground}" BorderThickness="0.5">
+                                            <StackPanel Orientation="Vertical" Margin="6">
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="MRC" IsChecked="{Binding Path=Import.ExtensionMRC, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="MRCS" IsChecked="{Binding Path=Import.ExtensionMRCS, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="EM" IsChecked="{Binding Path=Import.ExtensionEM, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIF" IsChecked="{Binding Path=Import.ExtensionTIFF, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TIFF" IsChecked="{Binding Path=Import.ExtensionTIFFF, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="EER" IsChecked="{Binding Path=Import.ExtensionEER, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="TomoSTAR" IsChecked="{Binding Path=Import.ExtensionTomoSTAR, Mode=TwoWay}" FontSize="13" />
+                                                <RadioButton GroupName="InFormatOptions" VerticalAlignment="Center" Margin="0,3,0,0" Content="DAT" IsChecked="{Binding Path=Import.ExtensionDAT, Mode=TwoWay}" FontSize="13" />
+                                                <StackPanel Orientation="Horizontal" Margin="26,3,0,0">
+                                                    <s:ValueSlider Value="{Binding Import.HeaderlessWidth, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} x " MinValue="2" MaxValue="100000" StepSize="1" />
+                                                    <s:ValueSlider Value="{Binding Import.HeaderlessHeight, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} px" MinValue="2" MaxValue="100000" StepSize="1" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Vertical" Margin="26,0,0,0">
+                                                    <ComboBox SelectedItem="{Binding Import.HeaderlessType, Mode=TwoWay}" ItemsSource="{Binding InputDatTypes}" Margin="0,8,0,0" />
+                                                    <s:ValueSlider Value="{Binding Import.HeaderlessOffset, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Offset {0} bytes." MinValue="0" MaxValue="100000000000" StepSize="1" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </StackPanel>
+
+                                <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding Import.DoRecursiveSearch, Mode=TwoWay}" Content="Search recursively (only with alternative processing folder)" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Process: " />
+                                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                                    <Button Name="ButtonInputRemoveProcessingPath" Content="🗙" Margin="0,0,4,0" VerticalAlignment="Top" FontSize="12" FontWeight="Heavy" ToolTip="Remove processing path" Foreground="Red"  Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonInputRemoveProcessingPath_OnClick" />
+                                    <Button Name="ButtonInputProcessingPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonInputProcessingPath_OnClick">
+                                        <TextBlock Name="ButtonInputProcessingPathText" TextTrimming="CharacterEllipsis" MaxWidth="300" HorizontalAlignment="Left">Select folder...</TextBlock>
+                                    </Button>
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Pixel size: " />
+                                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+                                    <s:ValueSlider Value="{Binding Import.PixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="0.01" MaxValue="1000" StepSize="0.0001" />
+                                    <TextBlock Text=" Å" />
+                                </StackPanel>
+                                
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Bin: " />
+                                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                                    <s:ValueSlider Value="{Binding Import.BinTimes, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}x " MinValue="0" MaxValue="10" StepSize="0.01" />
+                                    <s:FormattedTextBlock Value="{Binding Import.BinnedPixelSize}" TextFormat="({0:0.0000} Å/px)" />
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Name="GridOptionsIO2D"  Orientation="Horizontal" Margin="6,0" Height="24">
+                                <TextBlock Text="Exposure: " Width="60" />
+                                <s:ValueSlider Value="{Binding Import.DosePerAngstromFrame, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} e/Å²/frame (group)" MinValue="0" MaxValue="10000" StepSize="0.01" />
+                            </StackPanel>
+                            <StackPanel Name="GridOptionsFrameGrouping"  Orientation="Horizontal" Margin="6,0" Height="24">
+                                <TextBlock Text="EER frame group: " Width="104" />
+                                <s:ValueSlider Value="{Binding Import.EERGroupFrames, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} frames" MinValue="1" MaxValue="10000" StepSize="1" />
+                            </StackPanel>
+                            <StackPanel Name="GridOptionsIOTomo"  Orientation="Horizontal" Margin="6,0" Height="24">
+                                <TextBlock Text="Unbinned tomogram dimensions: " />
+                                <s:ValueSlider Value="{Binding Tomo.DimensionsX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} x " MinValue="2" MaxValue="16384" StepSize="2" />
+                                <s:ValueSlider Value="{Binding Tomo.DimensionsY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} x " MinValue="2" MaxValue="16384" StepSize="2" />
+                                <s:ValueSlider Value="{Binding Tomo.DimensionsZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} px" MinValue="2" MaxValue="16384" StepSize="2" />
+                            </StackPanel>
+                            <Label Content="Preprocessing" FontSize="18" Margin="0,12,0,0" />
+                            <Grid Name="GridOptionsPreprocessing" Margin="6,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="28" />
+                                </Grid.RowDefinitions>
+                                <CheckBox IsChecked="{Binding Import.CorrectGain}" FontSize="13">
+                                    <CheckBox.Content>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Correct gain using: " />
+                                                <Button Name="ButtonGainPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonGainPath_OnClick">
+                                                    <TextBlock Name="ButtonGainPathText" TextTrimming="CharacterEllipsis" TextAlignment="Right" MaxWidth="280">Select reference...</TextBlock>
+                                                </Button>
+                                            </StackPanel>
+                                    </CheckBox.Content>
+                                </CheckBox>
+                                <CheckBox Grid.Row="1" IsChecked="{Binding Import.CorrectDefects}" FontSize="13">
+                                    <CheckBox.Content>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Correct defects using: " />
+                                            <Button Name="ButtonDefectsPath" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonDefectPath_OnClick">
+                                                <TextBlock Name="ButtonDefectsPathText" TextTrimming="CharacterEllipsis" TextAlignment="Right" MaxWidth="280">Select defect map...</TextBlock>
+                                            </Button>
+                                        </StackPanel>
+                                    </CheckBox.Content>
+                                </CheckBox>
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="26,0,0,0">
+                                    <CheckBox IsChecked="{Binding Import.GainFlipX}" Content="Flip X axis" FontSize="13" />
+                                    <CheckBox IsChecked="{Binding Import.GainFlipY}" Content="Flip Y axis" FontSize="13" Margin="16,0,0,0" />
+                                    <CheckBox IsChecked="{Binding Import.GainTranspose}" Content="Transpose" FontSize="13" Margin="16,0,0,0" />
+                                </StackPanel>
+                                <!--<CheckBox Grid.Row="1" IsChecked="{Binding CorrectBlackRectangles}" Content="Discard frames with black rectangles." FontSize="13" />-->
+                                <!--<CheckBox Grid.Row="2" IsChecked="{Binding CorrectDoseWeighting}" FontSize="13">
+                                    <s:ValueSlider Value="{Binding CorrectDosePerFrame, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Weight frequencies according to dose, {0} e⁻/px/frame." MinValue="0.1" MaxValue="10000" StepSize="0.1" />
+                                </CheckBox>-->
+                            </Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox Name="SwitchProcessCTF" IsChecked="{Binding ProcessCTF, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="6,0,0,7" />
+                                <Label Content="CTF" FontSize="18" Margin="0,12,0,0" />
+                            </StackPanel>
+                            <StackPanel IsEnabled="{Binding ProcessCTF}" Orientation="Vertical">
+                                <Grid Name="GridOptionsCTF" Margin="6,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition />
+                                        <ColumnDefinition />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                        <RowDefinition Height="28" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
+                                        <s:ValueSlider Value="{Binding CTF.Window, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Window: {0} px" MinValue="128" MaxValue="2048" StepSize="128" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                        <TextBlock Text="Range: " />
+                                        <s:ValueSlider Value="{Binding CTF.RangeMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1" />
+                                        <TextBlock Text="–" />
+                                        <s:ValueSlider Value="{Binding CTF.RangeMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1" />
+                                        <TextBlock Text=" Å" />
+                                    </StackPanel>
+                                    <CheckBox Grid.Row="0" Grid.Column="2" IsChecked="{Binding CTF.UseMovieSum}" Content="Use Movie Sum"  FontSize="13" VerticalAlignment="Top"/>
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
+                                        <s:ValueSlider Value="{Binding CTF.Voltage, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Voltage: {0} kV" MinValue="10" MaxValue="2000" StepSize="10" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                                        <TextBlock>
+                                            C<Run BaselineAlignment="Subscript" FontSize="9">S</Run>
+                                        </TextBlock>
+                                        <s:ValueSlider Value="{Binding CTF.Cs, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=": {0} mm" MinValue="0.00" MaxValue="10" StepSize="0.01" />
+                                    </StackPanel>
+                                    <CheckBox Grid.Row="1" Grid.Column="2" IsChecked="{Binding CTF.DoPhase}" Content="Phase Shift" FontSize="13" VerticalAlignment="Top" />
+                                    <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal">
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal">
+                                        <s:ValueSlider Value="{Binding CTF.Amplitude, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Amplitude: {0}" MinValue="0" MaxValue="1" StepSize="0.01" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                                        <TextBlock Text="Defocus: " />
+                                        <s:ValueSlider Value="{Binding CTF.ZMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="-1000" MaxValue="1000" StepSize="0.1" />
+                                        <TextBlock Text="–" />
+                                        <s:ValueSlider Value="{Binding CTF.ZMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="-1000" MaxValue="1000" StepSize="0.1" />
+                                        <TextBlock Text=" μm" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal">
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal">
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Name="PanelProcessMovement"  Orientation="Horizontal">
+                                <CheckBox Name="SwitchProcessMovement" IsChecked="{Binding ProcessMovement, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="6,0,0,7" />
+                                <Label Content="Motion" FontSize="18" Margin="0,12,0,0" />
+                            </StackPanel>
+                            <StackPanel Name="GridOptionsMovement" IsEnabled="{Binding ProcessMovement}" Margin="6,0" Orientation="Vertical">
+                                <StackPanel Orientation="Horizontal" Height="20">
+                                    <TextBlock Text="Consider " />
+                                    <s:ValueSlider Value="{Binding Movement.RangeMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1" />
+                                    <TextBlock Text="–" />
+                                    <s:ValueSlider Value="{Binding Movement.RangeMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1" />
+                                    <TextBlock Text=" Å, weight with B = " />
+                                    <s:ValueSlider Value="{Binding Movement.Bfactor, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} Å²" MinValue="-10000" MaxValue="0" StepSize="10" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Label Name="LabelModelsHeader"  Content="Models" FontSize="18" Margin="0,12,0,0" />
+                            <Grid Name="GridOptionsGrids" Margin="6,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="110" />
+                                    <RowDefinition />
+                                </Grid.RowDefinitions>
+                                <w:GridMiniature x:Name="GridCTF" Grid.Row="0" Grid.Column="0" PointsX="{Binding Grids.CTFX}" PointsY="{Binding Grids.CTFY}" PointsZ="{Binding Grids.CTFZ}" Margin="10,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}" />
+                                <w:GridMiniature x:Name="GridMovement" Grid.Row="0" Grid.Column="1" PointsX="{Binding Grids.MovementX}" PointsY="{Binding Grids.MovementY}" PointsZ="{Binding Grids.MovementZ}" Margin="10,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}" />
+                                <StackPanel Name="PanelGridCTFParams"  Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10,0,0,0">
+                                    <TextBlock Text="Defocus: " />
+                                    <s:ValueSlider Value="{Binding Grids.CTFX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
+                                    <TextBlock Text=" x " />
+                                    <s:ValueSlider Value="{Binding Grids.CTFY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
+                                    <TextBlock Text=" x " />
+                                    <s:ValueSlider Value="{Binding Grids.CTFZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
+                                </StackPanel>
+                                <StackPanel Name="PanelGridMovementParams" Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10,0,0,0">
+                                    <TextBlock Text="Motion: " />
+                                    <s:ValueSlider Value="{Binding Grids.MovementX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
+                                    <TextBlock Text=" x " />
+                                    <s:ValueSlider Value="{Binding Grids.MovementY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
+                                    <TextBlock Text=" x " />
+                                    <s:ValueSlider Value="{Binding Grids.MovementZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
+                                </StackPanel>
+                            </Grid>
+                                
+                            <StackPanel Name="PanelProcessPicking" Orientation="Horizontal">
+                                <CheckBox Name="SwitchProcessPicking" IsChecked="{Binding ProcessPicking, Mode=TwoWay}" VerticalAlignment="Bottom" Margin="6,0,0,7" />
+                                <Label Content="Pick Particles" FontSize="18" Margin="0,18,0,0" />
+                            </StackPanel>
+                            <Grid Name="GridOptionsPicking" Margin="6,0" IsEnabled="{Binding ProcessPicking}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28" />
+                                    <RowDefinition Height="28" />
+                                    <RowDefinition Height="28" />
+                                    <RowDefinition Height="28" />
+                                    <RowDefinition Height="28" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Use " FontSize="13" />
+                                    <Button Name="ButtonPickingModelName" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonPickingModelName_OnClick">
+                                        <TextBlock Name="ButtonPickingModelNameText" TextTrimming="CharacterEllipsis" MaxWidth="400">Select BoxNet model...</TextBlock>
+                                    </Button>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <s:ValueSlider Value="{Binding Picking.Diameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Expect {0} Å, " MinValue="10" MaxValue="700" StepSize="10" />
+                                    <wc:DropMenu SelectedItem="{Binding Picking.DataStyle, Mode=TwoWay}" VerticalAlignment="Center" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                        <wc:DropMenu.Items>
+                                            <sys:String>cryo</sys:String>
+                                            <sys:String>negative stain</sys:String>
+                                        </wc:DropMenu.Items>
+                                    </wc:DropMenu>
+                                    <s:ValueSlider Value="{Binding Picking.MinimumScore, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=" particles; use scores above {0}" MinValue="0.01" MaxValue="0.99" StepSize="0.01" />
+                                </StackPanel>
+                                <s:ValueSlider Grid.Row="2" VerticalAlignment="Center" Value="{Binding Picking.MinimumMaskDistance, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Maintain a minimum distance of {0} Å from 💩" MinValue="0" MaxValue="999999" StepSize="1" />
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox IsChecked="{Binding Picking.DoExport}" Content="Extract" FontSize="13" VerticalAlignment="Center" />
+                                    <s:ValueSlider Value="{Binding Picking.BoxSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} {0} px boxes, " MinValue="2" MaxValue="8192" StepSize="2" VerticalAlignment="Center" />
+                                    <s:FormattedTextBlock Value="{Binding Import.BinnedPixelSize}" TextFormat="{}{0:0.0000} Å/px   " />
+                                    <CheckBox IsChecked="{Binding Picking.DoResample}" Content="" FontSize="13" VerticalAlignment="Center" />
+                                    <s:ValueSlider Value="{Binding Picking.BoxSizeResample, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Downsample to {0} px boxes, " MinValue="2" MaxValue="8192" StepSize="2" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="26,0,0,0">
+                                    <CheckBox IsChecked="{Binding Picking.DoRunningWindow}" Content="Maintain a separate list of the latest " FontSize="13" VerticalAlignment="Center" />
+                                    <s:ValueSlider Value="{Binding Picking.RunningWindowLength, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} particles" MinValue="100" MaxValue="10000000" StepSize="100" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                                
+                            <Label Name="LabelOutputHeader" Content="Output" FontSize="18" Margin="0,12,0,0" />
+                            <Grid Name="GridOptionsPostprocessing" Margin="6,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                    <RowDefinition Height="24" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal">
+                                    <s:ValueSlider Value="{Binding Export.SkipFirstN, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Skip first {0}, " MinValue="0" MaxValue="100" StepSize="1" />
+                                    <s:ValueSlider Value="{Binding Export.SkipLastN, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="last {0} frames, " MinValue="0" MaxValue="100" StepSize="1" />
+                                </StackPanel>
+                                <CheckBox Grid.Row="1" IsChecked="True" IsEnabled="False" Content="Average" FontSize="13" />
+                                <CheckBox Grid.Row="2" IsChecked="{Binding Export.DoDenoise}" Content="Odd/even frame averages" FontSize="13" />
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Button Name="ButtonStartProcessing" Grid.Row="1" Grid.Column="0" Content="START PROCESSING" FontSize="44" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Margin="0,0,0,18" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonStartProcessing_OnClick">
+                        <Button.Foreground>
+                            <LinearGradientBrush>
+                                <GradientStop Color="DeepSkyBlue" Offset="0"/>
+                                <GradientStop Color="DeepPink" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Button.Foreground>
+                    </Button>
+                </Grid>
+                <Button Name="ButtonCollapseMainPreprocessing"  Grid.Column="1" Content="◀" FontSize="14" ToolTip="Collapse" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCollapseMainPreprocessing_OnClick" />
+                <Grid Grid.Column="2" VerticalAlignment="Stretch">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TabControl Name="TabsProcessingView" Margin="4" SelectionChanged="TabsProcessingView_OnSelectionChanged">
+                        <TabItem Name="TabProcessingOverview" Header="Overview" Style="{DynamicResource MenuLevel2}">
+                            <ScrollViewer MinWidth="768" MinHeight="768" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Hidden">
+                                <StackPanel Orientation="Vertical" Margin="0,0,8,0">
+                                    <StackPanel Name="PanelOverviewTasks2D" Orientation="Horizontal" Margin="0,8,0,8">
+                                        <Button Name="ButtonTasksExportMicrographs" Content="EXPORT MICROGRAPH LIST" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksExportMicrographs_OnClick" />
+                                        <Button Name="ButtonTasksAdjustDefocus" Content="ADJUST PARTICLE DEFOCUS" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksAdjustDefocus_OnClick" />
+                                        <Button Name="ButtonTasksExportParticles" Content="EXPORT PARTICLES" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksExportParticles_OnClick" />
+                                        <Button Name="ButtonTasksImportParticles" Content="IMPORT PARTICLE COORDINATES" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksImportParticles_OnClick" />
+                                        <Button Name="ButtonTasksMatch" Content="MATCH TEMPLATE" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksMatch_OnClick" />
+                                        <Button Name="ButtonTasksExportBoxNet" Content="EXPORT BOXNET EXAMPLES" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksExportBoxNet_OnClick" />
+                                    </StackPanel>
+                                    <StackPanel Name="PanelOverviewTasks3D" Orientation="Vertical" Margin="0,8,0,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Name="ButtonTasksImportImod" Content="IMPORT TILT SERIES FROM IMOD" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksImportImod_Click" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button Name="ButtonTasksExportTomograms" Content="EXPORT TOMOGRAM LIST" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksExportTomograms_OnClick" />
+                                            <Button Name="ButtonTasksReconstructTomograms" Content="RECONSTRUCT FULL TOMOGRAMS" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksReconstructTomograms_OnClick" />
+                                            <Button Name="ButtonTasksReconstructSubtomograms" Content="RECONSTRUCT SUB-TOMOGRAMS" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksReconstructSubtomograms_OnClick" />
+                                            <Button Name="ButtonTasksMatchTomograms" Content="MATCH TEMPLATE" Margin="16,0,0,0" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonTasksMatchTomograms_OnClick" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition />
+                                            <ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Vertical">
+                                            <TextBlock Text="Processing Status" FontSize="18" Margin="0,8" HorizontalAlignment="Center" />
+                                            <Grid>
+                                                <m:ProgressRing Name="StatsProgressIndicator" Width="130" Height="130" EllipseDiameterScale="0.5" Visibility="Hidden" />
+                                                <lvc:PieChart DisableAnimations="True" LegendLocation="None" Width="256" Height="256" InnerRadius="80" HorizontalAlignment="Center">
+                                                    <lvc:PieChart.ChartLegend>
+                                                        <lvc:DefaultLegend BulletSize="20" />
+                                                    </lvc:PieChart.ChartLegend>
+                                                    <lvc:PieChart.Series>
+                                                        <lvc:PieSeries Name="StatsSeriesStatusProcessed"  Title="Processed" DataLabels="True" FontSize="16" Foreground="DimGray" StrokeThickness="0" Values="1">
+                                                            <lvc:PieSeries.Fill>
+                                                                <SolidColorBrush Color="#77cd77" Opacity="0.8"/>
+                                                            </lvc:PieSeries.Fill>
+                                                        </lvc:PieSeries>
+                                                        <lvc:PieSeries Name="StatsSeriesStatusOutdated"  Title="Outdated" DataLabels="True" FontSize="16" Foreground="DimGray" StrokeThickness="0" Values="2">
+                                                            <lvc:PieSeries.Fill>
+                                                                <SolidColorBrush Color="#ffc456" Opacity="0.8"/>
+                                                            </lvc:PieSeries.Fill>
+                                                        </lvc:PieSeries>
+                                                        <lvc:PieSeries Name="StatsSeriesStatusUnprocessed" Title="Unprocessed" DataLabels="True" FontSize="16" Foreground="DimGray" StrokeThickness="0" Values="3">
+                                                            <lvc:PieSeries.Fill>
+                                                                <SolidColorBrush Color="#ff7d7d" Opacity="0.8"/>
+                                                            </lvc:PieSeries.Fill>
+                                                        </lvc:PieSeries>
+                                                        <lvc:PieSeries Name="StatsSeriesStatusUnfiltered" Title="Filtered Out" DataLabels="True" FontSize="16" Foreground="DimGray" StrokeThickness="0" Values="4">
+                                                            <lvc:PieSeries.Fill>
+                                                                <SolidColorBrush Color="#7edfff" Opacity="0.8"/>
+                                                            </lvc:PieSeries.Fill>
+                                                        </lvc:PieSeries>
+                                                        <lvc:PieSeries Name="StatsSeriesStatusUnselected" Title="Deselected" DataLabels="True" FontSize="16" Foreground="DimGray" StrokeThickness="0" Values="5">
+                                                            <lvc:PieSeries.Fill>
+                                                                <SolidColorBrush Color="LightGray" Opacity="0.8"/>
+                                                            </lvc:PieSeries.Fill>
+                                                        </lvc:PieSeries>
+                                                    </lvc:PieChart.Series>
+                                                </lvc:PieChart>
+                                                <TextBlock Name="StatsBenchmarkOverall" Text="" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="30" FontWeight="Thin" Background="Transparent" MouseEnter="StatsBenchmarkOverall_OnMouseEnter" />
+                                                <Grid Name="StatsBenchmarkDetails" Width="256" Height="256" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden">
+                                                    <Ellipse Width="256" Height="256" Fill="{DynamicResource MahApps.Brushes.ThemeBackground}" MouseLeave="StatsBenchmarkDetails_OnMouseLeave">
+                                                        <Ellipse.Effect>
+                                                            <DropShadowEffect ShadowDepth="0" BlurRadius="10" />
+                                                        </Ellipse.Effect>
+                                                    </Ellipse>
+                                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition />
+                                                            <ColumnDefinition />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="30" />
+                                                            <RowDefinition Height="30" />
+                                                            <RowDefinition Height="30" />
+                                                            <RowDefinition Height="30" />
+                                                            <RowDefinition Height="30" />
+                                                        </Grid.RowDefinitions>
+
+                                                        <TextBlock Grid.Column="0" Grid.Row="0" FontSize="18" Margin="0,0,16,0" Text="Input:" />
+                                                        <TextBlock Grid.Column="0" Grid.Row="1" FontSize="18" Margin="0,0,16,0" Text="CTF:" />
+                                                        <TextBlock Grid.Column="0" Grid.Row="2" FontSize="18" Margin="0,0,16,0" Text="Motion:" />
+                                                        <TextBlock Grid.Column="0" Grid.Row="3" FontSize="18" Margin="0,0,16,0" Text="Picking:" />
+                                                        <TextBlock Grid.Column="0" Grid.Row="4" FontSize="18" Margin="0,0,16,0" Text="Output:" />
+
+                                                        <TextBlock Name="StatsBenchmarkInput" Grid.Column="1" Grid.Row="0" FontSize="18" HorizontalAlignment="Right" />
+                                                        <TextBlock Name="StatsBenchmarkCTF" Grid.Column="1" Grid.Row="1" FontSize="18" HorizontalAlignment="Right" />
+                                                        <TextBlock Name="StatsBenchmarkMotion" Grid.Column="1" Grid.Row="2" FontSize="18" HorizontalAlignment="Right" />
+                                                        <TextBlock Name="StatsBenchmarkPicking" Grid.Column="1" Grid.Row="3" FontSize="18" HorizontalAlignment="Right" />
+                                                        <TextBlock Name="StatsBenchmarkOutput" Grid.Column="1" Grid.Row="4" FontSize="18" HorizontalAlignment="Right" />
+                                                    </Grid>
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Name="PanelStatsAstigmatism" Orientation="Vertical" HorizontalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Margin="0,8" HorizontalAlignment="Center">
+                                                <TextBlock Text="Astigmatism" FontSize="18" />
+                                                <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.AstigmatismMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use up to {0} σ)" MinValue="0.1" MaxValue="99999" StepSize="0.1" />
+                                            </StackPanel>
+                                            <Grid>
+                                                <Grid.Clip>
+                                                    <EllipseGeometry RadiusX="128" RadiusY="128" Center="128,128"/>
+                                                </Grid.Clip>
+                                                <Canvas>
+                                                    <Ellipse Canvas.Left="78" Canvas.Top="78" Name="StatsAstigmatismEllipseSigma" Width="100" Height="100" Fill="{DynamicResource MahApps.Brushes.ThemeForeground}" Opacity="0.06" StrokeThickness="0"/>
+                                                </Canvas>
+                                                <Ellipse Fill="Transparent" Stroke="LightGray" Opacity="0.5" Width="256" Height="256" MouseWheel="StatsAstigmatismBackground_OnMouseWheel" />
+                                                <Ellipse Fill="Transparent" Stroke="LightGray" Opacity="0.5" Width="128" Height="128" />
+                                                <s:FormattedTextBlock x:Name="StatsAstigmatismLabelOuter" TextFormat="{}{0} μm" FontSize="10" Foreground="DarkGray" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                                                <s:FormattedTextBlock x:Name="StatsAstigmatismLabelInner" TextFormat="{}{0} μm" FontSize="10" Foreground="DarkGray" HorizontalAlignment="Center" Margin="0,66,0,0" />
+                                                <w:DualAxisScatter x:Name="PlotStatsAstigmatism" Width="256" Height="256" PreviewMouseWheel="StatsAstigmatismBackground_OnMouseWheel" PointClicked="PlotStatsAstigmatism_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                                    <w:DualAxisScatter.PointColors>
+                                                        <Color>DeepPink</Color>
+                                                        <Color>#ca37a9</Color>
+                                                        <Color>#4b8de0</Color>
+                                                        <Color>DeepSkyBlue</Color>
+                                                    </w:DualAxisScatter.PointColors>
+                                                </w:DualAxisScatter>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Grid>
+
+                                        
+                                    <StackPanel Name="PanelStatsDefocus" Margin="0,12,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                                            <TextBlock Text="Defocus" FontSize="18" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.DefocusMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use {0}" MinValue="-99999" MaxValue="99999" StepSize="0.01" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.DefocusMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="–{0} μm)" MinValue="-99999" MaxValue="99999" StepSize="0.01" />
+                                            <TextBlock Text=" — average |CTF|:  " FontSize="18" />
+
+                                            <Grid Height="24" VerticalAlignment="Bottom">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="8" />
+                                                    <ColumnDefinition Width="1" />
+                                                    <ColumnDefinition Width="192" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Text="1" Grid.Column="0" FontSize="8" Foreground="DarkGray" VerticalAlignment="Top" Margin="0,-4,0,0" />
+                                                <TextBlock Text="0" Grid.Column="0" FontSize="8" Foreground="DarkGray" VerticalAlignment="Bottom" Margin="0,0,0,-4" />
+                                                <TextBlock Name="StatsDefocusAverageCTFFrequencyLabel" Text="" Grid.Column="3" FontSize="8" Foreground="DarkGray" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="1,0,0,-4" />
+
+                                                <StackPanel Grid.Column="1" Width="1" VerticalAlignment="Stretch" Background="DarkGray" />
+                                                <StackPanel Grid.Column="2" Height="1" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Background="DarkGray" />
+
+                                                <Canvas Name="StatsDefocusAverageCTFCanvas" Grid.Column="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" />
+                                            </Grid>
+                                        </StackPanel>
+                                        <w:SingleAxisScatter x:Name="PlotStatsDefocus" Height="100" RangeHighlightMin="{Binding Options.Filter.DefocusMin}" RangeHighlightMax="{Binding Options.Filter.DefocusMax}" PointClicked="PlotStatsDefocus_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                            <w:SingleAxisScatter.PointColors>
+                                                <Color>#77cd77</Color>
+                                                <Color>#ffc456</Color>
+                                                <Color>#ff7d7d</Color>
+                                                <Color>#7edfff</Color>
+                                                <Color>DarkGray</Color>
+                                            </w:SingleAxisScatter.PointColors>
+                                        </w:SingleAxisScatter>
+                                    </StackPanel>
+                                        
+                                    <StackPanel Name="PanelStatsPhase" Margin="0,12,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                                            <TextBlock Text="Phase shift" FontSize="18" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.PhaseMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use {0}" MinValue="0" MaxValue="1" StepSize="0.01" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.PhaseMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="–{0} π)" MinValue="0" MaxValue="1" StepSize="0.01" />
+                                        </StackPanel>
+                                        <w:SingleAxisScatter x:Name="PlotStatsPhase" Height="100" AxisMin="0" RangeHighlightMin="{Binding Options.Filter.PhaseMin}" RangeHighlightMax="{Binding Options.Filter.PhaseMax}" PointClicked="PlotStatsPhase_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                            <w:SingleAxisScatter.PointColors>
+                                                <Color>#77cd77</Color>
+                                                <Color>#ffc456</Color>
+                                                <Color>#ff7d7d</Color>
+                                                <Color>#7edfff</Color>
+                                                <Color>DarkGray</Color>
+                                            </w:SingleAxisScatter.PointColors>
+                                        </w:SingleAxisScatter>
+                                    </StackPanel>
+                                        
+                                    <StackPanel Name="PanelStatsResolution" Margin="0,12,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                                            <TextBlock Text="Estimated resolution" FontSize="18" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.ResolutionMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use better than {0} Å)" MinValue="0.1" MaxValue="9999" StepSize="0.1" />
+                                        </StackPanel>
+                                        <w:SingleAxisScatter x:Name="PlotStatsResolution" Height="100" AxisMin="0" RangeHighlightMin="0" RangeHighlightMax="{Binding Options.Filter.ResolutionMax}" PointClicked="PlotStatsResolution_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                            <w:SingleAxisScatter.PointColors>
+                                                <Color>#77cd77</Color>
+                                                <Color>#ffc456</Color>
+                                                <Color>#ff7d7d</Color>
+                                                <Color>#7edfff</Color>
+                                                <Color>DarkGray</Color>
+                                            </w:SingleAxisScatter.PointColors>
+                                        </w:SingleAxisScatter>
+                                    </StackPanel>
+
+                                    <StackPanel Name="PanelStatsMotion" Margin="0,12,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                                            <TextBlock Text="Average motion per frame in first ⅓" FontSize="18" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.MotionMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use up to {0} Å)" MinValue="0.1" MaxValue="9999" StepSize="0.1" />
+                                        </StackPanel>
+                                        <w:SingleAxisScatter x:Name="PlotStatsMotion" Height="100" AxisMin="0" RangeHighlightMin="0" RangeHighlightMax="{Binding Options.Filter.MotionMax}" PointClicked="PlotStatsMotion_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                            <w:SingleAxisScatter.PointColors>
+                                                <Color>#77cd77</Color>
+                                                <Color>#ffc456</Color>
+                                                <Color>#ff7d7d</Color>
+                                                <Color>#7edfff</Color>
+                                                <Color>DarkGray</Color>
+                                            </w:SingleAxisScatter.PointColors>
+                                        </w:SingleAxisScatter>
+                                    </StackPanel>
+
+                                    <StackPanel Name="PanelStatsParticles" Margin="0,12,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                                            <TextBlock Text="Number of particles in " FontSize="18" />
+                                            <wc:DropMenu Name="MenuParticlesSuffix" SelectedItem="{Binding Filter.ParticlesSuffix, Mode=TwoWay}" SelectionChanged="MenuParticlesSuffix_OnSelectionChanged" FontSize="18">
+                                                <wc:DropMenu.Resources>
+                                                    <ResourceDictionary>
+                                                        <SolidColorBrush x:Key="BrandingBrush" Color="{DynamicResource LinkColor}" />
+                                                        <SolidColorBrush x:Key="AccentColorBrush" Color="{DynamicResource AccentColor}" />
+                                                    </ResourceDictionary>
+                                                </wc:DropMenu.Resources>
+                                            </wc:DropMenu>
+                                            <s:FormattedTextBlock Name="TextStatsParticlesOverall" TextFormat=" — {0} overall" FontSize="18" />
+                                            <s:FormattedTextBlock Name="TextStatsParticlesFiltered" TextFormat=", {0} good" FontSize="18" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" Value="{Binding Filter.ParticlesMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use at least {0})" MinValue="0" MaxValue="999999" StepSize="1" />
+                                        </StackPanel>
+                                        <w:SingleAxisScatter x:Name="PlotStatsParticles" Height="100" RangeHighlightMax="999999" RangeHighlightMin="{Binding Options.Filter.ParticlesMin}" PointClicked="PlotStatsParticles_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                            <w:SingleAxisScatter.PointColors>
+                                                <Color>#77cd77</Color>
+                                                <Color>#ffc456</Color>
+                                                <Color>#ff7d7d</Color>
+                                                <Color>#7edfff</Color>
+                                                <Color>DarkGray</Color>
+                                            </w:SingleAxisScatter.PointColors>
+                                        </w:SingleAxisScatter>
+                                    </StackPanel>
+
+                                    <StackPanel Name="PanelStatsMaskPercentage" Margin="0,12,0,0">
+                                        <StackPanel Orientation="Horizontal" Margin="0,8">
+                                            <TextBlock Text="💩" FontSize="22" VerticalAlignment="Center" />
+                                            <s:ValueSlider FontSize="18" Foreground="DarkGray" VerticalAlignment="Center" Value="{Binding Filter.MaskPercentage, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{} (use up to {0} %)" MinValue="0" MaxValue="100" StepSize="1" />
+                                        </StackPanel>
+                                        <w:SingleAxisScatter x:Name="PlotStatsMaskPercentage" Height="100" AxisMin="0" RangeHighlightMin="0" RangeHighlightMax="{Binding Options.Filter.MaskPercentage}" PointClicked="PlotStatsMaskPercentage_OnPointClicked" HighlightID="{Binding OverviewPlotHighlightID, Mode=TwoWay}">
+                                            <w:SingleAxisScatter.PointColors>
+                                                <Color>#77cd77</Color>
+                                                <Color>#ffc456</Color>
+                                                <Color>#ff7d7d</Color>
+                                                <Color>#7edfff</Color>
+                                                <Color>DarkGray</Color>
+                                            </w:SingleAxisScatter.PointColors>
+                                        </w:SingleAxisScatter>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                        <TabItem Name="TabProcessingCTF" Header="Fourier Space" Style="{DynamicResource MenuLevel2}">
+                            <Grid Name="GridCTFDisplay" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" >
+                                <w:CTFDisplay x:Name="CTFDisplayControl"
+                                                FittingRangeMin="{Binding Options.CTF.RangeMin}"
+                                                FittingRangeMax="{Binding Options.CTF.RangeMax}"
+                                                Movie="{Binding DisplayedMovie}"
+                                                MinWidth="768"
+                                                MinHeight="768"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center" />
+                                <StackPanel Name="PanelButtonsOneTimeCTF" Orientation="Horizontal">
+                                    <Button Name="ButtonProcessOneItemCTF" Content="PROCESS ONLY THIS ITEM'S CTF" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonProcessOneItemCTF_OnClick" />
+                                    <Button Name="ButtonProcessOneItemTiltHandedness" Content="CHECK TILT HANDEDNESS" FontWeight="Medium" Foreground="CornflowerBlue" Margin="20,8,0,8" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonProcessOneItemTiltHandedness_Click" />
+                                </StackPanel>
+                            </Grid>
+                        </TabItem>
+                        <TabItem Name="TabProcessingMovement"  Header="Real Space" Style="{DynamicResource MenuLevel2}">
+                            <Grid Name="GridMicrographDisplay"  HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <w:MicrographDisplay x:Name="MicrographDisplayControl" Movie="{Binding DisplayedMovie}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinWidth="768" MinHeight="768" />
+                            </Grid>
+                        </TabItem>
+                        <TabItem Name="TabProcessingCTFAndMovement" Header="Fourier &amp; Real Space" Visibility="Collapsed" Style="{DynamicResource MenuLevel2}">
+                            <Grid Name="GridMergedCTFAndMovement">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" />
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                    <w:StatusBar Grid.Row="1" x:Name="ProcessingStatusBar" MinHeight="80" Visibility="Collapsed" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="7,0,7,0" ActiveItem="{Binding DisplayedMovie, Mode=TwoWay}" />
+                </Grid>
+            </Grid>
+        </Grid>
+        <Grid Name="GridMessageLogs" Background="White" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="6" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <RowDefinition />
+            </Grid.RowDefinitions>
+        </Grid>
+    </Grid>
+</m:MetroWindow>

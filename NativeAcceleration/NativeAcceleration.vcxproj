@@ -1,0 +1,402 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gtom\include\Angles.cuh" />
+    <ClInclude Include="gtom\include\Binary.cuh" />
+    <ClInclude Include="gtom\include\Correlation.cuh" />
+    <ClInclude Include="gtom\include\CTF.cuh" />
+    <ClInclude Include="gtom\include\CubicInterp.cuh" />
+    <ClInclude Include="gtom\include\helper_math.cuh" />
+    <ClInclude Include="gtom\include\DeviceFunctions.cuh" />
+    <ClInclude Include="gtom\include\FFT.cuh" />
+    <ClInclude Include="gtom\include\Generics.cuh" />
+    <ClInclude Include="gtom\include\GTOM.cuh" />
+    <ClInclude Include="gtom\include\Helper.cuh" />
+    <ClInclude Include="gtom\include\ImageManipulation.cuh" />
+    <ClInclude Include="gtom\include\IO.cuh" />
+    <ClInclude Include="gtom\include\Masking.cuh" />
+    <ClInclude Include="gtom\include\Prerequisites.cuh" />
+    <ClInclude Include="gtom\include\Projection.cuh" />
+    <ClInclude Include="gtom\include\Reconstruction.cuh" />
+    <ClInclude Include="gtom\include\Relion.cuh" />
+    <ClInclude Include="gtom\include\Resolution.cuh" />
+    <ClInclude Include="gtom\include\Transformation.cuh" />
+    <ClInclude Include="liblion\avx_helper.h" />
+    <ClInclude Include="liblion\backprojector.h" />
+    <ClInclude Include="liblion\complex.h" />
+    <ClInclude Include="liblion\ctf.h" />
+    <ClInclude Include="liblion\error.h" />
+    <ClInclude Include="liblion\euler.h" />
+    <ClInclude Include="liblion\fftw.h" />
+    <ClInclude Include="liblion\filename.h" />
+    <ClInclude Include="liblion\funcs.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\arr.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\cxxutils.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\datatypes.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\geom_utils.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\healpix_base.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\lsconstants.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\message_error.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\openmp_support.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\pointing.h" />
+    <ClInclude Include="liblion\Healpix_2.15a\vec3.h" />
+    <ClInclude Include="liblion\healpix_sampling.h" />
+    <ClInclude Include="liblion\image.h" />
+    <ClInclude Include="liblion\liblion.h" />
+    <ClInclude Include="liblion\macros.h" />
+    <ClInclude Include="liblion\mask.h" />
+    <ClInclude Include="liblion\matrix1d.h" />
+    <ClInclude Include="liblion\matrix2d.h" />
+    <ClInclude Include="liblion\memory.h" />
+    <ClInclude Include="liblion\metadata_container.h" />
+    <ClInclude Include="liblion\metadata_label.h" />
+    <ClInclude Include="liblion\metadata_table.h" />
+    <ClInclude Include="liblion\multidim_array.h" />
+    <ClInclude Include="liblion\numerical_recipes.h" />
+    <ClInclude Include="liblion\projector.h" />
+    <ClInclude Include="liblion\rwMRC.h" />
+    <ClInclude Include="liblion\strings.h" />
+    <ClInclude Include="liblion\symmetries.h" />
+    <ClInclude Include="liblion\tabfuncs.h" />
+    <ClInclude Include="liblion\transformations.h" />
+    <ClInclude Include="include/Functions.h" />
+    <ClInclude Include="src\einspline\aligned_alloc.h" />
+    <ClInclude Include="src\einspline\bspline.h" />
+    <ClInclude Include="src\einspline\bspline_base.h" />
+    <ClInclude Include="src\einspline\bspline_create.h" />
+    <ClInclude Include="src\einspline\bspline_eval_sse_s.h" />
+    <ClInclude Include="src\einspline\bspline_eval_std_s.h" />
+    <ClInclude Include="src\einspline\bspline_structs.h" />
+    <ClInclude Include="src\einspline\config.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="gtom\src\Helpers\KaiserBessel.cpp" />
+    <ClCompile Include="gtom\src\Helpers\Misc.cpp" />
+    <ClCompile Include="gtom\src\IO\em.cpp" />
+    <ClCompile Include="gtom\src\IO\mrc.cpp" />
+    <ClCompile Include="gtom\src\IO\raw.cpp" />
+    <ClCompile Include="liblion\backprojector.cpp" />
+    <ClCompile Include="liblion\complex.cpp" />
+    <ClCompile Include="liblion\ctf.cpp" />
+    <ClCompile Include="liblion\error.cpp" />
+    <ClCompile Include="liblion\euler.cpp" />
+    <ClCompile Include="liblion\fftw.cpp" />
+    <ClCompile Include="liblion\filename.cpp" />
+    <ClCompile Include="liblion\funcs.cpp" />
+    <ClCompile Include="liblion\Healpix_2.15a\cxxutils.cc" />
+    <ClCompile Include="liblion\Healpix_2.15a\healpix_base.cc" />
+    <ClCompile Include="liblion\healpix_sampling.cpp" />
+    <ClCompile Include="liblion\image.cpp" />
+    <ClCompile Include="liblion\mask.cpp" />
+    <ClCompile Include="liblion\matrix1d.cpp" />
+    <ClCompile Include="liblion\matrix2d.cpp" />
+    <ClCompile Include="liblion\memory.cpp" />
+    <ClCompile Include="liblion\metadata_container.cpp" />
+    <ClCompile Include="liblion\metadata_label.cpp" />
+    <ClCompile Include="liblion\metadata_table.cpp" />
+    <ClCompile Include="liblion\multidim_array.cpp" />
+    <ClCompile Include="liblion\numerical_recipes.cpp" />
+    <ClCompile Include="liblion\projector.cpp" />
+    <ClCompile Include="liblion\strings.cpp" />
+    <ClCompile Include="liblion\symmetries.cpp" />
+    <ClCompile Include="liblion\tabfuncs.cpp" />
+    <ClCompile Include="liblion\transformations.cpp" />
+    <ClCompile Include="src/Angles.cpp" />
+    <ClCompile Include="src/Bessel.cpp" />
+    <ClCompile Include="src/Correlation.cpp" />
+    <ClCompile Include="src/Device.cpp" />
+    <ClCompile Include="src/EER.cpp" />
+    <ClCompile Include="src/Einspline.cpp" />
+    <ClCompile Include="src/FFT.cpp" />
+    <ClCompile Include="src/FSC.cpp" />
+    <ClCompile Include="src\DeviceMemory.cpp" />
+    <ClCompile Include="src/Post.cu" />
+    <ClCompile Include="src/RelionProjector.cpp" />
+    <ClCompile Include="src/Symmetry.cpp" />
+    <ClCompile Include="src/TiffNative.cpp" />
+    <ClCompile Include="src/WeightOptimization.cpp" />
+    <ClCompile Include="src\einspline\bspline_create.cpp" />
+    <ClCompile Include="src\einspline\bspline_data.cpp" />
+    <ClCompile Include="src\Float16.cpp" />
+    <CudaCompile Include="gtom\src\BinaryManipulation\Binarize.cu" />
+    <CudaCompile Include="gtom\src\BinaryManipulation\Dilate.cu" />
+    <CudaCompile Include="gtom\src\BinaryManipulation\DistanceMap.cu" />
+    <CudaCompile Include="gtom\src\Correlation\CCF.cu" />
+    <CudaCompile Include="gtom\src\Correlation\LocalPeaks.cu" />
+    <CudaCompile Include="gtom\src\Correlation\Peak.cu" />
+    <CudaCompile Include="gtom\src\Correlation\Picker.cu" />
+    <CudaCompile Include="gtom\src\Correlation\ProbabilisticPicker.cu" />
+    <CudaCompile Include="gtom\src\Correlation\Realspace.cu" />
+    <CudaCompile Include="gtom\src\Correlation\SimilarityMatrix.cu" />
+    <CudaCompile Include="gtom\src\Correlation\SubTomograms.cu" />
+    <CudaCompile Include="gtom\src\Correlation\TomoPicker.cu" />
+    <CudaCompile Include="gtom\src\CTF\CommonPSF.cu" />
+    <CudaCompile Include="gtom\src\CTF\Correct.cu" />
+    <CudaCompile Include="gtom\src\CTF\Periodogram.cu" />
+    <CudaCompile Include="gtom\src\CTF\RotationalAverage.cu" />
+    <CudaCompile Include="gtom\src\CTF\Simulate.cu" />
+    <CudaCompile Include="gtom\src\CTF\Wiener.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\cubicPrefilter2D.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\cubicPrefilter3D.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\cubicTex.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\internal\bspline_kernel.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\internal\cubicPrefilter_kernel.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\internal\cubicTexKernels.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\internal\math_func.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\internal\version.cu" />
+    <CudaCompile Include="gtom\src\CubicSplines\PCHIP.cu" />
+    <CudaCompile Include="gtom\src\FFT\FFT.cu" />
+    <CudaCompile Include="gtom\src\FFT\FFTRemap.cu" />
+    <CudaCompile Include="gtom\src\FFT\FFTResize.cu" />
+    <CudaCompile Include="gtom\src\FFT\IFFT.cu" />
+    <CudaCompile Include="gtom\src\Generics\Arithmetics.cu" />
+    <CudaCompile Include="gtom\src\Generics\Boolean.cu" />
+    <CudaCompile Include="gtom\src\Generics\CompositeArithmetics.cu" />
+    <CudaCompile Include="gtom\src\Generics\Dev.cu" />
+    <CudaCompile Include="gtom\src\Generics\Extraction.cu" />
+    <CudaCompile Include="gtom\src\Generics\Histogram.cu" />
+    <CudaCompile Include="gtom\src\Generics\IndexOf.cu" />
+    <CudaCompile Include="gtom\src\Generics\Insertion.cu" />
+    <CudaCompile Include="gtom\src\Generics\LocalStd.cu" />
+    <CudaCompile Include="gtom\src\Generics\MakeAtlas.cu" />
+    <CudaCompile Include="gtom\src\Generics\MinMax.cu" />
+    <CudaCompile Include="gtom\src\Generics\MinMaxMonolithic.cu" />
+    <CudaCompile Include="gtom\src\Generics\Padding.cu" />
+    <CudaCompile Include="gtom\src\Generics\Polynomials.cu" />
+    <CudaCompile Include="gtom\src\Generics\Reductions.cu" />
+    <CudaCompile Include="gtom\src\Generics\Sum.cu" />
+    <CudaCompile Include="gtom\src\Generics\SumMinMax.cu" />
+    <CudaCompile Include="gtom\src\Helpers\AngularSpacing.cu" />
+    <CudaCompile Include="gtom\src\Helpers\Euler.cu" />
+    <CudaCompile Include="gtom\src\Helpers\GridSpacing.cu" />
+    <CudaCompile Include="gtom\src\Helpers\HermitianSymmetry.cu" />
+    <CudaCompile Include="gtom\src\Helpers\InterpolateIrregular.cu" />
+    <CudaCompile Include="gtom\src\Helpers\Memory.cu" />
+    <CudaCompile Include="gtom\src\Helpers\TextureObject.cu" />
+    <CudaCompile Include="gtom\src\Helpers\TypeConversion.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\AnisotropicLowpass.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\Bandpass.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\BeamTilt.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\Distort.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\Dose.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\LocalLowpass.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\Norm.cu" />
+    <CudaCompile Include="gtom\src\ImageManipulation\Xray.cu" />
+    <CudaCompile Include="gtom\src\Masking\ConeMask.cu" />
+    <CudaCompile Include="gtom\src\Masking\IrregularSphereMask.cu" />
+    <CudaCompile Include="gtom\src\Masking\RectangleMask.cu" />
+    <CudaCompile Include="gtom\src\Masking\Remap.cu" />
+    <CudaCompile Include="gtom\src\Masking\SphereMask.cu" />
+    <CudaCompile Include="gtom\src\Masking\Windows.cu" />
+    <CudaCompile Include="gtom\src\Projection\Backward.cu" />
+    <CudaCompile Include="gtom\src\Projection\Forward.cu" />
+    <CudaCompile Include="gtom\src\Projection\PseudoAtoms.cu" />
+    <CudaCompile Include="gtom\src\Projection\RaySum.cu" />
+    <CudaCompile Include="gtom\src\Projection\Weighting.cu" />
+    <CudaCompile Include="gtom\src\Reconstruction\RecFourier.cu" />
+    <CudaCompile Include="gtom\src\Reconstruction\RecFourierAdd.cu" />
+    <CudaCompile Include="gtom\src\Reconstruction\RecSIRT.cu" />
+    <CudaCompile Include="gtom\src\Reconstruction\RecWBP.cu" />
+    <CudaCompile Include="gtom\src\Relion\Backproject.cu" />
+    <CudaCompile Include="gtom\src\Relion\BackprojectShifted.cu" />
+    <CudaCompile Include="gtom\src\Relion\BackprojectTomo.cu" />
+    <CudaCompile Include="gtom\src\Relion\ConvertWeights.cu" />
+    <CudaCompile Include="gtom\src\Relion\DiffRemap.cu" />
+    <CudaCompile Include="gtom\src\Relion\Misc.cu" />
+    <CudaCompile Include="gtom\src\Relion\Project.cu" />
+    <CudaCompile Include="gtom\src\Relion\ProjectShifted.cu" />
+    <CudaCompile Include="gtom\src\Relion\StoreWeights.cu" />
+    <CudaCompile Include="gtom\src\Resolution\AnisotropicFSC.cu" />
+    <CudaCompile Include="gtom\src\Resolution\FSC.cu" />
+    <CudaCompile Include="gtom\src\Resolution\LocalFilter.cu" />
+    <CudaCompile Include="gtom\src\Resolution\LocalFSC.cu" />
+    <CudaCompile Include="gtom\src\Resolution\LocalFSCBFac.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Bin.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Combined.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Coordinates.cu" />
+    <CudaCompile Include="gtom\src\Transformation\FFTLines.cu" />
+    <CudaCompile Include="gtom\src\Transformation\FitMagAnisotropy.cu" />
+    <CudaCompile Include="gtom\src\Transformation\MagAnisotropy.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Rotation.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Scale.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Shift.cu" />
+    <CudaCompile Include="gtom\src\Transformation\Warp2D.cu" />
+    <CudaCompile Include="src/Backprojection.cu" />
+    <CudaCompile Include="src/BoxNet2.cu" />
+    <CudaCompile Include="src/C2DNet.cu" />
+    <CudaCompile Include="src/CTF.cu" />
+    <CudaCompile Include="src/CubeNet.cu" />
+    <CudaCompile Include="src/CubicGPU.cu" />
+    <CudaCompile Include="src/Deconv.cu" />
+    <CudaCompile Include="src/Defects.cu" />
+    <CudaCompile Include="src/ParticleMultiBody.cu" />
+    <CudaCompile Include="src/ParticleNMA.cu" />
+    <CudaCompile Include="src/ParticleSoftBody.cu" />
+    <CudaCompile Include="src/PCA.cu" />
+    <CudaCompile Include="src/RealspaceProjection.cu" />
+    <CudaCompile Include="src/Raycast.cu" />
+    <CudaCompile Include="src\DFT.cu" />
+    <CudaCompile Include="src\Motion.cu" />
+    <CudaCompile Include="src/MPARefine.cu" />
+    <CudaCompile Include="src/Tools.cu" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{7976E078-C29C-487D-B354-F9ED8A497178}</ProjectGuid>
+    <RootNamespace>NativeAcceleration</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>NativeAcceleration</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.targets" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)bin\</OutDir>
+    <IncludePath>$(ProjectDir);$(LIBTIFF_HEADERS);$(LIBTIFF_HEADERS2);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(LIBTIFF_DIR)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)Release\</OutDir>
+    <IncludePath>$(ProjectDir);$(LIBTIFF_HEADERS);$(LIBTIFF_HEADERS2);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH)\lib\x64;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(LIBTIFF_DIR)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN64;_DEBUG;FLOAT_PRECISION;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <OpenMPSupport>true</OpenMPSupport>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir);C:\Users\burta2\AppData\Local\miniforge3\envs\py\Library\include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>DebugFastLink</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>cudart.lib;cudadevrt.lib;cufft.lib;cublas.lib;curand.lib;cufftw.lib;tiff.lib</AdditionalDependencies>
+      <Version>
+      </Version>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(CudaToolkitLibDir)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy "$(CUDA_PATH)\bin\cudart64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cufft64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cufftw64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cublas64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cublasLt64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
+ copy "$(LIBTIFF_DIR)\$(LIBTIFF_NAME)" "$(OutDir)"
+ copy "$(ZLIB_PATH)" "$(OutDir)"</Command>
+    </PostBuildEvent>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <CodeGeneration>compute_52,sm_52;compute_61,sm_61;compute_75,sm_75;compute_86,sm_86</CodeGeneration>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <GenerateLineInfo>true</GenerateLineInfo>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <HostDebugInfo>true</HostDebugInfo>
+      <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
+      <AdditionalCompilerOptions>
+      </AdditionalCompilerOptions>
+      <FastMath>true</FastMath>
+      <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level1</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN64;_CONSOLE;FLOAT_PRECISION;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
+      <AdditionalOptions>/FS /openmp:experimental /Qvec-report:2 %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir);C:\Users\burta2\AppData\Local\miniforge3\envs\py\Library\include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <OptimizeReferences>true</OptimizeReferences>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>cudart.lib;cudadevrt.lib;cufft.lib;cublas.lib;curand.lib;cufftw.lib;tiff.lib</AdditionalDependencies>
+      <Version>
+      </Version>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy "$(CUDA_PATH)\bin\cudart64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cufft64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cufftw64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cublas64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cublasLt64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
+copy "$(LIBTIFF_DIR)\$(LIBTIFF_NAME)" "$(OutDir)"
+copy "$(ZLIB_PATH)" "$(OutDir)"</Command>
+    </PostBuildEvent>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <CodeGeneration>compute_52,sm_52;compute_61,sm_61;compute_75,sm_75;compute_86,sm_86</CodeGeneration>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <FastMath>true</FastMath>
+      <Optimization>O3</Optimization>
+      <AdditionalCompilerOptions>
+      </AdditionalCompilerOptions>
+      <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
+      <GPUDebugInfo>false</GPUDebugInfo>
+      <GenerateLineInfo>false</GenerateLineInfo>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+</Project>

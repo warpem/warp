@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="LibTorchSharp\C2DNet.cpp" />
+    <ClCompile Include="LibTorchSharp\cifar10.cpp" />
+    <ClCompile Include="LibTorchSharp\Conv3dStd.cpp" />
+    <ClCompile Include="LibTorchSharp\Discriminator3D.cpp" />
+    <ClCompile Include="LibTorchSharp\DistanceNet.cpp" />
+    <ClCompile Include="LibTorchSharp\MLP.cpp" />
+    <ClCompile Include="LibTorchSharp\MultiGPUModule.cpp" />
+    <ClCompile Include="LibTorchSharp\ParticleWGAN.cpp" />
+    <ClCompile Include="LibTorchSharp\PoseToMatrix3D.cpp" />
+    <ClCompile Include="LibTorchSharp\ResNet.cpp" />
+    <ClCompile Include="LibTorchSharp\THSAutograd.cpp" />
+    <ClCompile Include="LibTorchSharp\THSData.cpp" />
+    <ClCompile Include="LibTorchSharp\THSJIT.cpp" />
+    <ClCompile Include="LibTorchSharp\THSNN.cpp" />
+    <ClCompile Include="LibTorchSharp\THSTensor.cpp" />
+    <ClCompile Include="LibTorchSharp\THSTorch.cpp" />
+    <ClCompile Include="LibTorchSharp\UNet2D.cpp" />
+    <ClCompile Include="LibTorchSharp\UNet3D.cpp" />
+    <ClCompile Include="LibTorchSharp\Utils.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="LibTorchSharp\cifar10.h" />
+    <ClInclude Include="LibTorchSharp\CustomModules.h" />
+    <ClInclude Include="LibTorchSharp\MultiGPUModule.h" />
+    <ClInclude Include="LibTorchSharp\parallel.h" />
+    <ClInclude Include="LibTorchSharp\THSAutograd.h" />
+    <ClInclude Include="LibTorchSharp\THSData.h" />
+    <ClInclude Include="LibTorchSharp\THSJIT.h" />
+    <ClInclude Include="LibTorchSharp\THSNN.h" />
+    <ClInclude Include="LibTorchSharp\THSTensor.h" />
+    <ClInclude Include="LibTorchSharp\THSTorch.h" />
+    <ClInclude Include="LibTorchSharp\Utils.h" />
+    <ClInclude Include="Stdafx.h" />
+    <ClInclude Include="UnixSal.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{DE0DFFEB-5F85-49D8-AD4B-208A369FD70F}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>LibTorchSharp</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <VCToolsVersion>
+    </VCToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(PYTORCH_LIBS_DEBUG)\torch\include\torch\csrc\api\include;$(CUDA_PATH)\include;$(PYTORCH_LIBS_DEBUG)\torch\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_LIBS_DEBUG)\build\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>../bin</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(PYTORCH_LIBS)\torch\include\torch\csrc\api\include;$(CUDA_PATH)\include;$(PYTORCH_LIBS)\torch\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_LIBS)\build\lib;$(LibraryPath)</LibraryPath>
+    <OutDir>../Release</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;LIBTORCHSHARP_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4267;4244;4996;4251;4275;4190;4305;4522;4018;4273;4838;4101</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
+      <RemoveUnreferencedCodeData>false</RemoveUnreferencedCodeData>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <OpenMPSupport>true</OpenMPSupport>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64 /guard:cf /NOVCFEATURE</AdditionalOptions>
+      <AdditionalDependencies>cudart.lib;cufft.lib;cublas.lib;curand.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\c10.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\c10_cuda.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\torch_cuda.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\torch_cpu.lib;-INCLUDE:?warp_size@cuda@at@@YAHXZ;%(AdditionalDependencies)</AdditionalDependencies>
+      <LargeAddressAware>true</LargeAddressAware>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /y $(PYTORCH_LIBS_DEBUG)\build\bin\*.dll $(TargetDir)
+copy /y $(PYTORCH_LIBS_DEBUG)\build\lib\*.dll $(TargetDir)
+copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.dll" $(TargetDir)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <DisableSpecificWarnings>4267;4244;4996;4251;4275;4190;4305;4522;4018;4273;4838;4101</DisableSpecificWarnings>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;NDEBUG;LIBTORCHSHARP_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <OpenMPSupport>true</OpenMPSupport>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableUAC>false</EnableUAC>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64 /guard:cf /NOVCFEATURE</AdditionalOptions>
+      <AdditionalDependencies>cudart.lib;cufft.lib;cublas.lib;curand.lib;$(PYTORCH_LIBS)\build\lib\c10.lib;$(PYTORCH_LIBS)\build\lib\c10_cuda.lib;$(PYTORCH_LIBS)\build\lib\torch_cuda.lib;$(PYTORCH_LIBS)\build\lib\torch_cpu.lib;-INCLUDE:?warp_size@cuda@at@@YAHXZ;%(AdditionalDependencies)</AdditionalDependencies>
+      <LargeAddressAware>true</LargeAddressAware>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /y $(PYTORCH_LIBS)\build\bin\*.dll $(TargetDir)
+copy /y $(PYTORCH_LIBS)\build\lib\*.dll $(TargetDir)
+copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.dll" $(TargetDir)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

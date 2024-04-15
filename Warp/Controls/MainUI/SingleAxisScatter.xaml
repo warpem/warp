@@ -1,0 +1,52 @@
+﻿<UserControl x:Class="Warp.Controls.SingleAxisScatter"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:Microsoft_Windows_Themes="clr-namespace:Microsoft.Windows.Themes;assembly=PresentationFramework.Aero2"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="200" d:DesignWidth="500">
+    <Grid Background="Transparent" PreviewMouseWheel="Main_OnPreviewMouseWheel">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="24"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Canvas Name="CanvasHistogram" Width="24" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,7,-1,0" />
+        <StackPanel Name="PanelRangeHighlight"  Grid.Column="1" Background="{DynamicResource MahApps.Brushes.ThemeForeground}" Opacity="0.06" HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="100"/>
+        <Grid Name="GridLineTop" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="26"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Name="TextLineTop" Text="10" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
+            <StackPanel Grid.Column="1" Background="DarkGray" Opacity="0.3" Height="1" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        </Grid>
+        <Grid Name="GridLineCenter" Grid.ColumnSpan="2"  HorizontalAlignment="Stretch" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="26"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Name="TextLineCenter" Text="5" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
+            <StackPanel Grid.Column="1" Background="DarkGray" Opacity="0.3" Height="1" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        </Grid>
+        <Grid Name="GridLineBottom" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Bottom">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="26"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Name="TextLineBottom"  Text="0" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,4,0" />
+            <StackPanel Grid.Column="1" Background="DarkGray" Opacity="0.3" Height="1" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+        </Grid>
+        <ScrollViewer Name="ScrollViewerPlot" Grid.Column="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="0,7" Template="{DynamicResource ScrollViewerControlTemplate}">
+            <Grid>
+                <Image Name="ImagePlot" HorizontalAlignment="Left" PreviewMouseWheel="Main_OnPreviewMouseWheel" MouseMove="ImagePlot_OnMouseMove" MouseDown="ImagePlot_OnMouseDown" MouseLeave="ImagePlot_OnMouseLeave">
+                    <Image.ToolTip>
+                        <ToolTip />
+                    </Image.ToolTip>
+                </Image>
+                <Canvas Name="CanvasPlot" />
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

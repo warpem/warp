@@ -1,0 +1,25 @@
+﻿<UserControl x:Class="M.Controls.Sociology.Dialogs.DialogCreatePopulation"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:sparta="clr-namespace:Sparta;assembly=WarpControls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Create new population" FontSize="24" Margin="0,20" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="50" />
+            </Grid.RowDefinitions>
+            <sparta:EditableTextBlock Name="TextPopulationName" Text="Enter a name..." FontSize="18" />
+            <Button Name="ButtonChangeFolder" Grid.Row="1" Content="Select a folder..." FontSize="18" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonChangeFolder_OnClick" />
+            <StackPanel Name="PanelButtons" Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="ButtonCreate" Content="CREATE" Visibility="Hidden" FontSize="20" VerticalAlignment="Bottom" Click="ButtonCreate_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</UserControl>

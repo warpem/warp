@@ -1,0 +1,120 @@
+﻿<Application x:Class="M.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:wc="clr-namespace:Warp;assembly=WarpControls"
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+             xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+             xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Green.xaml" />
+                <!--<ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.AnimatedTabControl.xaml" />-->
+            </ResourceDictionary.MergedDictionaries>
+            <Color x:Key="HighlightDarkColor">#FFFFFFFF</Color>
+            <Color x:Key="HighlightLightColor">#FFFFFFFF</Color>
+            <Color x:Key="AccentDarkColor">#FFFFFFFF</Color>
+            <Color x:Key="AccentColor">#FF666666</Color>
+            <Color x:Key="AccentColor2">#FFFFFFFF</Color>
+            <Color x:Key="AccentColor3">#FFFFFFFF</Color>
+            <Color x:Key="AccentColor4">#FF000000</Color>
+            <Color x:Key="LinkColor">#7ec730</Color>
+            <SolidColorBrush x:Key="BrandingBrush" Color="{DynamicResource LinkColor}" />
+            <SolidColorBrush x:Key="AccentColorBrush" Color="{DynamicResource AccentColor}" />
+            <SolidColorBrush x:Key="HighlightBrush" Color="#7ec730" PresentationOptions:Freeze="True" />
+            <s:ColorToSolidColorBrushValueConverter  x:Key="ColorToSolidColorBrush_ValueConverter"/>
+            <Style TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Chromeless}">
+                <Setter Property="Foreground" Value="#7ec730" />
+                <Setter Property="FontWeight" Value="Medium" />
+            </Style>
+            <Style TargetType="Expander">
+                <!--<Setter Property="m:ControlsHelper.ContentCharacterCasing" Value="Normal"/>-->
+            </Style>
+            <Style x:Key="HyperlinkLikeButton" TargetType="Button">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Opacity" Value="1" />
+                <Setter Property="Foreground" Value="{DynamicResource BrandingBrush}" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="true">
+                        <Setter Property="Foreground" Value="#5fa80f" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <ControlTemplate.Resources>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Setter Property="TextDecorations" Value="Underline" />
+                                        </Style>
+                                    </ControlTemplate.Resources>
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="True">
+                        <Setter Property="Opacity" Value="1.0"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Opacity" Value="0.5"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="MenuLevel2" BasedOn="{StaticResource MetroTabItem}" TargetType="{x:Type TabItem}">
+                <!--<Setter Property="m:ControlsHelper.HeaderFontSize" Value="20"></Setter>-->
+            </Style>
+
+
+            <Storyboard x:Key="DialogShownStoryboard">
+                <DoubleAnimation AccelerationRatio=".9"
+                                 BeginTime="0:0:0"
+                                 Storyboard.TargetProperty="Opacity"
+                                 To="1"
+                                 Duration="0:0:0.1" />
+            </Storyboard>
+            <Style TargetType="{x:Type Dialogs:CustomDialog}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Dialogs:CustomDialog}">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Border FocusVisualStyle="{x:Null}" Focusable="False">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <ContentPresenter Grid.Row="0" Content="{TemplateBinding DialogTop}" />
+                                        <ContentPresenter Margin="0 10 0 0" Grid.Row="1" HorizontalAlignment="Center" Content="{TemplateBinding Content}" />
+                                        <ContentPresenter Grid.Row="2" Content="{TemplateBinding DialogBottom}" />
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <EventTrigger.Actions>
+                                        <BeginStoryboard Storyboard="{StaticResource DialogShownStoryboard}" />
+                                    </EventTrigger.Actions>
+                                </EventTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="s:ValueSlider">
+                <Setter Property="UnderlineColor" Value="#7ec730" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

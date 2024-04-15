@@ -1,0 +1,62 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Implicit top import -->
+
+  <PropertyGroup>
+	  <TargetFrameworks>net8.0</TargetFrameworks>
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+      <UseStyleCopAnalyzer>false</UseStyleCopAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Tensor\TorchTensorTyped.tt" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Tensor\TorchTensorTyped.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>TorchTensorTyped.generated.cs</LastGenOutput>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Tensor\TorchTensorTyped.generated.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>TorchTensorTyped.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+
+  <PropertyGroup>
+      <PackDependsOn>
+          $(PackDependsOn);
+          RealPack
+      </PackDependsOn>
+      <SignAssembly>false</SignAssembly>
+  </PropertyGroup>
+
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>..\bin\</OutputPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>..\Release\</OutputPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+</Project>

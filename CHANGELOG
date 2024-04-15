@@ -1,0 +1,25 @@
+High-level changes between versions 1.0.9 (https://github.com/cramerlab/warp, last release under Max Planck Society) and 2.0 (first release at Genentech):
+
+Frameworks:
+-Switch from TensorFlow to PyTorch, enabling the use of modern GPUs and model definition in C++/C# code. All models previously defined in Tensorflow and Python are now defined directly in C++ or C#, and have seen many tweaks and improvements.
+-Inclusion of GTOM (https://github.com/dtegunov/gtom) and liblion (https://github.com/dtegunov/liblion) are now included directly in the NativeAcceleration (previously GPUAcceleration) project to make the development and build processes easier.
+-Inclusion of a fork LibTorchSharp (https://github.com/dotnet/TorchSharp) to facilitate PyTorch integration. The fork was stripped of all parts irrelevant to Warp's use case.
+
+Tooling:
+-Linux builds are facilitated through a pre-defined Conda environment, and the Linux binary distribution is done through a conda-forge package.
+
+Programs added:
+-WarpTools: CLI for performing most of the tasks previously requiring desktop Warp, such as movie alignment, CTF estimation, tomogram reconstruction, particle picking, particle export etc..
+-MTools: CLI for managing M projects, including the creation and modification of populations, data sources, and species.
+-MCore: CLI for performing multi-particle refinement of frame- and tilt series, as previously enabled by desktop M.
+-Noise2Half: External regularizer for RELION, bringing the noise2noise-based reconstruction denoising originally available in M to RELION refinements.
+-Noise2Mic: CLI for noise2noise-based micrograph denoising, as originally available through Warp's UI.
+-Noise2Tomo: CLI for tomogram deconvolution using a similar approach to IsoNet.
+
+Programs changed:
+-Warp: Convenience features, updated BoxNet models, and bug fixes including EER file handling
+-M: Bug fixes, including multi-species refinement and deformation grid auto-sizing
+-Noise2Map: Updated model, convenience features
+-EstimateWeights: Bug fixes
+-PCA3D: noise2noise-based regularization
+-WarpWorker: Switch from pipes to REST API

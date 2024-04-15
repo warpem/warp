@@ -1,0 +1,67 @@
+﻿<UserControl x:Class="M.Controls.Sociology.Dialogs.DialogCreateSourceFromSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:sparta="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Name="TextTitle" Text="Create data source from previous.settings" FontSize="24" Margin="0,20" />
+        <Grid HorizontalAlignment="Left">
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="60" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
+
+            <lvc:PieChart DisableAnimations="True" LegendLocation="None" Width="256" Height="256" InnerRadius="80" HorizontalAlignment="Center">
+                <lvc:PieChart.ChartLegend>
+                    <lvc:DefaultLegend BulletSize="20" />
+                </lvc:PieChart.ChartLegend>
+                <lvc:PieChart.Series>
+                    <lvc:PieSeries Name="StatsSeriesStatusProcessed"  Title="Processed" DataLabels="True" FontSize="16" Foreground="Gray" StrokeThickness="0" Values="1">
+                        <lvc:PieSeries.Fill>
+                            <SolidColorBrush Color="Green" Opacity="0.35"/>
+                        </lvc:PieSeries.Fill>
+                    </lvc:PieSeries>
+                    <lvc:PieSeries Name="StatsSeriesStatusUnfiltered" Title="Filtered Out" DataLabels="True" FontSize="16" Foreground="Gray" StrokeThickness="0" Values="4">
+                        <lvc:PieSeries.Fill>
+                            <SolidColorBrush Color="DeepSkyBlue" Opacity="0.35"/>
+                        </lvc:PieSeries.Fill>
+                    </lvc:PieSeries>
+                    <lvc:PieSeries Name="StatsSeriesStatusUnselected" Title="Deselected" DataLabels="True" FontSize="16" Foreground="Gray" StrokeThickness="0" Values="5">
+                        <lvc:PieSeries.Fill>
+                            <SolidColorBrush Color="DarkGray" Opacity="0.35"/>
+                        </lvc:PieSeries.Fill>
+                    </lvc:PieSeries>
+                </lvc:PieChart.Series>
+            </lvc:PieChart>
+
+            <TextBlock Grid.Row="2" FontSize="18" FontStyle="Italic">
+                Adjust the settings in the Raw Data tab <LineBreak/>
+                before converting them to a source.
+            </TextBlock>
+            
+            <TextBox Name="TextSourceName" Grid.Row="4" Text="New Source Name" FontSize="18" />
+
+            <CheckBox Name="CheckFilter" Grid.Row="6" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="7" Content="Include manually excluded items" FontSize="18" />
+
+            <sparta:ValueSlider Name="SliderFrames" Grid.Row="9" TextFormat="Use only first {0} frames/tilts" Value="1" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="99999" StepSize="1" FontSize="18" />
+
+        </Grid>
+        <StackPanel Name="PanelButtons" Height="50" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
+            <Button Name="ButtonCreate" Content="CREATE" FontSize="20" VerticalAlignment="Bottom" Click="ButtonCreate_OnClick" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

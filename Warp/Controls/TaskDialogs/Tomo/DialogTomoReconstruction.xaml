@@ -1,0 +1,57 @@
+﻿<UserControl x:Class="Warp.Controls.DialogTomoReconstruction"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Reconstruct full tomograms" FontSize="24" Margin="0,20" />
+        <StackPanel Name="PanelConfiguration" Orientation="Vertical">
+            <s:ValueSlider Name="SliderTomoFullReconstructPixel" Height="30" Margin="0,0,0,10" Value="{Binding Tasks.TomoFullReconstructPixel, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Pixel size: {0} Å " MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" />
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.InputInvert}" Content="Invert contrast" FontSize="18" />
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.InputNormalize}" Content="Normalize input images" FontSize="18" />
+
+            <CheckBox Height="30" IsChecked="{Binding Tasks.TomoFullReconstructDoDeconv}" Content="Also produce deconvolved version" FontSize="18" />
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,0">
+                <s:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvStrength, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Strength = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" FontSize="18" />
+                <s:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvFalloff, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Falloff = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" FontSize="18" />
+            </StackPanel>
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,10">
+                <s:ValueSlider Value="{Binding Tasks.TomoFullReconstructDeconvHighpass, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="High-pass = {0} Å" MinValue="1" MaxValue="100000" StepSize="1" FontSize="18" />
+            </StackPanel>
+
+            <CheckBox Height="30" Margin="0,0,0,0" IsChecked="{Binding Tasks.TomoFullReconstructPrepareDenoising}" Content="Reconstruct half-maps for denoising" FontSize="18" />
+            <StackPanel Height="30" Orientation="Horizontal" Margin="24,0,0,10">
+                <RadioButton Name="RadioDenoisingFrames" Content="Frames" IsChecked="{Binding Tasks.TomoFullReconstructDenoisingFrames}" FontSize="18" GroupName="DenoisingType" />
+                <RadioButton Content="Tilts" IsChecked="{Binding Tasks.TomoFullReconstructDenoisingTilts}" Margin="10,0,0,0" FontSize="18" GroupName="DenoisingType" />
+            </StackPanel>
+
+            <CheckBox Height="30" Margin="0,0,0,10" IsChecked="{Binding Tasks.TomoFullReconstructOnlyFullVoxels}" Content="Keep only fully covered voxels" FontSize="18" />
+
+            <CheckBox Name="CheckFilter" Height="30" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Height="30" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+
+            <StackPanel Name="PanelButtons" Height="50" Margin="0,0,0,30" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="ButtonReconstruct"  Content="RECONSTRUCT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonReconstruct_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Margin="24,0,0,0" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </StackPanel>
+        
+        <Grid Name="PanelProgress" Margin="0,10,0,0" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition />
+                <RowDefinition Height="20" />
+                <RowDefinition Height="40" />
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
+            <WrapPanel Name="PanelGrids" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" />
+            <m:MetroProgressBar Name="ProgressOverall" Grid.Row="3" HorizontalAlignment="Stretch" VerticalAlignment="Top" IsIndeterminate="False" />
+            <Button Name="ButtonAbort" Grid.Row="3" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="Red" HorizontalAlignment="Center" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonAbort_OnClick" />
+        </Grid>
+    </StackPanel>
+</UserControl>

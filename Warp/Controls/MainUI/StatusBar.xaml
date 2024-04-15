@@ -1,0 +1,63 @@
+﻿<UserControl x:Class="Warp.Controls.StatusBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="300">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <local:InverseBooleanConverter x:Key="inverseBooleanConverter" />
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid Background="Transparent" PreviewMouseWheel="MainGrid_OnPreviewMouseWheel">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="26" />
+            <RowDefinition Height="6" />
+            <RowDefinition />
+            <RowDefinition Height="6" />
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Button Name="ButtonGlass" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonGlass_Click">
+                    <Path Name="PathGlass" Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z">
+                        <Path.Fill>
+                            <LinearGradientBrush>
+                                <GradientStop x:Name="GlassPathColor1" Color="DeepSkyBlue" Offset="0"/>
+                                <GradientStop x:Name="GlassPathColor2" Color="DeepPink" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Path.Fill>
+                    </Path>
+                </Button>
+                <StackPanel Name="PanelFilterOptions" Orientation="Horizontal" Margin="16,0" Visibility="Visible">
+                    <TextBox Text="{Binding FilterSearchPattern, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged}" Width="200" m:TextBoxHelper.Watermark="Search pattern" m:TextBoxHelper.ClearTextButton="True" FontSize="14" />
+                    <CheckBox IsChecked="{Binding FilterIncludeProcessed, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Processed" Margin="20,0,0,0" Background="#cc77cd77" BorderBrush="#cc77cd77">
+                        <Rectangle Width="16" Height="16" Fill="#cc77cd77" />
+                    </CheckBox>
+                    <CheckBox IsChecked="{Binding FilterIncludeOutdated, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Outdated" Margin="16,0,0,0" Background="#ccffc456" BorderBrush="#ccffc456">
+                        <Rectangle Width="16" Height="16" Fill="#ccffc456" />
+                    </CheckBox>
+                    <CheckBox IsChecked="{Binding FilterIncludeUnprocessed, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Unprocessed" Margin="16,0,0,0" Background="#ccff7d7d" BorderBrush="#ccff7d7d">
+                        <Rectangle Width="16" Height="16" Fill="#ccff7d7d" />
+                    </CheckBox>
+                    <CheckBox IsChecked="{Binding FilterIncludeFilteredOut, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Filtered out" Margin="16,0,0,0" Background="#cc7edfff" BorderBrush="#cc7edfff">
+                        <Rectangle Width="16" Height="16" Fill="#cc7edfff" />
+                    </CheckBox>
+                    <CheckBox IsChecked="{Binding FilterIncludeDeselected, RelativeSource={RelativeSource AncestorType=UserControl}}" ToolTip="Deselected" Margin="16,0,0,0" Background="LightGray" BorderBrush="LightGray">
+                        <Rectangle Width="16" Height="16" Fill="LightGray" />
+                    </CheckBox>
+                </StackPanel>
+            </StackPanel>
+            <m:MetroProgressBar Grid.Column="1" Name="ProgressDiscovery" IsIndeterminate="True" Margin="10,0" Visibility="Hidden" />
+            <TextBlock Grid.Column="2" Name="TextNumberProcessed" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,0,3" />
+        </Grid>
+        <StackPanel Grid.Row="2" Name="PanelRows" Orientation="Vertical" HorizontalAlignment="Stretch" />
+    </Grid>
+</UserControl>

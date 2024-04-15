@@ -1,0 +1,43 @@
+﻿<UserControl x:Class="Warp.Controls.FirstRunPrompt"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="650" d:DesignWidth="800">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Hi, have you met Warp?" FontSize="28" Margin="0,20" />
+        <StackPanel Orientation="Vertical">
+            <TextBlock TextWrapping="Wrap" Width="500" FontSize="18">
+                Looks like you're about to run Warp for the first time. Do you need 
+                help? We've got <Hyperlink NavigateUri="http://www.warpem.com/warp/?page_id=51" Click="Hyperlink_OnClick">a handy user guide</Hyperlink> for you!
+                <LineBreak />
+                <LineBreak />
+                Before you start warping, we've got a little favor to ask:
+                <LineBreak />
+                We would like to understand how you use Warp in order to improve it 
+                and provide you with better advice. Warp can automatically submit 
+                anonymous telemetry data to our database. These data include some 
+                basic information about your hardware platform, raw data dimensions, 
+                and the processing settings used for each file going through the 
+                pipeline. They <Bold>do not</Bold> include anything revealing who 
+                you are, or what you are working on. Warp <Bold>does not</Bold> 
+                submit your IP address, location, file names, or the BoxNet model name.
+                <LineBreak />
+                <LineBreak />
+                We intend to share all data with the community, so everyone can 
+                observe the current trends and learn with us.
+                <LineBreak />
+                <LineBreak />
+                Would you like to participate?
+                <LineBreak />
+                <LineBreak />
+                <CheckBox Name="CheckAgree" Content="Yes, I agree to submit anonymous telemetry data." FontSize="18" FontWeight="Medium" />
+            </TextBlock>
+        </StackPanel>
+        <StackPanel Height="30"/>
+        <Button Name="ButtonClose" Content="START WARPING" FontSize="28" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonClose_OnClick" />
+        <StackPanel Height="50"/>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,19 @@
+﻿<UserControl x:Class="Warp.Controls.TiltDialItem"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" 
+             d:DesignHeight="20" d:DesignWidth="150" 
+             DataContext="{Binding RelativeSource={RelativeSource Self}}"
+             MouseLeave="TiltDialItem_OnMouseLeave">
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Background="Transparent" MouseDown="OnMouseDown">
+        <TextBlock Name="TextAngle" Text="+0.0 °, " Margin="0,-1,0,0" VerticalAlignment="Center" />
+        <TextBlock Name="TextDose" Text="0 e⁻/Å²" Margin="0,-1,0,0" VerticalAlignment="Center" />
+        <CheckBox Name="CheckDoProcess" IsChecked="{Binding DoProcess}" Margin="6,0,2,0" VerticalAlignment="Center" />
+        <Grid VerticalAlignment="Stretch" Background="Transparent" MouseEnter="TiltDialItem_OnMouseEnter">
+            <Rectangle Name="EllipseKnob" Width="20" Height="8" Fill="{Binding KnobBrush}" Opacity="0.5" Stroke="Black" StrokeThickness="2" VerticalAlignment="Center" />
+        </Grid>
+    </StackPanel>
+</UserControl>

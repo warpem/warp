@@ -1,0 +1,31 @@
+﻿<UserControl x:Class="Warp.Controls.Dialog2DList"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Export micrograph list" FontSize="24" Margin="0,20" />
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="50" />
+            </Grid.RowDefinitions>
+            <CheckBox Name="CheckPolishing" Grid.Row="0" IsChecked="{Binding Tasks.MicListMakePolishing}" Content="Generate files for RELION's polishing" FontSize="18" />
+            <CheckBox Name="CheckRelative" Grid.Row="2" IsChecked="{Binding Tasks.UseRelativePaths}" Content="Make paths relative to STAR location" FontSize="18" />
+            <CheckBox Name="CheckFilter" Grid.Row="3" IsChecked="{Binding Tasks.IncludeFilteredOut}" Content="Include items outside of filter ranges" FontSize="18" />
+            <CheckBox Name="CheckManual" Grid.Row="4" IsChecked="{Binding Tasks.IncludeUnselected}" Content="Include manually excluded items" FontSize="18" />
+            <m:MetroProgressBar Name="ProgressWrite" Grid.Row="5" Visibility="Hidden" />
+            <StackPanel Name="PanelButtons" Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="ButtonWrite" Content="WRITE LIST" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonWrite_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</UserControl>

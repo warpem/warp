@@ -1,0 +1,140 @@
+﻿<UserControl x:Class="Warp.Controls.CTFDisplay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             mc:Ignorable="d" 
+             d:DesignHeight="768" d:DesignWidth="768">
+    <Grid Background="Transparent" MouseWheel="TiltDial_MouseWheel">
+        <Grid Name="GridDisplay" Visibility="Visible">
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <Image Grid.Row="0" Grid.Column="0" Name="ImageSimulated2D" Stretch="Fill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            <Image Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Name="ImagePS2D" Stretch="Fill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            <Grid Grid.Row="0" Grid.Column="1">
+                <lvc:CartesianChart Margin="-8,94,0,0" DisableAnimations="True" Hoverable="False" >
+                    <lvc:CartesianChart.AxisX>
+                        <lvc:Axis Name="Plot1DAxisX" ShowLabels="False">
+                            <lvc:Axis.Sections>
+                                <lvc:AxisSection Name="Plot1DAxisXSectionConsider">
+                                    <lvc:AxisSection.Fill>
+                                        <SolidColorBrush Color="Gray" Opacity="0.10"/>
+                                    </lvc:AxisSection.Fill>
+                                </lvc:AxisSection>
+                            </lvc:Axis.Sections>
+                        </lvc:Axis>
+                    </lvc:CartesianChart.AxisX>
+                    <lvc:CartesianChart.AxisY>
+                        <lvc:Axis Name="Plot1DAxisY" ShowLabels="False" />
+                        <lvc:Axis Name="Plot1DAxisYQuality" ShowLabels="False" MinValue="0" MaxValue="1.0" />
+                    </lvc:CartesianChart.AxisY>
+                    <lvc:CartesianChart.Series>
+                        <lvc:LineSeries Name="Plot1DSeriesSimulated" Title="Fitted" Fill="Transparent" LineSmoothness="1" PointGeometrySize="0" Stroke="DeepPink" StrokeThickness="1" />
+                        <lvc:LineSeries Name="Plot1DSeriesExperimental" Title="Experimental" Fill="Transparent" LineSmoothness="1" PointGeometrySize="0" Stroke="DeepSkyBlue" StrokeThickness="1" />
+                        <lvc:LineSeries Name="Plot1DSeriesQuality" Title="Quality" Fill="Transparent" LineSmoothness="0" PointGeometrySize="0" Stroke="LightGray" ScalesYAt="1" StrokeThickness="1" />
+                    </lvc:CartesianChart.Series>
+                </lvc:CartesianChart>
+            </Grid>
+            <StackPanel Name="GridParamsMovie" 
+                        Grid.Row="0" 
+                        Grid.Column="1" 
+                        DataContext="{Binding Movie, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                        Orientation="Vertical" 
+                        HorizontalAlignment="Right" 
+                        VerticalAlignment="Top" Visibility="Hidden">
+                
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Defocus:" Width="90" />
+                    <s:ValueSlider Width="100" Value="{Binding CTF.Defocus, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} μm" MinValue="-1000" MaxValue="1000" StepSize="0.001" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Astigmatism:" Width="90" />
+                    <s:ValueSlider Value="{Binding CTF.DefocusDelta, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} μm, " MinValue="-1000" MaxValue="1000" StepSize="0.001" />
+                    <s:ValueSlider Value="{Binding CTF.DefocusAngle, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} °" MinValue="0" MaxValue="360" StepSize="0.1" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Phase shift:" Width="90" />
+                    <s:ValueSlider Value="{Binding CTF.PhaseShift, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} π" MinValue="0" MaxValue="1" StepSize="0.001" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Res. estimate:" Width="90" />
+                    <s:ValueSlider Value="{Binding CTFResolutionEstimate, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} Å" MinValue="0.1" MaxValue="99999999" StepSize="0.1" />
+                </StackPanel>
+                <!--<StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Ice offset:" Width="90" />
+                    <s:ValueSlider Value="{Binding CTF.IceOffset, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} μm" MinValue="0" MaxValue="1" StepSize="0.001" />
+                </StackPanel>-->
+            </StackPanel>
+
+            <Button Name="ButtonUseAverage" 
+                    Grid.Row="0" 
+                    Grid.Column="1" 
+                    Content="SHOW SERIES AVERAGE" 
+                    HorizontalAlignment="Left" 
+                    VerticalAlignment="Top" 
+                    Margin="10,0"
+                    FontWeight="Medium" 
+                    Foreground="CornflowerBlue" 
+                    Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                    Click="ButtonUseAverage_OnClick"/>
+            
+            <StackPanel Name="GridParamsTiltSeries" 
+                        Grid.Row="0" 
+                        Grid.Column="1" 
+                        DataContext="{Binding Movie.CTF, RelativeSource={RelativeSource AncestorType=UserControl}}" 
+                        Orientation="Vertical" 
+                        HorizontalAlignment="Right" 
+                        VerticalAlignment="Top">
+                
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Defocus: " Width="90" />
+                    <s:FormattedTextBlock Name="TextTiltDefocus" Width="100" Value="" TextFormat="{}{0} μm" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Astigmatism: " Width="90" />
+                    <s:FormattedTextBlock Name="TextTiltDefocusDelta" Value="" TextFormat="{}{0} μm, " />
+                    <s:FormattedTextBlock Name="TextTiltDefocusAngle"  Value="" TextFormat="{}{0} °" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Phase shift: " Width="90" />
+                    <s:FormattedTextBlock Name="TextTiltPhase" Value="" TextFormat="{}{0} π" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Res. estimate: " Width="90" />
+                    <s:FormattedTextBlock Name="TextTiltResEstimate" Value="" TextFormat="{}{0} Å" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Height="18">
+                    <TextBlock Text="Inclination: " Width="90" />
+                    <s:FormattedTextBlock Name="TextPlaneInclination" Value="" TextFormat="{}{0} °" />
+                    <TextBlock Text="➜" FontWeight="Light" TextAlignment="Center" Width="18" Height="18">
+                        <TextBlock.RenderTransform>
+                            <RotateTransform x:Name="TransformPlaneInclination" CenterX="9" CenterY="9" Angle="0"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                </StackPanel>
+                <TextBlock Name="TextAngleMismatch" Height="18" Text="Defocus handedness has been inverted!" />
+            </StackPanel>
+
+            <m:ProgressRing Grid.Column="0" Grid.Row="0" Name="ProgressCTF2D" Foreground="Gray" Visibility="Hidden" />
+            <m:ProgressRing Grid.Column="1" Grid.Row="0" Name="ProgressCTF1D" Foreground="Gray" Visibility="Hidden" />
+            <m:ProgressRing Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2" Name="ProgressPS2D" Foreground="Gray" Visibility="Hidden" />
+        </Grid>
+        <Grid Name="GridNoMovie" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Visible">
+            <TextBlock Text="Please select a movie or tilt series." HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="Gray" />
+        </Grid>
+        <Grid Name="GridNotProcessed" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Hidden">
+            <TextBlock Text="No CTF data available yet." HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="Gray" />
+        </Grid>
+        
+        <Canvas Name="CanvasDial" />
+    </Grid>
+</UserControl>

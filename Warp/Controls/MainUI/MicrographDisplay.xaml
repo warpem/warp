@@ -1,0 +1,184 @@
+﻿<UserControl x:Class="Warp.Controls.MicrographDisplay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
+             mc:Ignorable="d" 
+             d:DesignHeight="768" d:DesignWidth="768">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <StackPanel Name="PanelSettings" Orientation="Vertical" VerticalAlignment="Center" Margin="1,0,3,10" DataContext="{Binding RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <StackPanel Name="PanelImageSettings" Orientation="Horizontal" Height="28">
+                <s:ValueSlider Value="{Binding Zoom, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Zoom: {0} x" MinValue="0.05" MaxValue="8" StepSize="0.05" Margin="0,0,24,0" VerticalAlignment="Center" />
+                <s:ValueSlider Value="{Binding IntensityRange, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Intensity range: {0} σ" MinValue="0.01" MaxValue="100" StepSize="0.01" Margin="0,0,24,0" VerticalAlignment="Center" />
+                <s:ValueSlider Name="SliderSliceID" Value="{Binding SliceID, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Slice: {0}" MinValue="1" MaxValue="100" StepSize="1" Margin="0,0,24,0" VerticalAlignment="Center" />
+                
+                <StackPanel Name="PanelDeconvOptions" Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox IsChecked="{Binding DeconvEnabled}" FontSize="13" />
+                    <warp:DropMenu Name="MenuDeconvMode" SelectedItem="{Binding DeconvMode, Mode=TwoWay}" FontSize="13" VerticalAlignment="Center">
+                        <warp:DropMenu.Items>
+                            <sys:String>Denoise</sys:String>
+                            <sys:String>Deconvolve</sys:String>
+                        </warp:DropMenu.Items>
+                    </warp:DropMenu>
+                    <TextBlock Text=", " />
+                    <StackPanel Name="PanelDeconvCanonicalOptions" Orientation="Horizontal" Visibility="Collapsed">
+                        <s:ValueSlider Value="{Binding DeconvStrength, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="strength = {0}, " MinValue="-10" MaxValue="10" StepSize="0.01" VerticalAlignment="Center" />
+                        <s:ValueSlider Value="{Binding DeconvFalloff, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="falloff = {0}, " MinValue="0" MaxValue="10" StepSize="0.01" VerticalAlignment="Center" />
+                        <s:ValueSlider Value="{Binding DeconvHighpass, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="high-pass = {0} Å" MinValue="1" MaxValue="100000" StepSize="1" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Name="PanelDeconvDenoisingOptions" Orientation="Horizontal">
+                        <Button Name="ButtonDeconvRetrain" Content="RETRAIN ON THIS DATA SET" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,0,24,0" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonDeconvRetrain_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+            
+            <StackPanel Orientation="Horizontal">
+                <StackPanel Name="PanelTrackSettings" Orientation="Horizontal" Margin="0,0,24,0" VerticalAlignment="Center" Height="28">
+                    <CheckBox IsChecked="{Binding TrackShow}" FontSize="13">
+                        <TextBlock Text="Show motion tracks, " />
+                    </CheckBox>
+                    <s:ValueSlider Value="{Binding TrackScale, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} x scale, " MinValue="1" MaxValue="100" StepSize="1" VerticalAlignment="Center" />
+                    <s:ValueSlider Value="{Binding TrackGridX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} x " MinValue="1" MaxValue="100" StepSize="1" VerticalAlignment="Center" />
+                    <s:ValueSlider Value="{Binding TrackGridY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} grid, " MinValue="1" MaxValue="100" StepSize="1" VerticalAlignment="Center" />
+                    <CheckBox IsChecked="{Binding TrackLocalOnly}" FontSize="13">
+                        <TextBlock Text="only local motion" />
+                    </CheckBox>
+                </StackPanel>
+
+                <StackPanel Name="PanelElevationSettings" Orientation="Horizontal" VerticalAlignment="Center" Height="28">
+                    <CheckBox IsChecked="{Binding ElevationShow}" FontSize="13">
+                        <TextBlock Text="Show defocus, " />
+                    </CheckBox>
+                    <TextBlock Name="TextElevationMin" Text="0.00" VerticalAlignment="Center"/>
+                    <Rectangle Width="50" Height="8" Margin="6,2,6,0" VerticalAlignment="Center">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush>
+                                <GradientStop Color="#c6458a" Offset="0" />
+                                <GradientStop Color="#3aa3c6" Offset="1" />
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <TextBlock Name="TextElevationMax" Text="0.00" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Name="PanelParticleSettings" Orientation="Horizontal" VerticalAlignment="Center" Height="28">
+                <CheckBox IsChecked="{Binding ParticlesShow}" VerticalAlignment="Center" Content="Show particles from " FontSize="13" />
+                <warp:DropMenu Name="MenuParticlesSuffix" SelectedItem="{Binding ParticlesSuffix, Mode=TwoWay}" SelectionChanged="MenuParticlesSuffix_OnSelectionChanged" VerticalAlignment="Center" />
+                <s:ValueSlider Value="{Binding ParticlesDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=", with {0} Å diameter, " MinValue="2" MaxValue="999999" StepSize="2" VerticalAlignment="Center" />
+                <s:ValueSlider Name="SliderParticlesThreshold" Value="{Binding ParticlesThreshold, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="at least {0} score, " MinValue="-999999" MaxValue="999999" StepSize="0.001" VerticalAlignment="Center" ValueChanged="SliderParticlesThreshold_OnValueChanged" MouseEnter="SliderParticlesThreshold_OnMouseEnter" MouseLeave="SliderParticlesThreshold_OnMouseLeave" />
+                <Border Width="17" Height="17" BorderBrush="Black" BorderThickness="1" Margin="0,0,4,0">
+                    <StackPanel Name="PanelParticleCircleColor" Background="{Binding ParticleCircleBrush,Converter={StaticResource ColorToSolidColorBrush_ValueConverter}}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MouseUp="PanelParticleCircleColor_OnMouseDown" />
+                </Border>
+                <Popup Name="PopupParticleCircleColor" Placement="Bottom" StaysOpen="False">
+                    <xctk:ColorCanvas SelectedColor="{Binding ParticleCircleBrush, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Focusable="False" />
+                </Popup>
+                <warp:DropMenu Name="MenuParticleCircleStyle" SelectedItem="{Binding ParticleCircleStyle, Mode=TwoWay}" VerticalAlignment="Center">
+                    <warp:DropMenu.Items>
+                        <sys:String>Circles</sys:String>
+                        <sys:String>Dots</sys:String>
+                    </warp:DropMenu.Items>
+                </warp:DropMenu>
+                <TextBlock Text=", " FontSize="13" VerticalAlignment="Center" />
+                <CheckBox Content="flash" FontSize="13" VerticalAlignment="Center" IsChecked="{Binding ParticlesBlinky}" />
+                <s:FormattedTextBlock Value="{Binding ParticlesCount}" TextFormat="{} — {0} particles" VerticalAlignment="Center" />
+                
+                <Button Name="ButtonParticlesThresholdApplyToAll" 
+                        Content="APPLY THIS THRESHOLD TO ALL MICROGRAPHS" 
+                        VerticalAlignment="Center" 
+                        Margin="24,0"
+                        FontWeight="Medium" 
+                        Foreground="CornflowerBlue" 
+                        Style="{StaticResource MahApps.Styles.Button.Chromeless}"
+                        Click="ButtonParticlesThresholdApplyToAll_OnClick"/>
+            </StackPanel>
+
+            <StackPanel Name="PanelBoxNet" Orientation="Horizontal" VerticalAlignment="Center" Height="28">
+                <Button Name="ButtonBoxNetPick" Content="PICK WITH BOXNET" FontWeight="Medium" Foreground="CornflowerBlue" Margin="0,0,24,0" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonBoxNetPick_OnClick" />
+
+                <CheckBox FontSize="13" IsChecked="{Binding MaskShow}">
+                    <TextBlock Text="Show mask, " />
+                </CheckBox>
+                <Button Name="ButtonMaskPaint" Content="PAINT" FontWeight="Medium" Foreground="CornflowerBlue" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonMaskPaint_OnClick" />
+                <s:ValueSlider Value="{Binding BrushDiameter, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat=" with a {0} Å brush" MinValue="8" MaxValue="10000" StepSize="2" VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+        <Canvas Grid.Row="1" Name="ScrollViewDisplay" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True" Background="Transparent"
+                MouseMove="ImageDisplay_OnPreviewMouseMove" MouseDown="ImageDisplay_OnMouseDown" MouseUp="ImageDisplay_OnMouseUp">
+            <Grid Name="PanelVisuals">
+                <Image Name="ImageDisplay" PreviewMouseMove="ImageDisplay_OnPreviewMouseMove" PreviewMouseDown="ImageDisplay_OnMouseDown" PreviewMouseUp="ImageDisplay_OnMouseUp" />
+                <Image Name="ImageMask" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Fill" IsHitTestVisible="False" RenderOptions.BitmapScalingMode="Fant" />
+                <Image Name="ImageElevation" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Fill" IsHitTestVisible="False" Visibility="Collapsed" />
+                <Canvas Name="CanvasTrack" />
+                <Canvas Name="CanvasTrackMouse" />
+                <Canvas Name="CanvasParticles" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <Canvas>
+                    <Ellipse Name="EllipseBrush" Width="50" Height="50" Stroke="White" StrokeThickness="2" Visibility="Hidden" IsHitTestVisible="False">
+                        <Ellipse.Effect>
+                            <DropShadowEffect BlurRadius="2" ShadowDepth="0" RenderingBias="Performance" />
+                        </Ellipse.Effect>
+                    </Ellipse>
+                </Canvas>
+            </Grid>
+        </Canvas>
+        
+        <!-- Fade-in borders -->
+        <Rectangle Grid.Row="1" Height="8" Fill="{DynamicResource MahApps.Brushes.ThemeBackground}" HorizontalAlignment="Stretch" VerticalAlignment="Top" Opacity="0.75" IsHitTestVisible="False">
+            <Rectangle.OpacityMask>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="Black"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.OpacityMask>
+        </Rectangle>
+        <Rectangle Grid.Row="1" Width="8" Fill="{DynamicResource MahApps.Brushes.ThemeBackground}" HorizontalAlignment="Right" VerticalAlignment="Stretch" Opacity="0.75" IsHitTestVisible="False">
+            <Rectangle.OpacityMask>
+                <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                    <GradientStop Color="Black"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.OpacityMask>
+        </Rectangle>
+        <Rectangle Grid.Row="1" Height="8" Fill="{DynamicResource MahApps.Brushes.ThemeBackground}" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Opacity="0.75" IsHitTestVisible="False">
+            <Rectangle.OpacityMask>
+                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                    <GradientStop Color="Black"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.OpacityMask>
+        </Rectangle>
+        <Rectangle Grid.Row="1" Width="8" Fill="{DynamicResource MahApps.Brushes.ThemeBackground}" HorizontalAlignment="Left" VerticalAlignment="Stretch" Opacity="0.75" IsHitTestVisible="False">
+            <Rectangle.OpacityMask>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="Black"/>
+                    <GradientStop Color="Transparent" Offset="1"/>
+                </LinearGradientBrush>
+            </Rectangle.OpacityMask>
+        </Rectangle>
+        
+        <!-- Auxiliary messages -->
+        <Grid Grid.Row="1" Name="GridNoMovie" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Visible">
+            <TextBlock Text="Please select a movie or tilt series." HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource MahApps.Brushes.Gray2}" />
+        </Grid>
+        <Grid Grid.Row="1" Name="GridNotProcessed" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Hidden">
+            <TextBlock Text="No motion data available yet." HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource MahApps.Brushes.Gray2}" />
+        </Grid>
+
+        <m:ProgressRing Grid.Row="1" Name="ProgressImage" Foreground="DeepSkyBlue" Visibility="Hidden">
+            <m:ProgressRing.Effect>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="0" Opacity="1" />
+            </m:ProgressRing.Effect>
+        </m:ProgressRing>
+
+    </Grid>
+</UserControl>

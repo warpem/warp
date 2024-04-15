@@ -1,0 +1,41 @@
+﻿<UserControl x:Class="Warp.Controls.BoxNetExport"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             xmlns:sparta="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+             mc:Ignorable="d" >
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Name="TextHeader"  Text="Export training examples" FontSize="24" Margin="0,20" />
+
+        <StackPanel Name="PanelSettings"  Orientation="Vertical">
+
+            <TextBlock Text="Positive examples" FontSize="18" Height="30" Margin="0,10,0,0" />
+            <Button Name="ButtonSuffixPositive" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixPositive_OnClick">
+                <TextBlock Name="ButtonSuffixPositiveText" TextTrimming="CharacterEllipsis" FontSize="18">Select per-micrograph STAR files...</TextBlock>
+            </Button>
+
+            <TextBlock Text="Extra important locations" FontSize="18" Height="30" Margin="0,10,0,0" />
+            <Button Name="ButtonSuffixFalsePositive" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixFalsePositive_OnClick">
+                <TextBlock Name="ButtonSuffixFalsePositiveText" TextTrimming="CharacterEllipsis" FontSize="18">Select per-micrograph STAR files...</TextBlock>
+            </Button>
+
+            <TextBlock Text="Uncertain locations" FontSize="18" Height="30" Margin="0,10,0,0" />
+            <Button Name="ButtonSuffixUncertain" Height="30" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonSuffixUncertain_OnClick">
+                <TextBlock Name="ButtonSuffixUncertainText" TextTrimming="CharacterEllipsis" FontSize="18">Select per-micrograph STAR files...</TextBlock>
+            </Button>
+            
+            <CheckBox Name="CheckNegative" Content="Is negative stain" FontSize="18" Margin="0,10,0,0" Height="30" />
+
+            <sparta:ValueSlider Name="SliderDiameter"  TextFormat="Particle diameter is {0} Å" Value="200" MinValue="10" MaxValue="10000" StepSize="10" FontSize="18" Height="30" Margin="0,10,0,0" />
+
+            <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="60" Margin="0,0,0,20">
+                <Button Name="ButtonExport" Content="EXPORT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonExport_OnClick" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

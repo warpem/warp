@@ -1,0 +1,16 @@
+name: warp_build
+channels:
+  - conda-forge
+  - nodefaults  # actively excludes the defaults channel
+dependencies:
+  - torchvision
+  - libtiff
+  - python=3.10.6
+  - pytorch~=2
+  - cudatoolkit=11.8
+  - cudatoolkit-dev
+  - fftw
+  - cmake
+  - cxx-compiler=1.3
+  - cudnn
+  - dotnet=6.0

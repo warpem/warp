@@ -1,0 +1,29 @@
+﻿<UserControl x:Class="Warp.DropMenu"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Warp"
+             mc:Ignorable="d">
+    <Grid>
+        <StackPanel Orientation="Vertical">
+            <TextBlock Name="TextSelection" Text="{Binding SelectedItem}" Foreground="CornflowerBlue" Cursor="Hand" MouseUp="TextSelection_OnMouseDown" />
+            <Canvas>
+                <Line Name="LineDashes" StrokeThickness="1" X2="{Binding ElementName=TextSelection, Path=ActualWidth}" Stroke="CornflowerBlue" SnapsToDevicePixels="True" RenderOptions.EdgeMode="Aliased" />
+            </Canvas>
+        </StackPanel>
+        <Popup Name="PopupMenu" AllowsTransparency="True" Placement="Bottom" PlacementTarget="{Binding ElementName=TextSelection}" PopupAnimation="Slide" StaysOpen="False">
+            <Border BorderThickness="1" BorderBrush="Gray">
+                <ListView Name="ListItems" ItemsSource="{Binding Items}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListView>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

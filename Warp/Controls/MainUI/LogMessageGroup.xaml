@@ -1,0 +1,18 @@
+﻿<UserControl x:Class="Warp.Controls.LogMessageGroup"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" 
+             x:Name="MainControl"
+             d:DesignHeight="300" d:DesignWidth="300">
+    <Grid Name="GridMain">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="18" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+        <TextBlock Name="TextGroupName" FontWeight="SemiBold" Margin="70,0,0,0" />
+        <StackPanel Name="PanelMessages" Grid.Row="1" Orientation="Vertical" />
+    </Grid>
+</UserControl>

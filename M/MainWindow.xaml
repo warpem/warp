@@ -1,0 +1,67 @@
+﻿<m:MetroWindow x:Class="M.MainWindow"
+               xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+               xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+               xmlns:wc="clr-namespace:Warp;assembly=WarpControls"
+               xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+               xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+               xmlns:Dialogs="clr-namespace:MahApps.Metro.Controls.Dialogs;assembly=MahApps.Metro"
+               Title="Durchlichtelektronenmikroskopiemultipartikelanalysewerkzeug 1.0.9"
+               UseLayoutRounding="True" 
+               ShowTitleBar="True" 
+               SnapsToDevicePixels="False" 
+               TitleBarHeight="30" 
+               FontSize="13" 
+               SizeToContent="Manual"
+               GlowBrush="#8ecc1a"
+               WindowTitleBrush="#8ecc1a"
+               MinWidth="1536"
+               MinHeight="1000"
+               Width="1536"
+               Height="1150">
+    <Window.Resources>
+    </Window.Resources>
+    <m:MetroWindow.RightWindowCommands>
+        <m:WindowCommands>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Name="ButtonUpdateAvailable" Content="UPDATE AVAILABLE" Visibility="Collapsed" FontSize="16" FontWeight="Medium" Foreground="White" Margin="20,0,10,0" VerticalAlignment="Center" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonUpdateAvailable_OnClick" />
+                <Button Name="SwitchDayNight" Content="🔆" FontSize="18" FontWeight="Medium" Foreground="White" Margin="20,-2,20,0" VerticalAlignment="Center" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="SwitchDayNight_OnClick" />
+                <StackPanel Name="PanelGPUStats" Orientation="Horizontal" VerticalAlignment="Center" />
+            </StackPanel>
+        </m:WindowCommands>
+    </m:MetroWindow.RightWindowCommands>
+    <Grid Name="GridPopulation" Margin="12,0">
+        <StackPanel Name="PanelPopulationLanding" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,90" Visibility="Collapsed">
+            <Button Name="ButtonPopulationCreateNew" Content="CREATE NEW POPULATION" FontSize="36" HorizontalAlignment="Center" Click="ButtonPopulationCreateNew_OnClick" />
+            <Button Name="ButtonPopulationLoad" Content="LOAD EXISTING FROM FILE" FontSize="36" Margin="0,30,0,0" HorizontalAlignment="Center" Click="ButtonPopulationLoad_OnClick" />
+        </StackPanel>
+        <StackPanel Name="PanelPopulationMain" Orientation="Vertical" VerticalAlignment="Stretch" Margin="4,0">
+            <Grid Margin="0,12,0,0">
+                <Button Name="ButtonPopulationLoadDifferent" Content="{Binding Name}" ToolTip="{Binding Path}" FontSize="36" HorizontalAlignment="Left" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonPopulationLoad_OnClick" />
+                <Button Name="ButtonPopulationRefine" Content="REFINE" Margin="0,0,40,0" FontSize="36" FontWeight="Medium" HorizontalAlignment="Right" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonPopulationRefine_Click">
+                    <Button.Foreground>
+                        <LinearGradientBrush>
+                            <GradientStop Color="#7ec730" Offset="0"/>
+                            <GradientStop Color="#e9ca00" Offset="0.5"/>
+                            <GradientStop Color="#fc8712" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Button.Foreground>
+                </Button>
+            </Grid>
+            <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                <Button Name="ButtonPopulationEditSources" Content="Manage data sources" FontSize="18" VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonPopulationEditSources_OnClick" />
+                <TextBlock Name="TextPopulationSourcesStats" Text=" (0 tilt series, 0 micrographs)" Foreground="DarkGray" FontSize="18" VerticalAlignment="Bottom" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,20,0,20">
+                <TextBlock Text="Species" FontSize="18" />
+                <!--<Button Name="ButtonPopulationSwitchSpeciesView" Content="DISPLAY AS TREE" FontSize="18" Margin="20,0,0,0" Foreground="CornflowerBlue" HorizontalAlignment="Left" Style="{StaticResource MahApps.Styles.Button.Chromeless}" />-->
+            </StackPanel>
+            <ScrollViewer HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Auto">
+                <WrapPanel Name="PanelAllSpecies" Orientation="Horizontal" MaxWidth="{Binding ActualWidth, ElementName=PanelPopulationMain}">
+                    <Button Name="ButtonPopulationAddSpecies" Content="➕" FontSize="100" Width="256" Height="384" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#7ec730" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonPopulationAddSpecies_OnClick" />
+                </WrapPanel>
+            </ScrollViewer>
+        </StackPanel>
+    </Grid>
+</m:MetroWindow>

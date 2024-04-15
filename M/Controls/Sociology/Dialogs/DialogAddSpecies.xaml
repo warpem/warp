@@ -1,0 +1,35 @@
+﻿<UserControl x:Class="M.Controls.Sociology.Dialogs.DialogAddSpecies"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:sparta="clr-namespace:Sparta;assembly=WarpControls"
+             mc:Ignorable="d">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Add species" FontSize="24" Margin="0,20" />
+        <Grid HorizontalAlignment="Left" MinWidth="400">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="10" />
+                <!--<RowDefinition Height="30" />
+                <RowDefinition Height="30" />-->
+            </Grid.RowDefinitions>
+
+            <RadioButton Name="RadioScratch" Grid.Row="0" GroupName="Type" Content="From scratch" IsChecked="True" FontSize="18" />
+            
+            <RadioButton Name="RadioLocal"  Grid.Row="2" GroupName="Type" Content="Local" FontSize="18" IsEnabled="False" />
+            <Button Name="ButtonLocalPath" Grid.Row="3" Content="Select .species file..." FontSize="18" VerticalAlignment="Center" Margin="24,0,0,0" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonLocalPath_OnClick" IsEnabled="False" />
+
+            <!--<RadioButton Name="RadioRemote" Grid.Row="5" GroupName="Type" Content="Remote" FontSize="18" IsEnabled="False" />
+            <TextBox Name="TextRemotePath" Grid.Row="6" Text="" FontSize="18" Margin="24,0,0,0" IsEnabled="False" />-->
+        </Grid>
+        <StackPanel Name="PanelButtons" Height="50" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
+            <Button Name="ButtonCreate" Content="ADD" FontSize="20" FontWeight="Medium" Foreground="#7ec730" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonAdd_OnClick" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="#7ec730" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

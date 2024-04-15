@@ -1,0 +1,110 @@
+﻿<UserControl x:Class="M.Controls.DialogRefinementSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:w="clr-namespace:Warp;assembly=WarpControls"
+             xmlns:local="clr-namespace:M.Controls"
+             mc:Ignorable="d" >
+    <StackPanel Orientation="Vertical">
+        <TextBlock Text="Refinement settings" FontSize="24" Margin="0,20" />
+        
+        <StackPanel Orientation="Horizontal">
+            <s:ValueSlider Name="SliderNIterations" TextFormat="Refine for {0} sub-iterations, " Value="{Binding NIterations, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="0" MaxValue="5" FontSize="18" VerticalAlignment="Center" Height="30" />
+            <s:ValueSlider Name="SliderInitialResolution" TextFormat="use {0} % of available resolution in first sub-iteration" Value="{Binding InitialResolutionPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="10" MaxValue="100" StepSize="1" FontSize="18" VerticalAlignment="Center" Height="30" />
+        </StackPanel>
+
+        <s:ValueSlider Name="SliderMinParticlesPerItem" TextFormat="Only use series with at least {0} particles" Value="{Binding MinParticlesPerItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="10000" FontSize="18" VerticalAlignment="Center"  Margin="0,0,0,10" />
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="350" />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Vertical">
+                <TextBlock Text="Geometry:" FontSize="24" Margin="0,0,0,10"  />
+                <StackPanel Orientation="Horizontal" Height="30">
+                    <CheckBox Name="CheckImageWarp" IsChecked="{Binding DoImageWarp}" Content="Image warp" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderImageWarpWidth" TextFormat=" grid: {0}" ToolTip="Resolution in X dimension" Value="{Binding ImageWarpWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="10" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderImageWarpHeight" TextFormat=" x {0}" ToolTip="Resolution in Y dimension" Value="{Binding ImageWarpHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="10" FontSize="18" VerticalAlignment="Center" />
+                </StackPanel>
+                <CheckBox Name="CheckParticlePositions" IsChecked="{Binding DoParticlePoses}" Content="Particle poses" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckMagnification" IsChecked="{Binding DoMagnification}" Content="Anisotropic magnification" FontSize="18" VerticalAlignment="Center" Height="30" />
+
+                <TextBlock Text="Frame series:" FontSize="18" Height="30" Margin="0,10,0,0" />
+                <CheckBox Name="CheckDoming" IsChecked="{Binding DoDoming}" Content="Doming" FontSize="18" VerticalAlignment="Center" Height="30" />
+
+                <TextBlock Text="Tilt series:" FontSize="18" Height="30" Margin="0,10,0,0" />
+                <CheckBox Name="CheckStageAngles" IsChecked="{Binding DoAxisAngles}" Content="Stage angles" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <StackPanel Orientation="Horizontal" Height="30" Visibility="Visible">
+                    <CheckBox Name="CheckVolumeWarp" IsChecked="{Binding DoVolumeWarp}" Content="Volume warp" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpWidth" TextFormat=" grid: {0}" ToolTip="Resolution in X dimension" Value="{Binding VolumeWarpWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="20" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpHeight" TextFormat=" x {0}" ToolTip="Resolution in Y dimension" Value="{Binding VolumeWarpHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="20" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpDepth" TextFormat=" x {0}" ToolTip="Resolution in Z dimension" Value="{Binding VolumeWarpDepth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="10" FontSize="18" VerticalAlignment="Center" />
+                    <s:ValueSlider Name="SliderVolumeWarpDuration" TextFormat=" x {0}" ToolTip="Resolution in temporal dimension" Value="{Binding VolumeWarpLength, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" MinValue="2" MaxValue="100" FontSize="18" VerticalAlignment="Center" />
+                </StackPanel>
+                <CheckBox Name="CheckRefineTiltMovies" IsChecked="{Binding DoTiltMovies}" Content="Tilt movies" FontSize="18" VerticalAlignment="Center" Height="30" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Vertical">
+                <TextBlock Text="CTF:" FontSize="24" Margin="0,0,0,10" />
+                <s:ValueSlider Name="SliderBatchSize" TextFormat="Batch size (speed vs. memory): {0}" Value="{Binding BatchSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="256" StepSize="1" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <s:ValueSlider Name="SliderCTFResolution" TextFormat="Use species with at least {0} A resolution" Value="{Binding MinimumCTFRefinementResolution, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" UpdateTrigger="PropertyChanged" MinValue="1" MaxValue="15" StepSize="0.1" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox Name="CheckDefocus" IsChecked="{Binding DoDefocus}" Content="Defocus, " FontSize="18" VerticalAlignment="Center" Height="30" />
+                    <CheckBox Name="CheckDefocusGridSearch" IsChecked="{Binding DoDefocusGridSearch}" Content="grid search in 1st iteration" FontSize="18" VerticalAlignment="Center" Height="30" />
+                </StackPanel>
+                <CheckBox Name="CheckPhaseShift" IsChecked="{Binding DoPhaseShift}" Content="Phase shift" FontSize="18" VerticalAlignment="Center" Height="30" />
+                <CheckBox Name="CheckPixelSize" IsChecked="{Binding DoCs}" Content="PixelSize (actually Cs)" FontSize="18" VerticalAlignment="Center" Height="30" />
+
+                <TextBlock Text="Odd Zernike orders (fast):" FontSize="18" Height="30" Margin="0,10,0,0" />
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox Name="CheckZernike13" IsChecked="{Binding DoZernike13}" Content="3 (beam tilt, trefoil)" FontSize="18" VerticalAlignment="Center" Height="30" />
+                    <CheckBox Name="CheckZernike5" IsChecked="{Binding DoZernike5}" Content="5" FontSize="18" VerticalAlignment="Center" Height="30" Margin="20,0,0,0" />
+                </StackPanel>
+
+                <TextBlock Text="Even Zernike orders (slow):" FontSize="18" Height="30" Margin="0,10,0,0" />
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox Name="CheckZernike2" IsChecked="{Binding DoZernike2}" Content="2" FontSize="18" VerticalAlignment="Center" Height="30" />
+                    <CheckBox Name="CheckZernike4" IsChecked="{Binding DoZernike4}" Content="4" FontSize="18" VerticalAlignment="Center" Height="30" Margin="20,0,0,0" />
+                </StackPanel>
+            </StackPanel>
+
+            <Expander Grid.Row="1" Grid.ColumnSpan="2" Header="Technical things" FontSize="18" Margin="-3,10,0,0" Style="{x:Null}">
+                <Grid Margin="3,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="350" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox Name="CheckUseHostMemory" 
+                              IsChecked="{Binding UseHostMemory}" 
+                              Content="Use CPU memory for particles" 
+                              ToolTip="Turn off to use GPU memory if you have a lot of it compared to CPU memory"
+                              FontSize="18" 
+                              VerticalAlignment="Center" Height="30" />
+                    <s:ValueSlider Grid.Column="1"
+                                   Name="SliderBfactorCutoff" 
+                                   TextFormat="B-factor weight cut-off: {0}" 
+                                   ToolTip="Threshold value of the B-factor-based weighting function to which a frame's or tilt's resolution will be trimmed" 
+                                   Value="{Binding BFactorWeightingThreshold, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                   UpdateTrigger="PropertyChanged" 
+                                   MinValue="0.01" MaxValue="0.99" StepSize="0.01" 
+                                   FontSize="18" 
+                                   VerticalAlignment="Center" />
+                </Grid>
+            </Expander>
+        </Grid>
+
+        <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,30">
+            <Button Name="ButtonRefine" Content="REFINE" FontSize="20" VerticalAlignment="Bottom" Click="ButtonRefine_Click" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" Margin="24,0,0,0" VerticalAlignment="Bottom" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

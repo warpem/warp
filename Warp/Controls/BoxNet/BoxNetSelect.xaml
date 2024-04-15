@@ -1,0 +1,22 @@
+﻿<UserControl x:Class="Warp.Controls.BoxNetSelect"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d" >
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <TextBlock Text="Select BoxNet model" FontSize="24" Margin="0,20" />
+        
+        <ListBox Name="ListLocals" Width="400" Height="200" FontSize="18" SelectionMode="Single" BorderThickness="0.5" SelectionChanged="ListLocals_OnSelectionChanged" />
+
+        <Button Name="ButtonBrowseRepository" Content="BROWSE PUBLIC REPOSITORY" FontSize="18" FontWeight="Medium" Foreground="CornflowerBlue" HorizontalAlignment="Left" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonBrowseRepository_OnClick" />
+
+        <StackPanel Name="PanelButtons" Orientation="Horizontal" HorizontalAlignment="Right" Height="50" Margin="0,0,0,20">
+            <Button Name="ButtonRetrain" Content="RETRAIN" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonRetrain_OnClick" />
+            <Button Name="ButtonSelect" Content="USE" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonSelect_OnClick" />
+            <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,156 @@
+﻿<UserControl x:Class="Warp.Controls.TaskDialogs.Tomo.DialogTomoImportImod"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+             xmlns:local="clr-namespace:Warp.Controls"
+             mc:Ignorable="d">
+    <Grid>
+        <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+            <TextBlock Text="Import tilt series from IMOD" FontSize="24" Margin="0,20" />
+            <Grid Height="450">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition MinWidth="400" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Vertical">
+
+                    <TextBlock Text="Folder with original movies:" FontSize="18" Height="30" />
+                    <Button Name="ButtonMoviePath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonMoviePath_Click">
+                        <TextBlock Name="ButtonMoviePathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
+                    </Button>
+
+                    <StackPanel Height="10"/>
+                    <!--<RadioButton>-->
+                        <TextBlock Text="Folder with .mdoc files:" FontSize="18" Height="30" />
+                    <!--</RadioButton>-->
+                    <!--<StackPanel Orientation="Vertical" Margin="24,0,0,0">-->
+                        <Button Name="ButtonMdocPath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonMdocPath_Click">
+                            <TextBlock Name="ButtonMdocPathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
+                        </Button>
+
+                        <StackPanel Height="6"/>
+                        <TextBlock Text=".mdoc file name suffixes (comma-separated):" FontSize="18" Height="30" />
+                        <TextBox Name="TextSuffixes" Text="{Binding Suffixes,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" FontSize="18" Width="300" HorizontalAlignment="Left" />
+                    <!--</StackPanel>-->
+
+                    <!--<StackPanel Height="10"/>-->
+
+                    <StackPanel Height="10"/>
+                    <TextBlock Text="Root folder with IMOD processing results:" FontSize="18" Height="30" />
+                    <Button Name="ButtonImodPath" Style="{StaticResource HyperlinkLikeButton}" Height="30" HorizontalAlignment="Left" Click="ButtonImodPath_Click">
+                        <TextBlock Name="ButtonImodPathText" TextTrimming="CharacterEllipsis" MaxWidth="300" FontSize="18">Select folder...</TextBlock>
+                    </Button>
+
+                    <StackPanel Height="10"/>
+                    <CheckBox Name="CheckDontInvertTilts" IsChecked="{Binding DontInvertTilts,Mode=TwoWay}" FontSize="18" Height="30" Content="Don't invert tilt angles" />
+
+                    <StackPanel Height="10"/>
+                    <s:ValueSlider Name="SliderPixelSize" Value="{Binding PixelSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Pixel size used in IMOD: {0} Å" MinValue="0.01" MaxValue="1000" StepSize="0.0001" FontSize="18" Height="30" />
+                    <s:ValueSlider Name="SliderDose" Value="{Binding Dose, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Default dose per tilt: {0} e/Å²" MinValue="0.01" MaxValue="1000" StepSize="0.01" FontSize="18" Height="30" />
+                </StackPanel>
+
+                <StackPanel Name="PanelImportResults" Grid.Column="1" Orientation="Vertical" Width="460" Margin="20,0,0,0" Visibility="Visible">
+                    <TextBox Name="TextErrors" FontSize="18" Visibility="Collapsed" Height="100" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible" Foreground="Red" Margin="0,0,0,10" />
+                    <ScrollViewer Height="450" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Hidden">
+                        <ListView Name="ListParsedEntries" ItemsSource="{Binding Path=ParsedEntries}" FontSize="18" BorderThickness="0.0" SelectionMode="Single" HorizontalAlignment="Stretch" >
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Width="30">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader HorizontalContentAlignment="Center">
+                                            </GridViewColumnHeader>
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Path=DoImport,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" FontSize="18" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="240">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader HorizontalContentAlignment="Left">
+                                                <TextBlock Text="Name" Margin="5,0,0,0" />
+                                            </GridViewColumnHeader>
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Path=Name}" HorizontalAlignment="Left" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="50">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader HorizontalContentAlignment="Right">
+                                                <TextBlock Text="Tilts" Margin="0,0,0,0" />
+                                            </GridViewColumnHeader>
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Path=NTilts}" HorizontalAlignment="Right" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="50">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader HorizontalContentAlignment="Right">
+                                                <TextBlock Text="Dose" Margin="0,0,0,0" />
+                                            </GridViewColumnHeader>
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Path=Dose}" HorizontalAlignment="Right" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="80">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader HorizontalContentAlignment="Center">
+                                                <TextBlock Text="Aligned" Margin="0,0,0,0" />
+                                            </GridViewColumnHeader>
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding Path=Aligned}" HorizontalAlignment="Center" IsEnabled="False" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Width="80">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader HorizontalContentAlignment="Center">
+                                                <TextBlock Text="Pretilt" Margin="0,0,0,0" />
+                                            </GridViewColumnHeader>
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Path=Pretilt}" HorizontalAlignment="Right" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Style.Resources>
+                                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent"/>
+                                    </Style.Resources>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
+                    </ScrollViewer>
+                </StackPanel>
+            </Grid>
+            <StackPanel Name="PanelButtons" Height="50" Margin="0,0,0,30" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Name="ButtonWrite" Content="IMPORT" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonWrite_Click" />
+                <Button Name="ButtonCreateStacks" Content="CREATE STACKS FOR IMOD" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCreateStacks_Click" />
+                <Button Name="ButtonCancel" Content="CANCEL" FontSize="20" FontWeight="Medium" Foreground="CornflowerBlue" Margin="24,0,0,0" VerticalAlignment="Bottom" Style="{StaticResource MahApps.Styles.Button.Chromeless}" Click="ButtonCancel_OnClick" />
+            </StackPanel>
+        </StackPanel>
+        <Grid Name="PanelProgressIndicator" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#66ffffff" Visibility="Hidden">
+            <m:ProgressRing HorizontalAlignment="Center" VerticalAlignment="Center" Width="100" />
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,43 @@
+﻿<UserControl x:Class="M.Controls.Sociology.SpeciesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:M.Controls.Sociology"
+             xmlns:sparta="clr-namespace:Sparta;assembly=WarpControls"
+             xmlns:warp="clr-namespace:Warp;assembly=WarpControls"
+             mc:Ignorable="d" 
+             d:DesignHeight="384" d:DesignWidth="684">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="384" />
+            <ColumnDefinition Width="300" />
+        </Grid.ColumnDefinitions>
+        <warp:VolumeRenderer Name="Renderer" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" Width="350" Height="350" Volume="{Binding MapDenoised}" />
+        <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Vertical">
+            <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6">
+                <TextBlock Text="{Binding Name}" FontSize="20" HorizontalAlignment="Left" TextWrapping="Wrap" />
+            </Button>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <sparta:FormattedTextBlock TextFormat="({0} Å, " Value="{Binding DiameterAngstrom}" FontSize="20" Foreground="{DynamicResource BlackBrush}" Opacity="0.4" />
+                <sparta:FormattedTextBlock TextFormat="{}{0} kDa, " Value="{Binding MolecularWeightkDa}" FontSize="20" Foreground="{DynamicResource BlackBrush}" Opacity="0.4" />
+                <sparta:FormattedTextBlock TextFormat="{}{0} symmetry)" Value="{Binding Symmetry}" FontSize="20" Foreground="{DynamicResource BlackBrush}" Opacity="0.4" />
+            </StackPanel>
+            <Button VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6">
+                <sparta:FormattedTextBlock TextFormat="{}{0:F1} Å" Value="{Binding GlobalResolution}" FontSize="20" />
+            </Button>
+            <Button Name="ButtonParticles" VerticalAlignment="Center" Style="{StaticResource HyperlinkLikeButton}" Margin="0,0,0,6" Click="ButtonParticles_Click">
+                <sparta:FormattedTextBlock TextFormat="{}{0} particles" Value="{Binding NParticles}" FontSize="20" />
+                <Button.ContextMenu>
+                    <ContextMenu Name="MenuParticles">
+                        <MenuItem Header="Intersect with another particle set" Click="AddParticles_Click" />
+                        <MenuItem Header="Expand symmetry" Click="ExpandSym_Click" />
+                        <MenuItem Header="Rotate" Click="RotateParticles_Click" />
+                        <MenuItem Header="Shift center" Click="ShiftParticles_Click" />
+                        <MenuItem Header="Export sub-tomograms" Click="ExportSubtomo_Click" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>
