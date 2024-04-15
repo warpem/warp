@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      # push a tagged commit to trigger a release...
+      # e.g. git tag -am v0.0.1 "v0.0.1"; git push --follow-tags
+      - "v*"
+
+# cancel in-progress runs that use the same workflow and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+  
+jobs:
+  deploy:
+    name: Deploy
+    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+
+    permissions:
+      # This permission allows writing releases
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🚢 Ship the Source to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: './*'
