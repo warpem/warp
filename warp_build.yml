@@ -6,8 +6,9 @@ dependencies:
   - torchvision
   - libtiff
   - python=3.10.6
-  - pytorch~=2
-  - cudatoolkit=11.8
+  - pytorch=1.11.0
+  - pytorch-gpu=1.11.0
+  - cudatoolkit=11.4.2
   - cudatoolkit-dev
   - fftw
   - cmake
