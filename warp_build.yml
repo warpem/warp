@@ -13,4 +13,4 @@ dependencies:
   - cmake
   - cxx-compiler=1.3
   - cudnn
-  - dotnet=6.0
+  - dotnet=8.0
