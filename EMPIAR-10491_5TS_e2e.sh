@@ -20,7 +20,7 @@ ml gRED; ml spaces/cryoem; ml IMOD; ml relion/devel; ml aretomo;
 
 # Create settings for frame series
 WarpTools create_settings \
---folder_data ${FRAMES_DATA_DIR} \
+--folder_data ${FRAME_SERIES_DATA_DIR} \
 --output warp_frameseries.settings \
 --folder_processing warp_frameseries \
 --extension "*.tif" \
