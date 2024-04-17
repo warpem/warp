@@ -11,8 +11,8 @@ for i in 1 11 17 23 32;
 do
     echo "======================================================"
     echo "================= Downloading TS_${i} ================"
-    wget --show-progress ---timestamping --quiet --no-directories --directory-prefix ./mdoc ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/mdoc/TS_${i}.mrc.mdoc;
-    wget --show-progress ---timestamping --quiet --no-directories --directory-prefix ./frames ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/data/*-${i}_*.tif;
+    wget --show-progress --timestamping --quiet --no-directories --directory-prefix ./mdoc ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/mdoc/TS_${i}.mrc.mdoc;
+    wget --show-progress --timestamping --quiet --no-directories --directory-prefix ./frames ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/data/*-${i}_*.tif;
 done
 
 # load necessary software
