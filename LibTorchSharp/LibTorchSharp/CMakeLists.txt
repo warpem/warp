@@ -6,43 +6,6 @@ if(APPLE)
 endif()
 find_package(Torch REQUIRED PATHS ${LIBTORCH_PATH})
 
-#[[set(SOURCES
-    C2DNet.cpp
-    THSAutograd.h
-    THSData.h
-    THSJIT.h
-    THSNN.h
-	THSStorage.h
-    THSTensor.h
-    THSTorch.h
-	THSVision.h
-    Utils.h
-    cifar10.cpp
-	crc32c.c
-	THSActivation.cpp
-    THSAutograd.cpp
-	THSConvolution.cpp
-    THSData.cpp
-	THSFFT.cpp
-    THSJIT.cpp
-	THSLinearAlgebra.cpp
-	THSLoss.cpp
-	THSModule.cpp
-    THSNN.cpp
-	THSNormalization.cpp
-	THSOptimizers.cpp
-	THSRandom.cpp
-	THSSpecial.cpp
-	THSStorage.cpp
-    THSTensor.cpp
-	THSTensorConv.cpp
-	THSTensorFactories.cpp
-	THSTensorMath.cpp
-    THSTorch.cpp
-	THSVision.cpp
-    Utils.cpp)
-]]
-
 FILE(GLOB_RECURSE SOURCES *.h *.cpp)
 
 if(NOT WIN32)
@@ -60,10 +23,15 @@ endif()
 
 # Add libTorch bindings
 include_directories(${TORCH_INCLUDE_DIRS})
+#link_directories(${CUDAToolkit_LIBRARY_DIR}/stubs)
 
 add_library(LibTorchSharp SHARED ${SOURCES} ${RESOURCES})
 
 target_link_libraries(LibTorchSharp ${TORCH_LIBRARIES})
+
+#message(STATUS "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
+#message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+#message(STATUS "CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
 
 set_property(TARGET LibTorchSharp PROPERTY CXX_STANDARD 14)
 
