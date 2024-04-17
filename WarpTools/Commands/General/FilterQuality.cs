@@ -51,8 +51,8 @@ namespace WarpTools.Commands
         public IEnumerable<string> ParticlesStar { get; set; }
         
         [OptionGroup("Tilt series metrics")]
-        [Option("ntilts", HelpText = "Minimum number of tilts in a tilt series")]
-        public int NTilts { get; set; }
+        [Option("ntilts", HelpText = "Number of tilts in a tilt series: 1 value = min; 2 values = min & max")]
+        public IEnumerable<int> NTilts { get; set; }
     }
 
     class FilterQuality : BaseCommand
@@ -195,6 +195,24 @@ namespace WarpTools.Commands
                     throw new Exception($"--particles requires the first value ({CLI.Particles.First()}) to be smaller than the second ({CLI.Particles.Last()})");
 
                 UsingFilters = true;
+            }
+
+            if (CLI.NTilts.Any())
+            {
+                if (CLI.SeriesType != SeriesType.Tilt)
+                    throw new Exception("Filtering by number of tilts requested, but none of the input items are tilt series");
+
+                if (CLI.NTilts.Count() != 1 && CLI.NTilts.Count() != 2)
+                    throw new Exception("--ntilts requires 1 or 2 values");
+
+                if (CLI.NTilts.Count() == 1)
+                    CLI.NTilts = new[] { CLI.NTilts.First(), int.MaxValue };
+
+                if (CLI.NTilts.Any(v => v < 0))
+                    throw new Exception("--ntilts values cannot be negative");
+
+                if (CLI.NTilts.First() > CLI.NTilts.Last())
+                    throw new Exception($"--ntilts requires the first value ({CLI.NTilts.First()}) to be smaller than the second ({CLI.NTilts.Last()})");
             }
 
             #region Discover STAR files
@@ -446,10 +464,18 @@ namespace WarpTools.Commands
                 Console.WriteLine($"{Before - FilteredSeries.Count} removed, {FilteredSeries.Count} remain");
             }
 
-            if (CLI.NTilts != null)
+            if (CLI.NTilts.Any())
             {
-                Console.Write($"Filtering out tilt series with less than {CLI.NTilts.ToString()} tilts");
-                FilteredSeries = FilteredSeries.Where(s => (s as TiltSeries).NTilts >= CLI.NTilts).ToList();
+                string Min = CLI.NTilts.First().ToString();
+                string Max = CLI.NTilts.Last() == int.MaxValue ? "Inf" : CLI.Particles.Last().ToString();
+
+                Console.Write($"Filtering by number of tilts, {Min} – {Max}");
+                FilteredSeries = FilteredSeries.Where(s =>
+                {
+                    var S = s as TiltSeries;
+                    int NTilts = S.UseTilt.Where(v => v).Count();
+                    return NTilts >= CLI.NTilts.First() && NTilts >= CLI.NTilts.Last();
+                }).ToList();
             }
 
             #endregion
@@ -476,7 +502,6 @@ namespace WarpTools.Commands
             Dictionary<string, object> Histograms = new();
 
             Histograms.Add("Defocus (µm)", CalculateHistogram1D(FilteredSeries.Select(s => (float)s.CTF.Defocus).ToArray(), 17));
-
             {
                 float2[] AstigmatismVectors = FilteredSeries.Select(s =>
                     new float2(MathF.Cos((float)s.CTF.DefocusAngle * 2 * Helper.ToRad) * (float)s.CTF.DefocusDelta,
@@ -497,6 +522,9 @@ namespace WarpTools.Commands
 
             if (ParticleCounts.Any())
                 Histograms.Add("Particles", CalculateHistogram1D(FilteredSeries.Select(s => (float)ParticleCounts[s]).ToArray(), 17));
+
+            if (CLI.SeriesType == SeriesType.Frame)
+                Histograms.Add("Number of used tilts", CalculateHistogram1D(FilteredSeries.Select(s => (float)(s as TiltSeries).UseTilt.Where(v => v).Count()).ToArray(), 17));
 
             Console.WriteLine(" Done");
 
@@ -597,7 +625,7 @@ namespace WarpTools.Commands
         void PrintHistogram2D(HistogramBin2D[][] bins)
         {
             int MaxCount = bins.Max(row => row.Max(bin => bin.Count));
-            char[] brightnessLevels = new char[] { ' ', '░', '▒', '▓', '█' }; // Lightest to darkest
+            char[] brightnessLevels = { ' ', '░', '▒', '▓', '█' }; // Lightest to darkest
 
             string SignificantDigits = "F" + CalculateSignificantDigits(bins[0][0].Max.X - bins[0][0].Min.X);
             int MaxBinDigits = bins.Max(row => row.Max(b => b.Max.X.ToString(SignificantDigits).Length));
