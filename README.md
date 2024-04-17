@@ -11,12 +11,28 @@ While there are currently no dedicated tutorials for the Linux CLI tools, you'll
 
 # Building Warp on Linux
 
-After cloning this repository, run these commands:
+After cloning this repository, run these commands on a system with a running Nvidia GPU driver (conda-forge pytorch weirdness ¯\\\_(ツ)\_/¯ ) and a discoverable CUDA 11.7:
 ```
 conda env create -f warp_build.yml
 conda activate warp_build
 ./build-native-unix.sh
 ./publish-unix.sh
+```
+All binaries will be in `Release/linux-x64/publish`.
+
+Here is some inspiration for an lmod module file:
+```
+local root = "/path/to/warp/Release/linux-x64/publish"
+
+conflict("warp")
+
+if not isloaded("CUDA/11.7.0") then
+    load("CUDA/11.7.0")
+end
+
+prepend_path("PATH", root)
+prepend_path("LD_LIBRARY_PATH", "/path/to/conda_envs/warp_build/lib")
+setenv("RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE", pathJoin(root, "Noise2Half"))
 ```
 
 # Other programs you'll want to install (on Linux)
