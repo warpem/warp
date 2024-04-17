@@ -523,7 +523,7 @@ namespace WarpTools.Commands
             if (ParticleCounts.Any())
                 Histograms.Add("Particles", CalculateHistogram1D(FilteredSeries.Select(s => (float)ParticleCounts[s]).ToArray(), 17));
 
-            if (CLI.SeriesType == SeriesType.Frame)
+            if (CLI.SeriesType == SeriesType.Tilt)
                 Histograms.Add("Number of used tilts", CalculateHistogram1D(FilteredSeries.Select(s => (float)(s as TiltSeries).UseTilt.Where(v => v).Count()).ToArray(), 17));
 
             Console.WriteLine(" Done");
