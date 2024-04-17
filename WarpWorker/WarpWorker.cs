@@ -361,11 +361,24 @@ namespace WarpWorker
                             CreateNoWindow = false,
                             WindowStyle = ProcessWindowStyle.Minimized,
                             WorkingDirectory = StackDir,
-                            Arguments = Arguments
+                            Arguments = Arguments,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
                         }
                     };
+                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+                    AreTomo.OutputDataReceived += Handler;
+                    AreTomo.ErrorDataReceived += Handler;
+
                     AreTomo.Start();
+
+                    AreTomo.BeginOutputReadLine();
+                    AreTomo.BeginErrorReadLine();
+
                     AreTomo.WaitForExit();
+
+                    Console.WriteLine(AreTomo.StandardOutput.ReadToEnd());
+                    Console.WriteLine(AreTomo.StandardError.ReadToEnd());
 
                     Console.WriteLine($"Executed AreTomo for {SeriesPath}");
                 }
@@ -420,9 +433,19 @@ namespace WarpWorker
                             WindowStyle = ProcessWindowStyle.Minimized,
                             Arguments = Arguments,
                             WorkingDirectory = T.TiltStackDir,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
                         }
                     };
+                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+                    BatchRunTomo.OutputDataReceived += Handler;
+                    BatchRunTomo.ErrorDataReceived += Handler;
+
                     BatchRunTomo.Start();
+
+                    BatchRunTomo.BeginOutputReadLine();
+                    BatchRunTomo.BeginErrorReadLine();
+
                     BatchRunTomo.WaitForExit();
                     
                     // Run alignment separately from batchruntomo to avoid expensive cross-validation calculations
@@ -438,9 +461,18 @@ namespace WarpWorker
                                 WindowStyle = ProcessWindowStyle.Minimized,
                                 Arguments = "align.com",
                                 WorkingDirectory = T.TiltStackDir,
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true
                             }
                         };
+                        TiltAlign.OutputDataReceived += Handler;
+                        TiltAlign.ErrorDataReceived += Handler;
+
                         TiltAlign.Start();
+
+                        TiltAlign.BeginOutputReadLine();
+                        TiltAlign.BeginErrorReadLine();
+
                         TiltAlign.WaitForExit();
                     }
 
@@ -495,11 +527,21 @@ namespace WarpWorker
                             WindowStyle = ProcessWindowStyle.Minimized,
                             Arguments = Arguments,
                             WorkingDirectory = T.TiltStackDir,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
                         }
                     };
+                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+                    BatchRunTomo.OutputDataReceived += Handler;
+                    BatchRunTomo.ErrorDataReceived += Handler;
+
                     BatchRunTomo.Start();
+
+                    BatchRunTomo.BeginOutputReadLine();
+                    BatchRunTomo.BeginErrorReadLine();
+
                     BatchRunTomo.WaitForExit();
-                    
+
                     // run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
                     {
@@ -513,9 +555,18 @@ namespace WarpWorker
                                 WindowStyle = ProcessWindowStyle.Minimized,
                                 Arguments = "align.com",
                                 WorkingDirectory = T.TiltStackDir,
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true
                             }
                         };
+                        TiltAlign.OutputDataReceived += Handler;
+                        TiltAlign.ErrorDataReceived += Handler;
+
                         TiltAlign.Start();
+
+                        TiltAlign.BeginOutputReadLine();
+                        TiltAlign.BeginErrorReadLine();
+
                         TiltAlign.WaitForExit();
                     }
 
