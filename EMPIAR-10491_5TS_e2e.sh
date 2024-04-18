@@ -73,8 +73,9 @@ WarpTools create_settings \
 WarpTools ts_etomo_patches \
 --settings warp_tiltseries.settings \
 --angpix 10 \
---patch_size 1000 \
---do_axis_search
+--patch_size 500 \
+--initial_axis -85.6 \
+--perdevice 5
 
 # # or aretomo (performs badly on this dataset)
 # WarpTool ts_aretomo \
@@ -144,7 +145,7 @@ WarpTools ts_export_particles \
 --normalized_coords \
 --output_star relion/matching.star \
 --output_angpix 4 \
---box 96 \
+--box 64 \
 --diameter 130 \
 --relative_output_paths \
 --2d 
@@ -155,7 +156,7 @@ mkdir -p InitialModel/job001
 
 `which relion_refine` \
 --o InitialModel/job001/run \
---iter 100 \
+--iter 50 \
 --grad \
 --denovo_3dref  \
 --ios matching_optimisation_set.star \
@@ -167,7 +168,7 @@ mkdir -p InitialModel/job001
 --dont_combine_weights_via_disc \
 --pool 30 \
 --pad 1  \
---particle_diameter 140 \
+--particle_diameter 130 \
 --oversampling 1  \
 --healpix_order 1  \
 --offset_range 6  \
@@ -176,17 +177,7 @@ mkdir -p InitialModel/job001
 --tau2_fudge 4 \
 --j 8 \
 --gpu ""  \
---pipeline_control InitialModel/job001/ \
-&& rm -f InitialModel/job001/RELION_JOB_EXIT_SUCCESS \
-&& `which relion_align_symmetry` \
---i InitialModel/job001/run_it100_model.star \
---o InitialModel/job001/initial_model.mrc \
---sym C1  \
---apply_sym \
---select_largest_class  \
---pipeline_control \
-InitialModel/job001/ \
-&& touch InitialModel/job001/RELION_JOB_EXIT_SUCCESS
+--pipeline_control InitialModel/job001/
 
 # Do an unmasked refinement in RELION
 mkdir -p Refine3D/job002
@@ -196,15 +187,14 @@ mpirun -n 3 `which relion_refine_mpi` \
 --auto_refine \
 --split_random_halves \
 --ios matching_optimisation_set.star \
---ref InitialModel/job001/run_it100_class001.mrc \
---firstiter_cc \
+--ref InitialModel/job001/run_it050_class001.mrc \
 --trust_ref_size \
---ini_high 20 \
+--ini_high 40 \
 --dont_combine_weights_via_disc \
---pool 30 \
+--pool 10 \
 --pad 2  \
 --ctf \
---particle_diameter 150 \
+--particle_diameter 130 \
 --flatten_solvent \
 --zero_mask \
 --oversampling 1 \
@@ -216,7 +206,7 @@ mpirun -n 3 `which relion_refine_mpi` \
  --low_resol_join_halves 40 \
  --norm \
  --scale  \
- --j 8 \
+ --j 2 \
  --gpu ""  \
  --pipeline_control Refine3D/job002/
 
@@ -235,14 +225,13 @@ MTools create_population \
 MTools create_source \
 --name 10491 \
 --population m/10491.population \
---processing_settings warp_tiltseries.settings \
---nframes 5 
+--processing_settings warp_tiltseries.settings
 
 # Create species from RELION's results and resample maps to a smaller pixel size
 relion_mask_create \
 --i relion/Refine3D/job002/run_class001.mrc \
 --o m/mask_4apx.mrc \
---ini_threshold 0.05
+--ini_threshold 0.04
 
 MTools create_species \
 --population m/10491.population \
@@ -255,7 +244,7 @@ MTools create_species \
 --mask m/mask_4apx.mrc \
 --particles_relion relion/Refine3D/job002/run_data.star \
 --angpix_resample 0.7894 \
---lowpass 12 
+--lowpass 10 
 
 # Run an iteration of M without any refinements to check that everything imported correctly
 MCore \
@@ -263,7 +252,7 @@ MCore \
 --perdevice_refine 4 \
 --iter 0
 
-# 6.36 A
+# 6.4 A
 
 # Run an iteration of M with image warp, particle pose and CTF refinement
 # (running exhaustive defocus search because this is the first refinement)
@@ -275,7 +264,7 @@ MCore \
 --ctf_defocusexhaustive \
 --perdevice_refine 4 
 
-# 3.61 A
+# 3.6 A
 
 # Run another iteration now that the reference has better resolution
 MCore \
@@ -285,7 +274,7 @@ MCore \
 --ctf_defocus \
 --perdevice_refine 4 
 
-# 3.11 A
+# 3.1 A
 
 # Now also refine stage angles
 MCore \
@@ -295,7 +284,7 @@ MCore \
 --refine_stageangles \
 --perdevice_refine 4
 
-# 3.02 A
+# 3.0 A
 
 # Now throw (almost everything) at it
 MCore \
@@ -308,7 +297,7 @@ MCore \
 --ctf_zernike3 \
 --perdevice_refine 4 
 
-# 3.00 A
+# 3.0 A
 
 # Fit weights per-tilt-series
 EstimateWeights \
@@ -320,7 +309,7 @@ MCore \
 --population m/10491.population \
 --perdevice_refine 4
 
-# 3.00 A
+# 3.0 A
 
 # Fit per-tilt weights, averaged over all tilt sries
 EstimateWeights \
@@ -333,9 +322,10 @@ MCore \
 --perdevice_refine 4 \
 --refine_particles 
 
-# 2.97 A
+# 3.0 A
 
 # Resample particle pose trajectories to 2 temporal samples
+# NOTE: Please adjust species folder name to account for GUID bit
 MTools resample_trajectories \
 --population m/10491.population \
 --species m/species/apoferritin_797f75c2/apoferritin.species \
@@ -352,4 +342,4 @@ MCore \
 --ctf_defocus \
 --ctf_zernike3
 
-# 2.92 A
+# 2.9 A
