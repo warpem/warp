@@ -1381,7 +1381,7 @@ namespace Warp.Sociology
             //if (false)
             if (fixedResolution <= 0)
             {
-                int LocalResolutionWindow = Math.Max(30, (int)(GlobalResolution * 5 / PixelSize / 2 + 0.5M) * 2);
+                int LocalResolutionWindow = Math.Max(30, Math.Min(50, (int)(GlobalResolution * 5 / PixelSize / 2 + 0.5M) * 2));
 
                 _LocalResolution.Fill(LocalResolutionWindow * (float)PixelSize / 2);
                 _LocalBFactor.Fill(BFacGlobal);
