@@ -34,7 +34,7 @@ namespace EstimateWeights
 
             Options.PopulationPath = Path.Combine(WorkingDirectory, Options.PopulationPath);
 
-            if (!Options.ResolveFrames && !Options.ResolveItems && !Options.ResolveLocation && !Options.ResolveSources)
+            if (!Options.DoReset && !Options.ResolveFrames && !Options.ResolveItems && !Options.ResolveLocation && !Options.ResolveSources)
                 throw new Exception("No dimension chosen to resolve over.");
 
             if (Options.ResolveLocation && (Options.ResolveFrames || Options.ResolveItems))
