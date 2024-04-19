@@ -183,7 +183,7 @@ namespace WarpTools.Commands
             }
             else
             {
-                CLI.TemplatePath = Helper.PathCombine(CLI.OutputProcessing, CLI.TemplatePath);
+                CLI.TemplatePath = Helper.PathCombine(Environment.CurrentDirectory, CLI.TemplatePath);
             }
 
             #endregion
