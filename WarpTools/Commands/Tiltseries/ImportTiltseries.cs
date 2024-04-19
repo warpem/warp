@@ -29,7 +29,7 @@ namespace WarpTools.Commands
         [Option("tilt_exposure", Required = true, HelpText = "Per-tilt exposure in e-/A^2")]
         public double TiltExposure { get; set; }
 
-        [Option("dont_invert", HelpText = "Don't invert tilt angles compared to IMOD's convention (usually needed to get the geometric handedness correct)")]
+        [Option("dont_invert", HelpText = "Don't invert tilt angles compared to IMOD's convention (inversion is usually needed to match IMOD's geometric handedness). This will flip the geometric handedness")]
         public bool DontInvert { get; set; }
 
         [Option("override_axis", HelpText = "Override the tilt axis angle with this value")]
