@@ -4,8 +4,9 @@ Warp is a set of tools for cryo-EM and cryo-ET data processing including, among 
 
 # Using Warp
 
-If you want to use Warp on Windows, tutorials and binaries can be found at http://www.warpem.com.
-Obtain the Linux CLI version by installing this Conda package: `conda install warp -c conda-forge`
+If you want to use Warp on Windows, tutorials and binaries (currently only for v1) can be found at http://www.warpem.com.
+
+~~Obtain the Linux CLI version by installing this Conda package: `conda install warp -c conda-forge`~~ The conda-forge package isn't ready yet! Check back in a few days.
 
 While there are currently no dedicated tutorials for the Linux CLI tools, you'll get a very good idea of how to use WarpTools, MTools & MCore by looking at the EMPIAR-10491_5TS_e2e.sh script. This is an end-to-end test that starts by downloading 5 tilt series from EMPIAR-10491, pre-processing them in Warp and IMOD, refining the particles in RELION, and then finishing with multi-particle refinement in MCore to obtain a ca. 2.9 Å apoferritin map.
 
