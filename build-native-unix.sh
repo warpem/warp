@@ -1,10 +1,12 @@
 cd NativeAcceleration
+rm -rf build
 mkdir build
 cd build
 cmake ..
 make -j 8
 cd ../..
 cd LibTorchSharp
+rm -rf build
 mkdir build
 cd build
 cmake -DCMAKE_PREFIX_PATH=`python -c 'import torch;print(torch.utils.cmake_prefix_path)'` ..
