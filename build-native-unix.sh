@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+set -e
 cd NativeAcceleration
 rm -rf build
 mkdir build
