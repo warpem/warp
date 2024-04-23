@@ -321,64 +321,36 @@ namespace Warp.Tools
 
             return new float3(alpha, beta, gamma);
         }
-        
+
         public static float3 EulerXYZExtrinsicFromMatrix(Matrix3 a)
         {
             //     Rz(k3) @ Ry(k2) @ Rx(k1) = [[c2c3, s1s2c3-c1s3, c1s2c3+s1s3],
             //                                [c2s3, s1s2s3+c1c3, c1s2s3-s1c3],
             //                                [-s2, s1c2, c1c2]]
             //
-            //    Matrix convention here:      M11, M21, M31;
-            //                                 M12, M22, M32;
-            //                                 M13, M23, M33;
+            //    Matrix convention here:      M11, M12, M13;
+            //                                 M21, M22, M23;
+            //                                 M31, M32, M33;
             float k1, k2, k3;
 
             // direct readout of second angle from matrix
-            k2 = -1f * MathF.Asin(a.M13);
-            
+            k2 = MathF.Asin(-1f * a.M31);
+
             float tolerance = 1e-4f;
-            if (MathF.Abs(a.M11) > tolerance)  // no gimbal lock, calculate angles
+            // first case, no gimbal lock, calculate angles directly
+            if (MathF.Abs(a.M11) >= tolerance) 
             {
-                k1 = MathF.Atan2(a.M23, a.M33);
-                k3 = MathF.Atan2(a.M12, a.M11);
+                k1 = MathF.Atan2(a.M32, a.M33);
+                k3 = MathF.Atan2(a.M21, a.M11);
             }
-            else  // gimbal lock, k2 == 90 -> cos(k2) == 0 which implies M11 == 0
+            else // we have gimbal lock, k2 == 90 -> cos(k2) == 0 which implies M11 == 0
             {
-                // set k3 = 0 and calculate k1
-                k1 = MathF.Atan2(a.M32, a.M22);
+                // calculate k1 and set k3 = 0
+                k1 = MathF.Atan2(a.M23, a.M22);
                 k3 = 0f;
             }
-            return new float3(k1, k2, k3);
-        }
-        
-        public static float3 EulerXYZExtrinsicFromMatrixRELION(Matrix3 a)
-        {
-            // this method doesn't do what it claims to do (XYZ extrinsic from matrix) but is compatible with RELION...
-            float xTilt, yTilt, zRot;
 
-            if (a.M31 < 1f)
-            {
-                if (a.M31 > -1f)
-                {
-                    xTilt = MathF.Atan2(a.M32, a.M33);
-                    yTilt = MathF.Asin(-a.M31);
-                    zRot = MathF.Atan2(a.M21, a.M11);
-                }
-                else // a.M31 = -1
-                {
-                    xTilt = 0f;
-                    yTilt = MathF.PI / 2f;
-                    zRot = -MathF.Atan2(-a.M23, a.M22);
-                }
-            }
-            else // a.M31 = +1
-            {
-                xTilt = 0f;
-                yTilt = -MathF.PI / 2f;
-                zRot = MathF.Atan2(-a.M23, a.M22);
-            }
-            
-            return new float3(xTilt, yTilt, zRot);
+            return new float3(k1, k2, k3);
         }
 
         public static Matrix3 operator +(Matrix3 o1, Matrix3 o2)
