@@ -773,7 +773,7 @@ namespace WarpTools.Commands
             // Get Extrinsic XYZ Euler angles for RELION 5 tomo projection model
             float3[] ZYZEulerAngles = tiltSeries.GetAngleInAllTilts(tiltSeries.VolumeDimensionsPhysical * 0.5f);
             float3[] XYZEulerAngles = ZYZEulerAngles.Select(
-                zyz => Matrix3.EulerXYZExtrinsicFromMatrix(Matrix3.Euler(zyz)) * Helper.ToDeg
+                zyz => Matrix3.EulerXYZExtrinsicFromMatrix(Matrix3.Euler(zyz).Transposed()) * Helper.ToDeg
             ).ToArray();
 
             foreach (var i in UsedTilts)
