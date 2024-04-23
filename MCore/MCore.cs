@@ -20,6 +20,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Components;
 using System.Reflection;
 using Warp.Sociology;
+using Microsoft.Extensions.Options;
 
 namespace MCore
 {
@@ -49,7 +50,13 @@ namespace MCore
 
             string ProgramFolder = AppContext.BaseDirectory;
 
-            Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(opts => OptionsCLI = opts);
+            var Result = Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed<OptionsCLI>(opts => OptionsCLI = opts);
+
+            if (Result.Tag == ParserResultType.NotParsed ||
+                Result.Errors.Any(e => e.Tag == ErrorType.HelpVerbRequestedError ||
+                                       e.Tag == ErrorType.HelpRequestedError))
+                return;
+
             WorkingDirectory = Environment.CurrentDirectory;
 
             VirtualConsole.AttachToConsole();

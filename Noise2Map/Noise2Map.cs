@@ -30,11 +30,12 @@ namespace Noise2Map
             ProgramFolder = ProgramFolder.Substring(0, Math.Max(ProgramFolder.LastIndexOf('\\'), ProgramFolder.LastIndexOf('/')) + 1);
 
             {
-                IEnumerable<Error> Errors = new List<Error>();
-                Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(opts => Options = opts).WithNotParsed(e => Errors = e);
+                var Result = Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(opts => Options = opts);
 
-                if (Errors.Any())
-                    throw new ArgumentException("There were some errors parsing the command line arguments");
+                if (Result.Tag == ParserResultType.NotParsed ||
+                    Result.Errors.Any(e => e.Tag == ErrorType.HelpVerbRequestedError ||
+                                           e.Tag == ErrorType.HelpRequestedError))
+                    return;
 
                 WorkingDirectory = Environment.CurrentDirectory + "/";
             }
