@@ -174,7 +174,7 @@ namespace Warp
 
         public void Save(string path)
         {
-            XmlTextWriter Writer = new XmlTextWriter(File.Create(path), Encoding.Unicode);
+            XmlTextWriter Writer = new XmlTextWriter(File.Create(path), Encoding.UTF8);
             Writer.Formatting = System.Xml.Formatting.Indented;
             Writer.IndentChar = '\t';
             Writer.Indentation = 1;

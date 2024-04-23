@@ -161,7 +161,7 @@ namespace Warp.Sociology
 
         public void Save()
         {
-            XmlTextWriter Writer = new XmlTextWriter(File.Create(Path), Encoding.Unicode);
+            XmlTextWriter Writer = new XmlTextWriter(File.Create(Path), Encoding.UTF8);
             Writer.Formatting = Formatting.Indented;
             Writer.IndentChar = '\t';
             Writer.Indentation = 1;

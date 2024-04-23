@@ -960,7 +960,7 @@ namespace Warp
 
         public virtual void SaveMeta()
         {
-            using (XmlTextWriter Writer = new XmlTextWriter(XMLPath, Encoding.Unicode))
+            using (XmlTextWriter Writer = new XmlTextWriter(XMLPath, Encoding.UTF8))
             {
                 Writer.Formatting = Formatting.Indented;
                 Writer.IndentChar = '\t';
