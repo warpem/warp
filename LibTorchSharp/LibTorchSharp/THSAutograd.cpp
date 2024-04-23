@@ -16,5 +16,5 @@ void THSAutograd_setGrad(bool enabled)
 
 void THSAutograd_setInference(bool enabled)
 {
-    c10::AutogradState::set_tls_state(c10::AutogradState(!enabled, enabled, !enabled, enabled));
+    c10::AutogradState::set_tls_state(c10::AutogradState(!enabled, enabled, !enabled));
 }
