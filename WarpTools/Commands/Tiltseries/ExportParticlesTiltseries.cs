@@ -756,10 +756,9 @@ namespace WarpTools.Commands
         {
             Star TiltSeriesTable = new Star(new string[]
             {
-                "rlnTomoProjX",
-                "rlnTomoProjY",
-                "rlnTomoProjZ",
-                "rlnTomoProjW",
+                "rlnTomoXTilt",
+                "rlnTomoYTilt",
+                "rlnTomoZRot",
                 "rlnDefocusU",
                 "rlnDefocusV",
                 "rlnDefocusAngle",
@@ -770,10 +769,15 @@ namespace WarpTools.Commands
                 ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
                 : tiltSeries.IndicesSortedDose.ToList();
             UsedTilts.Sort();
-            float3[] TiltAngles = tiltSeries.GetAngleInAllTilts(tiltSeries.VolumeDimensionsPhysical * 0.5f);
+            
+            // Get Extrinsic XYZ Euler angles for RELION 5 tomo projection model
+            float3[] ZYZEulerAngles = tiltSeries.GetAngleInAllTilts(tiltSeries.VolumeDimensionsPhysical * 0.5f);
+            float3[] XYZEulerAngles = ZYZEulerAngles.Select(
+                zyz => Matrix3.EulerXYZExtrinsicFromMatrix(Matrix3.Euler(zyz)) * Helper.ToDeg
+            ).ToArray();
+
             foreach (var i in UsedTilts)
             {
-                Matrix3 M = Matrix3.Euler(TiltAngles[i]);
                 float3 ImageCoords = tiltSeries.GetPositionsInOneTilt(
                     coords: new[] { tiltSeries.VolumeDimensionsPhysical * 0.5f }, tiltID: i
                     ).First();
@@ -787,10 +791,9 @@ namespace WarpTools.Commands
 
                 TiltSeriesTable.AddRow(new string[]
                 {
-                    $"[{M.M11},{M.M12},{M.M13},0]",
-                    $"[{M.M21},{M.M22},{M.M23},0]",
-                    $"[{M.M31},{M.M32},{M.M33},0]",
-                    "[0,0,0,1]",
+                    $"{XYZEulerAngles[i].X}",
+                    $"{XYZEulerAngles[i].Y}",
+                    $"{XYZEulerAngles[i].Z}",
                     ((TiltCTF.Defocus + TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1", CultureInfo.InvariantCulture),
                     ((TiltCTF.Defocus - TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1", CultureInfo.InvariantCulture),
                     TiltCTF.DefocusAngle.ToString("F3", CultureInfo.InvariantCulture),
