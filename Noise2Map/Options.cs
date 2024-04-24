@@ -76,7 +76,7 @@ namespace Noise2Map
         [Option("iterations", Default = 1500, HelpText = "Number of iterations. 600–1200 for SPA half-maps, 10 000+ for raw tomograms.")]
         public int NIterations { get; set; }
 
-        [Option("batchsize", Default = 4, HelpText = "Batch size for model training. Decrease if you run out of memory. The number of iterations will be adjusted automatically.")]
+        [Option("batchsize", Default = 4, HelpText = "Batch size for model training. Decrease if you run out of memory. The number of iterations will be adjusted automatically. Should be a multiple of the number of GPUs used in training.")]
         public int BatchSize { get; set; }
 
         [Option("gpuid_network", Default = new int[] { 0 }, HelpText = "Comma-separated GPU IDs used for network training.")]
