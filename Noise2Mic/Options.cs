@@ -40,11 +40,11 @@ namespace Noise2Mic
         [Option("window", Default = 512, HelpText = "Size of the model's input window in pixels; should be a multiple of 256.")]
         public int WindowSize { get; set; }
 
-        [Option("batchsize", Default = 64, HelpText = "Batch size for model training. Decrease if you run out of memory. The number of iterations will be adjusted automatically.")]
+        [Option("batchsize", Default = 64, HelpText = "Batch size for model training. Decrease if you run out of memory. The number of iterations will be adjusted automatically. Should be a multiple of the number of GPUs used in training.")]
         public int BatchSize { get; set; }
 
-        [Option("gpuid_network", Default = 0, HelpText = "GPU ID used for network training.")]
-        public int GPUNetwork { get; set; }
+        [Option("gpuid_network", Default = new int[] { 0 }, HelpText = "Comma-separated GPU IDs used for denoiser training.")]
+        public IEnumerable<int> GPUNetwork { get; set; }
 
         [Option("gpuid_preprocess", Default = 1, HelpText = "GPU ID used for data preprocessing. Ideally not the GPU used for training")]
         public int GPUPreprocess { get; set; }

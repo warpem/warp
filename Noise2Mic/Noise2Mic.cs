@@ -45,11 +45,12 @@ namespace Noise2Mic
             #endregion
 
             int NDevices = GPU.GetDeviceCount();
-            if (Options.GPUNetwork >= NDevices || Options.GPUPreprocess >= NDevices)
+            if (Options.GPUNetwork.Any(id => id >= NDevices))
             {
-                Console.WriteLine("Requested GPU ID isn't present on this system. Defaulting to highest ID available.\n");
-
-                Options.GPUNetwork = Math.Min(Options.GPUNetwork, NDevices - 1);
+                Console.WriteLine($"Requested GPU ID ({Options.GPUNetwork.First(id => id >= NDevices)}) that isn't present on this system.");
+            }
+            if (Options.GPUPreprocess >= NDevices)
+            {
                 Options.GPUPreprocess = Math.Min(Options.GPUPreprocess, NDevices - 1);
             }
 
@@ -208,11 +209,11 @@ namespace Noise2Mic
                         throw new Exception($"Could not find initial model '{Options.StartModelName}'. Please make sure it can be found either here, or in the installation directory.");
                 }
 
-                Console.WriteLine("Loading model, " + GPU.GetFreeMemory(Options.GPUNetwork) + " MB free.");
-                TrainModel = new NoiseNet2DTorch(Dim, new[] { Options.GPUNetwork }, Options.BatchSize);
+                Console.WriteLine("Loading model, " + GPU.GetFreeMemory(Options.GPUNetwork.First()) + " MB free.");
+                TrainModel = new NoiseNet2DTorch(Dim, Options.GPUNetwork.ToArray(), Options.BatchSize);
                 if (!string.IsNullOrEmpty(ModelPath))
                     TrainModel.Load(ModelPath);
-                Console.WriteLine("Loaded model, " + GPU.GetFreeMemory(Options.GPUNetwork) + " MB remaining.\n");
+                Console.WriteLine("Loaded model, " + GPU.GetFreeMemory(Options.GPUNetwork.First()) + " MB remaining.\n");
 
                 #endregion
 
@@ -353,21 +354,32 @@ namespace Noise2Mic
                         }
                     }
 
-                    double TicksPerIteration = Watch.ElapsedTicks;// / (double)(iter + 1);
-                    TimeSpan TimeRemaining = new TimeSpan((long)(TicksPerIteration * (Options.NIterations - 1 - iter)));
+                    double TicksPerIteration = Watch.ElapsedTicks;
+                    TimeSpan TimeRemaining = new TimeSpan((long)(TicksPerIteration * ((Options.NIterations * NMapsPerBatch) - 1 - iterFine)));
 
                     {
                         double CurrentLearningRate = Math.Exp(MathHelper.Lerp((float)Math.Log(Options.LearningRateStart),
                                                                               (float)Math.Log(Options.LearningRateFinish),
                                                                               iter / (float)Options.NIterations));
 
-                        ClearCurrentConsoleLine();
-                        Console.Write($"{iter + 1}/{Options.NIterations}, " +
-                                      (TimeRemaining.Days > 0 ? (TimeRemaining.Days + " days ") : "") +
-                                      $"{TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, " +
-                                      $"log(loss) = {Math.Log(MathHelper.Mean(Losses)).ToString("F4")}, " +
-                                      $"lr = {CurrentLearningRate:F6}, " +
-                                      $"{GPU.GetFreeMemory(Options.GPUNetwork)} MB free");
+
+                        string ToWrite = $"{iter + 1}/{Options.NIterations}, " +
+                                         (TimeRemaining.Days > 0 ? (TimeRemaining.Days + " days ") : "") +
+                                         $"{TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, " +
+                                         $"log(loss) = {Math.Log(MathHelper.Mean(Losses)).ToString("F4")}, " +
+                                         $"lr = {CurrentLearningRate:F6}, " +
+                                         $"{GPU.GetFreeMemory(Options.GPUNetwork.First())} MB free";
+
+                        try
+                        {
+                            VirtualConsole.ClearLastLine();
+                            Console.Write(ToWrite);
+                        }
+                        catch
+                        {
+                            // When we're outputting to a text file when launched on HPC cluster
+                            Console.WriteLine(ToWrite);
+                        }
                     }
 
                     if (float.IsNaN(Loss[0]) || float.IsInfinity(Loss[0]))
@@ -391,15 +403,14 @@ namespace Noise2Mic
 
             #region Denoise
 
-            Options.BatchSize = 2;
+            Options.BatchSize = Options.GPUNetwork.Count();
 
-            Console.WriteLine("Loading trained model, " + GPU.GetFreeMemory(Options.GPUNetwork) + " MB free.");
-            TrainModel = new NoiseNet2DTorch(TrainingDims, new[] { Options.GPUNetwork }, Options.BatchSize);
+            Console.WriteLine("Loading trained model, " + GPU.GetFreeMemory(Options.GPUNetwork.First()) + " MB free.");
+            TrainModel = new NoiseNet2DTorch(TrainingDims, Options.GPUNetwork.ToArray(), Options.BatchSize);
             if (!File.Exists(Path.Combine(WorkingDirectory, NameTrainedModel)))
                 throw new Exception("Old model could not be found.");
             TrainModel.Load(Path.Combine(WorkingDirectory, NameTrainedModel));
-            //TrainModel = new NoiseNet3D(@"H:\denoise_refine\noisenet3d_64_20180808_010023", new int3(Dim), 1, Options.BatchSize, false, Options.GPUNetwork);
-            Console.WriteLine("Loaded trained model, " + GPU.GetFreeMemory(Options.GPUNetwork) + " MB remaining.\n");
+            Console.WriteLine("Loaded trained model, " + GPU.GetFreeMemory(Options.GPUNetwork.First()) + " MB remaining.\n");
 
             //Directory.Delete(NameTrainedModel, true);
 
@@ -486,14 +497,6 @@ namespace Noise2Mic
             #endregion
 
             return ScaledMaskBuffers[CurrentDevice];
-        }
-
-        private static void ClearCurrentConsoleLine()
-        {
-            int currentLineCursor = Console.CursorTop;
-            Console.SetCursorPosition(0, Console.CursorTop);
-            Console.Write(new string(' ', Console.WindowWidth));
-            Console.SetCursorPosition(0, currentLineCursor);
         }
     }
 }
