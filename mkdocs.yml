@@ -1,0 +1,75 @@
+site_name: Warp, M and friends
+site_url: https://warpem.com
+site_author: Dimitry Tegunov
+site_description: >-
+  Warp
+repo_name: warpem/warp
+repo_url: https://github.com/warpem/warp
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2023 - 2024 
+
+
+# Page tree
+nav:
+  - 🏡 Home: index.md
+  - 📝 Warp Paper: https://doi.org/10.1038/s41592-019-0580-y
+  - 📝 M Paper: https://doi.org/10.1038/s41592-020-01054-7
+  - 🦮 User Guide:
+      - Warp:
+        - user_guide/warp/what_is_warp.md
+        - user_guide/warp/interface/overview.md
+        - user_guide/warp/quick_start_frame_series.md
+        - user_guide/warp/quick_start_tilt_series.md
+        - 👨‍💻 WarpTools:
+          - user_guide/warp/warptools/what_is_warptools.md
+      - M:
+          - user_guide/m/what_is_m.md
+      - Standalone tools:
+          - user_guide/standalone_tools/noise2mic.md
+          - user_guide/standalone_tools/noise2map.md
+          - user_guide/standalone_tools/noise2half.md
+          - user_guide/standalone_tools/noise2tomo.md
+          - user_guide/standalone_tools/frankenmap.md
+  - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
+  - 🧑‍🤝‍🧑 Team: team.md
+theme:
+  logo: assets/logo_combined.png
+  custom_dir: docs/overrides
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: purple
+      accent: purple
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - navigation.sections
+    - search.highlight
+    - search.suggest
+    - content.tabs.link
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+
+plugins:
+  - search
