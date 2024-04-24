@@ -676,7 +676,7 @@ namespace Noise2Map
 
             #region Denoise
 
-            Options.BatchSize = 2;
+            Options.BatchSize = Options.GPUNetwork.Count();
 
             Console.WriteLine("Loading trained model, " + GPU.GetFreeMemory(Options.GPUNetwork.First()) + " MB free.");
             TrainModel = new NoiseNet3DTorch(TrainingDims, 
