@@ -810,8 +810,8 @@ namespace Warp
                     }
 
 
-                    double TicksPerIteration = Watch.ElapsedTicks / (double)(iter + 1);
-                    TimeSpan TimeRemaining = new TimeSpan((long)(TicksPerIteration * (niterations - 1 - iter)));
+                    TimeSpan TimeRemaining = Watch.Elapsed * (niterations - 1 - iter);
+                    Watch.Restart();
 
                     string ProgressText = $"{iter + 1}/{niterations}, {TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, log(loss) = {Math.Log(MathHelper.Mean(Losses)).ToString("F4")}";
 
