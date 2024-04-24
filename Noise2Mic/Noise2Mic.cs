@@ -20,6 +20,7 @@ namespace Noise2Mic
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+            VirtualConsole.AttachToConsole();
 
             #region Command line options
 
@@ -188,8 +189,10 @@ namespace Noise2Mic
                 if (Options.BatchSize < 1)
                     throw new Exception("Batch size must be at least 1.");
 
-                Options.NIterations = Options.NIterations * 64 / Options.BatchSize / Math.Min(8, Mics1.Count);
-                Console.WriteLine($"Adjusting the number of iterations to {Options.NIterations} to match batch size and number of micrographs.\n");
+                int NMapsPerBatch = Math.Min(8, Mics1.Count);
+
+                Options.NIterations = Options.NIterations * 64 / Options.BatchSize / NMapsPerBatch;
+                Console.WriteLine($"Adjusting the number of iterations to {Options.NIterations * NMapsPerBatch} to match batch size and number of micrographs.\n");
             }
 
 
@@ -325,11 +328,6 @@ namespace Noise2Mic
 
                         for (int m = 0; m < ShuffledMapIDs.Length; m++)
                         {
-                            float[] AdversarialAngles = Helper.ArrayOfFunction(v => ((float)Rand.NextDouble() - 0.5f) * 2 * Helper.ToRad * 90, MapSamples);
-                            //float[] AdversarialAngles = Helper.ArrayOfFunction(v => (Rand.Next(2) == 0 ? 1 : -1) * 1.5f * Helper.ToRad, MapSamples);
-                            float2[] AdversarialShifts = Helper.ArrayOfFunction(v => new float2(((float)Rand.NextDouble() - 0.5f) * 2, ((float)Rand.NextDouble() - 0.5f) * 2), MapSamples);
-                            //float2[] AdversarialShifts = Helper.ArrayOfFunction(v => new float2(0, 0), MapSamples);
-
                             int MapID = m;
 
                             bool Twist = Rand.Next(2) == 0;
@@ -350,35 +348,31 @@ namespace Noise2Mic
                                 PredictedData.WriteMRC(Path.Combine(WorkingDirectory, $"d_predicted_{iterFine:D6}.mrc"), true);
                             }
 
+                            {
+                                TimeSpan TimeRemaining = Watch.Elapsed * ((Options.NIterations * NMapsPerBatch) - 1 - iterFine);
+
+                                string ToWrite = $"{iterFine + 1}/{Options.NIterations * NMapsPerBatch}, " +
+                                                 (TimeRemaining.Days > 0 ? (TimeRemaining.Days + " days ") : "") +
+                                                 $"{TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, " +
+                                                 $"log(loss) = {Math.Log(MathHelper.Mean(Losses)):F4}, " +
+                                                 $"lr = {CurrentLearningRate:F6}, " +
+                                                 $"{GPU.GetFreeMemory(Options.GPUNetwork.First())} MB free";
+
+                                try
+                                {
+                                    VirtualConsole.ClearLastLine();
+                                    Console.Write(ToWrite);
+                                }
+                                catch
+                                {
+                                    // When we're outputting to a text file when launched on HPC cluster
+                                    Console.WriteLine(ToWrite);
+                                }
+
+                                Watch.Restart();
+                            }
+
                             iterFine++;
-                        }
-                    }
-
-                    double TicksPerIteration = Watch.ElapsedTicks;
-                    TimeSpan TimeRemaining = new TimeSpan((long)(TicksPerIteration * ((Options.NIterations * NMapsPerBatch) - 1 - iterFine)));
-
-                    {
-                        double CurrentLearningRate = Math.Exp(MathHelper.Lerp((float)Math.Log(Options.LearningRateStart),
-                                                                              (float)Math.Log(Options.LearningRateFinish),
-                                                                              iter / (float)Options.NIterations));
-
-
-                        string ToWrite = $"{iter + 1}/{Options.NIterations}, " +
-                                         (TimeRemaining.Days > 0 ? (TimeRemaining.Days + " days ") : "") +
-                                         $"{TimeRemaining.Hours}:{TimeRemaining.Minutes:D2}:{TimeRemaining.Seconds:D2} remaining, " +
-                                         $"log(loss) = {Math.Log(MathHelper.Mean(Losses)).ToString("F4")}, " +
-                                         $"lr = {CurrentLearningRate:F6}, " +
-                                         $"{GPU.GetFreeMemory(Options.GPUNetwork.First())} MB free";
-
-                        try
-                        {
-                            VirtualConsole.ClearLastLine();
-                            Console.Write(ToWrite);
-                        }
-                        catch
-                        {
-                            // When we're outputting to a text file when launched on HPC cluster
-                            Console.WriteLine(ToWrite);
                         }
                     }
 
@@ -386,7 +380,6 @@ namespace Noise2Mic
                         throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
 
                     GPU.CheckGPUExceptions();
-                    Watch.Restart();
                 }
 
                 Watch.Stop();
