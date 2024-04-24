@@ -20,6 +20,7 @@ namespace Noise2Map
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+            VirtualConsole.AttachToConsole();
 
             #region Command line options
 
@@ -638,7 +639,7 @@ namespace Noise2Map
 
                         try
                         {
-                            ClearCurrentConsoleLine();
+                            VirtualConsole.ClearLastLine();
                             Console.Write(ToWrite);
                         }
                         catch
@@ -746,14 +747,6 @@ namespace Noise2Map
             Console.WriteLine("\nAll done!");
 
             #endregion
-        }
-
-        private static void ClearCurrentConsoleLine()
-        {
-            int currentLineCursor = Console.CursorTop;
-            Console.SetCursorPosition(0, Console.CursorTop);
-            Console.Write(new string(' ', Console.WindowWidth - 2));
-            Console.SetCursorPosition(0, currentLineCursor);
         }
     }
 }
