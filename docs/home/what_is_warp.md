@@ -1,7 +1,7 @@
 # Warp
 
 <figure markdown="span">
-  ![Warp](../../assets/warp_logo.png){ width="250" }
+  ![Warp](../assets/warp_logo.png){ width="250" }
   <figcaption></figcaption>
 </figure>
 

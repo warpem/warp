@@ -16,8 +16,8 @@ nav:
       - home/what_is_warp.md
       - home/what_is_m.md
       - home/what_is_warptools.md
-  - 📝 Papers: papers.md
   - 📘 User Guides:
+    - user_guide/overview.md
     - Desktop Warp:
       - Interface Overview: user_guide/warp/interface/overview.md
       - user_guide/warp/quick_start_warp_frame_series.md
@@ -33,6 +33,7 @@ nav:
 #      - user_guide/standalone_tools/noise2half.md
 #      - user_guide/standalone_tools/noise2tomo.md
 #      - user_guide/standalone_tools/frankenmap.md
+  - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md
 
@@ -71,8 +72,8 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - md_in_html
   - pymdownx.arithmatex:
       generic: true
