@@ -22,11 +22,12 @@ nav:
       - Interface Overview: user_guide/warp/interface/overview.md
       - user_guide/warp/quick_start_warp_frame_series.md
       - user_guide/warp/quick_start_warp_tilt_series.md
+    - M:
+      - user_guide/m/quick_start_m.md
+      - user_guide/m/particle_operations.md
     - WarpTools:
       - user_guide/warptools/quick_start_warptools_frame_series.md
       - user_guide/warptools/quick_start_warptools_tilt_series.md
-    - M:
-      - user_guide/m/quick_start_m.md
 #    - Standalone tools:
 #      - user_guide/standalone_tools/noise2mic.md
 #      - user_guide/standalone_tools/noise2map.md
