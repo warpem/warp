@@ -8976,6 +8976,7 @@ namespace Warp
                 decimal Defocus = (decimal)ImagePositions[t].Z;
                 decimal DefocusDelta = (decimal)GetTiltDefocusDelta(t);
                 decimal DefocusAngle = (decimal)GetTiltDefocusAngle(t);
+                decimal PhaseShift = (decimal)GetTiltPhase(t);
 
                 CTF CurrCTF = CTF.GetCopy();
                 CurrCTF.PixelSize = options.BinnedPixelSizeMean;
@@ -8984,6 +8985,7 @@ namespace Warp
                     CurrCTF.Defocus = Defocus;
                     CurrCTF.DefocusDelta = DefocusDelta;
                     CurrCTF.DefocusAngle = DefocusAngle;
+                    CurrCTF.PhaseShift = PhaseShift;
                 }
                 else
                 {
@@ -9047,6 +9049,7 @@ namespace Warp
 
             decimal DefocusDelta = (decimal)GetTiltDefocusDelta(tiltID);
             decimal DefocusAngle = (decimal)GetTiltDefocusAngle(tiltID);
+            decimal PhaseShift = (decimal)GetTiltPhase(tiltID);
 
             CTF ProtoCTF = CTF.GetCopy();
             ProtoCTF.PixelSize = (decimal)pixelSize;
@@ -9054,6 +9057,7 @@ namespace Warp
             {
                 ProtoCTF.DefocusDelta = DefocusDelta;
                 ProtoCTF.DefocusAngle = DefocusAngle;
+                ProtoCTF.PhaseShift = PhaseShift;
             }
             else
             {
@@ -9132,6 +9136,7 @@ namespace Warp
 
             decimal DefocusDelta = (decimal)GetTiltDefocusDelta(tiltID);
             decimal DefocusAngle = (decimal)GetTiltDefocusAngle(tiltID);
+            decimal PhaseShift = (decimal)GetTiltPhase(tiltID);
 
             CTF ProtoCTF = CTF.GetCopy();
             ProtoCTF.PixelSize = (decimal)pixelSize;
@@ -9139,6 +9144,7 @@ namespace Warp
             {
                 ProtoCTF.DefocusDelta = DefocusDelta;
                 ProtoCTF.DefocusAngle = DefocusAngle;
+                ProtoCTF.PhaseShift = PhaseShift;
             }
             else
             {
@@ -9217,6 +9223,7 @@ namespace Warp
 
             decimal DefocusDelta = (decimal)GetTiltDefocusDelta(tiltID);
             decimal DefocusAngle = (decimal)GetTiltDefocusAngle(tiltID);
+            decimal PhaseShift = (decimal)GetTiltPhase(tiltID);
 
             CTF ProtoCTF = CTF.GetCopy();
             ProtoCTF.PixelSize = (decimal)pixelSize;
@@ -9224,6 +9231,7 @@ namespace Warp
             {
                 ProtoCTF.DefocusDelta = DefocusDelta;
                 ProtoCTF.DefocusAngle = DefocusAngle;
+                ProtoCTF.PhaseShift = PhaseShift;
             }
             else
             {
