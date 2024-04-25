@@ -1,4 +1,4 @@
-# Warp?
+# Warp
 
 <figure markdown="span">
   ![Warp](../../assets/warp_logo.png){ width="250" }

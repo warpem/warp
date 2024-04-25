@@ -11,11 +11,14 @@ copyright: Copyright &copy; 2023 - 2024
 
 # Page tree
 nav:
-  - 🏡 Home: index.md
+  - 🏡 Home: 
+      - index.md
+      - home/what_is_warp.md
+      - home/what_is_m.md
+      - home/what_is_warptools.md
   - 📝 Papers: papers.md
   - 📘 User Guides:
     - Desktop Warp:
-      - user_guide/warp/what_is_warp.md
       - Interface Overview: user_guide/warp/interface/overview.md
       - user_guide/warp/quick_start_warp_frame_series.md
       - user_guide/warp/quick_start_warp_tilt_series.md
