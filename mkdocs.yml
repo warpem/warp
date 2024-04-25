@@ -38,7 +38,9 @@ nav:
 
 theme:
   logo: assets/warp_m_logos_combined.png
-  # custom_dir: docs/overrides # custom theming
+  favicon: assets/favicon.png
+  # for more complex custom theming...
+  # custom_dir: docs/overrides 
   name: material
   palette:
     # Palette toggle for light mode
