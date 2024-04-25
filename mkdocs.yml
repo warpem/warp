@@ -22,17 +22,17 @@ nav:
       - Interface Overview: user_guide/warp/interface/overview.md
       - user_guide/warp/quick_start_warp_frame_series.md
       - user_guide/warp/quick_start_warp_tilt_series.md
-
     - WarpTools:
-      - user_guide/warp/warptools/what_is_warptools.md
+      - user_guide/warptools/quick_start_warptools_frame_series.md
+      - user_guide/warptools/quick_start_warptools_tilt_series.md
     - M:
       - user_guide/m/quick_start_m.md
-    - Standalone tools:
-      - user_guide/standalone_tools/noise2mic.md
-      - user_guide/standalone_tools/noise2map.md
-      - user_guide/standalone_tools/noise2half.md
-      - user_guide/standalone_tools/noise2tomo.md
-      - user_guide/standalone_tools/frankenmap.md
+#    - Standalone tools:
+#      - user_guide/standalone_tools/noise2mic.md
+#      - user_guide/standalone_tools/noise2map.md
+#      - user_guide/standalone_tools/noise2half.md
+#      - user_guide/standalone_tools/noise2tomo.md
+#      - user_guide/standalone_tools/frankenmap.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md
 
