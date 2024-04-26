@@ -12,7 +12,7 @@ While there are currently no dedicated tutorials for the Linux CLI tools, you'll
 
 # Building Warp on Linux
 
-After cloning this repository, run these commands on a system with a running Nvidia GPU driver (conda-forge pytorch weirdness ¯\\\_(ツ)\_/¯ ) and a discoverable CUDA 11.7:
+After cloning this repository, run these commands:
 ```
 conda env create -f warp_build.yml
 conda activate warp_build
