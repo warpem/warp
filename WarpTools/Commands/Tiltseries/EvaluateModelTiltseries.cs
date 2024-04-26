@@ -141,9 +141,9 @@ namespace WarpTools.Commands.Tiltseries
             float3[] InputPositionsDecentered = InputPositions.Select(p => p + TomogramCenter).ToArray();
 
             Star TableOutInputs = new Star(InputPositions,
-                                           "tomoCenteredCoordinateXAngst",
-                                           "tomoCenteredCoordinateYAngst",
-                                           "tomoCenteredCoordinateZAngst");
+                                           "centeredCoordinateXAngst",
+                                           "centeredCoordinateYAngst",
+                                           "centeredCoordinateZAngst");
 
             int NDone = 0;
             Console.Write($"Processing tilt series: {NDone}/{CLI.InputSeries.Length}");
