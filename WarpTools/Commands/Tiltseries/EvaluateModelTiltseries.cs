@@ -215,7 +215,7 @@ namespace WarpTools.Commands.Tiltseries
                     if (!S.UseTilt[t])
                         continue;
 
-                    TableOutTilts.AddRow([(++tValid + 1).ToString(),
+                    TableOutTilts.AddRow([(++tValid).ToString(),
                                           S.TiltMoviePaths[t],
                                           S.CTF.Voltage.ToString("F2", CultureInfo.InvariantCulture),
                                           S.CTF.Cs.ToString("F4", CultureInfo.InvariantCulture),
