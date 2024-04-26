@@ -141,6 +141,9 @@ namespace WarpTools.Commands.Tiltseries
                                            "tomoCenteredCoordinateYAngst",
                                            "tomoCenteredCoordinateZAngst");
 
+            int NDone = 0;
+            Console.Write($"Processing tilt series: {NDone}/{CLI.InputSeries.Length}");
+
             Helper.ForCPUGreedy(0, CLI.InputSeries.Length, 8, null, (iseries, threadID) =>
             {
                 TiltSeries S = CLI.InputSeries[iseries] as TiltSeries;
@@ -219,7 +222,15 @@ namespace WarpTools.Commands.Tiltseries
                                     new Dictionary<string, Star>() { { "points", TableOutInputs },
                                                                      { "tilts", TableOutTilts},
                                                                      { "mappings", TableOutMappings } });
+
+                lock (CLI)
+                {
+                    VirtualConsole.ClearLastLine();
+                    Console.Write($"Processing tilt series: {++NDone}/{CLI.InputSeries.Length}");
+                }
             }, null);
+
+            Console.WriteLine();
         }
     }
 }
