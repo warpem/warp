@@ -27,10 +27,6 @@ local root = "/path/to/warp/Release/linux-x64/publish"
 
 conflict("warp")
 
-if not isloaded("CUDA/11.7.0") then
-    load("CUDA/11.7.0")
-end
-
 prepend_path("PATH", root)
 prepend_path("LD_LIBRARY_PATH", "/path/to/conda_envs/warp_build/lib")
 setenv("RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE", pathJoin(root, "Noise2Half"))
