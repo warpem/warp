@@ -220,6 +220,11 @@ namespace WarpTools.Commands
 
             #endregion
 
+            {
+                var HealpixAngles = Helper.GetHealpixAngles(OptionsMatch.HealpixOrder, OptionsMatch.Symmetry);
+                Console.WriteLine($"Using {HealpixAngles.Length} orientations for matching");
+            }
+
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
             if (CLI.CheckHandN > 0)
