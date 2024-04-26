@@ -66,10 +66,12 @@ namespace WarpTools.Commands.Tiltseries
             {
                 try
                 {
-                    var Extent = CLI.GridExtent.Split('x');
+                    var Extent = CLI.GridExtent.Split('x').Select(int.Parse).ToArray();
                     if (Extent.Length != 3)
                         throw new Exception($"Expected 3 dimensions, got {Extent.Length}");
-                    GridExtent = new int3(int.Parse(Extent[0]), int.Parse(Extent[1]), int.Parse(Extent[2]));
+                    if (Extent.Any(v => v < 0))
+                        throw new Exception("Values can't be negative");
+                    GridExtent = new int3(Extent[0], Extent[1], Extent[2]);
                 }
                 catch (Exception exc)
                 {
@@ -79,10 +81,12 @@ namespace WarpTools.Commands.Tiltseries
 
                 try
                 {
-                    var Dims = CLI.GridDims.Split('x');
+                    var Dims = CLI.GridDims.Split('x').Select(int.Parse).ToArray();
                     if (Dims.Length != 3)
                         throw new Exception($"Expected 3 dimensions, got {Dims.Length}");
-                    GridDims = new int3(int.Parse(Dims[0]), int.Parse(Dims[1]), int.Parse(Dims[2]));
+                    if (Dims.Any(v => v <= 0))
+                        throw new Exception("Values must be positive");
+                    GridDims = new int3(Dims[0], Dims[1], Dims[2]);
                 }
                 catch (Exception exc)
                 {
