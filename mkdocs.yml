@@ -22,7 +22,6 @@ nav:
       - user_guide/warp/quick_start_warp_tilt_series.md
     - M:
       - user_guide/m/quick_start_m.md
-      - user_guide/m/particle_operations.md
     - WarpTools:
       - user_guide/warptools/quick_start_warptools_frame_series.md
       - user_guide/warptools/quick_start_warptools_tilt_series.md
@@ -32,6 +31,8 @@ nav:
       - Spatiotemporal Models: reference/warp/models.md
       - "Task Dialogs: Frame Series": reference/warp/task_dialogs_frame_series.md
       - "Task Dialogs: Tilt Series": reference/warp/task_dialogs_tilt_series.md
+    - M:
+        - Particle Operations: reference/m/particle_operations.md
   - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md

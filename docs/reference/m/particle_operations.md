@@ -2,11 +2,11 @@
 
 Access the particle operations menu by clicking on a species' particle count.
 
-![Particle operations](http://www.warpem.com/warp/wp-content/uploads/2020/07/particleoperations.png)
+![Particle operations](./assets/particle_operations.png)
 
 ## Intersect with Another Particle Set
 
-![Particle set operations](http://www.warpem.com/warp/wp-content/uploads/2020/07/particlesets.png)
+![Particle set operations](./assets/particle_sets.png)
 
 This dialog allows you to intersect the current particle set of a species ("old set") with another particle set defined in a STAR file ("new set").
 
@@ -18,7 +18,7 @@ The matching creates 3 sets: "only old", "in both" (intersection), and "only new
 
 ## Export Sub-tomograms
 
-![Sub-tomogram export](http://www.warpem.com/warp/wp-content/uploads/2020/07/subtomoexport.png)
+![Sub-tomogram export](./assets/subtomo_export.png)
 
 M can refine per-particle pose trajectories. To consider them for export, please use this dialog rather than Warp’s particle export. Some field values will be pre-populated based on the species' parameters, but feel free to change them. Particle export from frame series is currently not supported.
 
