@@ -1,0 +1,1875 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Warp">
+      
+      
+        <meta name="author" content="Dimitry Tegunov">
+      
+      
+        <link rel="canonical" href="https://warpem.com/user_guide/warp/quick_start_warp_frame_series/">
+      
+      
+        <link rel="prev" href="../../overview/">
+      
+      
+        <link rel="next" href="../quick_start_warp_tilt_series/">
+      
+      
+      <link rel="icon" href="../../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.20">
+    
+    
+      
+        <title>Quick Start: Frame Series - Warp, M and friends</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.66ac8b77.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#quick-start-frame-series" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Warp, M and friends" class="md-header__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
+      
+  <img src="../../../assets/warp_m_logos_combined.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Warp, M and friends
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Quick Start: Frame Series
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="purple"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/warpem/warp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    warpem/warp
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  🏡 Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../overview/" class="md-tabs__link">
+          
+  
+  📘 User Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../reference/warp/interface/interface_overview/" class="md-tabs__link">
+          
+  
+  🗄️ Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../papers/" class="md-tabs__link">
+        
+  
+    
+  
+  📜 Papers
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://groups.google.com/forum/#!forum/warp-em" class="md-tabs__link">
+        
+  
+    
+  
+  💬 Discussion Group
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../team/" class="md-tabs__link">
+        
+  
+    
+  
+  🧑‍🤝‍🧑 Team
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Warp, M and friends" class="md-nav__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
+      
+  <img src="../../../assets/warp_m_logos_combined.png" alt="logo">
+
+    </a>
+    Warp, M and friends
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/warpem/warp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    warpem/warp
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    🏡 Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            🏡 Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../home/warp/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Warp
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../home/m/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    M
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    📘 User Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            📘 User Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Desktop Warp
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            Desktop Warp
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Quick Start: Frame Series
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Frame Series
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#to-the-microscopes-ready-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      To the microscopes, ready, go!
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#launch-warp-and-get-comfortable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Launch Warp and get comfortable
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setup
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Input parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctf-fitting-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      CTF fitting options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#motion-fitting-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Motion fitting options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#particle-picking-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Particle picking options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output options
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Start processing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processing status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inspecting results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dealing-with" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dealing with 💩
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugging-warp-into-other-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔌 Plugging Warp into other tools
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quick_start_warp_tilt_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Tilt Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    M
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            M
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../m/quick_start_m/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: M
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    WarpTools
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            WarpTools
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../warptools/quick_start_warptools_frame_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Frame Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Tilt Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    🗄️ Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            🗄️ Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Warp
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Warp
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/interface/interface_overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Interface Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/models/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Spatiotemporal Models
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/task_dialogs_frame_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Task Dialogs: Frame Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/task_dialogs_tilt_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Task Dialogs: Tilt Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    M
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            M
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/m/particle_operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Particle Operations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../papers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    📜 Papers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://groups.google.com/forum/#!forum/warp-em" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    💬 Discussion Group
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../team/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    🧑‍🤝‍🧑 Team
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#to-the-microscopes-ready-go" class="md-nav__link">
+    <span class="md-ellipsis">
+      To the microscopes, ready, go!
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#launch-warp-and-get-comfortable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Launch Warp and get comfortable
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setup
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#input-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Input parameters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctf-fitting-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      CTF fitting options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#motion-fitting-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Motion fitting options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#particle-picking-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Particle picking options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Output options
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processing
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Start processing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#processing-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processing status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspecting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Inspecting results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dealing-with" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dealing with 💩
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugging-warp-into-other-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔌 Plugging Warp into other tools
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="quick-start-frame-series">Quick Start: Frame Series</h1>
+<p>This quick introduction can help you start processing frame series data (2D movies) with
+Warp right away, without diving into details.</p>
+<h2 id="to-the-microscopes-ready-go">To the microscopes, ready, go!</h2>
+<p>Load your favorite sample into the microscope and start collecting data. For counting
+data from K2/3 and Falcon III detectors, we highly recommend saving the movies as
+gain-uncorrected, compressed TIFF files. This will make sure a typical SPA movie with 40
+frames doesn't take up more than 200 MB and you don't need to purchase a new file server
+every now and then. If you're using SerialEM or other software with native TIFF support,
+this can be done with a few clicks. If you're using
+EPU, <a href="https://github.com/dtegunov/stacker2">our Stacker v2 tool</a> will help you.</p>
+<p>If you don't have access to a microscope right now, grab a data set
+from <a href="http://www.ebi.ac.uk/pdbe/emdb/empiar/">EMPIAR</a>,
+e.g. <a href="https://www.ebi.ac.uk/pdbe/emdb/empiar/entry/10153/">10153</a>. This tutorial will
+use EMPIAR-10153 for all of its screenshots.</p>
+<h2 id="launch-warp-and-get-comfortable">Launch Warp and get comfortable</h2>
+<p>Once a steady influx of movies is ensured, you can launch Warp. Just go to the
+installation directory and execute <strong>Warp.exe</strong>. The first launch can take a bit
+longer – please be patient.</p>
+<p>If you don't see the <strong>settings panel</strong> on the left side, click the small triangle to
+expand it. Collapsing the settings panel will merge the <strong>Fourier</strong> and <strong>Real Space
+tabs</strong> – you may find this mode more convenient for manually screening the processing
+results.</p>
+<p><img alt="Expand settings" src="../assets/settings_expand.gif" /></p>
+<p>If you're a vampire, click the 🔄 button in the window bar to change to a dark UI theme.
+We won't judge 🧛</p>
+<p><img alt="Night mode" src="../assets/nightmode.gif" /></p>
+<h2 id="setup">Setup</h2>
+<h3 id="input-parameters">Input parameters</h3>
+<p><img alt="Input settings" src="../assets/input.gif" /></p>
+<p>First, you need to tell Warp where to look for data, and what basic input parameters to
+expect. These settings are located in the left part of the window under <strong>Input</strong>.</p>
+<p>Click <strong>Select folder…</strong> and select the location of your movies. Warp will not look for
+files recursively in sub-folders, so all files must be located on the top level. Next,
+click <strong>.mrc</strong> (the extension may be different if you've already used Warp) to specify
+the file format. If you're working with a header-less format (or any format Warp doesn't
+recognize yet), select the <strong>DAT</strong> option, and specify the frame dimensions, data type
+and an optional offset at the beginning of the files. Only the <strong>.dat</strong> extension is
+supported for the file names, but you can use any header-less format by renaming them.</p>
+<p>Set the <strong>pixel size</strong> in the X and Y dimensions to match your <em>raw, unbinned</em> data. If
+you haven't determined the magnification anisotropy for your microscope, both numbers
+will be the same. The <strong>anisotropy angle</strong> specifies the anti-clockwise rotation of this
+X/Y coordinate system.</p>
+<p>Especially if you're acquiring in super-resolution mode on a K2, you might want to bin
+the data before they are processed. We don't think the processing overhead for
+super-resolution data is worth the small gain in signal, but you are free to experiment
+😉 Warp can use any positive rational <strong>binning factor</strong>. The frames will then be
+Fourier-cropped to <em>Size / 2^n</em>.</p>
+<p>If you enter any non-zero <strong>electron dose</strong> value, frames will be weighted in all
+operations that produce averages, e.g. aligned movie or particle averages. The weighting
+is implemented as a B-factor of <em>–4⋅Dose Å²</em>. Please don't forget to convert the dose
+value to the correct units.</p>
+<p><img alt="Pre-processing" src="../assets/preprocessing.png" /></p>
+<p>Following the best practice of storing counting data as gain-uncorrected integer values,
+you need to tell Warp how to perform gain correction on-the-fly. Click <strong>Select
+reference…</strong> and choose an MRC file. Please make sure the gain reference matches the
+data. In case of EER data, the size of the gain reference also determines the
+super-resolution – <a href="../eer/">check the EER page</a> for details. Warp will tell you if the
+dimensions don't match (e.g. if it needs to be <strong>transposed</strong>), but it can't detect if
+the reference is flipped in X or Y. If you're not sure, try processing a movie without
+motion correction and check whether the average contains a visible gain pattern. Repeat
+the procedure with different combinations of <strong>Flip X/Y axis</strong> until the pattern
+disappears.</p>
+<p>Some camera sensors have small defective regions that can't be corrected using a gain
+reference. They won't affect alignments if they're small, but can be annoying,
+especially in tomography. Warp can use a <strong>defect map</strong> to fill those regions with the
+average value of their surroundings. The defect map must have the same dimensions as the
+gain reference, and contain pixel values = 1 in the defect regions and = 0 everywhere
+else. The same flip X/Y and transpose operations will apply to the gain reference and
+defect map. Alternatively, you can have Warp create the defect map image based on a text
+description of rectangular regions. To do this, click <strong>Select defect map</strong>, change the
+file filter to * <em>.txt</em>, and select the text file. In this file, every line should
+describe a rectangle in the following
+format: <code>[bottom left corner X] [bottom left corner Y] [width] [height]</code></p>
+<p>The X and Y coordinates start with 0, not 1. The columns are separated by spaces or
+tabs. For instance,</p>
+<p><code>0 3709 3838 1</code> will mask the top-most row of a 3838&#215;3710 px sensor. Once the file
+is loaded, Warp will generate the defect map image and save it
+under <code>project directory/defectmap/defects.tif</code> and automatically change the file path.
+Please check this image to make sure the mask is correct. For future projects using data
+from the same sensor, you can just reuse this TIFF file.</p>
+<h3 id="ctf-fitting-options">CTF fitting options</h3>
+<p>The number of parameters for CTF fitting can be scary at first. Good news: You need to
+set many of them only once for your microscope!</p>
+<p><img alt="CTF settings" src="../assets/settings_ctf.png" /></p>
+<ul>
+<li>
+<p><strong>Window:</strong> Specifies the size of the power spectrum. If you expect only low defocus
+  values or need highly localized defocus values, leave the window small, e.g., 512 px.</p>
+</li>
+<li>
+<p><strong>Range:</strong> Specifies the spatial frequencies used for fitting. It is usually best to
+  ignore the lowest frequencies. If you specify a defocus model without spatial
+  resolution (see next section), you can set the maximum range to 1.0. If you are
+  fitting a highly resolved model, keep the maximum value lower to prevent overfitting.</p>
+</li>
+<li>
+<p><strong>Use Movie Sum:</strong> In some cases (e.g., very low dose images) the fitting will work
+  better if the power spectrum is created from the aligned movie average instead of the
+  per-frame power spectra – check this option to do that.</p>
+</li>
+<li>
+<p><strong>Voltage and C<sub>S</sub>:</strong> Values specific to your microscope model. A Titan Krios
+  is usually operated at 300 kV, and C<sub>S</sub> is 2.7 mm in most modes.</p>
+</li>
+<li>
+<p><strong>C<sub>C</sub>, Illumination Aperture, and ΔE:</strong> Currently not used, but might become
+  relevant in future versions of Warp. Just leave the defaults for now.</p>
+</li>
+<li>
+<p><strong>Amplitude:</strong> Defines the fraction of amplitude contrast in the CTF. Commonly used
+  values for cryo data are 0.07 and 0.10, while negative stain data are often fitted
+  with 0.20.</p>
+</li>
+<li>
+<p><strong>Defocus spread:</strong> Defines the range of defocus values for the initial exhaustive
+  search. Set both values to match the range specified in your acquisition software with
+  a bit of a margin.</p>
+</li>
+<li>
+<p><strong>Phase Shift:</strong> When dealing with data acquired with a phase plate, check this to fit
+  that parameter as well.</p>
+</li>
+<li>
+<p><strong>Mode Ice Ring:</strong> An experimental feature that will attempt to model the CTF around
+  the 3.6 Å amorphous ice ring separately from the rest of the power spectrum.</p>
+</li>
+</ul>
+<p><strong>Range parameters optimization:</strong> The easiest way to optimize them for a new data set
+is to switch to the Fourier Space tab and click Process Only This Item's CTF. This will
+skip all the other processing steps and just fit the CTF for the currently selected
+movie. The fitting range is visualized as a grey rectangle in the 1D power spectrum
+plot.</p>
+<p><img alt="CTF fit one item" src="../assets/ctf_oneitem.gif" /></p>
+<p><img alt="CTF grid" src="../assets/model_defocus.png" /></p>
+<p><strong>CTF Model Resolution:</strong> Defined further below in the Models panel. The first two
+values define the spatial resolution, i.e., how locally the defocus will be estimated.
+5x5 is usually a good value for a 4K micrograph at 1.0–1.3 Å/px. The third parameter
+defines the temporal resolution. Please note that a temporal resolution higher than 1
+leads to a vastly increased memory footprint during processing, while probably not
+improving the final resolution in most cases.</p>
+<h3 id="motion-fitting-options">Motion fitting options</h3>
+<p><img alt="Motion settings" src="../assets/model_motion.png" /></p>
+<ul>
+<li>
+<p><strong>Global and local motion estimation:</strong> Considers the specified range of spatial
+  frequencies and weights their importance according to the B-factor. The default range
+  of 0.05–0.25 is usually ok for data with 1.00–1.35 Å/px. The more negative the
+  B-factor, the less the higher spatial frequencies will be considered.</p>
+</li>
+<li>
+<p><strong>Motion model parameters:</strong> The first two parameters describe the spatial resolution,
+  and the third describes the temporal resolution. The spatial resolution will be
+  considered in fitting the local beam-induced motion, while the full specified temporal
+  resolution will be used for fitting the global motion.</p>
+</li>
+</ul>
+<h3 id="particle-picking-options">Particle picking options</h3>
+<p>Warp employs <strong>BoxNet</strong>, a deep convolutional neural network, for particle picking and
+maintains a central database of training data that any user can contribute to. As new
+examples are added, the BoxNet model is constantly re-trained using all available data.
+In addition to this, BoxNet can be re-trained locally on any data you would like to pick
+more specifically. Thus, while the concept of sample-specific templates does not exist
+with BoxNet, you can maintain multiple pre-trained models for different samples. More
+information on how to re-train
+BoxNet <a href="../boxnet/retraining/">can be found here</a>.</p>
+<p><img alt="BoxNet selection" src="../assets/boxnet_selection.png" /></p>
+<p>Click <strong>Select BoxNet model...</strong> to open a list of available models. All models
+contained in <em>[WarpInstallationDirectory]/boxnet2models/</em> are enumerated here. If you
+just installed Warp recently, the list of official BoxNet models pre-trained only on the
+public dataset should be up-to-date. If your installation is a bit older, click <strong>Browse
+Public Repository</strong> to download the latest versions. After downloading new models,
+please re-open the model selection window to see the changes. Once a model is selected,
+click <strong>Use</strong> (
+or <a href="../boxnet/retraining/">follow the re-training guide</a>).</p>
+<p>There are 2 types of official BoxNet models: One follows the <em>BoxNet2_</em> naming scheme
+and can only distinguish between background and particles. Another is called
+<em>BoxNet2Mask_</em> and can distinguish between background, particles, and high-contrast
+artifacts, e.g., ethane drops. Knowing the exact location of such artifacts allows
+dismissing particles located too close to them.</p>
+<p><img alt="BoxNet settings" src="../assets/boxnet_settings.png" /></p>
+<p>The <strong>Diameter</strong> setting controls how close two particles can be together before the
+particle with lower probability is dismissed from the picks. The <strong>Data Type</strong>
+determines whether the sign of the data is flipped before picking (negative stain), or
+not (cryo). A <strong>Minimum Score</strong> threshold is applied to BoxNet's predictions. When using
+a model specifically pre-trained on the current protein species, the score can be
+typically left at its default value of 0.95. Picking new species with the generic
+version can sometimes require lower threshold values to pick up everything.</p>
+<p>If you're using a BoxNet version that can create masks, you can enforce a <strong>Minimum
+Distance</strong> between particles borders (as defined by their diameter) and 📩.</p>
+<p>The picked particles can be <strong>extracted immediately</strong> after the picking, which is
+especially useful for real-time processing. For that, the <strong>Box Size</strong> must be set – ca.
+150 % of the particle diameter is recommended to avoid interpolation artifacts later.
+The pixel size is fixed to that used for the entire pre-processing pipeline. If you want
+to extract particles with a different pixel size, you can do so later using one of
+the <a href="../../../reference/warp/task_dialogs_frame_series/">Task Dialogs</a>. Cryo data need to be
+<strong>inverted</strong> upon extraction. For SPA packages that require particles to be
+pre-normalized, e.g., RELION, the diameter used for picking will also be used for *
+<em>background normalization</em>*.</p>
+<h3 id="output-options">Output options</h3>
+<p><img alt="Output settings" src="../assets/output_settings.png" /></p>
+<p>The <strong>first</strong> few frames in a movie suffer especially badly from beam-induced motion and
+can usually be discarded by adjusting the output <strong>frame range</strong>. This setting will also
+be respected in all other operations that deal with frames, e.g., particle extraction.</p>
+<p>In addition to extracted particles, there are 2 output types for 2D movies:</p>
+<ul>
+<li><strong>Average:</strong> You will almost always want to produce an average to inspect the
+  micrographs visually. You can also use other tools to extract particles from them if
+  you don't want to use Warp for that.</li>
+<li><strong>Aligned Stack:</strong> Some workflows – RELION pre-3.0 particle polishing in particular –
+  rely on pre-aligned movies as input. Please note that aligned movies are very large
+  and will create significant storage and processing overhead. To save some space, you
+  can <strong>collapse</strong> groups of consecutive frames into one.</li>
+</ul>
+<h2 id="processing">Processing</h2>
+<h3 id="start-processing">Start processing</h3>
+<p><img alt="GPU selection" src="../assets/gpu_selection.png" /></p>
+<p>You're almost ready to hit that big button! We just need to make sure that all of the
+GPUs in your system are as ready as you are. Warp will try to use all CUDA-capable
+Nvidia GPUs available, which might not be a good idea if you have several models with
+different memory capacity. They are all listed in the window bar together with
+checkboxes to deselect them. Deselected GPUs will not be used for on-the-fly processing.
+version's memory requirements.</p>
+<p>Now hit it! Warp won't stop processing until you manually press <strong>Stop Processing</strong>. All
+processing settings and task dialogs are frozen while Warp is in processing mode, but
+you can still inspect the results, edit the particle positions, and change any filter
+thresholds.</p>
+<p><img alt="Start processing" src="../assets/start_processing.gif" /></p>
+<h3 id="processing-status">Processing status</h3>
+<p><img alt="Status pie" src="../assets/processing_pie.png" /></p>
+<p>As movies are processed, they change their status. Every movie is initially marked as *
+<em>unprocessed</em><em>. Once it has passed through the entire pipeline, it is considered *
+</em>processed<strong>. If you change any processing settings, previously processed items will be
+marked as </strong>outdated<strong>, i.e., in need of re-processing. If a processed item's quality
+criteria don't match the current filter thresholds (see section below), it is labeled *
+*filtered out</strong>. Finally, if you deselect an item manually in the navigation bar, it
+will be colored as <strong>deselected</strong>. This color scheme is used throughout the navigation
+bar and the overview tab, except in the astigmatism plot. There, color reflects an
+item's coordinate on the time axis, going from <strong>old</strong> to <strong>new</strong>. Whenever unprocessed
+or outdated items are present in the current input folder and processing is activated,
+Warp will send them through the pipeline in alphabetical order.</p>
+<h3 id="inspecting-results">Inspecting results</h3>
+<p>Once the processing has started, it is best to <strong>collapse the settings panel</strong> as shown
+in the beginning of this guide. This will make more room for the overview plots, and
+merge the Fourier and Real Space tabs so you don't have to constantly switch between
+them.</p>
+<p><img alt="Plot" src="../assets/defocus_plot.gif" /></p>
+<p>The <strong>Overview tab</strong> features plots for all estimated parameters. If the dot spacing
+becomes too dense, use the mouse wheel to <strong>zoom</strong> into the plots. Each plot features a
+small histogram on its left side. Click any of the dots to switch to the <strong>Fourier &amp;
+Real Space tab</strong> and inspect the corresponding item in more detail.</p>
+<p><img alt="Result inspection" src="../assets/result_inspection.jpeg" /></p>
+<p>There, you will find the <strong>Power Spectrum</strong> and its <strong>CTF Fit</strong>, an <strong>Average</strong> of the
+aligned movie and the corresponding <strong>Local Motion Tracks</strong>, the picked <strong>Particles</strong>
+and the automatically painted <strong>Mask</strong>, and the local <strong>Defocus Gradient</strong>. Some of
+these elements are hidden by default so they don't clutter up your view.</p>
+<p>If your GPU has 8+ GB of memory, you can enable <strong>Denoising</strong> to see more details in the
+noisy images. Warp comes with a default pre-trained denoising model, but it will likely
+not be as good as one trained on your specific data set. To retrain the model on your
+data using the <a href="https://arxiv.org/abs/1803.04189">noise2noise method</a>, wait until at
+least 20–30 movies have been processed (up to 128 can be used). Then stop the processing
+to free up GPU resources. Now click <strong>Retrain on this data set</strong> next to the <strong>Denoise</strong>
+checkbox and proceed through the dialogs. Once training is finished, you can activate
+the denoising if it isn't active yet, and proceed with the processing. In very rare
+cases it may be necessary to restart Warp after retraining to avoid crashes. The
+retrained denoising model will be saved in the project directory and used automatically
+for this project in the future.</p>
+<p>Alternatively, you can enable the <strong>Deconvolution Filter</strong> and adjust it on-the-fly to
+give your micrographs more contrast. If the latter is too much, you may need to adjust
+the <strong>Intensity Range</strong> slider.</p>
+<p>While in the Fourier &amp; Real Space tab, you can quickly go through your micrographs using
+the ⬅️ and ➡️ keys on the keyboard.</p>
+<h3 id="dealing-with">Dealing with 💩</h3>
+<p>Even a perfect grid will produce a bad micrograph every now and then.
+Wouldn't it be great to get rid of them in an objective and automated way?</p>
+<p><img alt="Filters" src="../assets/plot_filters.png" /></p>
+<p><img alt="Astigmatism filter" src="../assets/astigmatism_plot.png" /></p>
+<p>Some of the parameters established during processing are likely correlated with the data
+quality: Defocus, astigmatism, phase shift, estimated resolution, average intra-frame
+motion, number of particles, and the percentage of masked micrograph area. Using the
+sliders above the plots in the Overview tab, you can define <strong>Filter Thresholds</strong> for
+all of them. Whenever you change a threshold, Warp instantly re-applies it to all items.
+The <strong>Astigmatism</strong> filter is special because it considers the distance of a movie's
+astigmatism to the entire data set's mean astigmatism, normalized by its standard
+deviation. Thus, whenever an item's astigmatism value changes, the entire filter is
+re-evaluated without an explicit change in the threshold.</p>
+<p><img alt="Manual selection" src="../assets/manual_selection.gif" /></p>
+<p>In some rare cases, you may want to overrule the automatic filtering. Each item has a *
+<em>Manual Selection flag</em><em> in addition to the filtering. To edit it, switch to the Fourier
+or Real Space tab. You will find the </em><em>Navigation Bar</em><em> at the bottom of the window.
+There, the currently selected item has a check box next to its name. This check box has
+3 different states, which are cycled through by repeatedly clicking it: </em><em>[–]</em><em> (
+default) leaves the inclusion/exclusion to the automatic filters; </em><em>[✓]</em><em> forces
+inclusion regardless of filters; </em><em>[   ]</em><em> forces exclusion regardless of filters.
+Alternatively, you can press </em><em>F</em>* on the keyboard to change the current item's
+selection.</p>
+<h2 id="plugging-warp-into-other-tools">🔌 Plugging Warp into other tools</h2>
+<p>Now that Warp is running and providing you with lots of insights into your ongoing data
+collection, what's next?</p>
+<p>If you set up Warp to pick particles on-the-fly using BoxNet, it will create and
+continuously update two files in the input folder: <strong>allparticles_BoxNetName.star</strong> and
+<strong>goodparticles_BoxNetName.star</strong>. The former contains absolutely all particles picking
+with the respective BoxNet model so far, while the latter only contains particles from
+micrographs that match the current filter thresholds. Whenever you change the filter
+parameters, the <strong>goodparticles</strong> file will be updated the next time Warp is done
+processing a movie.</p>
+<p><a href="https://cryosparc.com">cryoSPARC</a> is our favorite tool for processing Warp's on-the-fly
+results because of its speed and transparent handling of constantly changing data
+sources.</p>
+<p><img alt="Cryosparc setup" src="../assets/cryosparc_setup.png" /></p>
+<p>Create a new data source for your project and select <code>goodparticles_BoxNetName.star</code> in
+Warp's input folder as cryoSPARC's <strong>Meta Data File</strong>. Set the other data set parameters
+as usual. That's it! Now, whenever you create a new job with the full data source as
+input (i.e., not using the output of a previous job as input), cryoSPARC will read the
+most current version of the STAR file, load all new particles into its local cache, and
+use them for processing.</p>
+<p><img alt="2D classes" src="../assets/cryosparc_classes.png" /></p>
+<p>At the beginning of a data collection session, we like to start <strong>2D Classification</strong>
+jobs every 30 minutes. If the data are good, well-defined classes should appear soon.
+After a few hours, we employ <em>Ab Initio</em> jobs to bootstrap the <strong>3D classification</strong>
+and, once we have good classes, <strong>3D Refinement</strong>. This way, it usually becomes clear
+after only a few hours of data collection if it's worth continuing, or if a different
+sample should be loaded into the microscope instead.</p>
+<p>Warp's STAR files are also fully compatible
+with <a href="https://github.com/3dem/relion/">RELION</a>. While its current processing speed makes
+for a less responsive on-the-fly workflow, we usually employ it once data collection is
+over to classify and refine the data further.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2023 - 2024
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.dd8806f2.min.js"></script>
+      
+    
+  </body>
+</html>

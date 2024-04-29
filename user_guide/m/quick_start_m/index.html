@@ -1,0 +1,1758 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Warp">
+      
+      
+        <meta name="author" content="Dimitry Tegunov">
+      
+      
+        <link rel="canonical" href="https://warpem.com/user_guide/m/quick_start_m/">
+      
+      
+        <link rel="prev" href="../../warp/quick_start_warp_tilt_series/">
+      
+      
+        <link rel="next" href="../../warptools/quick_start_warptools_frame_series/">
+      
+      
+      <link rel="icon" href="../../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.20">
+    
+    
+      
+        <title>Quick Start: M - Warp, M and friends</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.66ac8b77.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#quick-start-m" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Warp, M and friends" class="md-header__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
+      
+  <img src="../../../assets/warp_m_logos_combined.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Warp, M and friends
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Quick Start: M
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="purple" data-md-color-accent="purple"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/warpem/warp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    warpem/warp
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  🏡 Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../overview/" class="md-tabs__link">
+          
+  
+  📘 User Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../reference/warp/interface/interface_overview/" class="md-tabs__link">
+          
+  
+  🗄️ Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../papers/" class="md-tabs__link">
+        
+  
+    
+  
+  📜 Papers
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://groups.google.com/forum/#!forum/warp-em" class="md-tabs__link">
+        
+  
+    
+  
+  💬 Discussion Group
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../team/" class="md-tabs__link">
+        
+  
+    
+  
+  🧑‍🤝‍🧑 Team
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Warp, M and friends" class="md-nav__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
+      
+  <img src="../../../assets/warp_m_logos_combined.png" alt="logo">
+
+    </a>
+    Warp, M and friends
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/warpem/warp" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    warpem/warp
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    🏡 Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            🏡 Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../home/warp/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Warp
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../home/m/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    M
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    📘 User Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            📘 User Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Desktop Warp
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            Desktop Warp
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../warp/quick_start_warp_frame_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Frame Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../warp/quick_start_warp_tilt_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Tilt Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    M
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            M
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Quick Start: M
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: M
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      The pipeline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-population" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a population
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding data sources
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-species" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding species
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-up-refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting up refinement
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting up refinement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Geometry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctf" class="md-nav__link">
+    <span class="md-ellipsis">
+      CTF
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changing-model-resolution-between-refinement-iterations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changing model resolution between refinement iterations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory considerations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#making-sense-of-the-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Making sense of the results
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    WarpTools
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            WarpTools
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../warptools/quick_start_warptools_frame_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Frame Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Quick Start: Tilt Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    🗄️ Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            🗄️ Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Warp
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Warp
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/interface/interface_overview/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Interface Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/models/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Spatiotemporal Models
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/task_dialogs_frame_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Task Dialogs: Frame Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/warp/task_dialogs_tilt_series/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Task Dialogs: Tilt Series
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    M
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            M
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/m/particle_operations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Particle Operations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../papers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    📜 Papers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://groups.google.com/forum/#!forum/warp-em" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    💬 Discussion Group
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../team/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    🧑‍🤝‍🧑 Team
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      The pipeline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project structure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-population" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a population
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding data sources
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-species" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding species
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-up-refinement" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting up refinement
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting up refinement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#geometry" class="md-nav__link">
+    <span class="md-ellipsis">
+      Geometry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctf" class="md-nav__link">
+    <span class="md-ellipsis">
+      CTF
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changing-model-resolution-between-refinement-iterations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changing model resolution between refinement iterations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Memory considerations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#making-sense-of-the-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Making sense of the results
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="quick-start-m">Quick Start: M</h1>
+<figure>
+  <img alt="Warp" src="../../../assets/m_logo.png" width="250" />
+  <figcaption></figcaption>
+</figure>
+<p>M is a stand-alone program shipped with Warp. While Warp handles the first stages of the
+data processing pipeline, M lives on its opposite end. It allows you to take refinement
+results from RELION and perform a multi-particle refinement. For frame series data, the
+procedure is similar to RELION's "particle polishing" and probably won't deliver
+significantly better results – unless you have a very heterogeneous dataset that can
+benefit from M's ability to consider as many classes as you want (memory limitations
+apply!), or maps with heterogeneous resolution that can benefit from M's map denoising.
+For tilt series data, M will likely deliver a noticeable resolution boost compared to
+patch tracking- or fiducials-based tilt alignments. Refinement of <em>in situ</em> data will
+also benefit significantly from the unlimited number of classes and transparent
+mechanisms for combining data from different sources.</p>
+<h2 id="the-pipeline">The pipeline</h2>
+<p>Pre-processing of <a href="../../warp/quick_start_warp_frame_series/">frame series</a>
+or <a href="../../warp/quick_start_warp_tilt_series/">tilt series</a> in Warp<br />
+↓<br />
+<a href="../../../reference/warp/task_dialogs_frame_series/">Particle image</a>
+or <a href="../../../reference/warp/task_dialogs_tilt_series/#export-sub-tomograms">sub-tomogram export</a> from Warp<br />
+↓<br />
+<a href="https://www3.mrc-lmb.cam.ac.uk/relion/index.php/Main_Page">Classification and refinement in RELION</a><br />
+↓<br />
+Import and refinement in M<br />
+↓<br />
+Final maps</p>
+<p>(optionally: → re-export improved particles from Warp → re-classify and refine in
+RELION → import and improve alignments in M → repeat as needed)</p>
+<h2 id="project-structure">Project structure</h2>
+<p>M strives to be a great tool for <em>in situ</em> data, which have been compared
+to "<a href="https://science.sciencemag.org/content/351/6276/969">molecular sociology</a>". Thus,
+its terminology takes a somewhat sociological angle. A project in M is referred to as a
+<strong>Population</strong>. A population contains at least one data source and at least one species.
+A <strong>Data source</strong> contains a set of frame series or tilt series and their metadata. A *
+<em>Species</em>* is a map that is refined, as well as particle metadata for the available data
+sources.</p>
+<h2 id="creating-a-population">Creating a population</h2>
+<p>When M starts, you can choose between creating a new population and opening an existing
+one. To create a new population, give it a name and specify its root folder. There are
+no particular requirements for this location. It won't experience much IO during
+refinement, and the species folders contained there might grow to a few tens of
+gigabytes depending on map size. For populations with a single data source, we usually
+just go one level above the old Warp project folder.</p>
+<h2 id="adding-data-sources">Adding data sources</h2>
+<p>Once a population is open, you can click on the data source summary saying "0 data
+sources" to open the management dialog. Remote data sources are not supported at the
+moment. Click <strong>Add local</strong> and select a <strong>.settings</strong> file in a Warp project folder.
+Once M converts that file into a data source, its parameters and list of items become
+read-only. So if you want to change something (e.g. quality filter settings or binning
+value), load the folder in Warp and modify the settings. M will read in the metadata for
+all items and present you with the number of items that pass all quality criteria, as
+well as those filtered out or deselected manually. Give the data source a name, choose
+whether to include the sub-optimal items, and set the <strong>maximum number of frames or
+tilts</strong> (sorted by dose). The latter can be useful if the data have a very high overall
+dose that was used for picking or visual interpretation, but isn't required for
+high-resolution alignment – this will save computational resources during M's
+refinement. You can't change this setting later. Finally, click <strong>Create</strong>. The list of
+data sources should now contain the new source with its input settings.</p>
+<h2 id="adding-species">Adding species</h2>
+<p>Make sure you've added all data sources you'd like to use, and click the big <strong>+</strong> to
+initiate the creation of a new species. Remote species aren't supported yet, but you can
+create a local one from scratch. Select <strong>From scratch</strong> and click <strong>add</strong>.</p>
+<p>Give the species a <strong>Name</strong> and specify its <strong>Diameter</strong> along the longest axis. This
+value will determine the box size (2x diameter) and the spherical mask diameter for some
+operations. The <strong>Molecular weight</strong> currently isn't used anywhere, but you can specify
+a value anyway in case some smart heuristics become available in a future M version to
+take advantage of it. The <strong>Symmetry</strong> follows RELION's conventions. Select the correct
+group and a multiplier if applicable. The number of <strong>Temporal samples for poses</strong>
+determines how finely per-particle translation and rotation trajectories will be
+resolved as a function of dose. The optimal value depends on the particle mass (bigger =
+more signal = can fit more parameters) and the overall dose. Frame series data with a
+relatively low dose can benefit from 2–3 sampling points (2 still works for a 150 kDa
+protein), while 100+ e/Å2 tilt series can use 3–4 (especially when dealing with
+particles as large as ribosomes). If you intend to classify the particles further after
+an initial M refinement, you may want to set the number of temporal samples to 1 to
+definitely avoid biasing the classification through overfitting on a single reference.</p>
+<p>For the <strong>Half-maps</strong>, it is best to select the final, unfiltered half-maps from
+RELION's 3D refinement. If you performed the refinement with binned data, please rescale
+the maps first to the pixel size you'd like to use in M, e.g. using the
+relion_image_handler utility. Once the first half-map is selected, M should figure out
+the <strong>Pixel size</strong> based on its header. If not, specify the value manually. The
+interactive isosurface renderings are there to help you make sure the selected half-maps
+are what you think they are.</p>
+<p>The <strong>Mask</strong> can be loaded from a volume you made using the relion_mask_create utility,
+or prepared in M by low-pass filtering the average of the half-maps and selecting a
+binarization threshold. For refinements, M will expand and smooth the mask based on the
+current refinement resolution. Thus, the mask you provide should be binary (no
+smoothing) and as tight as what you would get in RELION before the expansion and
+smoothing steps. The pixel size and dimensions should be the same as those of the
+half-maps.</p>
+<p>To use refined <strong>Particle</strong> positions and orientations from RELION, select a *_data.star
+file from the Refine3D job. M should be able to figure out the correct pixel sizes for
+both coordinates and shifts. Please correct the values manually if you think they are
+wrong. Deselect any data sources you don't want the particles to be linked to (e.g. in
+case of identical file names in multiple sources). If you have repeating file names
+across several data sources, please add the particles for one of them and use the
+particle set operations to add more later. M will report the number of particles that
+have been successfully linked to the data. If that number is 0 or lower than it should
+be, mismatching file names are the most likely culprit. Make sure the names in the
+rlnMicrographName column of the data.star file don't have any extra parts compared to
+the file names in the data source. For tilt series, rlnMicrographName should reference
+the .tomostar files.</p>
+<p>Once everything is specified correctly, click <strong>Finish</strong>. M will calculate some map
+statistics and train an initial denoising model, which might take 10–15 minutes
+depending on your hardware.</p>
+<h2 id="setting-up-refinement">Setting up refinement</h2>
+<p>With all data sources and species set up, click the big <strong>Refine</strong> button to bring up
+the refinement dialog. Here you can select different groups of parameters to be
+optimized.</p>
+<p><img alt="M: refinement settings" src="../assets/refinement_settings.png" /></p>
+<p><strong>Refine for N sub-iterations</strong>: During each refinement iterations, M alternates between
+refining various sets of parameters. To accelerate convergence, this can be done for
+several sub-iterations, which will all use the same reference maps for the optimization.
+If you're refining only one set of parameters (e.g. particle orientations), you can set
+the value to 1. Otherwise, 2–3 makes sense.</p>
+<p><strong>Use N % of available resolution in first sub-iteration</strong>: M performs a gradient
+descent optimization, which can easily get stuck in local optima. To avoid this, the
+resolution can be decreased in the beginning and gradually increased until the final
+sub-iteration. This can be especially useful for the first refinement iteration on a new
+data source. Also, when changing the image or volume warp grid resolution, you should
+start with lower refinement resolution (see section below). If only 1 sub-iteration is
+to be performed, it starts with 100 % of the available resolution.</p>
+<h3 id="geometry">Geometry</h3>
+<p><strong>Image warp</strong>: This models the non-linear 2D deformation in each frame or tilt image
+due to beam-induced motion and charging. The model is set in the image reference frame,
+so if you have rectangular 6000x4000 px K3 images, a 6x4 grid might be more favorable
+than 4x4. The temporal dimension of the model equals the number of frames or tilts. For
+frame series, a pyramid of models will be created where each subsequent model has 2x the
+spatial dimension of the previous one, and 0.25x the temporal dimension. So even if you
+start with a 1x1 model, the resulting pyramid will still model some slow spatial
+deformation. Tilt series don't get pyramids (although including volume warp or tilt
+movie refinement has a similar effect, see below). For both frame and tilt series, the
+optimal spatial resolution will depend on the number of particles per micrograph, as
+well as the signal available per particle.</p>
+<p><strong>Anisotropic magnification</strong>: Some microscopes can exhibit significant linear
+distortion. This option enables its refinement based only on geometry (i.e. not taking
+its effect on the CTF into account). At the end of the iteration, the CTF is also
+adjusted accordingly. Because anisotropic magnification can be partially fitted with
+astigmatism in the CTF, defocus refinement (which includes astigmatism) is recommended
+in the same iteration.</p>
+<p><strong>Doming</strong> (frame series only):</p>
+<p><strong>Stage angles</strong> (tilt series only): Due to mechanical imprecisions in the stage's
+movement and lack of rigidity in lamella-like samples, the sample orientation can
+deviate significantly from their assumed values. While the biggest effect is in the
+projected particle positions, which are implicitly taken care of by the image warp
+model (at least 2x2 spatial resolution is required there), large particles can benefit
+from additional refinement of the sample/stage orientations. The temporal resolution of
+this model is per-tilt.</p>
+<p><strong>Volume warp</strong> (tilt series only): Tilt series are often used for thick samples where
+multiple particles can overlap along the projection axis. If the sample experiences
+shearing perpendicular to the projection axis, layers of particles can be displaced in a
+way that can't be modeled by mere 2D deformation of the images. Instead, a warping model
+in the reference frame of the tomographic volume is needed to influence particle
+positions in 3D. The resulting model has 4 dimensions: 3 spatial and 1 temporal (as a
+function of dose). The motion can usually be modeled with sparser temporal resolution
+since all the fast per-tilt movement is already taken care by the image warp model.
+Having a spatial Z dimension of at least 2 is necessary to model shearing. As with image
+warp, the optimal resolution depends on the available overall signal. However, it
+doesn't need to be as fine as image warp. Something like 2x2x2x10 might suffice. If your
+images are rectangular and you want the model to reflect that, remember that this is the
+tomogram reference frame where the tilt axis is aligned with the Y axis. It means that
+6000x4000 px images with a tilt axis angle close to 90° or 270° will need e.g. a 2x3
+model.</p>
+<p><strong>Tilt movies</strong> (tilt series only): If you used Warp in all of the pre-processing steps,
+M can go back all the way to the original tilt movies and optimize their frame alignment
+using the same high-resolution references. This procedure usually takes a significant
+amount of time. Once the refinement of a tilt movie is finished, an average tilt image
+will be saved in the <em>average</em> subfolder of the old Warp project directory, overwriting
+Warp's previous result. Please note that M currently doesn't back up the previous
+version. If something goes wrong and you'd like to go back, please either back up the
+old images and movie metadata manually, or re-process the tilt movies with Warp.</p>
+<p><strong>Particle positions/angles</strong>: This is the conventional particle pose optimization,
+except you're also fitting rotation and translation tracks if you set the species'
+temporal resolution to be higher than 1.</p>
+<h3 id="ctf">CTF</h3>
+<p><strong>Batch size</strong>: M pre-multiplies the particles by their CTF before cropping them to a
+smaller box for refinement. This has no speed disadvantages for geometry refinement.
+However, since the CTF must change during CTF refinement, the particles must be
+constantly re-extracted, pre-multiplied and cropped – which is computationally
+expensive. This is done in mini-batches to keep the memory footprint small. Decrease the
+batch size if you run out of GPU memory. Increase it if you have plenty of GPU memory to
+gain a bit of speed, but probably not more than half of the average per-series particle
+count.</p>
+<p><strong>Use species with at least N Å resolution</strong>: Reference-based CTF refinement requires
+relatively high resolution to be successful. If you have multiple species with different
+resolution, this parameter determines which of them will be considered during CTF
+refinement. For tilt series, the minimum resolution can be a bit lower, e.g. 7 A,
+whereas frame series with small particles require higher resolution, e.g. 4 A.</p>
+<p><strong>Defocus</strong>: For frame series, defocus refinement establishes per-particle defocus
+values, and per-series astigmatism with a spatial resolution of 3x3. For tilt series,
+defocus refinement finds per-tilt defocus and astigmatism values.</p>
+<p><strong>Grid search in 1st iteration</strong>: Gradient descent optimization will fail when the
+defocus is too far off because of the oscillating nature of the CTF. Instead, a broader,
+exhaustive search can be performed in the first sub-iteration.</p>
+<p><strong>Phase shift</strong>: If you acquired the data with a Volta phase plate, the phase shift of
+the CTF will likely be different in each micrograph. Enable this to optimize a single
+phase shift value for each frame series, or a per-tilt phase shift model for each tilt
+series.</p>
+<p><strong>Pixel size</strong>: The effect of the pixel size on the CTF is correlated with that of Cs
+and acceleration voltage. Thus, given that we don't have very accurate absolute values
+for either of those, we can't arrive at the correct absolute pixel size by refining the
+CTF model against the data. However, to make the CTF fit better, it is enough to adjust
+either of the variables relatively to its assumed value. M can refine per-series Cs as a
+substitute for the pixel size. Because the CTF model changes during this refinement, it
+is quite slow.</p>
+<p><strong>Odd Zernike orders</strong>: Zernike polynomials of odd orders describe anti-symmetric
+aberrations. They don't affect the CTF and can thus be refined quickly together with the
+geometry. 3rd-order polynomials model beam tilt and trefoil. Probably doesn't make sense
+at resolutions worse than 4 A, unless the microscope is very poorly aligned.</p>
+<p><strong>Even Zernike orders</strong>: Zernike polynomials of even orders affect the CTF and are thus
+quite slow to refine in M. The refinement is done per-series, so you need a high
+particle density to get enough signal. This will be handled in a smarter way in the
+future.</p>
+<p><strong>CTF refinement</strong>: Once your species reach a high enough resolution, you can refine
+parameters of the contrast transfer function. A resolution of at least 6–7 A is
+recommended for this. Since not all species may reach the same high resolution, you can
+specify a threshold to <strong>Use species with at least x A resolution</strong>.</p>
+<p><strong>Defocus and astigmatism</strong>: For frame series, this will refine the defocus values
+per-particle, as well as one common set of astigmatism parameters. In tilt series, the
+relative Z offsets between particles are known with a higher precision than could be
+obtained through defocus refinement. However, defocus and astigmatism can change in each
+tilt. M optimizes a global defocus offset and astigmatism per-tilt in that case.</p>
+<h2 id="changing-model-resolution-between-refinement-iterations">Changing model resolution between refinement iterations</h2>
+<p>M performs a gradient descent-like optimization to cope with the multitude of parameters
+in a multi-particle refinement. This means that it is much more likely to get stuck in a
+local optimum if the global optimum is too far away. Starting refinement using RELION's
+globally refined poses and at relatively low resolution helps with that. However, if you
+decide to change the resolution of the image or volume warp models, resampling the model
+can put some parameters too far away from their optima for the latter to be reached. You
+should at least set the refinement resolution to be lower in the first sub-iteration,
+e.g. 70 %. It can also be helpful to ignore the results obtained with the previous
+models and just restart refinement from the very first iteration. To do so, overwrite
+the frame or tilt series metadata (located in the same folder as the raw data) as well
+as the species files with their first versions. The latter can be found in the
+<em>versions</em> subfolder of the respective data source and species directories. You can also
+do this with any other previous version if you want. Sorry for the inconvenience – M's
+UI will offer a better mechanism in the future.</p>
+<h2 id="memory-considerations">Memory considerations</h2>
+<p>Because M needs to hold all particle images in memory at the same time when refining a
+frame or tilt series, the memory footprint can become quite large if you have a lot of
+particles per item and/or high resolution. To address this, M stores these images in "
+pinned" CPU memory, which the GPU can directly access. Unfortunately, the actual
+available amount of pinned memory is usually far lower than the overall memory capacity,
+and the exact amount is still a bit of a mystery to us. For instance, on a system with
+128 GB RAM, ca. 20 GB can be used as pinned memory by M in our experience. On multi-GPU
+systems, M will schedule the processing of individual items such that the simultaneous
+pressure on pinned memory does not exceed an empirically determined limit. This can lead
+to some GPUs staying idle temporarily while there is not enough memory. If a single item
+requires more memory than the limit, M will try to process it anyway and may crash. If
+there are only a few of such densely populated items and they are not critical to the
+overall project, you can try removing them from the data source's .source file.</p>
+<p>Meanwhile, GPU memory is used to store reference volumes for all species, the raw frame
+or tilt data, as well as buffers and FFT plans for fast pre-processing of small batches
+of particle images. Reconstruction volumes are loaded into GPU memory one species at a
+time at the end of an item's refinement, and transferred back to (unpinned) CPU memory
+once back-projection is finished. Unless you have lots of high-resolution species, cards
+with 12 GB of memory should be fine.</p>
+<p>We are working on making use of free GPU memory as a substitute for some of the pinned
+CPU memory. However, multi-particle refinements will likely remain resource-intensive in
+the near future.</p>
+<h2 id="making-sense-of-the-results">Making sense of the results</h2>
+<p>All refined species maps are contained in the <em>species/[species ID]</em> subfolders inside
+the population directory. The species IDs are very cryptic to make them unique
+regardless of the names, but the maps include the species name you provided. The most
+useful maps are likely the two <em>half1</em> and <em>half2</em> half-maps, the filtered and sharpened
+<em>filtsharp</em> map (equivalent to the output from RELION's post-processing), the <em>denoised</em>
+map, as well as the local resolution values contained in the <em>localres</em> volume. The
+current global resolution and B-factor used for sharpening are contained in the
+<em>.species</em> XML file.</p>
+<p>If the resolution of your map has far surpassed that of the map you used to prepare the
+initial mask and you think the latter looks too blobby, you can use e.g. M's denoised
+map to prepare a new mask using relion_mask_create, and sneak that updated mask into the
+next refinement iteration by replacing the <em>[species name]_mask.mrc</em> file with it.
+Please make sure it has the same pixel size as the rest of that species' maps.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2023 - 2024
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.dd8806f2.min.js"></script>
+      
+    
+  </body>
+</html>
