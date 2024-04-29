@@ -22,8 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # pip install -e .
-          pip install mkdocs mkdocs-material mkdocstrings[python]
+          pip install mkdocs-material
 
       # Build the docs
       - name: Build the docs
