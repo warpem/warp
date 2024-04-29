@@ -15,7 +15,6 @@ nav:
       - index.md
       - home/warp.md
       - home/m.md
-      - home/warptools.md
   - 📘 User Guides:
     - user_guide/overview.md
     - Desktop Warp:
