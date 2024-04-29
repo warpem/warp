@@ -13,9 +13,9 @@ copyright: Copyright &copy; 2023 - 2024
 nav:
   - 🏡 Home: 
       - index.md
-      - home/what_is_warp.md
-      - home/what_is_m.md
-      - home/what_is_warptools.md
+      - home/warp.md
+      - home/m.md
+      - home/warptools.md
   - 📘 User Guides:
     - user_guide/overview.md
     - Desktop Warp:
