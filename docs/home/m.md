@@ -22,4 +22,6 @@
 
 M is a reference based refinement engine which simultaneously
 refines particle poses, deformation models and electron optical parameters to get 
-the highest resolution maps from frame series or tilt series data.
+the highest resolution maps from your frame series or tilt series data.
+
+Check out the [*User Guide*](../user_guide/overview.md) to get started!
