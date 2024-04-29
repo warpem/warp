@@ -12,7 +12,7 @@ copyright: Copyright &copy; 2023 - 2024
 # Page tree
 nav:
   - 🏡 Home: 
-      - index.md
+      - Overview: index.md
       - home/warp.md
       - home/m.md
   - 📘 User Guides:
@@ -20,8 +20,6 @@ nav:
     - Desktop Warp:
       - user_guide/warp/quick_start_warp_frame_series.md
       - user_guide/warp/quick_start_warp_tilt_series.md
-      - user_guide/warp/task_dialogs_frame_series.md
-      - user_guide/warp/task_dialogs_tilt_series.md
     - M:
       - user_guide/m/quick_start_m.md
       - user_guide/m/particle_operations.md
@@ -29,19 +27,11 @@ nav:
       - user_guide/warptools/quick_start_warptools_frame_series.md
       - user_guide/warptools/quick_start_warptools_tilt_series.md
   - 🗄️ Reference:
-    - reference/reference.md
     - Warp:
-      - reference/warp/interface/overview.md
-#    - M:
-#        
-#    - WarpTools:
-  
-#    - Standalone tools:
-#      - user_guide/standalone_tools/noise2mic.md
-#      - user_guide/standalone_tools/noise2map.md
-#      - user_guide/standalone_tools/noise2half.md
-#      - user_guide/standalone_tools/noise2tomo.md
-#      - user_guide/standalone_tools/frankenmap.md
+      - Interface Overview: reference/warp/interface/interface_overview.md
+      - Spatiotemporal Models: reference/warp/models.md
+      - "Task Dialogs: Frame Series": reference/warp/task_dialogs_frame_series.md
+      - "Task Dialogs: Tilt Series": reference/warp/task_dialogs_tilt_series.md
   - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md

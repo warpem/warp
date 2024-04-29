@@ -219,7 +219,7 @@ especially useful for real-time processing. For that, the **Box Size** must be s
 150 % of the particle diameter is recommended to avoid interpolation artifacts later.
 The pixel size is fixed to that used for the entire pre-processing pipeline. If you want
 to extract particles with a different pixel size, you can do so later using one of
-the [Task Dialogs](./task_dialogs_frame_series.md). Cryo data need to be
+the [Task Dialogs](../../reference/warp/task_dialogs_frame_series.md). Cryo data need to be
 **inverted** upon extraction. For SPA packages that require particles to be
 pre-normalized, e.g., RELION, the diameter used for picking will also be used for *
 *background normalization**.

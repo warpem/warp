@@ -23,8 +23,8 @@ mechanisms for combining data from different sources.
 Pre-processing of [frame series](../warp/quick_start_warp_frame_series.md)
 or [tilt series](../warp/quick_start_warp_tilt_series.md) in Warp  
 ↓  
-Particle [image](../warp/task_dialogs_frame_series.md)
-or [sub-tomogram export](../warp/task_dialogs_tilt_series.md#export-sub-tomograms) from Warp  
+[Particle image](../../reference/warp/task_dialogs_frame_series.md)
+or [sub-tomogram export](../../reference/warp/task_dialogs_tilt_series.md#export-sub-tomograms) from Warp  
 ↓  
 [Classification and refinement in RELION](https://www3.mrc-lmb.cam.ac.uk/relion/index.php/Main_Page)  
 ↓  

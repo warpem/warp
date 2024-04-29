@@ -35,7 +35,7 @@ to replace them, please delete the volumes manually from the *reconstruction* su
 - **Separate odd/even tilts for denoising**: In addition to the normal reconstruction, a
   pair of reconstructions from all odd and even tilts will be made and stored in the
   *reconstruction/odd* and *reconstruction/even* subfolders. These pairs can be used
-  to [train a 3D denoiser](../standalone_tools/noise2map.md). If **Also produce
+  to [train a 3D denoiser](../noise2map/noise2map.md). If **Also produce
   deconvolved version** is checked, both tomograms will have the same deconvolution
   filter applied to them.
 - **Keep only fully covered voxels**: If enabled, voxels in the reconstruction that are

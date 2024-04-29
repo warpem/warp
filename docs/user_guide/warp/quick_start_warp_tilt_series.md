@@ -162,8 +162,8 @@ the result), while in IMOD it is directly the downsampling factor. Second, there
 multiple places where binning can be set. The value defined in the **Input** section
 will be used when loading the data, i.e. this is the maximum resolution any subsequent
 operations on the data will be able to use. However, task dialogs
-like [Tomogram reconstruction](./task_dialogs_tilt_series.md)
-or [Sub-tomogram export](./task_dialogs_tilt_series.md) allow to set their own
+like [Tomogram reconstruction](../../reference/warp/task_dialogs_tilt_series.md)
+or [Sub-tomogram export](../../reference/warp/task_dialogs_tilt_series.md) allow to set their own
 target pixel size, which will bin the data additionally if it is larger (and it can't be
 smaller) than the initial binned pixel size. Thus, you should only set the initial **Bin
 ** parameter if you know that you will never need to go to a lower pixel size – for

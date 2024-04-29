@@ -1,4 +1,4 @@
-# M
+# 
 
 <figure markdown="span">
   ![Warp](../assets/m_logo.png){ width="250" }
