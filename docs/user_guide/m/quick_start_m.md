@@ -20,11 +20,11 @@ mechanisms for combining data from different sources.
 
 ## The pipeline
 
-Pre-processing of [frame series](http://www.warpem.com/warp/?page_id=185)
-or [tilt series](http://www.warpem.com/warp/?page_id=378) in Warp  
+Pre-processing of [frame series](../warp/quick_start_warp_frame_series.md)
+or [tilt series](../warp/quick_start_warp_tilt_series.md) in Warp  
 ↓  
-Particle [image](http://www.warpem.com/warp/?page_id=157)
-or [sub-tomogram export](http://www.warpem.com/warp/?page_id=169) from Warp  
+Particle [image](../warp/task_dialogs_frame_series.md)
+or [sub-tomogram export](../warp/task_dialogs_tilt_series.md#export-sub-tomograms) from Warp  
 ↓  
 [Classification and refinement in RELION](https://www3.mrc-lmb.cam.ac.uk/relion/index.php/Main_Page)  
 ↓  
@@ -131,7 +131,7 @@ With all data sources and species set up, click the big **Refine** button to bri
 the refinement dialog. Here you can select different groups of parameters to be
 optimized.
 
-![M: refinement settings](http://www.warpem.com/warp/wp-content/uploads/2020/07/refinementsettings.png)
+![M: refinement settings](./assets/refinement_settings.png)
 
 **Refine for N sub-iterations**: During each refinement iterations, M alternates between
 refining various sets of parameters. To accelerate convergence, this can be done for
