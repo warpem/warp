@@ -1,26 +1,26 @@
 ## Interface Overview
 
-![Overview](http://www.warpem.com/warp/wp-content/uploads/2018/06/overview.png)
+![Overview](./assets/overview.png)
 
 Switch between the light and dark UI themes.
 
-![Light Theme](http://www.warpem.com/warp/wp-content/uploads/2018/06/bar_light.png)
+![Light Theme](./assets/bar_light.png)
 
 ---
 
 All available GPUs are listed here, together with their free memory capacity. The checkboxes can be unticked to exclude specific GPUs from processing.
 
-![GPU Stats](http://www.warpem.com/warp/wp-content/uploads/2018/06/bar_gpustats.png)
+![GPU Stats](./assets/bar_gpustats.png)
 
 ---
 
 Warp automatically saves the latest set of processing settings used for a folder. These buttons allow saving and loading a permanent copy of the settings. Warp will also offer to load a folder's auto-saved settings when switching to that folder in the input options.
 
-![Save/Load Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/save_load_settings.png)
+![Save/Load Settings](./assets/save_load_settings.png)
 
 ## Input Folder
 
-![Input Folder Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_input.png)
+![Input Folder Settings](./assets/settings_input.png)
 
 The input folder contains all the files that should be processed. Warp will not look for files recursively in sub-folders, so all files must be located on the top level. Several file formats are supported: MRC, EM (from the TOM Toolbox), header-less (anything binary with a fixed header length), and Warp's own TomoSTAR for tilt series definition. If you're working with a header-less format (or any format Warp doesn't recognize yet), select the DAT option, and specify the frame dimensions, data type, and an optional offset at the beginning of the files. Only the *.dat extension is supported for the file names, but you can use any header-less format by renaming them. Warp's interface switches to tomography mode if TomoSTAR is selected as the input format.
 
@@ -36,7 +36,7 @@ The raw data can be multiplied by a gain reference to correct for systematic err
 
 ## CTF Settings
 
-![CTF Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_ctf.png)
+![CTF Settings](./assets/settings_ctf.png)
 
 The Window specifies the size of the power spectrum. If you expect only low defocus values or need highly localized defocus values, leave the window small, e.g., 512 px.
 
@@ -58,7 +58,7 @@ Mode Ice Ring is currently an experimental feature that will attempt to model th
 
 ## Motion Estimation
 
-![Motion Estimation Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_motion.png)
+![Motion Estimation Settings](./assets/settings_motion.png)
 
 Global and local motion estimation will consider the specified range of spatial frequencies and weight their importance according to the B-factor. The default range of 0.05–0.25 is usually ok for data with 1.00–1.35 Å/px. For larger pixels, consider increasing the range, and vice versa. The more negative the B-factor, the less the higher spatial frequencies will be considered.
 
@@ -66,7 +66,7 @@ Global and local motion estimation will consider the specified range of spatial 
 
 ## Models
 
-![Model Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_models.png)
+![Model Settings](./assets/settings_models.png)
 
 **Defocus:** The first two values define the spatial resolution, i.e., how locally the defocus will be estimated (the value at each particle's position is later interpolated based on the values in that coarse model). 5×5 is usually a good value for a 4K micrograph at 1.0–1.3 Å/px. Higher values could make sense for larger pixels, and lower values for smaller pixels. The third parameter defines the temporal resolution. This allows changes in defocus and phase shift to be modeled over the duration of a single movie. Please note that a temporal resolution higher than 1 leads to a vastly increased memory footprint during processing, while probably not improving the final resolution in most cases.
 
@@ -76,7 +76,7 @@ Global and local motion estimation will consider the specified range of spatial 
 
 ## Picking
 
-![Picking Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_picking.png)
+![Picking Settings](./assets/settings_picking.png)
 
 Clicking Select BoxNet model... or the currently selected model's name will open a dialog with a list of all available models, and buttons to either use one of them, or retrain it with your own data. User guide pages about using and retraining BoxNet models will provide you with more details.
 
@@ -90,7 +90,7 @@ The picked particles can be extracted immediately after the picking, which is es
 
 ## Output
 
-![Output Settings](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_output.png)
+![Output Settings](./assets/settings_output.png)
 
 The first few frames in a movie suffer especially badly from beam-induced motion and can usually be discarded by adjusting the output frame range. This setting will also be respected in all other operations that deal with frames, e.g., particle extraction.
 
@@ -104,7 +104,7 @@ In addition to extracted particles, there are 3 output types for 2D movies:
 
 ## Processing Mode
 
-![Start Processing](http://www.warpem.com/warp/wp-content/uploads/2018/06/start_processing.png)
+![Start Processing](./assets/start_processing.png)
 
 Clicking **Start Processing** puts Warp into processing mode. This mode remains active until **Stop Processing** is clicked. Editing any processing settings and launching task dialogs is disabled while in processing mode, but viewing and editing processing results (e.g., particle positions) is enabled.
 
@@ -114,13 +114,13 @@ Warp will go through all items in need of processing sequentially (sorted alphab
 
 ## Settings Collapse
 
-![Settings Collapse](http://www.warpem.com/warp/wp-content/uploads/2018/06/settings_collapse.png)
+![Settings Collapse](./assets/settings_collapse.png)
 
 This button lets you collapse the settings panel to make more room for the results. With the settings collapsed, there is enough space to display Fourier and Real Space results side by side on a large screen, so both tabs will be merged.
 
 ---
 
-![Task Dialogs](http://www.warpem.com/warp/wp-content/uploads/2018/06/task_dialogs.png)
+![Task Dialogs](./assets/task_dialogs.png)
 
 In addition to on-the-fly processing, Warp offers several offline tasks that can be performed once the processing is finished. Most of the tasks are related to importing and exporting data from/to [RELION](https://github.com/3dem/relion/) and compatible packages. Each task is explained in a detailed user guide page.
 
@@ -128,13 +128,13 @@ In addition to on-the-fly processing, Warp offers several offline tasks that can
 
 ## Plot Status
 
-![Plot Status](http://www.warpem.com/warp/wp-content/uploads/2018/06/plot_status.png)
+![Plot Status](./assets/plot_status.png)
 
 As movies are processed, they change their status. Every movie is initially marked as **unprocessed**. Once it has passed through the entire pipeline, it is considered **processed**. If you change any processing settings, previously processed items will be marked as **outdated**, i.e., in need of reprocessing. If a processed item's quality criteria don't match the current filter thresholds (see section below), it is labeled **filtered out**. Finally, if you deselect an item manually in the navigation bar, it will be colored as **deselected**.
 
 ## Astigmatism Plot
 
-![Astigmatism Plot](http://www.warpem.com/warp/wp-content/uploads/2018/06/plot_astigmatism.png)
+![Astigmatism Plot](./assets/plot_astigmatism.png)
 
 The **astigmatism plot** shows each movie's fitted astigmatism in a 2D coordinate system. The coordinates are computed as `X = cos(2 * angle) * magnitude, Y = sin(2 * angle) * magnitude`. This means the circumference of the depicted circle is only 180° (the fitted angles are only unique within 0–180°). The color reflects an item's coordinate on the time axis, going from old to new.
 
@@ -142,7 +142,7 @@ Unlike the other filters, the astigmatism filter considers the distance of a mov
 
 ---
 
-![Metrics Plot](http://www.warpem.com/warp/wp-content/uploads/2018/06/plot_metrics.png)
+![Metrics Plot](./assets/plot_metrics.png)
 
 As soon as an item is processed, its key parameters are added to or updated in the plots: Defocus, astigmatism, phase shift, estimated resolution, average intra-frame motion, number of particles, and the percentage of masked micrograph area. Some of the parameters are likely correlated with the data quality. Using the sliders above the plots in the Overview tab, you can define **Filter Thresholds** for all of them.
 
@@ -152,7 +152,7 @@ As you change a filter threshold, processed items above and below the threshold 
 
 ## Particle Count Filter
 
-![Particle Count Filter](http://www.warpem.com/warp/wp-content/uploads/2018/06/plot_suffix.png)
+![Particle Count Filter](./assets/plot_suffix.png)
 
 The particle count filter has a special additional parameter: the particle file suffix. All particle coordinates are stored as per-movie STAR files in `[Input Folder]/matching`. Multiple files can be associated with the same movie by using different suffixes. When a movie is added to Warp's list, it automatically finds all available suffixes for that item. The suffix menu contains the superset of all available suffixes of all items. If you manually add STAR files to the matching folder, you need to restart Warp so it can find the new files.
 
