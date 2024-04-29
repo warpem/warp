@@ -38,6 +38,17 @@ setenv("RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE", pathJoin(root, "Noise2Half"))
 - [AreTomo](https://github.com/czimaginginstitute/AreTomo2)
 - [RELION](https://github.com/3dem/relion)
 
+## Editing Documentation
+Install `mkdocs-material` into your conda environment then run
+
+```sh
+mkdocs serve
+```
+
+To preview the site. This includes hot reloading so you can preview any changes you make.
+
+The documentation is built and deployed by calling `mkdocs build` on GitHub actions.
+
 ## Authorship
 
 Warp was originally developed by [Dimitry Tegunov](mailto:tegunov@gmail.com) in Patrick Cramer's lab at the Max Planck Institute for Biophysical Chemistry in Göttingen, Germany. This code is available [in its original repository](https://github.com/cramerlab/warp).

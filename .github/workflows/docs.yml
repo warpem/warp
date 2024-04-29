@@ -1,0 +1,37 @@
+# This workflow installs mkdocs-material and itsdependencies, 
+# builds the docs, and pushes the built site to the `gh-pages` branch 
+# of the same repository.
+name: docs
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install mkdocs-material
+
+      # Build the docs
+      - name: Build the docs
+        run: |
+          mkdocs build
+
+      # Push the site to github-pages
+      - name: GitHub Pages action
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          publish_dir: ./site
+          github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,82 @@
+site_name: Warp, M and friends
+site_url: https://warpem.com
+site_author: Dimitry Tegunov
+site_description: >-
+  Warp
+repo_name: warpem/warp
+repo_url: https://github.com/warpem/warp
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2023 - 2024
+
+
+# Page tree
+nav:
+  - 🏡 Home: 
+      - Overview: index.md
+      - home/warp.md
+      - home/m.md
+  - 📘 User Guides:
+    - user_guide/overview.md
+    - Desktop Warp:
+      - user_guide/warp/quick_start_warp_frame_series.md
+      - user_guide/warp/quick_start_warp_tilt_series.md
+    - M:
+      - user_guide/m/quick_start_m.md
+    - WarpTools:
+      - user_guide/warptools/quick_start_warptools_frame_series.md
+      - user_guide/warptools/quick_start_warptools_tilt_series.md
+  - 🗄️ Reference:
+    - Warp:
+      - Interface Overview: reference/warp/interface/interface_overview.md
+      - Spatiotemporal Models: reference/warp/models.md
+      - "Task Dialogs: Frame Series": reference/warp/task_dialogs_frame_series.md
+      - "Task Dialogs: Tilt Series": reference/warp/task_dialogs_tilt_series.md
+    - M:
+        - Particle Operations: reference/m/particle_operations.md
+  - 📜 Papers: papers.md
+  - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
+  - 🧑‍🤝‍🧑 Team: team.md
+
+theme:
+  logo: assets/warp_m_logos_combined.png
+  favicon: assets/favicon.png
+  # for more complex custom theming...
+  # custom_dir: docs/overrides 
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: purple
+      accent: purple
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - navigation.sections
+    - search.highlight
+    - search.suggest
+    - content.tabs.link
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+
+plugins:
+  - search
