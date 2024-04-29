@@ -2,7 +2,7 @@
 
 ## Reconstruct Full Tomograms
 
-![Reconstruct Full Tomograms](http://www.warpem.com/warp/wp-content/uploads/2020/01/reconstructfulltomo.png)
+![Reconstruct Full Tomograms](./assets/reconstruct_full_tomo.png)
 
 This dialog allows you to reconstruct "full tomograms", i.e., volumes located at the
 center of the tilt series with the **Unbinned tomogram dimensions** set previously in
@@ -10,7 +10,7 @@ the **Input** settings section. These tomograms can be used for visual inspectio
 template matching. **Important**: Unlike other pipelines, where the reconstruction of a
 giant, unbinned tomogram is required to extract sub-tomograms at unbinned pixel size
 from it, Warp's workflow expects you to use the
-dedicated [sub-tomogram reconstruction dialog](http://www.warpem.com/warp/?page_id=169)
+dedicated [sub-tomogram reconstruction dialog](#export-sub-tomograms)
 to obtain sub-tomograms with an unbinned/very small pixel size. Reconstructing a very
 large tomographic volume in Warp will take very long and has a good chance of crashing.
 
@@ -35,7 +35,7 @@ to replace them, please delete the volumes manually from the *reconstruction* su
 - **Separate odd/even tilts for denoising**: In addition to the normal reconstruction, a
   pair of reconstructions from all odd and even tilts will be made and stored in the
   *reconstruction/odd* and *reconstruction/even* subfolders. These pairs can be used
-  to [train a 3D denoiser](http://www.warpem.com/warp/?page_id=389). If **Also produce
+  to [train a 3D denoiser](../standalone_tools/noise2map.md). If **Also produce
   deconvolved version** is checked, both tomograms will have the same deconvolution
   filter applied to them.
 - **Keep only fully covered voxels**: If enabled, voxels in the reconstruction that are
@@ -48,12 +48,12 @@ to replace them, please delete the volumes manually from the *reconstruction* su
 
 # Export Sub-Tomograms
 
-![Export Sub-Tomograms](http://www.warpem.com/warp/wp-content/uploads/2020/01/reconstructsubtomo.png)
+![Export Sub-Tomograms](./assets/reconstruct_subtomo.png)
 
 This dialog allows you to reconstruct "sub-tomograms", i.e., small, cubic volumes
 centered around a set of 3D coordinates you provide. The pixel size of these
 reconstructions is usually much smaller than the one used
-for [full tomogram reconstruction](http://www.warpem.com/warp/?page_id=167) because the
+for [full tomogram reconstruction](#reconstruct-full-tomograms) because the
 volumes are later aligned on a common target and averaged to obtain better signal. Warp
 also reconstructs a 3D CTF volume for each particle to be used in RELION's refinement
 procedure.
