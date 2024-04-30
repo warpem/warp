@@ -60,6 +60,8 @@ theme:
     - search.highlight
     - search.suggest
     - content.tabs.link
+  icon:
+    annotation: material/plus-circle
 
 markdown_extensions:
   - admonition
