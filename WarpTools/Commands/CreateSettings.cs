@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Warp;
+using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
 
@@ -64,8 +65,11 @@ namespace WarpTools.Commands
         [Option("exposure", Default = 1, HelpText = "Overall exposure per Angstrom^2; use negative value to specify exposure/frame instead")]
         public double OverallExposure { get; set; }
 
-        [Option("eer_ngroups", Default = 40, HelpText = "Number of groups to combine raw EER frames into, i.e. number of 'virtual' frames in resulting stack; use negative value to specify the number of frames per virtual frame isntead")]
+        [Option("eer_ngroups", Default = 40, HelpText = "Number of groups to combine raw EER frames into, i.e. number of 'virtual' frames in resulting stack; use negative value to specify the number of frames per virtual frame instead")]
         public int EERGroupFrames { get; set; }
+
+        [Option("eer_groupexposure", HelpText = "As an alternative to --eer_ngroups, fractionate the frames so that a group will have this exposure in e-/A^2; this overrides --eer_ngroups")]
+        public double? EERGroupExposure { get; set; }
 
         [Option("tomo_dimensions", HelpText = "X, Y, and Z dimensions of the full tomogram in unbinned pixels, separated by 'x', e.g. 4096x4096x1000")]
         public string TomoDimensions { get; set; }
@@ -160,6 +164,16 @@ namespace WarpTools.Commands
             // negative are for the overloaded meaning introduced in WarpCore
 
             Options.Import.DosePerAngstromFrame = -(decimal)cli.OverallExposure;
+
+            if (cli.EERGroupExposure != null)
+            {
+                if (cli.EERGroupExposure <= 0)
+                    throw new Exception("--eer_groupexposure must be positive if specified");
+
+                cli.EERGroupFrames = (int)Math.Ceiling(cli.OverallExposure / cli.EERGroupExposure.Value);
+                Console.WriteLine($"Setting --eer_ngroups to {cli.EERGroupFrames} to match the desired per-group exposure");
+            }
+
             Options.Import.EERGroupFrames = -cli.EERGroupFrames;
 
             #endregion
@@ -175,6 +189,16 @@ namespace WarpTools.Commands
                                                                Options.Import.DoRecursiveSearch ? SearchOption.AllDirectories :
                                                                                                   SearchOption.TopDirectoryOnly).ToArray();
                 Console.WriteLine($"{InputFiles.Length} files found");
+
+                if (InputFiles.Length > 0 && Path.GetExtension(InputFiles.First()).ToLower() == ".eer")
+                {
+                    HeaderEER.GroupNFrames = 1;
+                    MapHeader Header = MapHeader.ReadFromFile(InputFiles.First());
+                    int GroupNFrames = cli.EERGroupFrames > 0 ? (Header.Dimensions.Z / cli.EERGroupFrames) : -cli.EERGroupFrames;
+                    int ExtraFrames = Header.Dimensions.Z % GroupNFrames;
+                    if (ExtraFrames > 0)
+                        Console.WriteLine($"WARNING: {ExtraFrames} EER frames will be discarded because {Header.Dimensions.Z} frames are not divisible by {cli.EERGroupFrames}");
+                }
             }
         }
     }
