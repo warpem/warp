@@ -377,9 +377,6 @@ namespace WarpWorker
 
                     AreTomo.WaitForExit();
 
-                    Console.WriteLine(AreTomo.StandardOutput.ReadToEnd());
-                    Console.WriteLine(AreTomo.StandardError.ReadToEnd());
-
                     Console.WriteLine($"Executed AreTomo for {SeriesPath}");
                 }
                 else if (Command.Name == "TomoEtomoPatchTrack")
