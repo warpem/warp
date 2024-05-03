@@ -7,6 +7,13 @@ using *WarpTools*! 🌟
 We will be processing 5 tilt series of apoferritin from
 [EMPIAR-10491](https://www.ebi.ac.uk/empiar/EMPIAR-10491/) as an example in this guide.
 
+You should obtain a ~3Å map from these 5 tilt series following this guide.
+
+<figure markdown="span">
+  ![M result](./assets/m_result.jpg){ width="80%" }
+  <figcaption>Goal: A ~3Å map of apoferritin</figcaption>
+</figure>
+
 ## Overview
 
 - frame series preprocessing with *WarpTools*
@@ -14,21 +21,24 @@ We will be processing 5 tilt series of apoferritin from
 - initial 3D refinement in *RELION*
 - multi-particle refinement with *MTools* and *MCore*
 
-## Download the data
+## Preparation
 
-First, let's download the data in an empty directory
+### Download the data
+
+First, let's download the per-tilt frames, mdoc metadata files and the
+gain reference into an empty directory.
 
 === "shell script"
 
-```bash
-# download the gain reference
-wget \
---show-progress \
---timestamping \
---quiet \
---no-directories \
---directory-prefix ./ \
-ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc;
+    ```bash
+    # download the gain reference
+    wget \
+    --show-progress \
+    --timestamping \
+    --quiet \
+    --no-directories \
+    --directory-prefix ./ \
+    ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc;
 
     for i in 1 11 17 23 32;
     do
@@ -55,12 +65,13 @@ ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc;
     ```
 
 === "`<root_dir>`"
-```txt
-.
-├── gain_ref.mrc
-├── frames
-└── mdoc
 
+    ```txt
+    .
+    ├── gain_ref.mrc
+    ├── frames
+    └── mdoc
+    
     2 directories, 1 file    
     ```
 
@@ -358,6 +369,7 @@ ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc;
     ```
 
 === "`mdoc`"
+
 ```txt
 ./mdoc
 ├── TS_11.mrc.mdoc
@@ -367,9 +379,9 @@ ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc;
 └── TS_32.mrc.mdoc
 ```
 
-## Create Settings Files
+### Create Warp Settings Files
 
-Settings files tell *WarpTools*
+Settings files are config files which tell *WarpTools*
 
 1. where to look for data to process
 2. where to store results
@@ -381,39 +393,45 @@ These will be used for frame series and tilt series processing respectively.
 
 === "Frame Series"
 
-```sh
-WarpTools create_settings \
---folder_data frames \
---folder_processing warp_frameseries \
---output warp_frameseries.settings \
---extension "*.tif" \
---angpix 0.7894 \
---gain_path gain_ref.mrc \
---gain_flip_y \
---exposure 2.64
-```
+    ```txt title="Create Frame Series Settings File"
+    WarpTools create_settings \
+    --folder_data frames \
+    --folder_processing warp_frameseries \
+    --output warp_frameseries.settings \
+    --extension "*.tif" \
+    --angpix 0.7894 \
+    --gain_path gain_ref.mrc \
+    --gain_flip_y \
+    --exposure 2.64
+    ```
 
 === "Tilt Series"
 
-```sh
-WarpTools create_settings \
---output warp_tiltseries.settings \
---folder_processing warp_tiltseries \
---folder_data tomostar \
---extension "*.tomostar" \
---angpix 0.7894 \
---gain_path gain_ref.mrc \
---gain_flip_y \
---exposure 2.64 \
---tomo_dimensions 4400x6000x1000
-```
+    ```txt title="Create Tilt Series Settings File"
+    WarpTools create_settings \
+    --output warp_tiltseries.settings \
+    --folder_processing warp_tiltseries \
+    --folder_data tomostar \
+    --extension "*.tomostar" \
+    --angpix 0.7894 \
+    --gain_path gain_ref.mrc \
+    --gain_flip_y \
+    --exposure 2.64 \
+    --tomo_dimensions 4400x6000x1000 #(1)
+    ```
 
-## CTF and Motion Estimation
+    1.  :man_raising_hand: These are the dimensions of your tomograms in unbinned pixels.
+    Tomograms are reconstructed with the tilt axis aligned along Y, remember to 
+    account for rotation of the tilt axis when setting these dimensions!
+
+## Preprocessing: From Frames to Tomograms
+
+### Frame Series: Motion and CTF Estimation
 
 The first step in processing tilt movies involves estimating 2D sample motion and
 contrast transfer function.
 
-```sh
+```txt title="Frame Series Motion and CTF Estimation
 WarpTools fs_motion_and_ctf \
 --settings warp_frameseries.settings \
 --m_grid 1x1x3 \
@@ -422,17 +440,46 @@ WarpTools fs_motion_and_ctf \
 --c_defocus_max 8 \
 --c_use_sum \
 --out_averages \
---out_average_halves 
+--out_average_halves # (1)
 ```
+
+1. :man_raising_hand: averages of half sets of frames are required for Noise2Noise
+   based denoising of images and tomograms
+
+Motion corrected averages will be written out to the `warp_frameseries/average`
+directory.
+Motion and CTF related metadata will be written into XML files, one per frame series, in
+the `warp_frameseries` directory.
 
 !!! tip
 
     Algorithms in WarpTools were written for GPUs with ~16GB memory. 
     
     If you're lucky enough to access to bigger cards, try running multiple worker processes 
-    per GPU with e.g. `--perdevice 2`
+    per GPU. We typically use `--perdevice 4` on A100 cards with 80GB memory.
 
-## Check Results
+#### Parameters explained
+
+#### Grids
+
+The `--m_grid 1x1x3` and `--c_grid 2x2x1` parameters define the resolution (`XxYxT`) of
+motion and CTF models that will be estimated.
+
+When processing tilt series data we typically recommend `1x1xNTilts` for motion grids
+due to the low amount of signal available per tilt and `2x2x1` for CTF grids to enable
+checking that defocus varies as expected across the tilt axis.
+
+#### CTF Parameters
+
+- `--c_range_max` is the maximum spatial resolution of information used for fitting in Å
+- `--c_defocus_max` is the maximum allowed defocus value
+
+`--c_use_sum` controls whether CTF estimation use the power spectrum from the
+motion corrected average or the sum of per-frame power spectra for estimation.
+Estimating from the motion corrected average can be useful in the absence of an
+energy filter, or generally when per frame signal is low.
+
+#### Visualizing Results
 
 Just because you're at the command line doesn't mean you should have to dig through
 text files to see how your processing went.
@@ -442,7 +489,7 @@ printed to the terminal.
 
 === "Command"
 
-```sh
+```txt title="Plot Histograms of 2D Processing Metrics"
 WarpTools filter_quality --settings warp_frameseries.settings --histograms
 ```
 
@@ -547,12 +594,12 @@ WarpTools filter_quality --settings warp_frameseries.settings --histograms
 
 === "💩"
 
-```txt
-Masked area (%):
-0.0 - 0.0: ████████████████████████████████████████████████████████████████████████████████ 287
-```
+    ```txt
+    Masked area (%):
+    0.0 - 0.0: ████████████████████████████████████████████████████████████████████████████████ 287
+    ```
 
-## Prepare for tilt series processing
+### Tilt Series: Import
 
 Next we have to tell *WarpTools* which movies belong to which tilt series
 so we can process them.
@@ -563,28 +610,25 @@ are darker than expected by supplying `--min_intensity` at this stage. (1)
 { .annotate }
 
 1. :man_raising_hand: images are removed if their intensity is less
-   than `min_intensity` * `cos(tilt_angle)` * `0-tilt intensity`   
+   than `min_intensity` * `cos(tilt_angle)` * `0-tilt intensity`
 
 This command produces files with the *tomostar* extension, these are STAR files with
-necessary information in them for further processing in *WarpTools*. 
+necessary information in them for further processing in *WarpTools*.
 We put these in a folder called `tomostar`
 
+```txt title="Import Tilt Series Metadata
+WarpTools ts_import \
+--mdocs mdoc \
+--frameseries warp_frameseries \
+--tilt_exposure 2.64 \
+--min_intensity 0.3 \
+--output tomostar
+```
 
-=== "Command"
-   
-    ```sh
-    WarpTools ts_import \
-    --mdocs mdoc \
-    --frameseries warp_frameseries \
-    --tilt_exposure 2.64 \
-    --min_intensity 0.3 \
-    --output tomostar
-    ```
+??? note "tomoSTAR file"
 
-=== "tomoSTAR file"
     ```txt title="TS_1.tomostar"
-       
-       
+
     data_
     
     loop_
@@ -637,98 +681,223 @@ We put these in a folder called `tomostar`
     ../warp_frameseries/2Dvs3D_53-1_00039_40.0_Jul31_11.03.42.tif  -39.98  -93.500   100.32001  3.797  0.000
     ```
 
-## Tilt Series Alignment
+### Tilt Series: Alignment
 
-Tilt series alignment is the determination of parameters of a projection model 
-required for reconstructing a tomogram from a set of projection images. 
-*WarpTools* doesn't have its own solution for this step at the moment, instead we provide 
-wrappers around [IMOD](https://bio3d.colorado.edu/imod/) 
-(both patch tracking and fiducial based alignment) and 
-[AreTomo](https://drive.google.com/drive/folders/1Z7pKVEdgMoNaUmd_cOFhlt-QCcfcwF3_), 
-a popular program for projection matching based tilt series alignment.
+Tilt series alignment is the determination of parameters of a projection model
+required for reconstructing a tomogram from a set of projection images.
+*WarpTools* doesn't have its own solution for this step at the moment, instead we
+provide
+wrappers around [IMOD](https://bio3d.colorado.edu/imod/) and
+[AreTomo](https://drive.google.com/drive/folders/1Z7pKVEdgMoNaUmd_cOFhlt-QCcfcwF3_).
 
 In this case, we will use patch tracking from IMOD via the `etomo_patches` WarpTool. (1)
 { .annotate }
 
-1. :man_raising_hand: the corresponding aretomo command would look like `WarpTool ts_aretomo --settings warp_tiltseries.settings --angpix 10 --alignz 800 --axis_iter 5 --min_fov 0`
-   
+1. :man_raising_hand: `ts_etomo_fiducials` and `ts_aretomo` are also available.
 
-```sh
+```txt "Tilt Series Alignment in Etomo using Patch Tracking"
 WarpTools ts_etomo_patches \
 --settings warp_tiltseries.settings \
 --angpix 10 \
 --patch_size 500 \
 --initial_axis -85.6
-```
+``` 
 
+### Tilt Series: Check Defocus Handedness
 
+*WarpTools* contains a program, `ts_defocus_hand` for checking
+[defocus handedness](../../reference/warp/defocus_handedness.md) across a dataset
+and applying a correction to the model if necessary.
 
+First, we check how well our data match expectations. (1)
+{ .annotate }
 
-# bla
-```sh
-# Create settings for tilt-series processing
+1. :man_raising_hand: this check requires that defocus was estimated with at least
+   two points in each spatial dimension (i.e. minimum `2x2x1`).
 
-
-
-# Estimate projection model parameters with patch tracking in eTomo
-
-
-# # or aretomo (performs badly on this dataset)
-
-
-# Check defocus handedness
+```txt title="Defocus Handedness Check"
 WarpTools ts_defocus_hand \
 --settings warp_tiltseries.settings \
 --check
+```
 
-# > The average correlation is negative, which means that the defocus handedness should be set to 'flip'
-# apply defocus handedness correction based on check
+In this case, the program tells us we should set the defocus handedness to 'flip'.
+
+```txt title="Output from Defocus Handedness Check"
+Checking defocus handedness for all tilt series...
+5/5, -0.931                                                                                                                                                                                  
+Average correlation: -0.931
+The average correlation is negative, which means that the defocus handedness should be set to 'flip'
+```
+
+We run the program again with the `--set_flip` flag to set the correct defocus
+handedness
+for all tilt series.
+
+```txt title="Defocus Handedness Correction"
 WarpTools ts_defocus_hand \
 --settings warp_tiltseries.settings \
 --set_flip
+```
 
-# Estimate per tilt defocus with constraints from tilt-series geometry
+### Tilt Series: CTF Estimation
+
+The initial defocus estimates from 2D frame series processing are great for getting an
+idea about how defocus changes but obtaining accurate estimates is challenging due to
+the
+lower amount of signal available in typical tilt images.
+
+Even if a tilt series accumulates 120 e<sup>−</sup>Å<sup>2</sup> throughout a tilt
+series
+each tilt contains only a few electrons per square angstrom. This provides much
+less signal than the 40 e<sup>−</sup>Å<sup>2</sup> typical of single particle images
+whilst
+striving for the same accuracy.
+
+*WarpTools* contains a `ts_ctf` tool which estimates a single defocus value per image
+in a tilt series whilst ensuring that data in all tilt images respects constraints
+common to the whole series. (1)
+{ .annotate }
+
+1. :man_raising_hand: this procedure is described in detail over at
+   [Tilt Series CTF Estimation](../../reference/warp/ts_ctf_estimation.md).
+
+```txt title="Tilt Series CTF Estimation"
 WarpTools ts_ctf \
 --settings warp_tiltseries.settings \
 --range_high 7 \
---defocus_max 8 \
---perdevice 4 
+--defocus_max 8
+```
 
-# Reconstruct tomograms
+!!! tip
+Remember, you can use `ts_filter_quality` to print histograms of metrics from
+processing!
+
+### Tilt Series: Reconstruct Tomograms
+
+Now that we have an estimate of the projection geometry and good CTF estimates for
+our tilt series we can move on to tomogram reconstruction. Tomogram reconstruction
+is available as `ts_reconstruct` in *WarpTools*.
+
+```txt title="Tomogram Reconstruction"
 WarpTools ts_reconstruct \
 --settings warp_tiltseries.settings \
---angpix 10 \
---perdevice 4 
+--angpix 10 
+```
 
-## if a TS was misaligned you could realign in etomo in warp_tiltseries/tiltstack/TS_1 then:
-# WarpTools ts_import_alignments \
-# --settings warp_tiltseries.settings \
-# --alignments warp_tiltseries/tiltstack/TS_1 \
-# --alignment_angpix 10 
+Tomograms will be reconstructed and placed in `warp_tiltseries/reconstruction` alongside
+preview images providing some quick visual feedback.
+It's recommended that you look at volumes in a viewer like *3dmod* to assess alignment
+quality.
 
-# then reconstruct with new alignments
-# WarpTools ts_reconstruct \
-# --settings warp_tiltseries.settings \
-# --angpix 10 \
-# --perdevice 4 
+<figure markdown="span">
+  ![tomogram preview](./assets/tomogram_slice_preview.png){ width="60%" }
+  <figcaption>preview image of tomogram reconstruction</figcaption>
+</figure>
 
-# Match template
+
+If you would like to reconstruct half-tomograms for subsequent denoising using
+[Noise2Map](../../reference/noise2map/noise2map.md) add `--halfmap_frames` if you
+
+#### Improving alignments in Etomo
+
+Running tilt series alignment programs in a fully automated way does not always give
+the best results. If you would like to improve results for a particlular tilt series
+you can run through *Etomo* yourself in the `tiltstack` folder for your tilt series
+and import the results.
+
+```txt title="importing improved alignments for TS_1"
+WarpTools ts_import_alignments \
+--settings warp_tiltseries.settings \
+--alignments warp_tiltseries/tiltstack/TS_1 \
+--alignment_angpix 10 
+```
+
+## Particle Picking
+
+You can pick particles in tomograms using whichever software you like the most,
+we just need the particle poses in a RELION particle STAR file for subsequent particle
+export.
+
+### Template Matching
+
+We provide a CTF aware template matching routine, `ts_template_match`,
+for automated particle picking within *WarpTools*. In this example, we will match
+against
+an apoferritin template from the
+EMDB, [EMD-15854](https://www.ebi.ac.uk/emdb/EMD-15854).
+
+```txt title="Template Matching with a Template from the EMDB"
 WarpTools ts_template_match \
 --settings warp_tiltseries.settings \
 --tomo_angpix 10 \
+--subdivisions 3 \
 --template_emdb 15854 \
 --template_diameter 130 \
 --symmetry O \
---perdevice 2
+--check_hand 2 
+```
 
-# threshold picks - scores are normalised so 6 means 6 * SD away from mean
+A `--subdivisions` parameter controls the number of subdivisions defining the
+angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on.
+
+The `--check_hand` parameter allows you to check the physical handedness of your
+tomograms by running template matching against both the template and a flipped version
+for a number of tilt series and comparing the height of the top scoring peaks in each
+case.
+
+Templates are saved in `warp_tiltseries/template` and correlation volumes are written
+into the `warp_tiltseries/matching` directory.
+Images showing particle picks for each tilt series at a number of different thresholds
+are written into corresponding `*_picks` directories inside the `matching` directory.
+
+<figure markdown="span">
+  ![template matching results preview](./assets/template_matching_results_preview.jpg){ width="60%" }
+  <figcaption>preview image of template matching results</figcaption>
+</figure>
+
+Scores are normalised to the mean and standard deviation of background of the whole
+volume
+so should be comparable across different tomograms and datasets.
+
+#### Generating Particle Picks
+
+We can generate particle picks for subsequent processing by finding local maxima in
+a thresholded correlation volume. This is done in the `threshold_picks` WarpTool
+
+```txt title="Select Peaks from Template Matching Results"
 WarpTools threshold_picks \
 --settings warp_tiltseries.settings \
 --in_suffix 15854 \
 --out_suffix clean \
 --minimum 6
+```
 
-# Write out 2D 'particle series' images for 3D refinement
+This generates a number of STAR files containing particle positions with a `clean`
+suffix in the filename
+
+```txt title="Output Files from Peak Picking"
+warp_tiltseries/matching
+├── TS_1_10.00Apx_emd_15854_clean.star
+├── TS_11_10.00Apx_emd_15854_clean.star
+├── TS_17_10.00Apx_emd_15854_clean.star
+├── TS_23_10.00Apx_emd_15854_clean.star
+└── TS_32_10.00Apx_emd_15854_clean.star
+```
+
+### Export Particles
+
+*WarpTools* can write out
+
+- 3D volumes and corresponding CTF volumes
+- CTF corrected 2D particle image series
+
+using the `ts_export_particles` tool.
+
+Both are compatible with the latest version of RELION, RELION-5.
+For this tutorial we will write out 2D particle image series.
+
+```txt title="Export 2D particle series"
 WarpTools ts_export_particles \
 --settings warp_tiltseries.settings \
 --input_directory warp_tiltseries/matching \
@@ -739,91 +908,166 @@ WarpTools ts_export_particles \
 --box 64 \
 --diameter 130 \
 --relative_output_paths \
---2d 
+--2d
+```
 
-# Run initial model generation in RELION
-cd relion
-mkdir -p InitialModel/job001
+This will write particle images the `warp_tiltseries/particleseries` directory.
+Per tilt averages (2D or 3D, depending on output dimensionality) are written into
+the same directory for debugging, you should see a blob in the center of these images.
 
-`which relion_refine` \
---o InitialModel/job001/run \
---iter 50 \
---grad \
---denovo_3dref  \
---ios matching_optimisation_set.star \
---ctf \
---K 1 \
---sym O \
---flatten_solvent  \
---zero_mask  \
---dont_combine_weights_via_disc \
---pool 30 \
---pad 1  \
---particle_diameter 130 \
---oversampling 1  \
---healpix_order 1  \
---offset_range 6  \
---offset_step 2 \
---auto_sampling  \
---tau2_fudge 4 \
---j 8 \
---gpu ""  \
---pipeline_control InitialModel/job001/
-
-# Do an unmasked refinement in RELION
-mkdir -p Refine3D/job002
-
-mpirun -n 3 `which relion_refine_mpi` \
---o Refine3D/job002/run \
---auto_refine \
---split_random_halves \
---ios matching_optimisation_set.star \
---ref InitialModel/job001/run_it050_class001.mrc \
---trust_ref_size \
---ini_high 40 \
---dont_combine_weights_via_disc \
---pool 10 \
---pad 2  \
---ctf \
---particle_diameter 130 \
---flatten_solvent \
---zero_mask \
---oversampling 1 \
---healpix_order 2 \
---auto_local_healpix_order 4\
- --offset_range 5 \
- --offset_step 2 \
- --sym O \
- --low_resol_join_halves 40 \
- --norm \
- --scale  \
- --j 2 \
- --gpu ""  \
- --pipeline_control Refine3D/job002/
+<figure markdown="span">
+  ![per tilt 2D average](./assets/per_tilt_2d_average.jpg){ width="30%" }
+  <figcaption>Per tilt 2D average of apoferritin</figcaption>
+</figure>
 
 
-# 8A (Nyquist)
+We wrote particles at 4Å per pixel in this case as the major features of apoferritin
+are alpha helices which resolve nicely at around 9Å, just above the Nyquist limit of
+8Å defined by a 4Å pixel spacing.
 
-# back to root dir
-cd ${ROOT_DIR}
+A particle STAR file will be written to the file specified as `--output_star`. In the
+case of 2D averages, a RELION compatible `optimisation_set` STAR file will be written
+out
+which points at a description of the tilt series in `*_tomograms.star` and the
+particle star file. This file can be used as input for refinement in the
+`relion --tomo` GUI in RELION 5. A `dummy_tiltseries.mrc` file is written out for
+compatibility with RELION.
 
-# Create population
+```txt title="RELION directory structure after particle export"
+relion
+├── matching.star
+├── matching_tomograms.star
+├── matching_optimisation_set.star
+└── dummy_tiltseries.mrc
+```
+
+!!! tip
+
+    Want to play with different particle sets at the same time? You can specify 
+    `--output_processing` to override the processing directory (`warp_tiltseries`) 
+    in the settings file at any time!
+
+## Initial 3D Refinement in RELION
+
+We use RELION to determine good initial particle positions
+and orientations before attempting high resolution refinements in M.
+3D classification in RELION can also be used to separate particles into different
+classes.
+
+For this apoferritin dataset, an unmasked 3D refinement
+starting from a 130Å sphere filtered to 60Å refines directly to the Nyquist limit of 8Å.
+
+```txt title="Refine3D text output"
+ Auto-refine: Refinement has converged, stopping now... 
+ Auto-refine: + Final reconstruction from all particles is saved as: Refine3D/job001/run_class001.mrc
+ Auto-refine: + Final model parameters are stored in: Refine3D/job001/run_model.star
+ Auto-refine: + Final data parameters are stored in: Refine3D/job001/run_data.star
+ Auto-refine: + Final resolution (without masking) is: 8.17021
+```
+
+<figure markdown="span">
+  ![initial 3D refinement results](./assets/initial_refined3d_8A.jpg){ width="30%" }
+  <figcaption>8Å apoferritin from Refine3D</figcaption>
+</figure>
+
+
+??? note "RELION Refine3D command"
+
+    This is the command that was run via the `RELION --tomo` GUI.
+
+    ```txt
+    mpirun -n 3 `which relion_refine_mpi` \
+    --o Refine3D/job001/run \
+    --auto_refine \
+    --split_random_halves \
+    --ios matching_optimisation_set.star \
+    --ref sphere.mrc \
+    --trust_ref_size \
+    --ini_high 40 \
+    --dont_combine_weights_via_disc \
+    --pool 10 \
+    --pad 2  \
+    --ctf \
+    --particle_diameter 130 \
+    --flatten_solvent \
+    --zero_mask \
+    --oversampling 1 \
+    --healpix_order 2 \
+    --auto_local_healpix_order 4\
+    --offset_range 5 \
+    --offset_step 2 \
+    --sym O \
+    --low_resol_join_halves 40 \
+    --norm \
+    --scale  \
+    --j 2 \
+    --gpu ""  \
+    --pipeline_control Refine3D/job001/
+    ```
+
+## High Resolution Refinements in M
+
+While Warp handles the first stages of the data processing pipeline, M lives on its
+opposite end. It allows you to take refinement results from RELION and perform a
+multi-particle refinement. For tilt series data, M will likely
+deliver a noticeable resolution boost compared to initial tilt series alignments from
+IMOD or AreTomo. Refinement of *in situ* data will also benefit significantly from the
+unlimited number of classes and transparent mechanisms for combining data from different
+sources.
+
+M strives to be a great tool for *in situ* data, which have been compared to “molecular
+sociology“. Thus, its terminology takes a somewhat sociological angle. A project in M is
+referred to as a **Population**. A population contains at least one **Data Source** and
+at least
+one **Species**. A **Data Source** contains a set of frame series or tilt series and
+their
+metadata. A **Species** is a map that is refined, as well as particle metadata for the
+available data sources.
+
+### Setup in `MTools`
+
+#### Population Creation
+
+To create a population we run the `create_population` command from *MTools*
+
+```txt title="Create Population"
 MTools create_population \
 --directory m \
 --name 10491
+```
 
-# Create data source
+#### Data Source Setup
+
+Next we create a data source from our tilt series settings file.
+
+```txt title="Create Data Source"
 MTools create_source \
 --name 10491 \
 --population m/10491.population \
 --processing_settings warp_tiltseries.settings
+```
 
-# Create species from RELION's results and resample maps to a smaller pixel size
+#### Species Setup
+
+##### Create Mask Using RELION
+
+M requires a binary mask around the particle (or region of interest).
+This mask will be expanded and a soft edge will be added automatically during
+refinement.
+
+```txt title="Mask Creation in RELION"
 relion_mask_create \
 --i relion/Refine3D/job002/run_class001.mrc \
 --o m/mask_4apx.mrc \
 --ini_threshold 0.04
+```
 
+##### Setup Species with `create_species`
+
+Now we create our species, resampling to a smaller pixel size as we hope to reach higher
+resolution.
+
+```txt title="Create Species with MTools"
 MTools create_species \
 --population m/10491.population \
 --name apoferritin \
@@ -835,49 +1079,85 @@ MTools create_species \
 --mask m/mask_4apx.mrc \
 --particles_relion relion/Refine3D/job002/run_data.star \
 --angpix_resample 0.7894 \
---lowpass 10 
+--lowpass 10
+```
 
-# Run an iteration of M without any refinements to check that everything imported correctly
+### Running M with `MCore`
+
+#### Checking our Setup
+
+First, we run an iteration of M without any refinements to check that everything
+imported correctly.
+
+```txt title="Run M to Check Setup"
 MCore \
 --population m/10491.population \
---perdevice_refine 4 \
 --iter 0
+```
 
-# 6.4 A
+This yields a 6.4Å map in our hands.
 
-# Run an iteration of M with image warp, particle pose and CTF refinement
-# (running exhaustive defocus search because this is the first refinement)
+!!! tip
+    the `--perdevice_refine` option can be used to run multiple worker processes per GPU
+
+#### First Refinement
+
+Now we know things have imported correctly we run an iteration of M with 2D image warp
+refinement, particle pose refinement and CTF refinement. We use an exhaustive defocus
+search
+in the first sub-iteration (`--ctf_defocusexhaustive`) as initial estimates can be quite
+far
+from the true value and the gradient based optimisation in M may get stuck in local
+minima.
+
+```txt title="First M Refinement with 2D Image Warp, Particle Poses Refinement and CTF Refinement"
 MCore \
 --population m/10491.population \
 --refine_imagewarp 6x4 \
 --refine_particles \
 --ctf_defocus \
 --ctf_defocusexhaustive \
---perdevice_refine 4 
-
-# 3.6 A
-
-# Run another iteration now that the reference has better resolution
-MCore \
---population m/10491.population \
---refine_imagewarp 6x4 \
---refine_particles \
---ctf_defocus \
---perdevice_refine 4 
-
-# 3.1 A
-
-# Now also refine stage angles
-MCore \
---population m/10491.population \
---refine_imagewarp 6x4 \
---refine_particles \
---refine_stageangles \
 --perdevice_refine 4
+```
 
-# 3.0 A
+This yields a map at 3.6 Å.
 
-# Now throw (almost everything) at it
+#### Benefits from a Higher Resolution Reference
+
+The reference now has better resolution so we can expect things to improve further
+without
+adding any additional parameters.
+
+!!! tip
+    Introduce new parameters one by one when refining in M. 
+    Be wary of the potential for overfitting parameters if data are weak!
+
+```txt title="Second M Refinement with 2D Image Warp, Particle Poses Refinement and CTF Refinement"
+MCore \
+--population m/10491.population \
+--refine_imagewarp 6x4 \
+--refine_particles \
+--ctf_defocus 
+```
+
+This gave us a modest improvement and we now have a 3.1Å map.
+
+#### + Stage Angle Refinement
+
+```
+MCore \
+--population m/10491.population \
+--refine_imagewarp 6x4 \
+--refine_particles \
+--refine_stageangles 
+```
+3.0 A
+
+#### + Magnification/Cs/Zernike3
+
+We can add more CTF parameters and see whether this yields any improvements
+
+```txt title=""
 MCore \
 --population m/10491.population \
 --refine_imagewarp 6x4 \
@@ -885,12 +1165,15 @@ MCore \
 --refine_mag \
 --ctf_cs \
 --ctf_defocus \
---ctf_zernike3 \
---perdevice_refine 4 
+--ctf_zernike3 
+```
 
-# 3.0 A
+In this case, the map stayed at 3.0Å.
 
-# Fit weights per-tilt-series
+
+#### + Weights (Per-Tilt Series)
+
+```text title="Estimate Weights (Per-Tilt Series)
 EstimateWeights \
 --population m/10491.population \
 --source 10491 \
@@ -898,11 +1181,13 @@ EstimateWeights \
 
 MCore \
 --population m/10491.population \
---perdevice_refine 4
+```
 
-# 3.0 A
 
-# Fit per-tilt weights, averaged over all tilt sries
+
+#### + Weights (Per-Tilt, Averaged over all Tilt Series)
+
+```txt
 EstimateWeights \
 --population m/10491.population \
 --source 10491 \
@@ -911,12 +1196,16 @@ EstimateWeights \
 MCore \
 --population m/10491.population \
 --perdevice_refine 4 \
---refine_particles 
+--refine_particles
+```
 
-# 3.0 A
+3.0 Å
 
-# Resample particle pose trajectories to 2 temporal samples
-# NOTE: Please adjust species folder name to account for GUID bit
+#### + Temporal Pose Resolution
+
+M is capable of refining how particle poses change over time through a tilt series.
+
+```txt
 MTools resample_trajectories \
 --population m/10491.population \
 --species m/species/apoferritin_797f75c2/apoferritin.species \
@@ -924,7 +1213,6 @@ MTools resample_trajectories \
 
 MCore \
 --population m/10491.population \
---perdevice_refine 4 \
 --refine_imagewarp 6x4 \
 --refine_particles \
 --refine_stageangles \
@@ -932,8 +1220,12 @@ MCore \
 --ctf_cs \
 --ctf_defocus \
 --ctf_zernike3
-
-# 2.9 A
-
-
 ```
+
+2.9 A
+
+## Final Map: 2.9Å
+<figure markdown="span">
+  ![M result](./assets/m_result.jpg){ width="80%" }
+  <figcaption>Final Map at 2.9Å after running M</figcaption>
+</figure>

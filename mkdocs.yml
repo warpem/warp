@@ -20,7 +20,7 @@ nav:
     - Desktop Warp:
       - user_guide/warp/quick_start_warp_frame_series.md
       - user_guide/warp/quick_start_warp_tilt_series.md
-    - M:
+    - Desktop M:
       - user_guide/m/quick_start_m.md
     - WarpTools:
       - user_guide/warptools/quick_start_warptools_frame_series.md
@@ -60,6 +60,7 @@ theme:
     - search.highlight
     - search.suggest
     - content.tabs.link
+    - content.code.annotate
   icon:
     annotation: material/plus-circle
 
@@ -79,6 +80,8 @@ markdown_extensions:
   - md_in_html
   - pymdownx.arithmatex:
       generic: true
+  - toc:
+      toc_depth: 3
 
 plugins:
   - search
