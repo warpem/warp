@@ -12,7 +12,7 @@
         <meta name="author" content="Dimitry Tegunov">
       
       
-        <link rel="canonical" href="https://warpem.com/user_guide/warp/eer/">
+        <link rel="canonical" href="https://warpem.com/reference/warp/defocus_handedness/">
       
       
       
@@ -22,7 +22,7 @@
     
     
       
-        <title>EER handling - Warp, M and friends</title>
+        <title>Defocus Handedness - Warp, M and friends</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#eer-handling" class="md-skip">
+        <a href="#defocus-handedness" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              EER handling
+              Defocus Handedness
             
           </span>
         </div>
@@ -224,7 +224,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../overview/" class="md-tabs__link">
+        <a href="../../../user_guide/overview/" class="md-tabs__link">
           
   
   📘 User Guides
@@ -248,7 +248,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../reference/warp/interface/interface_overview/" class="md-tabs__link">
+        <a href="../interface/interface_overview/" class="md-tabs__link">
           
   
   🗄️ Reference
@@ -524,7 +524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../overview/" class="md-nav__link">
+      <a href="../../../user_guide/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -587,7 +587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quick_start_warp_frame_series/" class="md-nav__link">
+      <a href="../../../user_guide/warp/quick_start_warp_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -608,7 +608,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quick_start_warp_tilt_series/" class="md-nav__link">
+      <a href="../../../user_guide/warp/quick_start_warp_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -679,7 +679,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../m/quick_start_m/" class="md-nav__link">
+      <a href="../../../user_guide/m/quick_start_m/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -750,7 +750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../warptools/quick_start_warptools_frame_series/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/quick_start_warptools_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -771,7 +771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -891,7 +891,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/interface/interface_overview/" class="md-nav__link">
+      <a href="../interface/interface_overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -912,7 +912,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/models/" class="md-nav__link">
+      <a href="../models/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -933,7 +933,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/task_dialogs_frame_series/" class="md-nav__link">
+      <a href="../task_dialogs_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -954,7 +954,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/task_dialogs_tilt_series/" class="md-nav__link">
+      <a href="../task_dialogs_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1025,7 +1025,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/m/particle_operations/" class="md-nav__link">
+      <a href="../../m/particle_operations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1150,21 +1150,7 @@
   
 
 
-<h1 id="eer-handling">EER handling</h1>
-<p>Rudimentary support for Thermo Fisher Scientific's Electron Event Registration (EER) format is implemented in Warp &amp; M <code>&gt;=1.0.9</code>. 
-EER supports very fine exposure fractionation, which can be subjected to <em>in silico</em> exposure grouping later when the data are processed. 
-EER's compression efficiency is similar to TIFF.</p>
-<p>EER is available as input format in Warp. 
-When selected, a new setting will appear in the UI: <strong>EER frame group</strong>. 
-This determines how many consecutive frames will be summed up without taking into account any alignment when an EER frame series is read. 
-Set a smaller value if you expect fast motion at the beginning of an exposure, e.g. because you're collecting on a tilted sample. 
-If the overall number of frames isn't divisible by the group size, the last incomplete group will be dropped.</p>
-<p>The <strong>Exposure</strong> setting in Warp refers to the cumulative exposure of 1 group of frames, i.e. you will likely need to adjust it if you change the group size. 
-Please note that the group size currently can't be changed for M's processing later. 
-M also doesn't implement any optimizations for finely fractionated data yet, so if you set the group size too small, you might run out of memory.</p>
-<p>EER files are currently presumed to originate from a Falcon 4 detector, which has a physical size of <code>4096</code><em>x</em><code>4096</code> px. 
-The acquisition software calculates non-integer centroid coordinates for every electron event, which the format preserves in up to 4x super-resolution. 
-In Warp, the size of the <strong>gain reference</strong> determines whether the super-resolution information is used. If you provide a 8192x8192 px gain reference, the EER data will be rendered in 2x super-resolution; 16384x16384 px will result in 4x super-resolution; a 4096x4096 px gain reference turns off super-resolution rendering.</p>
+<h1 id="defocus-handedness">Defocus Handedness</h1>
 
 
 
