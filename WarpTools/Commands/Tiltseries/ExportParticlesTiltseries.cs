@@ -769,15 +769,11 @@ namespace WarpTools.Commands
                 ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
                 : tiltSeries.IndicesSortedDose.ToList();
             UsedTilts.Sort();
-            
-            // Get Extrinsic XYZ Euler angles for RELION 5 tomo projection model
             float3[] ZYZEulerAngles = tiltSeries.GetAngleInAllTilts(tiltSeries.VolumeDimensionsPhysical * 0.5f);
-            float3[] XYZEulerAngles = ZYZEulerAngles.Select(
-                zyz => Matrix3.EulerXYZExtrinsicFromMatrix(Matrix3.Euler(zyz).Transposed()) * Helper.ToDeg
-            ).ToArray();
-
             foreach (var i in UsedTilts)
             {
+                Matrix3 M = Matrix3.Euler(ZYZEulerAngles[i]);
+                float3 XYZEulerAngles = Matrix3.EulerXYZExtrinsicFromMatrixRELION(M);
                 float3 ImageCoords = tiltSeries.GetPositionsInOneTilt(
                     coords: new[] { tiltSeries.VolumeDimensionsPhysical * 0.5f }, tiltID: i
                     ).First();
@@ -791,9 +787,9 @@ namespace WarpTools.Commands
 
                 TiltSeriesTable.AddRow(new string[]
                 {
-                    $"{XYZEulerAngles[i].X}",
-                    $"{XYZEulerAngles[i].Y}",
-                    $"{XYZEulerAngles[i].Z}",
+                    $"{XYZEulerAngles.X}",
+                    $"{XYZEulerAngles.Y}",
+                    $"{XYZEulerAngles.Z}",
                     ((TiltCTF.Defocus + TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1", CultureInfo.InvariantCulture),
                     ((TiltCTF.Defocus - TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1", CultureInfo.InvariantCulture),
                     TiltCTF.DefocusAngle.ToString("F3", CultureInfo.InvariantCulture),

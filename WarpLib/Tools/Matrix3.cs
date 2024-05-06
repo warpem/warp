@@ -353,31 +353,34 @@ namespace Warp.Tools
         
         public static float3 EulerXYZExtrinsicFromMatrixRELION(Matrix3 a)
         {
-            // this method doesn't do what it claims to do (XYZ extrinsic from matrix) but is compatible with RELION...
-            float xTilt, yTilt, zRot;
+            double thetaX, thetaY, thetaZ;
+            if (a.M31 < 1.0)
+            {
+                if (a.M31 > -1.0)
+                {
+                    thetaX = Math.Atan2(a.M32, a.M33);
+                    thetaY = Math.Asin(-a.M31);
+                    thetaZ = Math.Atan2(a.M21, a.M11);
+                }
+                else // A.M31 = -1
+                {
+                    thetaX = 0.0;
+                    thetaY = Math.PI / 2.0;
+                    thetaZ = -Math.Atan2(-a.M23, a.M22);
+                }
+            }
+            else // A.M31 = 1
+            {
+                thetaX = 0.0;
+                thetaY = -Math.PI / 2.0;
+                thetaZ = Math.Atan2(-a.M23, a.M22);
+            }
 
-            if (a.M31 < 1f)
-            {
-                if (a.M31 > -1f)
-                {
-                    xTilt = MathF.Atan2(a.M32, a.M33);
-                    yTilt = MathF.Asin(-a.M31);
-                    zRot = MathF.Atan2(a.M21, a.M11);
-                }
-                else // a.M31 = -1
-                {
-                    xTilt = 0f;
-                    yTilt = MathF.PI / 2f;
-                    zRot = -MathF.Atan2(-a.M23, a.M22);
-                }
-            }
-            else // a.M31 = +1
-            {
-                xTilt = 0f;
-                yTilt = -MathF.PI / 2f;
-                zRot = MathF.Atan2(-a.M23, a.M22);
-            }
-            
+            // Convert radians to degrees
+            float xTilt = (float)thetaX * Helper.ToDeg;
+            float yTilt = (float)thetaY * Helper.ToDeg;
+            float zRot = (float)thetaZ * Helper.ToDeg;
+
             return new float3(xTilt, yTilt, zRot);
         }
 
