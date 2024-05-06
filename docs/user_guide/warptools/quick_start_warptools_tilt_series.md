@@ -407,7 +407,7 @@ These will be used for frame series and tilt series processing respectively.
 
 === "Tilt Series"
 
-    ```txt title="Create Tilt Series Settings File"
+    ```bash title="Create Tilt Series Settings File"
     WarpTools create_settings \
     --output warp_tiltseries.settings \
     --folder_processing warp_tiltseries \
@@ -417,12 +417,12 @@ These will be used for frame series and tilt series processing respectively.
     --gain_path gain_ref.mrc \
     --gain_flip_y \
     --exposure 2.64 \
-    --tomo_dimensions 4400x6000x1000 #(1)
+    --tomo_dimensions 4400x6000x1000 # (1)!
     ```
 
     1.  :man_raising_hand: These are the dimensions of your tomograms in unbinned pixels.
-    Tomograms are reconstructed with the tilt axis aligned along Y, remember to 
-    account for rotation of the tilt axis when setting these dimensions!
+        Tomograms are reconstructed with the tilt axis aligned along Y, remember to 
+        account for rotation of the tilt axis when setting these dimensions!
 
 ## Preprocessing: From Frames to Tomograms
 
@@ -431,7 +431,7 @@ These will be used for frame series and tilt series processing respectively.
 The first step in processing tilt movies involves estimating 2D sample motion and
 contrast transfer function.
 
-```txt title="Frame Series Motion and CTF Estimation
+```sh title="Frame Series Motion and CTF Estimation"
 WarpTools fs_motion_and_ctf \
 --settings warp_frameseries.settings \
 --m_grid 1x1x3 \
@@ -440,11 +440,11 @@ WarpTools fs_motion_and_ctf \
 --c_defocus_max 8 \
 --c_use_sum \
 --out_averages \
---out_average_halves # (1)
+--out_average_halves # (1)!
 ```
 
 1. :man_raising_hand: averages of half sets of frames are required for Noise2Noise
-   based denoising of images and tomograms
+based denoising of images and tomograms
 
 Motion corrected averages will be written out to the `warp_frameseries/average`
 directory.
