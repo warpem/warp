@@ -182,7 +182,7 @@ mkdir -p InitialModel/job001
 # Do an unmasked refinement in RELION
 mkdir -p Refine3D/job002
 
-mpirun -n 3 `which relion_refine_mpi` \
+mpirun --oversubscribe  -n 3 `which relion_refine_mpi` \
 --o Refine3D/job002/run \
 --auto_refine \
 --split_random_halves \
