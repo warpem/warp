@@ -186,7 +186,7 @@ namespace WarpTools.Commands
             {
                 TiltSeries TiltSeries = (TiltSeries)tiltSeries;
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
-                    Console.WriteLine($"Processing {tiltSeries.Name}");
+                    Console.WriteLine($"\nProcessing {tiltSeries.Name}");
 
                 // Validate presence of CTF info and particles for this TS, early exit if not found
                 if (tiltSeries.OptionsCTF == null)
@@ -194,7 +194,7 @@ namespace WarpTools.Commands
                 if (!TiltSeriesIDToParticleIndices.ContainsKey(tiltSeries.Name))
                 {
                     if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
-                        Console.WriteLine($"no particles found in {tiltSeries.Name}");
+                        Console.WriteLine($"\nno particles found in {tiltSeries.Name}");
                     return;
                 }
                 
@@ -204,7 +204,7 @@ namespace WarpTools.Commands
                 float3[] TSParticleRotTiltPsi = new float3[TSParticleIndices.Count];
                 
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
-                    Console.WriteLine($"{TSParticleIndices.Count} particles for {TiltSeries.Name}");
+                    Console.WriteLine($"\n{TSParticleIndices.Count} particles for {TiltSeries.Name}");
 
                 for (int i = 0; i < TSParticleIndices.Count; i++)
                 {
