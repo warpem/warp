@@ -197,14 +197,14 @@ namespace WarpTools.Commands
                         Console.WriteLine($"no particles found in {tiltSeries.Name}");
                     return;
                 }
-                    
-
+                
                 // Get positions and orientations for this tilt-series, rescale to Angstroms
                 List<int> TSParticleIndices = TiltSeriesIDToParticleIndices[tiltSeries.Name];
                 float3[] TSParticleXYZAngstroms = new float3[TSParticleIndices.Count];
                 float3[] TSParticleRotTiltPsi = new float3[TSParticleIndices.Count];
                 
-                Console.WriteLine($"{TSParticleIndices.Count} particles for {TiltSeries.Name}");
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"{TSParticleIndices.Count} particles for {TiltSeries.Name}");
 
                 for (int i = 0; i < TSParticleIndices.Count; i++)
                 {
