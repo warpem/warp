@@ -141,10 +141,14 @@ namespace WarpTools.Commands
             Dictionary<string, List<int>> TiltSeriesIDToParticleIndices = GroupParticles(
                 tiltSeriesIDs: InputStar.GetColumn("rlnMicrographName")
             );
-            foreach (var kvp in TiltSeriesIDToParticleIndices)
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
             {
-                Console.WriteLine($"TS: {kvp.Key}   Particles: {kvp.Value.Count}");
+                foreach (var kvp in TiltSeriesIDToParticleIndices)
+                {
+                    Console.WriteLine($"TS: {kvp.Key}   Particles: {kvp.Value.Count}");
+                }
             }
+            
             float3[] InputXYZ = GetInputCoordinates(InputStar);
             float3[]? InputEulerAnglesRotTiltPsi = GetInputEulerAngles(InputStar); // degrees
 
@@ -181,14 +185,16 @@ namespace WarpTools.Commands
             IterateOverItems(Workers, CLI, (worker, tiltSeries) =>
             {
                 TiltSeries TiltSeries = (TiltSeries)tiltSeries;
-                Console.WriteLine($"Processing {tiltSeries.Name}");
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"Processing {tiltSeries.Name}");
 
                 // Validate presence of CTF info and particles for this TS, early exit if not found
                 if (tiltSeries.OptionsCTF == null)
                     return;
                 if (!TiltSeriesIDToParticleIndices.ContainsKey(tiltSeries.Name))
                 {
-                    Console.WriteLine($"no particles found in {tiltSeries.Name}");
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"no particles found in {tiltSeries.Name}");
                     return;
                 }
                     
