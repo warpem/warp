@@ -1,6 +1,7 @@
 using CommandLine;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -140,6 +141,14 @@ namespace WarpTools.Commands
             Dictionary<string, List<int>> TiltSeriesIDToParticleIndices = GroupParticles(
                 tiltSeriesIDs: InputStar.GetColumn("rlnMicrographName")
             );
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            {
+                foreach (var kvp in TiltSeriesIDToParticleIndices)
+                {
+                    Console.WriteLine($"TS: {kvp.Key}   Particles: {kvp.Value.Count}");
+                }
+            }
+            
             float3[] InputXYZ = GetInputCoordinates(InputStar);
             float3[]? InputEulerAnglesRotTiltPsi = GetInputEulerAngles(InputStar); // degrees
 
@@ -176,17 +185,26 @@ namespace WarpTools.Commands
             IterateOverItems(Workers, CLI, (worker, tiltSeries) =>
             {
                 TiltSeries TiltSeries = (TiltSeries)tiltSeries;
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"\nProcessing {tiltSeries.Name}");
 
                 // Validate presence of CTF info and particles for this TS, early exit if not found
                 if (tiltSeries.OptionsCTF == null)
                     return;
                 if (!TiltSeriesIDToParticleIndices.ContainsKey(tiltSeries.Name))
+                {
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"\nno particles found in {tiltSeries.Name}");
                     return;
-
+                }
+                
                 // Get positions and orientations for this tilt-series, rescale to Angstroms
                 List<int> TSParticleIndices = TiltSeriesIDToParticleIndices[tiltSeries.Name];
                 float3[] TSParticleXYZAngstroms = new float3[TSParticleIndices.Count];
                 float3[] TSParticleRotTiltPsi = new float3[TSParticleIndices.Count];
+                
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"\n{TSParticleIndices.Count} particles for {TiltSeries.Name}");
 
                 for (int i = 0; i < TSParticleIndices.Count; i++)
                 {
