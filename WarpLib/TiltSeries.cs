@@ -1272,6 +1272,7 @@ namespace Warp
                     $"{RootName.Replace(".mrc", "")}_st.xf"
                 };
                 string[] XfPaths = new string[Directories.Length * FileNames.Length];
+                int idx;
                 for (int i=0; i < Directories.Length; i++)
                 {
                     for (int j=0; j < FileNames.Length; j++)
