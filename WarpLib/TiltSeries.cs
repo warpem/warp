@@ -1273,6 +1273,14 @@ namespace Warp
                     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf"),
                     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + "_st.xf"),
                 };
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                {
+                    Console.WriteLine("Possible XF file paths:");
+                    foreach (string path in XfPaths)
+                    {
+                        Console.WriteLine($"{path}");
+                    }
+                }
                 string XfPath = null;
                 try
                 {

@@ -59,6 +59,8 @@ namespace WarpTools.Commands
                 try
                 {
                     OptionsImport.OverrideResultsDir = Path.Combine(CLI.AlignmentPath, series.RootName);
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"override results dir: {OptionsImport.OverrideResultsDir}");
                     series.ImportAlignments(OptionsImport);
                     series.SaveMeta();
 
