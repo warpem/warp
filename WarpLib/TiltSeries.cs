@@ -1278,22 +1278,10 @@ namespace Warp
                     for (int j=0; j < FileNames.Length; j++)
                     {
                         idx = i * FileNames.Length + j;
-                        Console.WriteLine("idx");
-                        XfPaths[idx] = IOPath.Combine(ResultsDir, Directories[i],
-                            FileNames[j]);
+                        XfPaths[idx] = Path.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
                     }
                         
                 }
-                // string[] XfPaths = 
-                // {
-                //     IOPath.Combine(ResultsDir, RootName + ".xf"),
-                //     IOPath.Combine(ResultsDir, "../", RootName + ".xf"),
-                //     IOPath.Combine(ResultsDir, RootName + "_Imod", RootName + ".xf"),
-                //     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + ".xf"),
-                //     IOPath.Combine(ResultsDir, "../", RootName.Replace(".mrc", "") + ".xf"),
-                //     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf"),
-                //     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + "_st.xf"),
-                // };
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
                 {
                     Console.WriteLine("Possible XF file paths:");
