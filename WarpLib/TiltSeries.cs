@@ -1278,7 +1278,7 @@ namespace Warp
                     for (int j=0; j < FileNames.Length; j++)
                     {
                         idx = i * FileNames.Length + j;
-                        XfPaths[idx] = Path.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
+                        XfPaths[idx] = IOPath.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
                     }
                         
                 }
