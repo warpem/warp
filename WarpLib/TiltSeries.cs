@@ -1270,12 +1270,14 @@ namespace Warp
                     IOPath.Combine(ResultsDir, RootName + "_Imod", RootName + ".xf"),
                     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + ".xf"),
                     IOPath.Combine(ResultsDir, "../", RootName.Replace(".mrc", "") + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf"),
+                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf")
+                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + "_st.xf"),
                 };
                 string XfPath = null;
                 try
                 {
                     XfPath = XfPaths.First(s => File.Exists(s));
+                    Console.WriteLine($"Importing 2D transforms from {XfPath}");
                 }
                 catch { }
                 if (XfPath == null)
