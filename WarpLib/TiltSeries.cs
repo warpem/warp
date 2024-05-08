@@ -1263,16 +1263,35 @@ namespace Warp
 
             // .xf
             {
-                string[] XfPaths = 
+                string[] Directories = {"", "../", $"{RootName}_Imod", $"../{RootName}_Imod" };
+                string[] FileNames =
                 {
-                    IOPath.Combine(ResultsDir, RootName + ".xf"),
-                    IOPath.Combine(ResultsDir, "../", RootName + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName + "_Imod", RootName + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + ".xf"),
-                    IOPath.Combine(ResultsDir, "../", RootName.Replace(".mrc", "") + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + "_st.xf"),
+                    $"{RootName}.xf",
+                    $"{RootName.Replace(".mrc", "")}.xf"
+                    $"{RootName}_st.xf",
+                    $"{RootName.Replace(".mrc", "")}_st.xf"
                 };
+                string[] XfPaths = new string[Directories.Length * FileNames.Length];
+                for (int i=0; i++; i < Directories.Length)
+                {
+                    foreach (int j=0; j++; j < FileNames.Length)
+                    {
+                        idx = i * FileNames.Length + j;
+                        Console.WriteLine("idx");
+                        XfPaths[idx] = IOPath.Combine(ResultsDir, Directories[i], FileNames[j])
+                    }
+                        
+                }
+                // string[] XfPaths = 
+                // {
+                //     IOPath.Combine(ResultsDir, RootName + ".xf"),
+                //     IOPath.Combine(ResultsDir, "../", RootName + ".xf"),
+                //     IOPath.Combine(ResultsDir, RootName + "_Imod", RootName + ".xf"),
+                //     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + ".xf"),
+                //     IOPath.Combine(ResultsDir, "../", RootName.Replace(".mrc", "") + ".xf"),
+                //     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf"),
+                //     IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + "_st.xf"),
+                // };
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
                 {
                     Console.WriteLine("Possible XF file paths:");
