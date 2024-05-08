@@ -1267,14 +1267,14 @@ namespace Warp
                 string[] FileNames =
                 {
                     $"{RootName}.xf",
-                    $"{RootName.Replace(".mrc", "")}.xf"
+                    $"{RootName.Replace(".mrc", "")}.xf",
                     $"{RootName}_st.xf",
                     $"{RootName.Replace(".mrc", "")}_st.xf"
                 };
                 string[] XfPaths = new string[Directories.Length * FileNames.Length];
-                for (int i=0; i++; i < Directories.Length)
+                for (int i=0; i < Directories.Length, i++)
                 {
-                    foreach (int j=0; j++; j < FileNames.Length)
+                    for (int j=0; j < FileNames.Length, j++)
                     {
                         idx = i * FileNames.Length + j;
                         Console.WriteLine("idx");
