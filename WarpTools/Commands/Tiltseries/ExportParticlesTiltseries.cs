@@ -191,11 +191,14 @@ namespace WarpTools.Commands
 
                 // Validate presence of CTF info and particles for this TS, early exit if not found
                 if (tiltSeries.OptionsCTF == null)
+                {
+                    Console.WriteLine($"\nNo CTF metadata found for {TiltSeries.Name}, skipping...");
                     return;
+                }
+
                 if (!TiltSeriesIDToParticleIndices.ContainsKey(tiltSeries.Name))
                 {
-                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
-                        Console.WriteLine($"\nno particles found in {tiltSeries.Name}");
+                    Console.WriteLine($"\nno particles found in {tiltSeries.Name}, skipping...");
                     return;
                 }
                 
@@ -241,12 +244,16 @@ namespace WarpTools.Commands
                 Star TiltSeriesTable = null;
                 if (OutputImageDimensionality == 3)
                 {
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"\nSending export options to worker for {TiltSeries.Name}");
                     worker.TomoExportParticleSubtomos(
                         path: tiltSeries.Path,
                         options: ExportOptions,
                         coordinates: TSParticleXYZAngstromsReplicated,
                         angles: TSParticleRotTiltPsiReplicated
                     );
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"\nConstructing output table for {TiltSeries.Name}");
                     TiltSeriesTable = ConstructSubvolumeOutputTable(
                         tiltSeries: TiltSeries,
                         xyz: TSParticleXYZAngstroms,
@@ -269,6 +276,8 @@ namespace WarpTools.Commands
                             string TempTiltSeriesParticleStarPath = Path.Combine(
                                 TiltSeries.ParticleSeriesDir, TiltSeries.RootName + "_temp.star"
                             );
+                            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                                Console.WriteLine($"\nSending export options to worker for {TiltSeries.Name}");
                             worker.TomoExportParticleSeries(
                                 path: tiltSeries.Path,
                                 options: ExportOptions,
@@ -279,6 +288,8 @@ namespace WarpTools.Commands
                             );
 
                             // generate necessary metadata for particles.star
+                            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                                Console.WriteLine($"\nConstructing output table for {TiltSeries.Name}");
                             Star ParticleTable = Construct2DParticleTable(
                                 tempParticleStarPath: TempTiltSeriesParticleStarPath, opticsGroup: currentOpticsGroup
                             );
