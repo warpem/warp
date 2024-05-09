@@ -25,13 +25,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🛠️ Build the package
+      - name: setup mamba
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: "3.10"
           mamba-version: "*"
           channels: conda-forge, nodefaults  # channels for installing mamba only
+      - name: 🛠️ build conda package
         run: |
           conda create --name build python=3.10
           conda activate build
