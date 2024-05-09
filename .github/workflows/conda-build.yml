@@ -40,8 +40,6 @@ jobs:
           channels: conda-forge, nodefaults  # channels for installing mamba only
       - name: Build Conda Package
         run: |
-          conda create --name build python=3.10
-          conda activate build
           conda install conda-build anaconda-client
           conda build conda-recipe -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge
           
