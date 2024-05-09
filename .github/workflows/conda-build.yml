@@ -22,7 +22,8 @@ concurrency:
 jobs:
   deploy:
     name: Deploy
-    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
+    ### COMMENTED OUT FOR TESTING
+#    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
     runs-on: ubuntu-latest
 
     steps:
