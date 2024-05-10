@@ -1253,15 +1253,15 @@
 
 <h1 id="particle-operations">Particle Operations</h1>
 <p>Access the particle operations menu by clicking on a species' particle count.</p>
-<p><img alt="Particle operations" src="./assets/particle_operations.png" /></p>
+<p><img alt="Particle operations" src="../assets/particle_operations.png" /></p>
 <h2 id="intersect-with-another-particle-set">Intersect with Another Particle Set</h2>
-<p><img alt="Particle set operations" src="./assets/particle_sets.png" /></p>
+<p><img alt="Particle set operations" src="../assets/particle_sets.png" /></p>
 <p>This dialog allows you to intersect the current particle set of a species ("old set") with another particle set defined in a STAR file ("new set").</p>
 <p>When loading particles from another M species, the source frame/tilt series are matched unambiguously, and the coordinates are always in Ångstrom. When loading a refinement or classification result from RELION, the data sources must be matched manually in case of name duplications, and the pixel size for the coordinates must be provided.</p>
 <p>Once loaded, particles matches between the two sets are found by solving the unbalanced assignment problem with the inter-particle distance as the cost function. You can specify a maximum <strong>tolerance distance</strong> for the matching, beyond which any matches will be dismissed. The inter-particle distance histogram can help you with that.</p>
 <p>The matching creates 3 sets: "only old", "in both" (intersection), and "only new". The particles in the intersection will keep their old poses. You can select any combination of them and update the species' particle list with the resulting set. For instance, if you want to add completely new particles (e.g., for a data source you didn’t use before), set the tolerance distance to 0, and select "only old" and "only new". If you want to remove certain particles, set the tolerance distance accordingly and select "only old". If you want to keep only particles remaining after another classification run, select "in both". To remove particles that shifted too much during M’s refinement, select the STAR file from the first version of the species, set the tolerance distance, and select "in both". The possibilities are quite limitless, yes, yes!</p>
 <h2 id="export-sub-tomograms">Export Sub-tomograms</h2>
-<p><img alt="Sub-tomogram export" src="./assets/subtomo_export.png" /></p>
+<p><img alt="Sub-tomogram export" src="../assets/subtomo_export.png" /></p>
 <p>M can refine per-particle pose trajectories. To consider them for export, please use this dialog rather than Warp’s particle export. Some field values will be pre-populated based on the species' parameters, but feel free to change them. Particle export from frame series is currently not supported.</p>
 <p><strong>Output will be scaled to</strong>: The target pixel size to which the tilt series data will be scaled prior to reconstruction. It can’t be smaller than the size dictated by the <strong>Bin</strong> parameter in the <strong>Input</strong> settings section. The maximum resolution achievable with the data will be twice the pixel size.</p>
 <p><strong>Box size is</strong>: The sub-tomogram box size in pixels. M avoids CTF aliasing by calculating the necessary minimum box size for the particle's defocus value and the expected maximum resolution, as dictated by the pixel size, and then crops the volume back to the value you specified. For high-defocus data and small boxes, this can make the high-resolution Thon rings invisible. Don't worry, this is fine. In fact, it is much finer than previous methods that would have made the data useless beyond the aliasing-free resolution.</p>
