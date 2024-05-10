@@ -29,7 +29,41 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: 🚢 Ship the Source to GitHub
+      - name: Release the source on GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: './*'
+      
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 30000
+          temp-reserve-mb: 30000
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+
+      - name: Setup Mamba
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.10"
+          mamba-version: "*"
+          channels: conda-forge, nodefaults 
+          activate-environment: package-build
+
+      - name: Build conda package
+        shell: bash -el {0}
+        run: |
+          conda activate package-build
+          conda install conda-build anaconda-client
+          conda build conda-recipe -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge
+
+      - name: Upload conda package
+        shell: bash -el {0}
+        env:
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_KEY }}
+        run: |
+          conda activate package-build
+          anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge)
