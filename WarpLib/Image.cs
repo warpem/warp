@@ -678,8 +678,10 @@ namespace Warp
         {
             if (header == null)
                 header = new HeaderMRC();
-
-            header.SetValueType(typeof(Half));
+            if (Environment.GetEnvironmentVariable("WARP_FORCE_MRC_FLOAT32") != null)
+                header.SetValueType(typeof(float));
+            else
+                header.SetValueType(typeof(Half));
 
             WriteMRC(path, pixelSize, doStatistics, header);
         }
@@ -688,8 +690,10 @@ namespace Warp
         {
             if (header == null)
                 header = new HeaderMRC();
-
-            header.SetValueType(typeof(Half));
+            if (Environment.GetEnvironmentVariable("WARP_FORCE_MRC_FLOAT32") != null)
+                header.SetValueType(typeof(float));
+            else
+                header.SetValueType(typeof(Half));
 
             WriteMRC(path, doStatistics, header);
         }
