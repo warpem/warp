@@ -927,10 +927,10 @@ the same directory for debugging, you should see a blob in the center of these i
   <figcaption>Per tilt 2D average of apoferritin</figcaption>
 </figure>
 
-
-We wrote particles at 4Å per pixel in this case as the major features of apoferritin
-are alpha helices which resolve nicely at around 9Å, just above the Nyquist limit of
-8Å defined by a 4Å pixel spacing.
+!!! question "Why 4Å per pixel?"
+    The major features of apoferritin
+    are alpha helices which resolve nicely at around 9Å. 9Å is slightly lower than the
+    Nyquist limit of 8Å.
 
 A particle STAR file will be written to the file specified as `--output_star`. In the
 case of 2D averages, a RELION compatible `optimisation_set` STAR file will be written
