@@ -2413,7 +2413,7 @@ file input/output. If you need 32 bit images for compatibility see
   <figcaption>preview image of tomogram reconstruction</figcaption>
 </figure>
 <p>If you would like to reconstruct half-tomograms for subsequent denoising using
-<a href="../../../reference/noise2map/noise2map/">Noise2Map</a> add <code>--halfmap_frames</code> if you</p>
+<a href="../../../reference/noise2map/noise2map/">Noise2Map</a> add the <code>--halfmap_frames</code> option to your command.</p>
 <h4 id="improving-alignments-in-etomo">Improving alignments in Etomo</h4>
 <p>Running tilt series alignment programs in a fully automated way does not always give
 the best results. If you would like to improve results for a particlular tilt series
@@ -2479,14 +2479,17 @@ suffix in the filename</p>
 └── TS_32_10.00Apx_emd_15854_clean.star
 </code></pre></div>
 <h3 id="export-particles">Export Particles</h3>
-<p><em>WarpTools</em> can write out</p>
+<p>You can write particles using the <code>ts_export_particles</code> tool as either</p>
 <ul>
 <li>3D volumes and corresponding CTF volumes</li>
 <li>CTF corrected 2D particle image series</li>
 </ul>
-<p>using the <code>ts_export_particles</code> tool.</p>
-<p>Both are compatible with the latest version of RELION, RELION-5.
-For this tutorial we will write out 2D particle image series.</p>
+<p class="annotate">Both output types are compatible with the latest version of RELION, RELION-5.
+For this tutorial we will write out 2D particle image series. (1)</p>
+<ol>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> if using 3D particles you need to launch refinements from the <code>relion</code> GUI, 
+not the <code>relion --tomo</code> GUI.</li>
+</ol>
 <div class="highlight"><span class="filename">Export 2D particle series</span><pre><span></span><code>WarpTools ts_export_particles \
 --settings warp_tiltseries.settings \
 --input_directory warp_tiltseries/matching \
