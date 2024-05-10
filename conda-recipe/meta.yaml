@@ -19,7 +19,7 @@ build:
 
 requirements:
   host:
-    - python=3.10
+    - python
     - torchvision
     - libtiff
     - pytorch-cuda=11.7
@@ -31,7 +31,7 @@ requirements:
     - mkl=2024.0.0
     - cmake
   run:
-    - python=3.10
+    - python
     - torchvision
     - libtiff
     - pytorch-cuda=11.7
