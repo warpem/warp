@@ -802,7 +802,7 @@ quality.
 
 
 If you would like to reconstruct half-tomograms for subsequent denoising using
-[Noise2Map](../../reference/noise2map/noise2map.md) add `--halfmap_frames` if you
+[Noise2Map](../../reference/noise2map/noise2map.md) add the `--halfmap_frames` option to your command.
 
 #### Improving alignments in Etomo
 
@@ -892,15 +892,17 @@ warp_tiltseries/matching
 
 ### Export Particles
 
-*WarpTools* can write out
+You can write particles using the `ts_export_particles` tool as either
 
 - 3D volumes and corresponding CTF volumes
 - CTF corrected 2D particle image series
 
-using the `ts_export_particles` tool.
+Both output types are compatible with the latest version of RELION, RELION-5.
+For this tutorial we will write out 2D particle image series. (1)
+{ .annotate }
 
-Both are compatible with the latest version of RELION, RELION-5.
-For this tutorial we will write out 2D particle image series.
+1. :man_raising_hand: if using 3D particles you need to launch refinements from the `relion` GUI, 
+not the `relion --tomo` GUI.
 
 ```txt title="Export 2D particle series"
 WarpTools ts_export_particles \
