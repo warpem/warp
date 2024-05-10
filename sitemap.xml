@@ -76,6 +76,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://warpem.com/reference/warptools/environment_variables/</loc>
+         <lastmod>2024-05-10</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://warpem.com/user_guide/installation/</loc>
          <lastmod>2024-05-10</lastmod>
          <changefreq>daily</changefreq>
