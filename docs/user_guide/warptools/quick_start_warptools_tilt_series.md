@@ -370,14 +370,14 @@ gain reference into an empty directory.
 
 === "`mdoc`"
 
-```txt
-./mdoc
-├── TS_11.mrc.mdoc
-├── TS_17.mrc.mdoc
-├── TS_1.mrc.mdoc
-├── TS_23.mrc.mdoc
-└── TS_32.mrc.mdoc
-```
+    ```txt
+    ./mdoc
+    ├── TS_11.mrc.mdoc
+    ├── TS_17.mrc.mdoc
+    ├── TS_1.mrc.mdoc
+    ├── TS_23.mrc.mdoc
+    └── TS_32.mrc.mdoc
+    ```
 
 ### Create Warp Settings Files
 
