@@ -33,7 +33,7 @@ mkdir -p Release/linux-x64/publish
 cp NativeAcceleration/build/lib/libNativeAcceleration.so Release/linux-x64/publish/
 cp LibTorchSharp/build/LibTorchSharp/libLibTorchSharp.so Release/linux-x64/publish/
 
-./publish-unix.sh
+./scripts/publish-unix.sh
 
 # Create bin and lib directories
 mkdir -p $PREFIX/bin
