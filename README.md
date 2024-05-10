@@ -23,7 +23,7 @@ conda install warp -c warpem -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-for
 
 If you want to update to the latest version and already have all channels set up in your environment:
 ```
-conda install warp
+conda update warp
 ```
 
 # Use Warp
