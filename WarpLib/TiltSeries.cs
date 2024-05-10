@@ -1263,19 +1263,38 @@ namespace Warp
 
             // .xf
             {
-                string[] XfPaths = 
+                string[] Directories = {"", "../", $"{RootName}_Imod", $"../{RootName}_Imod" };
+                string[] FileNames =
                 {
-                    IOPath.Combine(ResultsDir, RootName + ".xf"),
-                    IOPath.Combine(ResultsDir, "../", RootName + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName + "_Imod", RootName + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + ".xf"),
-                    IOPath.Combine(ResultsDir, "../", RootName.Replace(".mrc", "") + ".xf"),
-                    IOPath.Combine(ResultsDir, RootName.Replace(".mrc", "") + "_Imod", RootName.Replace(".mrc", "") + ".xf"),
+                    $"{RootName}.xf",
+                    $"{RootName.Replace(".mrc", "")}.xf",
+                    $"{RootName}_st.xf",
+                    $"{RootName.Replace(".mrc", "")}_st.xf"
                 };
+                string[] XfPaths = new string[Directories.Length * FileNames.Length];
+                int idx;
+                for (int i=0; i < Directories.Length; i++)
+                {
+                    for (int j=0; j < FileNames.Length; j++)
+                    {
+                        idx = i * FileNames.Length + j;
+                        XfPaths[idx] = IOPath.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
+                    }
+                        
+                }
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                {
+                    Console.WriteLine("Possible XF file paths:");
+                    foreach (string path in XfPaths)
+                    {
+                        Console.WriteLine($"{path}");
+                    }
+                }
                 string XfPath = null;
                 try
                 {
                     XfPath = XfPaths.First(s => File.Exists(s));
+                    Console.WriteLine($"\nImporting 2D transforms from {XfPath}");
                 }
                 catch { }
                 if (XfPath == null)

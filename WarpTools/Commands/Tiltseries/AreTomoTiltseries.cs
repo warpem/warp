@@ -11,7 +11,7 @@ using Warp.Tools;
 namespace WarpTools.Commands
 {
     [VerbGroup("Tilt series")]
-    [Verb("ts_aretomo", HelpText = "Create tilt series stacks and run AreTomo to obtain tilt series alignments")]
+    [Verb("ts_aretomo", HelpText = "Create tilt series stacks and run AreTomo2 to obtain tilt series alignments")]
     [CommandRunner(typeof(AreTomoTiltseries))]
     class AreTomoTiltseriesOptions : DistributedOptions
     {
@@ -36,7 +36,7 @@ namespace WarpTools.Commands
         [Option("delete_intermediate", HelpText = "Delete tilt series stacks generated for AreTomo")]
         public bool DeleteIntermediate { get; set; }
 
-        [Option("exe", Default = "AreTomo", HelpText = "Name of the AreTomo executable; must be in $PATH")]
+        [Option("exe", Default = "AreTomo2", HelpText = "Name of the AreTomo2 executable; must be in $PATH")]
         public string Executable { get; set; }
     }
 

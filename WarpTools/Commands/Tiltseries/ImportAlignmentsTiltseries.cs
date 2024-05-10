@@ -47,8 +47,7 @@ namespace WarpTools.Commands
             #endregion
 
             var OptionsImport = (ProcessingOptionsTomoImportAlignments)Options.FillTomoProcessingBase(new ProcessingOptionsTomoImportAlignments());
-
-            OptionsImport.OverrideResultsDir = CLI.AlignmentPath;
+            
             OptionsImport.MinFOV = (decimal)CLI.MinFOV;
             OptionsImport.BinTimes = (decimal)Math.Log(CLI.AlignmentAngPix / (double)Options.Import.PixelSize, 2.0);
 
@@ -59,6 +58,8 @@ namespace WarpTools.Commands
                 try
                 {
                     OptionsImport.OverrideResultsDir = Path.Combine(CLI.AlignmentPath, series.RootName);
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"override results dir: {OptionsImport.OverrideResultsDir}");
                     series.ImportAlignments(OptionsImport);
                     series.SaveMeta();
 
@@ -70,6 +71,7 @@ namespace WarpTools.Commands
                     NFailed++;
                     Console.WriteLine($"Failed to import alignments for {series.Name}: {exc.Message}");
                 }
+                
             }
         }
     }
