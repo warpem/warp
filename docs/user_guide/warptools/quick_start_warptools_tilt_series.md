@@ -444,7 +444,7 @@ WarpTools fs_motion_and_ctf \
 ```
 
 1. :man_raising_hand: averages of half sets of frames are required for Noise2Noise
-based denoising of images and tomograms
+   based denoising of images and tomograms
 
 Motion corrected averages will be written out to the `warp_frameseries/average`
 directory.
@@ -790,6 +790,11 @@ preview images providing some quick visual feedback.
 It's recommended that you look at volumes in a viewer like *3dmod* to assess alignment
 quality.
 
+!!! warning
+    Warp writes images as 16 bit MRC values to save you valuable disk space and speed up 
+    file input/output operations. Recent versions of most programs support these 
+    files but you may run into issues.
+
 <figure markdown="span">
   ![tomogram preview](./assets/tomogram_slice_preview.png){ width="60%" }
   <figcaption>preview image of tomogram reconstruction</figcaption>
@@ -1098,7 +1103,7 @@ MCore \
 This yields a 6.4Å map in our hands.
 
 !!! tip
-    the `--perdevice_refine` option can be used to run multiple worker processes per GPU
+the `--perdevice_refine` option can be used to run multiple worker processes per GPU
 
 #### First Refinement
 
@@ -1129,8 +1134,8 @@ without
 adding any additional parameters.
 
 !!! tip
-    Introduce new parameters one by one when refining in M. 
-    Be wary of the potential for overfitting parameters if data are weak!
+Introduce new parameters one by one when refining in M.
+Be wary of the potential for overfitting parameters if data are weak!
 
 ```txt title="Second M Refinement with 2D Image Warp, Particle Poses Refinement and CTF Refinement"
 MCore \
@@ -1151,6 +1156,7 @@ MCore \
 --refine_particles \
 --refine_stageangles 
 ```
+
 3.0 A
 
 #### + Magnification/Cs/Zernike3
@@ -1170,7 +1176,6 @@ MCore \
 
 In this case, the map stayed at 3.0Å.
 
-
 #### + Weights (Per-Tilt Series)
 
 ```text title="Estimate Weights (Per-Tilt Series)
@@ -1182,8 +1187,6 @@ EstimateWeights \
 MCore \
 --population m/10491.population \
 ```
-
-
 
 #### + Weights (Per-Tilt, Averaged over all Tilt Series)
 
@@ -1225,6 +1228,7 @@ MCore \
 2.9 A
 
 ## Final Map: 2.9Å
+
 <figure markdown="span">
   ![M result](./assets/m_result.jpg){ width="80%" }
   <figcaption>Final Map at 2.9Å after running M</figcaption>
