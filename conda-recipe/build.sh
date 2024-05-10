@@ -2,6 +2,8 @@
 LD_LIBRARY_PATH=${PREFIX}/lib
 ls ${PREFIX}/lib
 
+PROJECT_ROOT=$(pwd)
+
 # build NativeAcceleration
 echo building NativeAcceleration
 cd NativeAcceleration
