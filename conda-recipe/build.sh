@@ -6,6 +6,8 @@ PROJECT_ROOT=$(pwd)
 
 conda list
 
+./conda-recipe/make_space.sh
+
 # build NativeAcceleration
 echo building NativeAcceleration
 cd NativeAcceleration
@@ -47,7 +49,3 @@ cp $SRC_DIR/Release/linux-x64/publish/*.config $PREFIX/bin/
 
 # Copy libraries to the lib directory
 cp $SRC_DIR/Release/linux-x64/publish/{libLibTorchSharp.so,libNativeAcceleration.so,libSkiaSharp.so} $PREFIX/lib/
-
-conda remove pytorch
-conda remove torchvision
-conda remove mkl
