@@ -4,9 +4,8 @@
 
 PROJECT_ROOT=$(pwd)
 
+echo conda list
 conda list
-
-./conda-recipe/make_space.sh
 
 # build NativeAcceleration
 echo building NativeAcceleration
