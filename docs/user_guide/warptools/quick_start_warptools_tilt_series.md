@@ -616,7 +616,7 @@ This command produces files with the *tomostar* extension, these are STAR files 
 necessary information in them for further processing in *WarpTools*.
 We put these in a folder called `tomostar`
 
-```txt title="Import Tilt Series Metadata
+```txt title="Import Tilt Series Metadata"
 WarpTools ts_import \
 --mdocs mdoc \
 --frameseries warp_frameseries \
