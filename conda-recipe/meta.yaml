@@ -55,7 +55,6 @@ about:
     among other tools: Warp, M, WarpTools, MTools, MCore, and Noise2Map.
   license: GPL-3.0-only
   license_family: GPL
-  license_file: LICENSE.txt
   doc_url: http://warpem.com
   dev_url: https://github.com/warpem/warp
 
