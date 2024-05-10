@@ -60,7 +60,7 @@ jobs:
       - name: Upload Conda Package
         shell: bash -el {0}
         env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_KEY }}
         run: |
           conda activate package-build
           anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge)
