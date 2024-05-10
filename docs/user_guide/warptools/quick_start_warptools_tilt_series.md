@@ -695,7 +695,7 @@ In this case, we will use patch tracking from IMOD via the `etomo_patches` WarpT
 
 1. :man_raising_hand: `ts_etomo_fiducials` and `ts_aretomo` are also available.
 
-```txt "Tilt Series Alignment in Etomo using Patch Tracking"
+```txt title="Tilt Series Alignment in Etomo using Patch Tracking"
 WarpTools ts_etomo_patches \
 --settings warp_tiltseries.settings \
 --angpix 10 \
