@@ -1,17 +1,19 @@
 #!/bin/bash
-LD_LIBRARY_PATH=${PREFIX}/lib
-ls ${PREFIX}/lib
+#LD_LIBRARY_PATH=${PREFIX}/lib
+#ls ${PREFIX}/lib
 
 PROJECT_ROOT=$(pwd)
 
+conda list
+
 # build NativeAcceleration
-echo building NativeAcceleration
-cd NativeAcceleration
-rm -rf build
-mkdir build
-cd build
-cmake ${CMAKE_ARGS} ..
-make -j 8
+#echo building NativeAcceleration
+#cd NativeAcceleration
+#rm -rf build
+#mkdir build
+#cd build
+#cmake ${CMAKE_ARGS} ..
+#make -j 8
 cd ${PROJECT_ROOT}
 
 # build LibTorchSharp
