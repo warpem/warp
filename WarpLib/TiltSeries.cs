@@ -1294,7 +1294,7 @@ namespace Warp
                 try
                 {
                     XfPath = XfPaths.First(s => File.Exists(s));
-                    Console.WriteLine($"Importing 2D transforms from {XfPath}");
+                    Console.WriteLine($"\nImporting 2D transforms from {XfPath}");
                 }
                 catch { }
                 if (XfPath == null)
