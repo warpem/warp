@@ -905,9 +905,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tilt-series-check-defocus-handedness" class="md-nav__link">
+  <a href="#tilt-series-alignment" class="md-nav__link">
     <span class="md-ellipsis">
-      Tilt Series: Check Defocus Handedness
+      Tilt Series: Alignment
     </span>
   </a>
   
@@ -1526,9 +1526,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tilt-series-check-defocus-handedness" class="md-nav__link">
+  <a href="#tilt-series-alignment" class="md-nav__link">
     <span class="md-ellipsis">
-      Tilt Series: Check Defocus Handedness
+      Tilt Series: Alignment
     </span>
   </a>
   
@@ -2240,103 +2240,101 @@ are darker than expected by supplying <code>--min_intensity</code> at this stage
 <p>This command produces files with the <em>tomostar</em> extension, these are STAR files with
 necessary information in them for further processing in <em>WarpTools</em>.
 We put these in a folder called <code>tomostar</code></p>
-<p>```txt title="Import Tilt Series Metadata
-WarpTools ts_import \
+<div class="highlight"><span class="filename">Import Tilt Series Metadata</span><pre><span></span><code>WarpTools ts_import \
 --mdocs mdoc \
 --frameseries warp_frameseries \
 --tilt_exposure 2.64 \
 --min_intensity 0.3 \
 --output tomostar
-<div class="highlight"><pre><span></span><code>??? note &quot;tomoSTAR file&quot;
+</code></pre></div>
+<details class="note">
+<summary>tomoSTAR file</summary>
+<div class="highlight"><span class="filename">TS_1.tomostar</span><pre><span></span><code>data_
 
-    ```txt title=&quot;TS_1.tomostar&quot;
-
-    data_
-
-    loop_
-    _wrpMovieName #1
-    _wrpAngleTilt #2
-    _wrpAxisAngle #3
-    _wrpDose #4
-    _wrpAverageIntensity #5
-    _wrpMaskedFraction #6
-    ../warp_frameseries/2Dvs3D_53-1_00041_-40.0_Jul31_11.05.12.tif   40.01  -93.500  105.600006  3.854  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00040_-38.0_Jul31_11.04.30.tif   38.00  -93.500   102.96001  3.950  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00037_-36.0_Jul31_11.02.04.tif   36.01  -93.500       95.04  3.953  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00036_-34.0_Jul31_11.01.23.tif   34.01  -93.500        92.4  3.905  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00033_-32.0_Jul31_10.59.02.tif   32.01  -93.500       84.48  4.018  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00032_-30.0_Jul31_10.58.12.tif   30.01  -93.500   81.840004  3.996  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00029_-28.0_Jul31_10.56.01.tif   28.01  -93.500   73.920006  3.906  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00028_-26.0_Jul31_10.55.20.tif   26.01  -93.500    71.28001  3.927  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00025_-24.0_Jul31_10.53.10.tif   24.01  -93.500       63.36  3.955  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00024_-22.0_Jul31_10.52.29.tif   22.01  -93.500       60.72  3.979  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00021_-20.0_Jul31_10.50.20.tif   20.01  -93.500   52.800003  3.951  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00020_-18.0_Jul31_10.49.38.tif   18.01  -93.500   50.160004  3.956  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00017_-16.0_Jul31_10.47.29.tif   16.01  -93.500       42.24  3.993  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00016_-14.0_Jul31_10.46.47.tif   14.02  -93.500   39.600002  4.054  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00013_-12.0_Jul31_10.44.21.tif   12.02  -93.500       31.68  4.071  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00012_-10.0_Jul31_10.43.39.tif   10.01  -93.500       29.04  4.054  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00009_-8.0_Jul31_10.41.34.tif    8.01  -93.500       21.12  4.063  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00008_-6.0_Jul31_10.40.51.tif    6.01  -93.500   18.480001  4.030  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00005_-4.0_Jul31_10.38.47.tif    4.01  -93.500       10.56  4.033  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00004_-2.0_Jul31_10.38.06.tif    2.01  -93.500        7.92  4.015  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00001_-0.0_Jul31_10.36.03.tif    0.02  -93.500           0  3.999  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00002_2.0_Jul31_10.36.43.tif   -1.99  -93.500        2.64  4.029  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00003_4.0_Jul31_10.37.23.tif   -3.99  -93.500        5.28  3.980  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00006_6.0_Jul31_10.39.28.tif   -5.98  -93.500   13.200001  4.019  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00007_8.0_Jul31_10.40.08.tif   -7.99  -93.500       15.84  3.977  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00010_10.0_Jul31_10.42.16.tif   -9.98  -93.500       23.76  3.961  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00011_12.0_Jul31_10.42.56.tif  -11.98  -93.500   26.400002  4.025  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00014_14.0_Jul31_10.45.03.tif  -13.98  -93.500       34.32  4.035  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00015_16.0_Jul31_10.45.51.tif  -15.98  -93.500   36.960003  4.034  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00018_18.0_Jul31_10.48.13.tif  -17.98  -93.500       44.88  4.022  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00019_20.0_Jul31_10.48.53.tif  -19.98  -93.500       47.52  3.976  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00022_22.0_Jul31_10.51.04.tif  -21.98  -93.500   55.440002  3.953  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00023_24.0_Jul31_10.51.44.tif  -23.98  -93.500       58.08  3.984  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00026_26.0_Jul31_10.53.54.tif  -25.98  -93.500          66  3.998  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00027_28.0_Jul31_10.54.34.tif  -27.99  -93.500       68.64  3.952  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00030_30.0_Jul31_10.56.46.tif  -29.99  -93.500   76.560005  3.964  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00031_32.0_Jul31_10.57.26.tif  -31.98  -93.500   79.200005  3.875  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00034_34.0_Jul31_10.59.47.tif  -33.98  -93.500       87.12  3.841  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00035_36.0_Jul31_11.00.36.tif  -35.98  -93.500       89.76  3.844  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00038_38.0_Jul31_11.03.02.tif  -37.98  -93.500       97.68  3.729  0.000
-    ../warp_frameseries/2Dvs3D_53-1_00039_40.0_Jul31_11.03.42.tif  -39.98  -93.500   100.32001  3.797  0.000
-    ```
-
-### Tilt Series: Alignment
-
-Tilt series alignment is the determination of parameters of a projection model
+loop_
+_wrpMovieName #1
+_wrpAngleTilt #2
+_wrpAxisAngle #3
+_wrpDose #4
+_wrpAverageIntensity #5
+_wrpMaskedFraction #6
+../warp_frameseries/2Dvs3D_53-1_00041_-40.0_Jul31_11.05.12.tif   40.01  -93.500  105.600006  3.854  0.000
+../warp_frameseries/2Dvs3D_53-1_00040_-38.0_Jul31_11.04.30.tif   38.00  -93.500   102.96001  3.950  0.000
+../warp_frameseries/2Dvs3D_53-1_00037_-36.0_Jul31_11.02.04.tif   36.01  -93.500       95.04  3.953  0.000
+../warp_frameseries/2Dvs3D_53-1_00036_-34.0_Jul31_11.01.23.tif   34.01  -93.500        92.4  3.905  0.000
+../warp_frameseries/2Dvs3D_53-1_00033_-32.0_Jul31_10.59.02.tif   32.01  -93.500       84.48  4.018  0.000
+../warp_frameseries/2Dvs3D_53-1_00032_-30.0_Jul31_10.58.12.tif   30.01  -93.500   81.840004  3.996  0.000
+../warp_frameseries/2Dvs3D_53-1_00029_-28.0_Jul31_10.56.01.tif   28.01  -93.500   73.920006  3.906  0.000
+../warp_frameseries/2Dvs3D_53-1_00028_-26.0_Jul31_10.55.20.tif   26.01  -93.500    71.28001  3.927  0.000
+../warp_frameseries/2Dvs3D_53-1_00025_-24.0_Jul31_10.53.10.tif   24.01  -93.500       63.36  3.955  0.000
+../warp_frameseries/2Dvs3D_53-1_00024_-22.0_Jul31_10.52.29.tif   22.01  -93.500       60.72  3.979  0.000
+../warp_frameseries/2Dvs3D_53-1_00021_-20.0_Jul31_10.50.20.tif   20.01  -93.500   52.800003  3.951  0.000
+../warp_frameseries/2Dvs3D_53-1_00020_-18.0_Jul31_10.49.38.tif   18.01  -93.500   50.160004  3.956  0.000
+../warp_frameseries/2Dvs3D_53-1_00017_-16.0_Jul31_10.47.29.tif   16.01  -93.500       42.24  3.993  0.000
+../warp_frameseries/2Dvs3D_53-1_00016_-14.0_Jul31_10.46.47.tif   14.02  -93.500   39.600002  4.054  0.000
+../warp_frameseries/2Dvs3D_53-1_00013_-12.0_Jul31_10.44.21.tif   12.02  -93.500       31.68  4.071  0.000
+../warp_frameseries/2Dvs3D_53-1_00012_-10.0_Jul31_10.43.39.tif   10.01  -93.500       29.04  4.054  0.000
+../warp_frameseries/2Dvs3D_53-1_00009_-8.0_Jul31_10.41.34.tif    8.01  -93.500       21.12  4.063  0.000
+../warp_frameseries/2Dvs3D_53-1_00008_-6.0_Jul31_10.40.51.tif    6.01  -93.500   18.480001  4.030  0.000
+../warp_frameseries/2Dvs3D_53-1_00005_-4.0_Jul31_10.38.47.tif    4.01  -93.500       10.56  4.033  0.000
+../warp_frameseries/2Dvs3D_53-1_00004_-2.0_Jul31_10.38.06.tif    2.01  -93.500        7.92  4.015  0.000
+../warp_frameseries/2Dvs3D_53-1_00001_-0.0_Jul31_10.36.03.tif    0.02  -93.500           0  3.999  0.000
+../warp_frameseries/2Dvs3D_53-1_00002_2.0_Jul31_10.36.43.tif   -1.99  -93.500        2.64  4.029  0.000
+../warp_frameseries/2Dvs3D_53-1_00003_4.0_Jul31_10.37.23.tif   -3.99  -93.500        5.28  3.980  0.000
+../warp_frameseries/2Dvs3D_53-1_00006_6.0_Jul31_10.39.28.tif   -5.98  -93.500   13.200001  4.019  0.000
+../warp_frameseries/2Dvs3D_53-1_00007_8.0_Jul31_10.40.08.tif   -7.99  -93.500       15.84  3.977  0.000
+../warp_frameseries/2Dvs3D_53-1_00010_10.0_Jul31_10.42.16.tif   -9.98  -93.500       23.76  3.961  0.000
+../warp_frameseries/2Dvs3D_53-1_00011_12.0_Jul31_10.42.56.tif  -11.98  -93.500   26.400002  4.025  0.000
+../warp_frameseries/2Dvs3D_53-1_00014_14.0_Jul31_10.45.03.tif  -13.98  -93.500       34.32  4.035  0.000
+../warp_frameseries/2Dvs3D_53-1_00015_16.0_Jul31_10.45.51.tif  -15.98  -93.500   36.960003  4.034  0.000
+../warp_frameseries/2Dvs3D_53-1_00018_18.0_Jul31_10.48.13.tif  -17.98  -93.500       44.88  4.022  0.000
+../warp_frameseries/2Dvs3D_53-1_00019_20.0_Jul31_10.48.53.tif  -19.98  -93.500       47.52  3.976  0.000
+../warp_frameseries/2Dvs3D_53-1_00022_22.0_Jul31_10.51.04.tif  -21.98  -93.500   55.440002  3.953  0.000
+../warp_frameseries/2Dvs3D_53-1_00023_24.0_Jul31_10.51.44.tif  -23.98  -93.500       58.08  3.984  0.000
+../warp_frameseries/2Dvs3D_53-1_00026_26.0_Jul31_10.53.54.tif  -25.98  -93.500          66  3.998  0.000
+../warp_frameseries/2Dvs3D_53-1_00027_28.0_Jul31_10.54.34.tif  -27.99  -93.500       68.64  3.952  0.000
+../warp_frameseries/2Dvs3D_53-1_00030_30.0_Jul31_10.56.46.tif  -29.99  -93.500   76.560005  3.964  0.000
+../warp_frameseries/2Dvs3D_53-1_00031_32.0_Jul31_10.57.26.tif  -31.98  -93.500   79.200005  3.875  0.000
+../warp_frameseries/2Dvs3D_53-1_00034_34.0_Jul31_10.59.47.tif  -33.98  -93.500       87.12  3.841  0.000
+../warp_frameseries/2Dvs3D_53-1_00035_36.0_Jul31_11.00.36.tif  -35.98  -93.500       89.76  3.844  0.000
+../warp_frameseries/2Dvs3D_53-1_00038_38.0_Jul31_11.03.02.tif  -37.98  -93.500       97.68  3.729  0.000
+../warp_frameseries/2Dvs3D_53-1_00039_40.0_Jul31_11.03.42.tif  -39.98  -93.500   100.32001  3.797  0.000
+</code></pre></div>
+</details>
+<h3 id="tilt-series-alignment">Tilt Series: Alignment</h3>
+<p>Tilt series alignment is the determination of parameters of a projection model
 required for reconstructing a tomogram from a set of projection images.
-*WarpTools* doesn&#39;t have its own solution for this step at the moment, instead we
+<em>WarpTools</em> doesn't have its own solution for this step at the moment, instead we
 provide
-wrappers around [IMOD](https://bio3d.colorado.edu/imod/) and
-[AreTomo](https://drive.google.com/drive/folders/1Z7pKVEdgMoNaUmd_cOFhlt-QCcfcwF3_).
-
-In this case, we will use patch tracking from IMOD via the `etomo_patches` WarpTool. (1)
-{ .annotate }
-
-1. :man_raising_hand: `ts_etomo_fiducials` and `ts_aretomo` are also available.
-
-```txt &quot;Tilt Series Alignment in Etomo using Patch Tracking&quot;
+wrappers around <a href="https://bio3d.colorado.edu/imod/">IMOD</a> and
+<a href="https://drive.google.com/drive/folders/1Z7pKVEdgMoNaUmd_cOFhlt-QCcfcwF3_">AreTomo</a>.</p>
+<p class="annotate">In this case, we will use patch tracking from IMOD via the <code>etomo_patches</code> WarpTool. (1)</p>
+<ol>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> <code>ts_etomo_fiducials</code> and <code>ts_aretomo</code> are also available.</li>
+</ol>
+<p>```txt "Tilt Series Alignment in Etomo using Patch Tracking"
 WarpTools ts_etomo_patches \
 --settings warp_tiltseries.settings \
 --angpix 10 \
 --patch_size 500 \
 --initial_axis -85.6
-</code></pre></div></p>
-<h3 id="tilt-series-check-defocus-handedness">Tilt Series: Check Defocus Handedness</h3>
-<p><em>WarpTools</em> contains a program, <code>ts_defocus_hand</code> for checking
-<a href="../../../reference/warp/defocus_handedness/">defocus handedness</a> across a dataset
-and applying a correction to the model if necessary.</p>
-<p class="annotate">First, we check how well our data match expectations. (1)</p>
-<ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this check requires that defocus was estimated with at least
-   two points in each spatial dimension (i.e. minimum <code>2x2x1</code>).</li>
-</ol>
-<div class="highlight"><span class="filename">Defocus Handedness Check</span><pre><span></span><code>WarpTools ts_defocus_hand \
+<div class="highlight"><pre><span></span><code>### Tilt Series: Check Defocus Handedness
+
+*WarpTools* contains a program, `ts_defocus_hand` for checking
+[defocus handedness](../../reference/warp/defocus_handedness.md) across a dataset
+and applying a correction to the model if necessary.
+
+First, we check how well our data match expectations. (1)
+{ .annotate }
+
+1. :man_raising_hand: this check requires that defocus was estimated with at least
+   two points in each spatial dimension (i.e. minimum `2x2x1`).
+
+```txt title=&quot;Defocus Handedness Check&quot;
+WarpTools ts_defocus_hand \
 --settings warp_tiltseries.settings \
 --check
-</code></pre></div>
+</code></pre></div></p>
 <p>In this case, the program tells us we should set the defocus handedness to 'flip'.</p>
 <div class="highlight"><span class="filename">Output from Defocus Handedness Check</span><pre><span></span><code>Checking defocus handedness for all tilt series...
 5/5, -0.931                                                                                                                                                                                  
