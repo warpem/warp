@@ -52,5 +52,5 @@ jobs:
         env:
           ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
         run: |
-          anaconda upload --user warpem $(conda build --output conda-recipe)
+          anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge)
           
