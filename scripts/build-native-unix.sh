@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# This script should be run from the repository root
+
 set -e
 cd NativeAcceleration
 rm -rf build
