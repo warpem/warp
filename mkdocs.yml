@@ -33,6 +33,8 @@ nav:
       - "Task Dialogs: Tilt Series": reference/warp/task_dialogs_tilt_series.md
     - M:
         - Particle Operations: reference/m/particle_operations.md
+    - WarpTools:
+        - Environment Variables: reference/warptools/environment_variables.md
   - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md
