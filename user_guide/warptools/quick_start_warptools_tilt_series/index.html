@@ -914,6 +914,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tilt-series-check-defocus-handedness" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tilt Series: Check Defocus Handedness
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tilt-series-ctf-estimation" class="md-nav__link">
     <span class="md-ellipsis">
       Tilt Series: CTF Estimation
@@ -1529,6 +1538,15 @@
   <a href="#tilt-series-alignment" class="md-nav__link">
     <span class="md-ellipsis">
       Tilt Series: Alignment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tilt-series-check-defocus-handedness" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tilt Series: Check Defocus Handedness
     </span>
   </a>
   
@@ -2312,29 +2330,25 @@ wrappers around <a href="https://bio3d.colorado.edu/imod/">IMOD</a> and
 <ol>
 <li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> <code>ts_etomo_fiducials</code> and <code>ts_aretomo</code> are also available.</li>
 </ol>
-<p>```txt "Tilt Series Alignment in Etomo using Patch Tracking"
-WarpTools ts_etomo_patches \
+<div class="highlight"><span class="filename">Tilt Series Alignment in Etomo using Patch Tracking</span><pre><span></span><code>WarpTools ts_etomo_patches \
 --settings warp_tiltseries.settings \
 --angpix 10 \
 --patch_size 500 \
 --initial_axis -85.6
-<div class="highlight"><pre><span></span><code>### Tilt Series: Check Defocus Handedness
-
-*WarpTools* contains a program, `ts_defocus_hand` for checking
-[defocus handedness](../../reference/warp/defocus_handedness.md) across a dataset
-and applying a correction to the model if necessary.
-
-First, we check how well our data match expectations. (1)
-{ .annotate }
-
-1. :man_raising_hand: this check requires that defocus was estimated with at least
-   two points in each spatial dimension (i.e. minimum `2x2x1`).
-
-```txt title=&quot;Defocus Handedness Check&quot;
-WarpTools ts_defocus_hand \
+</code></pre></div>
+<h3 id="tilt-series-check-defocus-handedness">Tilt Series: Check Defocus Handedness</h3>
+<p><em>WarpTools</em> contains a program, <code>ts_defocus_hand</code> for checking
+<a href="../../../reference/warp/defocus_handedness/">defocus handedness</a> across a dataset
+and applying a correction to the model if necessary.</p>
+<p class="annotate">First, we check how well our data match expectations. (1)</p>
+<ol>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this check requires that defocus was estimated with at least
+   two points in each spatial dimension (i.e. minimum <code>2x2x1</code>).</li>
+</ol>
+<div class="highlight"><span class="filename">Defocus Handedness Check</span><pre><span></span><code>WarpTools ts_defocus_hand \
 --settings warp_tiltseries.settings \
 --check
-</code></pre></div></p>
+</code></pre></div>
 <p>In this case, the program tells us we should set the defocus handedness to 'flip'.</p>
 <div class="highlight"><span class="filename">Output from Defocus Handedness Check</span><pre><span></span><code>Checking defocus handedness for all tilt series...
 5/5, -0.931                                                                                                                                                                                  
