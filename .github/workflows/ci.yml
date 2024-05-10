@@ -44,10 +44,6 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Setup Mamba
         uses: conda-incubator/setup-miniconda@v3
         with:
