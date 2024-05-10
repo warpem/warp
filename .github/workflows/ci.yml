@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      # push a tagged commit to trigger a release...
-      # e.g. git tag -am v0.0.1 "v0.0.1"; git push --follow-tags
-      - "v*"
+#    branches:
+#      - main
+#    tags:
+#      # push a tagged commit to trigger a release...
+#      # e.g. git tag -am v0.0.1 "v0.0.1"; git push --follow-tags
+#      - "v*"
 
 # cancel in-progress runs that use the same workflow and branch
 concurrency:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy
-    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
+#    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
     runs-on: ubuntu-latest
 
     permissions:
@@ -58,6 +58,7 @@ jobs:
         run: |
           conda activate package-build
           conda install conda-build anaconda-client
+          ls -lrth
           conda build conda-recipe -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge
 
       - name: Upload conda package
