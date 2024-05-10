@@ -20,10 +20,9 @@ build:
 requirements:
   host:
     - python=3.11.9
-    - torchvision
     - libtiff
     - pytorch-cuda=11.7
-    - pytorch::pytorch=2.0.1
+    - pytorch::pytorch=2.0.1=py3.11_cuda11.7_cudnn8.5.0_0
     - fftw
     - cxx-compiler=1.3
     - dotnet=8.0
@@ -31,11 +30,10 @@ requirements:
     - mkl=2024.0.0
     - cmake
   run:
-    - python
-    - torchvision
+    - python=3.11.9
     - libtiff
     - pytorch-cuda=11.7
-    - pytorch::pytorch=2.0.1
+    - pytorch::pytorch=2.0.1=py3.11_cuda11.7_cudnn8.5.0_0
     - fftw
     - cxx-compiler=1.3
     - dotnet=8.0
