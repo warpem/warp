@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# This script should be run from the repository root
+
 set -e
 #dotnet publish -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0661,CS0659,CS0169,CS0618,CS1998,CS0660,MSB3270,SYSLIB0011,SYSLIB0021 --configuration Release --framework net8.0 --runtime linux-x64 --self-contained true WarpLib/WarpLib.csproj
 dotnet publish -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0661,CS0659,CS0169,CS0618,CS1998,MSB3270,SYSLIB0011 --configuration Release --framework net8.0 --runtime linux-x64 --self-contained true -p:PublishSingleFile=true Noise2Map/Noise2Map.csproj

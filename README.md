@@ -16,8 +16,8 @@ After cloning this repository, run these commands:
 ```
 conda env create -f warp_build.yml
 conda activate warp_build
-./build-native-unix.sh
-./publish-unix.sh
+./scripts/build-native-unix.sh
+./scripts/publish-unix.sh
 ```
 All binaries will be in `Release/linux-x64/publish`.
 
