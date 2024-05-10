@@ -5,7 +5,7 @@ channels:
 
 package:
   name: warp
-  version: '{{ environ.get("GIT_DESCRIBE_TAG", "0.0.0dev0") }}'
+  version: '{{ environ.get("GIT_DESCRIBE_TAG", "v0.0.0dev0").lstrip('v') }}'
 
 # source:
 #   url: https://github.com/warpem/warp/archive/refs/tags/v{{ version }}.tar.gz
