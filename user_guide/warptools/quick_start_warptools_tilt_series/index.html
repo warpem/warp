@@ -2391,9 +2391,9 @@ It's recommended that you look at volumes in a viewer like <em>3dmod</em> to ass
 quality.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Warp writes images as 16 bit MRC values to save you valuable disk space and speed up 
-file input/output operations. Recent versions of most programs support these 
-files but you may run into issues.</p>
+<p>Warp writes images as 16 bit MRC files, saving you valuable disk space and speeding up 
+file input/output. If you need 32 bit images for compatibility see 
+<a href="../../../reference/warptools/environment_variables/#force-writing-32-bit-mrcs"><code>WARP_FORCE_MRC_FLOAT32</code></a>.</p>
 </div>
 <figure>
   <img alt="tomogram preview" src="../assets/tomogram_slice_preview.png" width="60%" />
