@@ -47,3 +47,7 @@ cp $SRC_DIR/Release/linux-x64/publish/*.config $PREFIX/bin/
 
 # Copy libraries to the lib directory
 cp $SRC_DIR/Release/linux-x64/publish/{libLibTorchSharp.so,libNativeAcceleration.so,libSkiaSharp.so} $PREFIX/lib/
+
+conda remove pytorch
+conda remove torchvision
+conda remove mkl
