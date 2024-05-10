@@ -2016,7 +2016,7 @@ contrast transfer function.</p>
 </code></pre></div>
 <ol>
 <li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> averages of half sets of frames are required for Noise2Noise
-based denoising of images and tomograms</li>
+   based denoising of images and tomograms</li>
 </ol>
 <p>Motion corrected averages will be written out to the <code>warp_frameseries/average</code>
 directory.
@@ -2318,6 +2318,12 @@ is available as <code>ts_reconstruct</code> in <em>WarpTools</em>.</p>
 preview images providing some quick visual feedback.
 It's recommended that you look at volumes in a viewer like <em>3dmod</em> to assess alignment
 quality.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Warp writes images as 16 bit MRC values to save you valuable disk space and speed up 
+file input/output operations. Recent versions of most programs support these 
+files but you may run into issues.</p>
+</div>
 <figure>
   <img alt="tomogram preview" src="../assets/tomogram_slice_preview.png" width="60%" />
   <figcaption>preview image of tomogram reconstruction</figcaption>
@@ -2554,8 +2560,8 @@ imported correctly.</p>
 <p>This yields a 6.4Å map in our hands.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>the <code>--perdevice_refine</code> option can be used to run multiple worker processes per GPU</p>
 </div>
+<p>the <code>--perdevice_refine</code> option can be used to run multiple worker processes per GPU</p>
 <h4 id="first-refinement">First Refinement</h4>
 <p>Now we know things have imported correctly we run an iteration of M with 2D image warp
 refinement, particle pose refinement and CTF refinement. We use an exhaustive defocus
@@ -2579,9 +2585,9 @@ without
 adding any additional parameters.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Introduce new parameters one by one when refining in M. 
-Be wary of the potential for overfitting parameters if data are weak!</p>
 </div>
+<p>Introduce new parameters one by one when refining in M.
+Be wary of the potential for overfitting parameters if data are weak!</p>
 <div class="highlight"><span class="filename">Second M Refinement with 2D Image Warp, Particle Poses Refinement and CTF Refinement</span><pre><span></span><code>MCore \
 --population m/10491.population \
 --refine_imagewarp 6x4 \
@@ -2590,13 +2596,13 @@ Be wary of the potential for overfitting parameters if data are weak!</p>
 </code></pre></div>
 <p>This gave us a modest improvement and we now have a 3.1Å map.</p>
 <h4 id="stage-angle-refinement">+ Stage Angle Refinement</h4>
-<p><div class="highlight"><pre><span></span><code>MCore \
+<div class="highlight"><pre><span></span><code>MCore \
 --population m/10491.population \
 --refine_imagewarp 6x4 \
 --refine_particles \
 --refine_stageangles 
 </code></pre></div>
-3.0 A</p>
+<p>3.0 A</p>
 <h4 id="magnificationcszernike3">+ Magnification/Cs/Zernike3</h4>
 <p>We can add more CTF parameters and see whether this yields any improvements</p>
 <div class="highlight"><pre><span></span><code>MCore \
