@@ -23,6 +23,7 @@ requirements:
     - libtiff
     - pytorch-cuda=11.7
     - pytorch::pytorch=2.0.1=py3.11_cuda11.7_cudnn8.5.0_0
+    - torchvision
     - fftw
     - cxx-compiler=1.3
     - dotnet=8.0
@@ -34,6 +35,7 @@ requirements:
     - libtiff
     - pytorch-cuda=11.7
     - pytorch::pytorch=2.0.1=py3.11_cuda11.7_cudnn8.5.0_0
+    - torchvision
     - fftw
     - cxx-compiler=1.3
     - dotnet=8.0
