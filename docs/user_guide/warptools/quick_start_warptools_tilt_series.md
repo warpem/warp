@@ -792,8 +792,8 @@ quality.
 
 !!! warning
     Warp writes images as 16 bit MRC values to save you valuable disk space and speed up 
-    file input/output operations. Recent versions of most programs should support these 
-    files but you may run into issues with some packages.
+    file input/output operations. Recent versions of most programs support these 
+    files but you may run into issues.
 
 <figure markdown="span">
   ![tomogram preview](./assets/tomogram_slice_preview.png){ width="60%" }
