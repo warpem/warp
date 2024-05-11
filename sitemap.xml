@@ -2,132 +2,132 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://warpem.com/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/papers/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/team/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/home/m/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/home/warp/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/home/warptools/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/reference/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/m/particle_operations/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/noise2map/noise2map/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warp/defocus_handedness/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warp/models/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warp/task_dialogs_frame_series/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warp/task_dialogs_tilt_series/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warp/ts_ctf_estimation/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warp/interface/interface_overview/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/reference/warptools/environment_variables/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/installation/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/overview/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/m/quick_start_m/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warp/eer/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warp/quick_start_warp_frame_series/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warp/quick_start_warp_tilt_series/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warp/boxnet/retraining/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warp/boxnet/using/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warptools/quick_start_warptools_frame_series/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://warpem.com/user_guide/warptools/quick_start_warptools_tilt_series/</loc>
-         <lastmod>2024-05-10</lastmod>
+         <lastmod>2024-05-11</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>
