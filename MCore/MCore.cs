@@ -41,7 +41,7 @@ namespace MCore
 
         public static Task ProcessingTask;
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
@@ -88,7 +88,7 @@ namespace MCore
                                   .UseStartup<RESTStartup>()
                                   .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning));
                     }).Build();
-                    RESTHost.RunAsync();
+                    await RESTHost.RunAsync();
                 }
                 catch (Exception exc)
                 {
@@ -98,12 +98,9 @@ namespace MCore
 
             #endregion
 
-            ProcessingTask = new Task(DoProcessing);
-            ProcessingTask.Start();
+            await DoProcessing();
 
-            while (AppRunning) Thread.Sleep(1);
-
-            RESTHost.StopAsync().Wait();
+            RESTHost?.StopAsync().Wait();
         }
 
         static void SetOptionsFromCLI(OptionsCLI cli)
@@ -269,7 +266,7 @@ namespace MCore
 
         #endregion
 
-        static void DoProcessing()
+        static async Task DoProcessing()
         {
             Console.Write("Loading population... ");
             if (!File.Exists(Path.Combine(WorkingDirectory, OptionsCLI.Population)))
