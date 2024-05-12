@@ -287,12 +287,13 @@ namespace Warp
                                                     defectsPath));
         }
 
-        public void LoadStack(string path, decimal scaleFactor, int eerGroupFrames)
+        public void LoadStack(string path, decimal scaleFactor, int eerGroupFrames, bool correctGain = true)
         {
             SendCommand(new NamedSerializableObject("LoadStack", 
                                                     path, 
                                                     scaleFactor, 
-                                                    eerGroupFrames));
+                                                    eerGroupFrames,
+                                                    correctGain));
         }
 
         public void LoadBoxNet(string path, int boxSize, int batchSize)

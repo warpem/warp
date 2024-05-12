@@ -226,10 +226,11 @@ namespace WarpWorker
                     string Path = (string)Command.Content[0];
                     decimal ScaleFactor = (decimal)Command.Content[1];
                     int EERGroupFrames = (int)Command.Content[2];
+                    bool CorrectGain = (bool)Command.Content[3];
 
                     HeaderEER.GroupNFrames = EERGroupFrames;
 
-                    OriginalStack = LoadAndPrepareStack(Path, ScaleFactor);
+                    OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain);
                     OriginalStackOwner = Helper.PathToNameWithExtension(Path);
 
                     Console.WriteLine($"Loaded stack: {OriginalStack}, {ScaleFactor}");
@@ -802,7 +803,7 @@ namespace WarpWorker
             return Model;
         }
 
-        static Image LoadAndPrepareStack(string path, decimal scaleFactor, int maxThreads = 8)
+        static Image LoadAndPrepareStack(string path, decimal scaleFactor, bool correctGain, int maxThreads = 8)
         {
             Image stack = null;
 
@@ -816,13 +817,13 @@ namespace WarpWorker
             bool IsTiff = header.GetType() == typeof(HeaderTiff);
             bool IsEER = header.GetType() == typeof(HeaderEER);
 
-            if (GainRef != null)
+            if (GainRef != null && correctGain)
                 if (!IsEER)
                     if (header.Dimensions.X != GainRef.Dims.X || header.Dimensions.Y != GainRef.Dims.Y)
-                        throw new Exception("Gain reference dimensions do not match image.");
+                        throw new Exception($"Gain reference dimensions ({GainRef.Dims.X}x{GainRef.Dims.Y}) do not match image ({header.Dimensions.X}x{header.Dimensions.Y}).");
 
             int EERSupersample = 1;
-            if (GainRef != null && IsEER)
+            if (GainRef != null && correctGain && IsEER)
             {
                 if (header.Dimensions.X == GainRef.Dims.X)
                     EERSupersample = 1;
@@ -849,7 +850,7 @@ namespace WarpWorker
 
             HeaderEER.SuperResolution = EERSupersample;
 
-            if (IsEER && GainRef != null)
+            if (IsEER && GainRef != null && correctGain)
             {
                 header.Dimensions.X = GainRef.Dims.X;
                 header.Dimensions.Y = GainRef.Dims.Y;
@@ -860,7 +861,7 @@ namespace WarpWorker
 
             int CurrentDevice = GPU.GetDevice();
 
-            if (RawLayers == null || RawLayers.Length != NThreads || RawLayers[0].Length != header.Dimensions.ElementsSlice())
+            if (RawLayers == null || RawLayers.Length != NThreads || RawLayers[0].Length < header.Dimensions.ElementsSlice())
                 RawLayers = Helper.ArrayOfFunction(i => new float[header.Dimensions.ElementsSlice()], NThreads);
 
             Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, header.Dimensions.Slice()), GPUThreads);
@@ -899,9 +900,9 @@ namespace WarpWorker
 
                     lock (Locks[GPUThreadID])
                     {
-                        GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[threadID].Length);
+                        GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), header.Dimensions.ElementsSlice());
 
-                        if (GainRef != null)
+                        if (GainRef != null && correctGain)
                         {
                             //if (IsEER)
                             //    GPULayers[GPUThreadID].DivideSlices(GainRef);
@@ -975,9 +976,9 @@ namespace WarpWorker
 
                     lock (Locks[GPUThreadID])
                     {
-                        GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), RawLayers[threadID].Length);
+                        GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), header.Dimensions.ElementsSlice());
 
-                        if (GainRef != null)
+                        if (GainRef != null && correctGain)
                         {
                             //if (IsEER)
                             //    GPULayers[GPUThreadID].DivideSlices(GainRef);

@@ -200,7 +200,7 @@ namespace WarpTools.Commands
                     worker.MovieExportMovie(m.Path, OptionsMovieExport);
 
                 if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
-                    worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames);
+                    worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames, false);
                 worker.MovieProcessCTF(m.Path, OptionsCTF);
             });
 
