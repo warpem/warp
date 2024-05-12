@@ -272,6 +272,8 @@ namespace MCore
         static void DoProcessing()
         {
             Console.Write("Loading population... ");
+            if (!File.Exists(Path.Combine(WorkingDirectory, OptionsCLI.Population)))
+                throw new Exception("Population file not found");
             var ActivePopulation = new Population(Path.Combine(WorkingDirectory, OptionsCLI.Population));
             Console.WriteLine("Done");
 
@@ -294,9 +296,6 @@ namespace MCore
             string[] WorkerFolders = new string[WorkersRefine.Count];
 
             Console.WriteLine("Preparing for refinement – this will take a few minutes per species");
-
-            int ItemsCompleted = 0;
-            int ItemsToDo = ActivePopulation.Sources.Select(s => s.Files.Count).Sum();
 
             string[] CurrentlyRefinedItems = new string[WorkersRefine.Count];
 
