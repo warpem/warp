@@ -616,16 +616,21 @@ This command produces files with the *tomostar* extension, these are STAR files 
 necessary information in them for further processing in *WarpTools*.
 We put these in a folder called `tomostar`
 
-```txt title="Import Tilt Series Metadata"
+```sh title="Import Tilt Series Metadata"
 WarpTools ts_import \
 --mdocs mdoc \
 --frameseries warp_frameseries \
 --tilt_exposure 2.64 \
 --min_intensity 0.3 \
+--dont_invert \ # (1)!
 --output tomostar
 ```
 
-??? note "tomoSTAR file"
+1.  :man_raising_hand: this option inverts geometric handedness by flipping the 
+    tomogram reconstruction through the XY plane, we do this here because we know for
+    this dataset it leads to the correct geometric handedness in the tomogram.
+
+??? note "example tomoSTAR file"
 
     ```txt title="TS_1.tomostar"
 

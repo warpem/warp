@@ -48,11 +48,14 @@ WarpTools filter_quality --settings warp_frameseries.settings --histograms
 
 # prepare tilt-series metadata for Warp
 # this creates one tomostar file per tilt series in the tomostar directory
+# we add don't invert so that we get the right geometric handedness - 
+# this is a parameter you need to figure out per-scope/collection setup
 WarpTools ts_import \
 --mdocs mdoc \
 --frameseries warp_frameseries \
 --tilt_exposure 2.64 \
 --min_intensity 0.3 \
+--dont_invert \
 --output tomostar
 
 # Create settings for tilt-series processing
