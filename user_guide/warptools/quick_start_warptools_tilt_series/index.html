@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.21">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -30,7 +30,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.66ac8b77.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -2258,15 +2258,21 @@ are darker than expected by supplying <code>--min_intensity</code> at this stage
 <p>This command produces files with the <em>tomostar</em> extension, these are STAR files with
 necessary information in them for further processing in <em>WarpTools</em>.
 We put these in a folder called <code>tomostar</code></p>
-<div class="highlight"><span class="filename">Import Tilt Series Metadata</span><pre><span></span><code>WarpTools ts_import \
---mdocs mdoc \
---frameseries warp_frameseries \
---tilt_exposure 2.64 \
---min_intensity 0.3 \
---output tomostar
+<div class="highlight"><span class="filename">Import Tilt Series Metadata</span><pre><span></span><code>WarpTools<span class="w"> </span>ts_import<span class="w"> </span><span class="se">\</span>
+--mdocs<span class="w"> </span>mdoc<span class="w"> </span><span class="se">\</span>
+--frameseries<span class="w"> </span>warp_frameseries<span class="w"> </span><span class="se">\</span>
+--tilt_exposure<span class="w"> </span><span class="m">2</span>.64<span class="w"> </span><span class="se">\</span>
+--min_intensity<span class="w"> </span><span class="m">0</span>.3<span class="w"> </span><span class="se">\</span>
+--dont_invert<span class="w"> </span><span class="se">\ </span><span class="c1"># (1)!</span>
+--output<span class="w"> </span>tomostar
 </code></pre></div>
+<ol>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option inverts geometric handedness by flipping the 
+    tomogram reconstruction through the XY plane, we do this here because we know for
+    this dataset it leads to the correct geometric handedness in the tomogram.</li>
+</ol>
 <details class="note">
-<summary>tomoSTAR file</summary>
+<summary>example tomoSTAR file</summary>
 <div class="highlight"><span class="filename">TS_1.tomostar</span><pre><span></span><code>data_
 
 loop_
@@ -2805,7 +2811,7 @@ MCore \
     <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.a7c05c9e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
     
   </body>
