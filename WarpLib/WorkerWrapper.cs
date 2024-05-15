@@ -87,7 +87,7 @@ namespace Warp
             Worker = new Process { StartInfo = StartInfo };
             Worker.Start();
 
-            Port = ListenForPort(PipeName, 10_000);
+            Port = ListenForPort(PipeName, 100_000);
 
             Stopwatch Timeout = new Stopwatch();
             Timeout.Start();
@@ -100,7 +100,7 @@ namespace Warp
                 }
                 catch { }
 
-                if (Timeout.Elapsed.TotalSeconds > (attachDebugger ? 200 : 20))
+                if (Timeout.Elapsed.TotalSeconds > (attachDebugger ? 200 : 100))
                     throw new Exception($"Couldn't connect to newly created worker at {Host}:{Port} for 20 seconds, something must be wrong");
             }
 
