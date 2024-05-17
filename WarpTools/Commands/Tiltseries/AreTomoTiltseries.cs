@@ -32,7 +32,10 @@ namespace WarpTools.Commands
 
         [Option("axis", HelpText = "Override tilt axis angle with this value")]
         public double? AxisAngle { get; set; }
-
+        
+        [Option("patches", HelpText = "Number of patches for local alignments in X, Y, separated by 'x': e.g. 6x4. Increases processing time.")]
+        public string NPatchesXY { get; set; }
+        
         [Option("delete_intermediate", HelpText = "Delete tilt series stacks generated for AreTomo")]
         public bool DeleteIntermediate { get; set; }
 
@@ -83,7 +86,23 @@ namespace WarpTools.Commands
             var OptionsAretomo = (ProcessingOptionsTomoAretomo)Options.FillTomoProcessingBase(new ProcessingOptionsTomoAretomo());
             OptionsAretomo.Executable = CLI.Executable;
             OptionsAretomo.AlignZ = (int)Math.Round(CLI.AlignZ / OptionsStack.BinnedPixelSizeMean);
-
+            
+            if (!string.IsNullOrEmpty(CLI.NPatchesXY))
+            {
+                try
+                {
+                    var NPatchesXY = CLI.NPatchesXY.Split('x').Select(int.Parse).ToArray();
+                    OptionsAretomo.NPatchesXY = NPatchesXY;
+                }
+                catch
+                {
+                    throw new Exception("Patch grid dimensions must be specified as XxY, e.g. 5x5");
+                }
+            }
+            else
+            {
+                OptionsAretomo.NPatchesXY = new int[] { 0, 0 };
+            }
             #endregion
 
             WorkerWrapper[] Workers = CLI.GetWorkers();

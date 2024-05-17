@@ -349,8 +349,10 @@ namespace WarpWorker
                     string OutStack = T.RootName + "_aligned.mrc";
                     string Axis = Options.AxisAngle.ToString() + (Options.DoAxisSearch ? " 0" : " -1");
                     string AlignZ = Options.AlignZ.ToString();
+                    string NPatchesX = Options.NPatchesXY[0].ToString();
+                    string NPatchesY = Options.NPatchesXY[1].ToString();
 
-                    string Arguments = $"-InMrc {StackPath} -AngFile {AnglePath} -VolZ 0 -OutBin 0 -TiltAxis {Axis} -AlignZ {AlignZ} -TiltCor 1 -OutImod 1 -DarkTol 0 -OutMrc {OutStack} -Gpu {DeviceID}";
+                    string Arguments = $"-InMrc {StackPath} -AngFile {AnglePath} -VolZ 0 -OutBin 0 -TiltAxis {Axis} -AlignZ {AlignZ} -TiltCor 1 -OutImod 1 -DarkTol 0 -OutMrc {OutStack} -Gpu {DeviceID} -Patch {NPatchesX} {NPatchesY}";
 
                     Console.WriteLine($"Executing {Options.Executable} in {StackDir} with arguments: {Arguments}");
 
