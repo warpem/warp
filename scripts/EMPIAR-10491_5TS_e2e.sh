@@ -131,7 +131,7 @@ WarpTools ts_template_match \
 --template_emdb 15854 \
 --template_diameter 130 \
 --symmetry O \
---perdevice 2
+--perdevice 1
 
 # threshold picks - scores are normalised so 6 means 6 * SD away from mean
 WarpTools threshold_picks \
