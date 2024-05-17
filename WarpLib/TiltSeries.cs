@@ -10734,6 +10734,9 @@ namespace Warp
 
         [WarpSerializable]
         public string Executable { get; set; }
+        
+        [WarpSerializable]
+        public int[] NPatchesXY { get; set; }
     }
     
     [Serializable]
