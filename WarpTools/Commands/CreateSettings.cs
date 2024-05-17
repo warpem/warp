@@ -35,8 +35,8 @@ namespace WarpTools.Commands
         public string Extension { get; set; }
 
 
-        [Option("angpix", HelpText = "Unbinned pixel size in Angstrom")]
-        public double? PixelSize { get; set; }
+        [Option("angpix", Required = true, HelpText = "Unbinned pixel size in Angstrom. Alternatively specify the path to an image or MDOC file to read the value from. If a wildcard pattern is specified, the first file will be used")]
+        public string PixelSize { get; set; }
 
 
         [Option("bin", HelpText = "2^x pre-binning factor, applied in Fourier space when loading raw data. 0 = no binning, 1 = 2x2 binning, 2 = 4x4 binning, supports non-integer values")]
@@ -100,8 +100,53 @@ namespace WarpTools.Commands
 
             #region Pixel size
 
-            if (cli.PixelSize > 0)
-                Options.Import.PixelSize = (decimal)cli.PixelSize;
+            {
+                decimal PixelSize = 0;
+                try
+                {
+                    PixelSize = decimal.Parse(cli.PixelSize);
+                }
+                catch
+                {
+                    Console.WriteLine("Pixel size is not a number, trying to read from file instead...");
+
+                    string[] Files = Directory.EnumerateFiles(Path.Combine(Environment.CurrentDirectory, Path.GetDirectoryName(cli.PixelSize)),
+                                                              Path.GetFileName(cli.PixelSize),
+                                                              SearchOption.TopDirectoryOnly).ToArray();
+                    if (Files.Length == 0)
+                        throw new Exception($"No files found matching {cli.PixelSize}");
+
+                    if (Path.GetExtension(Files.First()).ToLower() == ".mdoc")
+                    {
+                        // The pixel size is in a line like "PixelSpacing = 1.907"
+
+                        string PixelLine = File.ReadAllLines(Files.First()).FirstOrDefault(l => l.Contains("PixelSpacing"));
+                        if (PixelLine == null)
+                            throw new Exception("No PixelSpacing line found in MDOC file");
+
+                        PixelSize = decimal.Parse(PixelLine.Split('=')[1].Trim());                        
+                    }
+                    else
+                    {
+                        try
+                        {
+                            MapHeader Header = MapHeader.ReadFromFile(Files.First());
+                            PixelSize = (decimal)Header.PixelSize.X;
+                        }
+                        catch
+                        {
+                            throw new Exception($"Could not read pixel size from image file {Files.First()}. Either not an image file, or unsupported format.");
+                        }
+                    }
+                    
+                    Console.WriteLine($"Pixel size read from file: {PixelSize}");
+                }
+
+                if (PixelSize <= 0)
+                    throw new Exception($"Pixel size ({PixelSize}) must be a positive number");
+
+                Options.Import.PixelSize = PixelSize;
+            }
 
             if (cli.BinTimes != null && cli.BinTimesTarget != null)
                 throw new Exception("Cannot specify both --bin and --bin_angpix");
