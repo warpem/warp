@@ -289,14 +289,14 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
-    <IncludePath>$(ProjectDir);$(LIBTIFF_HEADERS);$(LIBTIFF_HEADERS2);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(LIBTIFF_DIR)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(CONDA_INCLUDE);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(CONDA_LIB)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)Release\</OutDir>
-    <IncludePath>$(ProjectDir);$(LIBTIFF_HEADERS);$(LIBTIFF_HEADERS2);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_PATH)\lib\x64;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(LIBTIFF_DIR)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(CONDA_INCLUDE);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH)\lib\x64;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(CONDA_LIB)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -330,8 +330,13 @@ copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
- copy "$(LIBTIFF_DIR)\$(LIBTIFF_NAME)" "$(OutDir)"
- copy "$(ZLIB_PATH)" "$(OutDir)"</Command>
+copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\zlib.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\Lerc.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\liblzma.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\zstd.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -383,8 +388,13 @@ copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
 copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
-copy "$(LIBTIFF_DIR)\$(LIBTIFF_NAME)" "$(OutDir)"
-copy "$(ZLIB_PATH)" "$(OutDir)"</Command>
+copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\zlib.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\Lerc.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\liblzma.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\zstd.dll" "$(OutDir)"
+copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>

@@ -89,14 +89,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(PYTORCH_LIBS_DEBUG)\torch\include\torch\csrc\api\include;$(CUDA_PATH)\include;$(PYTORCH_LIBS_DEBUG)\torch\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_LIBS_DEBUG)\build\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(PYTORCH_DIR)\include\torch\csrc\api\include;$(PYTORCH_DIR)\include;$(CUDA_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_DIR)\lib;$(LibraryPath)</LibraryPath>
     <OutDir>../bin</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(PYTORCH_LIBS)\torch\include\torch\csrc\api\include;$(CUDA_PATH)\include;$(PYTORCH_LIBS)\torch\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_LIBS)\build\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(PYTORCH_DIR)\include\torch\csrc\api\include;$(PYTORCH_DIR)\include;$(CUDA_PATH)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_DIR)\lib;$(LibraryPath)</LibraryPath>
     <OutDir>../Release</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -124,12 +124,12 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64 /guard:cf /NOVCFEATURE</AdditionalOptions>
-      <AdditionalDependencies>cudart.lib;cufft.lib;cublas.lib;curand.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\c10.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\c10_cuda.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\torch_cuda.lib;$(PYTORCH_LIBS_DEBUG)\build\lib\torch_cpu.lib;-INCLUDE:?warp_size@cuda@at@@YAHXZ;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cudart.lib;cufft.lib;cublas.lib;curand.lib;$(PYTORCH_DIR)\lib\c10.lib;$(PYTORCH_DIR)\lib\c10_cuda.lib;$(PYTORCH_DIR)\lib\torch_cuda.lib;$(PYTORCH_DIR)\lib\torch_cpu.lib;-INCLUDE:?warp_size@cuda@at@@YAHXZ;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y $(PYTORCH_LIBS_DEBUG)\build\bin\*.dll $(TargetDir)
-copy /y $(PYTORCH_LIBS_DEBUG)\build\lib\*.dll $(TargetDir)
+      <Command>copy /y $(PYTORCH_DIR)\bin\*.dll $(TargetDir)
+copy /y $(PYTORCH_DIR)\lib\*.dll $(TargetDir)
 copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.dll" $(TargetDir)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -158,13 +158,11 @@ copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.d
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64 /guard:cf /NOVCFEATURE</AdditionalOptions>
-      <AdditionalDependencies>cudart.lib;cufft.lib;cublas.lib;curand.lib;$(PYTORCH_LIBS)\build\lib\c10.lib;$(PYTORCH_LIBS)\build\lib\c10_cuda.lib;$(PYTORCH_LIBS)\build\lib\torch_cuda.lib;$(PYTORCH_LIBS)\build\lib\torch_cpu.lib;-INCLUDE:?warp_size@cuda@at@@YAHXZ;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cudart.lib;cufft.lib;cublas.lib;curand.lib;$(PYTORCH_DIR)\lib\c10.lib;$(PYTORCH_DIR)\lib\c10_cuda.lib;$(PYTORCH_DIR)\lib\torch_cuda.lib;$(PYTORCH_DIR)\lib\torch_cpu.lib;-INCLUDE:?warp_size@cuda@at@@YAHXZ;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <PostBuildEvent>
-      <Command>copy /y $(PYTORCH_LIBS)\build\bin\*.dll $(TargetDir)
-copy /y $(PYTORCH_LIBS)\build\lib\*.dll $(TargetDir)
-copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.dll" $(TargetDir)</Command>
+      <Command>copy /y $(PYTORCH_DIR)\bin\*.dll $(TargetDir)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
