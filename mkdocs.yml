@@ -35,6 +35,7 @@ nav:
         - Particle Operations: reference/m/particle_operations.md
     - WarpTools:
         - Environment Variables: reference/warptools/environment_variables.md
+        - Subsets of Data: reference/warptools/subsets.md
   - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md
