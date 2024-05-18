@@ -38,6 +38,7 @@ nav:
         - Subsets of Data: reference/warptools/subsets.md
   - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
+  - 🐛 Submit a Bug: https://github.com/warpem/warp/issues
   - 🧑‍🤝‍🧑 Team: team.md
 
 theme:
