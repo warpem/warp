@@ -12,26 +12,28 @@
         <meta name="author" content="Dimitry Tegunov">
       
       
-        <link rel="canonical" href="https://warpem.com/">
+        <link rel="canonical" href="https://warpem.com/reference/boxnet/fs_training/">
       
       
+        <link rel="prev" href="../../warptools/subsets/">
       
-        <link rel="next" href="home/warp/">
+      
+        <link rel="next" href="../../../papers/">
       
       
-      <link rel="icon" href="assets/favicon.png">
+      <link rel="icon" href="../../../assets/favicon.png">
       <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
     
     
       
-        <title>Overview - Warp, M and friends</title>
+        <title>Frame Series Training - Warp, M and friends</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.6543a935.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -56,7 +58,7 @@
       
     
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -82,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#_1" class="md-skip">
+        <a href="#frame-series-training" class="md-skip">
           Skip to content
         </a>
       
@@ -98,9 +100,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="Warp, M and friends" class="md-header__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
+    <a href="../../.." title="Warp, M and friends" class="md-header__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
       
-  <img src="assets/warp_m_logos_combined.png" alt="logo">
+  <img src="../../../assets/warp_m_logos_combined.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -117,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              Frame Series Training
             
           </span>
         </div>
@@ -204,13 +206,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="." class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
           
   
   🏡 Home
@@ -228,7 +228,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="user_guide/overview/" class="md-tabs__link">
+        <a href="../../../user_guide/overview/" class="md-tabs__link">
           
   
   📘 User Guides
@@ -242,17 +242,21 @@
         
   
   
+    
+  
   
     
     
       
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="reference/warp/interface/interface_overview/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../warp/interface/interface_overview/" class="md-tabs__link">
           
   
   🗄️ Reference
@@ -271,7 +275,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="papers/" class="md-tabs__link">
+      <a href="../../../papers/" class="md-tabs__link">
         
   
     
@@ -305,7 +309,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="team/" class="md-tabs__link">
+      <a href="../../../team/" class="md-tabs__link">
         
   
     
@@ -345,9 +349,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="Warp, M and friends" class="md-nav__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
+    <a href="../../.." title="Warp, M and friends" class="md-nav__button md-logo" aria-label="Warp, M and friends" data-md-component="logo">
       
-  <img src="assets/warp_m_logos_combined.png" alt="logo">
+  <img src="../../../assets/warp_m_logos_combined.png" alt="logo">
 
     </a>
     Warp, M and friends
@@ -371,30 +375,27 @@
       
   
   
-    
   
   
-  
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
         
           
-          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -405,7 +406,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_1">
             <span class="md-nav__icon md-icon"></span>
             🏡 Home
@@ -416,19 +417,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -437,7 +429,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -450,7 +441,7 @@
   
   
     <li class="md-nav__item">
-      <a href="home/warp/" class="md-nav__link">
+      <a href="../../../home/warp/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -471,7 +462,7 @@
   
   
     <li class="md-nav__item">
-      <a href="home/m/" class="md-nav__link">
+      <a href="../../../home/m/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -541,7 +532,7 @@
   
   
     <li class="md-nav__item">
-      <a href="user_guide/overview/" class="md-nav__link">
+      <a href="../../../user_guide/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -604,7 +595,7 @@
   
   
     <li class="md-nav__item">
-      <a href="user_guide/warp/quick_start_warp_frame_series/" class="md-nav__link">
+      <a href="../../../user_guide/warp/quick_start_warp_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -625,7 +616,7 @@
   
   
     <li class="md-nav__item">
-      <a href="user_guide/warp/quick_start_warp_tilt_series/" class="md-nav__link">
+      <a href="../../../user_guide/warp/quick_start_warp_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -696,7 +687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="user_guide/m/quick_start_m/" class="md-nav__link">
+      <a href="../../../user_guide/m/quick_start_m/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -767,7 +758,7 @@
   
   
     <li class="md-nav__item">
-      <a href="user_guide/warptools/quick_start_warptools_frame_series/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/quick_start_warptools_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -788,7 +779,7 @@
   
   
     <li class="md-nav__item">
-      <a href="user_guide/warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -821,27 +812,30 @@
       
   
   
+    
   
   
+  
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -852,7 +846,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             🗄️ Reference
@@ -871,10 +865,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -883,7 +880,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_1" >
         
           
-          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -908,7 +905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/warp/interface/interface_overview/" class="md-nav__link">
+      <a href="../../warp/interface/interface_overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -929,7 +926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/warp/models/" class="md-nav__link">
+      <a href="../../warp/models/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -950,7 +947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/warp/task_dialogs_frame_series/" class="md-nav__link">
+      <a href="../../warp/task_dialogs_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -971,7 +968,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/warp/task_dialogs_tilt_series/" class="md-nav__link">
+      <a href="../../warp/task_dialogs_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1005,10 +1002,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1017,7 +1017,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1042,7 +1042,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/m/particle_operations/" class="md-nav__link">
+      <a href="../../m/particle_operations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1076,10 +1076,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1088,7 +1091,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1113,7 +1116,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/warptools/environment_variables/" class="md-nav__link">
+      <a href="../../warptools/environment_variables/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1134,7 +1137,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/warptools/subsets/" class="md-nav__link">
+      <a href="../../warptools/subsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1160,27 +1163,30 @@
                 
   
   
+    
   
   
+  
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1191,7 +1197,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             BoxNet
@@ -1202,10 +1208,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="reference/boxnet/fs_training/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Frame Series Training
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1214,6 +1240,35 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#training-data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Data Structure
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1241,7 +1296,7 @@
   
   
     <li class="md-nav__item">
-      <a href="papers/" class="md-nav__link">
+      <a href="../../../papers/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1281,7 +1336,7 @@
   
   
     <li class="md-nav__item">
-      <a href="team/" class="md-nav__link">
+      <a href="../../../team/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1314,6 +1369,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#training-data-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Data Structure
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1330,18 +1402,19 @@
   
 
 
-<h1 id="_1"></h1>
-<figure>
-  <img alt="Warp" src="assets/warp_m_logos_combined.png" width="250" />
-  <figcaption></figcaption>
-</figure>
-<h3 style="text-align: center">
-Process your cryo-EM data. Fast.
-</h3>
-
-<p style="text-align: center">
-  Welcome to <b>warpem.com</b>, the home of <i>Warp</i>, <i>M</i>, and friends on the internet.
-</p>
+<h1 id="frame-series-training">Frame Series Training</h1>
+<p><em>BoxNet</em> can be trained on frame series data using <em>WarpTools</em> <code>fs_boxnet_train</code>.</p>
+<h2 id="training-data-structure">Training Data Structure</h2>
+<p>The <code>--examples</code> option to <code>WarpTools fs_boxnet_train</code> should be set to a folder
+containing TIFF files with examples.</p>
+<p>Each file should have three z-slices</p>
+<ul>
+<li>slice 0: the image data</li>
+<li>slice 1: ternary mask, 0 is bg, 1 is particle, 2 is mask</li>
+<li>slice 2: importance mask (not supported but need empty layer in file)</li>
+</ul>
+<p>All files should be at the same pixel size.
+Different files can contain images with different dimensions.</p>
 
 
 
@@ -1394,10 +1467,10 @@ Process your cryo-EM data. Fast.
     </div>
     
     
-    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link", "content.code.annotate"], "search": "assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
       
     
   </body>

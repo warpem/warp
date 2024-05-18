@@ -36,6 +36,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://warpem.com/reference/boxnet/fs_training/</loc>
+         <lastmod>2024-05-18</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://warpem.com/reference/m/particle_operations/</loc>
          <lastmod>2024-05-18</lastmod>
          <changefreq>daily</changefreq>
