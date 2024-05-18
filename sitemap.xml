@@ -81,6 +81,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://warpem.com/reference/warptools/subsets/</loc>
+         <lastmod>2024-05-18</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://warpem.com/user_guide/installation/</loc>
          <lastmod>2024-05-18</lastmod>
          <changefreq>daily</changefreq>
