@@ -16,6 +16,7 @@ using System.IO.Pipes;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.Server;
+using System.Runtime.InteropServices;
 
 namespace WarpWorker
 {
@@ -422,13 +423,15 @@ namespace WarpWorker
 
                     if (Options.DoPatchTracking)
                         Console.WriteLine($"Performing patch tracking in {T.TiltStackDir} with arguments: {Arguments}");
-                    
+
                     // we execute batchruntomo even if not doing patch tracking to create com file for alignment
+
+                    bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     Process BatchRunTomo = new Process 
                     {
                         StartInfo =
                         {
-                            FileName = "batchruntomo",
+                            FileName = IsWindows ? "batchruntomo.cmd" : "batchruntomo",
                             CreateNoWindow = false,
                             WindowStyle = ProcessWindowStyle.Minimized,
                             Arguments = Arguments,
@@ -456,7 +459,7 @@ namespace WarpWorker
                         {
                             StartInfo =
                             {
-                                FileName = "submfg",
+                                FileName = IsWindows ? "submfg.cmd" : "submfg",
                                 CreateNoWindow = false,
                                 WindowStyle = ProcessWindowStyle.Minimized,
                                 Arguments = "align.com",
@@ -516,13 +519,14 @@ namespace WarpWorker
 
                     if (Options.DoFiducialTracking)
                         Console.WriteLine($"Performing fiducial tracking in {T.TiltStackDir} with arguments: {Arguments}");
-                    
+
                     // we execute batchruntomo even if not doing fiducial tracking to create com file for alignment
+                    bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     Process BatchRunTomo = new Process 
                     {
                         StartInfo =
                         {
-                            FileName = "batchruntomo",
+                            FileName = IsWindows ? "batchruntomo.cmd" : "batchruntomo",
                             CreateNoWindow = false,
                             WindowStyle = ProcessWindowStyle.Minimized,
                             Arguments = Arguments,
@@ -550,7 +554,7 @@ namespace WarpWorker
                         {
                             StartInfo =
                             {
-                                FileName = "submfg",
+                                FileName = IsWindows ? "submfg.cmd" : "submfg",
                                 CreateNoWindow = false,
                                 WindowStyle = ProcessWindowStyle.Minimized,
                                 Arguments = "align.com",
