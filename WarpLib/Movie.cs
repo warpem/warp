@@ -4052,6 +4052,7 @@ namespace Warp
                                           (uint)CurBatch,
                                           Helper.ToInterleaved(HealpixAngles),
                                           (uint)HealpixAngles.Length,
+                                          (uint)128,
                                           SizeParticle / 2,
                                           BestCorrelation.GetDevice(Intent.Write),
                                           BestAngle.GetDevice(Intent.Write),

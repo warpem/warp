@@ -104,6 +104,7 @@ namespace gtom
 							uint nvolumes,
 							tfloat3* h_angles,
 							uint nangles,
+							uint batchangles,
 							tfloat maskradius,
 							tfloat* d_bestcorrelation,
 							float* d_bestangle,

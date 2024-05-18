@@ -610,6 +610,7 @@ namespace Warp
                 SubVolumeSize = 192,
                 Symmetry = Tasks.TomoMatchSymmetry,
                 HealpixOrder = (int)Tasks.TomoMatchHealpixOrder,
+                BatchAngles = Tasks.TomoMatchBatchAngles,
 
                 Supersample = 1,
 
@@ -2131,6 +2132,14 @@ namespace Warp
                     TomoMatchHealpixAngle = Math.Round(60M / (decimal)Math.Pow(2, (double)value), 3);
                 }
             }
+        }
+
+        private int _TomoMatchBatchAngles = 32;
+        [WarpSerializable]
+        public int TomoMatchBatchAngles
+        {
+            get { return _TomoMatchBatchAngles; }
+            set { if (value != _TomoMatchBatchAngles) { _TomoMatchBatchAngles = value; OnPropertyChanged(); } }
         }
 
         private decimal _TomoMatchHealpixAngle = 30;

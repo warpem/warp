@@ -43,6 +43,9 @@ namespace WarpTools.Commands
         [Option("subdivisions", Default = 3, HelpText = "Number of subdivisions defining the angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on")]
         public int HealpixOrder { get; set; }
 
+        [Option("batch_angles", Default = 32, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; higher than 32 probably won't lead to speed-ups")]
+        public int BatchAngles { get; set; }
+
         [Option("peak_distance", HelpText = "Minimum distance (in Angstrom) between peaks; leave empty to use template diameter")]
         public int? PeakDistance { get; set; }
 
@@ -110,6 +113,9 @@ namespace WarpTools.Commands
             if (CLI.HealpixOrder < 0)
                 throw new Exception("--subdivisions can't be negative");
 
+            if (CLI.BatchAngles < 1)
+                throw new Exception("--batch_angles must be positive");
+
             if (CLI.PeakDistance.HasValue && CLI.PeakDistance.Value <= 0)
                 throw new Exception("--peak_distance can't be 0 or negative");
 
@@ -139,6 +145,7 @@ namespace WarpTools.Commands
             Options.Tasks.TomoMatchTemplateFraction = 1;
 
             Options.Tasks.TomoMatchHealpixOrder = CLI.HealpixOrder;
+            Options.Tasks.TomoMatchBatchAngles = CLI.BatchAngles;
             Options.Tasks.TomoMatchSymmetry = CLI.TemplateSymmetry;
             Options.Tasks.TomoMatchNResults = CLI.PeakNumber;
 

@@ -38,6 +38,7 @@ extern "C" __declspec(dllexport) void CorrelateSubTomos(unsigned long long t_pro
                                                         uint nvolumes,
                                                         float3* h_angles,
                                                         uint nangles,
+                                                        uint batchangles,
                                                         float maskradius,
                                                         float* d_bestcorrelation,
                                                         int* d_bestangle,

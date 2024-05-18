@@ -184,6 +184,7 @@ namespace Warp
                                                     uint nvolumes,
                                                     float[] h_angles,
                                                     uint nangles,
+                                                    uint batchangles,
                                                     float maskradius,
                                                     IntPtr d_bestcorrelation,
                                                     IntPtr d_bestangle,

@@ -1683,6 +1683,7 @@ namespace Warp
                                           (uint)CurBatch,
                                           Helper.ToInterleaved(HealpixAngles),
                                           (uint)HealpixAngles.Length,
+                                          (uint)options.BatchAngles,
                                           SizeParticle / 2,
                                           BestCorrelation.GetDevice(Intent.Write),
                                           BestAngle.GetDevice(Intent.Write),
@@ -1870,7 +1871,7 @@ namespace Warp
 
             #endregion
 
-            #region Get peak list that has at most NResults values
+            #region Get peak list that has at least NResults values
 
             progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Extracting best peaks...");
 
@@ -10897,6 +10898,9 @@ namespace Warp
 
         [WarpSerializable]
         public int HealpixOrder { get; set; }
+
+        [WarpSerializable]
+        public int BatchAngles { get; set; }
 
         [WarpSerializable]
         public int Supersample { get; set; }
