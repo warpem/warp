@@ -10245,6 +10245,8 @@ namespace Warp
 
         public override void SaveMeta()
         {
+            Directory.CreateDirectory(ProcessingDirectoryName);
+
             using (XmlTextWriter Writer = new XmlTextWriter(XMLPath, Encoding.UTF8))
             {
                 Writer.Formatting = Formatting.Indented;
