@@ -32,8 +32,8 @@ namespace WarpTools.Commands
         [Option("do_axis_search", HelpText = "Fit a new tilt axis angle for the whole dataset")]
         public bool DoAxisAngleSearch { get; set; }
         
-        [Option("patch_size", HelpText = "patch size for patch tracking in Angstroms")]
-        public double? PatchSizeAngstroms { get; set; }
+        [Option("patch_size", Default = 500.0, HelpText = "patch size for patch tracking in Angstroms")]
+        public double PatchSizeAngstroms { get; set; }
 
         [Option("delete_intermediate", HelpText = "Delete tilt series stacks generated for Etomo")]
         public bool DeleteIntermediate { get; set; }
@@ -59,7 +59,7 @@ namespace WarpTools.Commands
             if (CLI.MinFOV > 1 || CLI.MinFOV < 0)
                 throw new Exception("--min_fov must be a fraction between 0 and 1");
 
-            if (CLI.PatchSizeAngstroms.HasValue && CLI.PatchSizeAngstroms.Value <= 0)
+            if (CLI.PatchSizeAngstroms <= 0)
                 throw new Exception("--patch_size must be a positive number");
 
             #endregion
