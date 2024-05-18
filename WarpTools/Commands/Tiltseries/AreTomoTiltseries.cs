@@ -27,6 +27,9 @@ namespace WarpTools.Commands
         [Option("axis_iter", Default = 0, HelpText = "Number of tilt axis angle refinement iterations; each iteration will be started with median value from previous iteration, final iteration will use fixed angle")]
         public int AxisIterations { get; set; }
 
+        [Option("axis_batch", Default = 0, HelpText = "Use only this many tilt series for the tilt axis angle search; only relevant if --axis_iter isn't 0")]
+        public int AxisBatch { get; set; }
+
         [Option("min_fov", Default = 0.0, HelpText = "Disable tilts that contain less than this fraction of the tomogram's field of view due to excessive shifts")]
         public double MinFOV { get; set; }
 
@@ -65,6 +68,9 @@ namespace WarpTools.Commands
 
             if (CLI.AxisIterations < 0)
                 throw new Exception("--axis_iter can't be negative");
+
+            if (CLI.AxisBatch < 0)
+                throw new Exception("--axis_batch can't be negative");
 
             if (CLI.AlignZ < 1)
                 throw new Exception("--alignz can't be lower than 1");
@@ -127,6 +133,7 @@ namespace WarpTools.Commands
             };
 
             float AxisAngle = CLI.AxisAngle.HasValue ? (float)CLI.AxisAngle.Value : CalculateAverageAxis();
+            var AllSeries = CLI.InputSeries.ToArray();
 
             for (int iiter = 0; iiter < CLI.AxisIterations + 1; iiter++)
             {
@@ -137,9 +144,21 @@ namespace WarpTools.Commands
                 Console.WriteLine($"Current tilt axis angle: {AxisAngle:F3} °");
 
                 if (iiter < CLI.AxisIterations)
+                {
                     Console.WriteLine($"Running iteration {iiter + 1} of tilt axis refinement:");
+
+                    if (CLI.AxisBatch > 0)
+                    {
+                        CLI.InputSeries = AllSeries.Take(CLI.AxisBatch).ToArray();
+                        Console.WriteLine($"Using {CLI.InputSeries.Length} out of {AllSeries.Length} series for tilt axis refinement");
+                    }
+                }
                 else
+                {
                     Console.WriteLine("Running AreTomo with final average tilt axis angle:");
+
+                    CLI.InputSeries = AllSeries;
+                }
 
                 IterateOverItems(Workers, CLI, (worker, t) =>
                 {
