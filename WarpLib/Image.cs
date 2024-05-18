@@ -1527,14 +1527,14 @@ namespace Warp
                 }
 
                 for (int z = 0; z < Dims.Z; z++)
-                    Marshal.Copy(GetHost(Intent.Read)[z], 0, new IntPtr((long)Original + Dims.ElementsSlice() * sizeof(float)), (int)Dims.ElementsSlice());
+                    Marshal.Copy(GetHost(Intent.Read)[z], 0, new IntPtr((long)Original + Dims.ElementsSlice() * sizeof(float) * z), (int)Dims.ElementsSlice());
 
                 FFTW.execute(Plan);
 
                 Result = new Image(Dims, true, true) { PixelSize = PixelSize };
 
                 for (int z = 0; z < Dims.Z; z++)
-                    Marshal.Copy(new IntPtr((long)Transformed + Dims.ElementsFFTSlice() * sizeof(float) * 2), Result.GetHost(Intent.Write)[z], 0, (int)Dims.ElementsFFTSlice() * 2);
+                    Marshal.Copy(new IntPtr((long)Transformed + Dims.ElementsFFTSlice() * sizeof(float) * 2 * z), Result.GetHost(Intent.Write)[z], 0, (int)Dims.ElementsFFTSlice() * 2);
 
                 lock (Image.FFT_CPU_Sync)
                 {
@@ -1645,14 +1645,14 @@ namespace Warp
                 }
 
                 for (int z = 0; z < Dims.Z; z++)
-                    Marshal.Copy(GetHost(Intent.Read)[z], 0, new IntPtr((long)Original + Dims.ElementsFFTSlice() * sizeof(float) * 2), (int)Dims.ElementsFFTSlice() * 2);
+                    Marshal.Copy(GetHost(Intent.Read)[z], 0, new IntPtr((long)Original + Dims.ElementsFFTSlice() * sizeof(float) * 2 * z), (int)Dims.ElementsFFTSlice() * 2);
 
                 FFTW.execute(Plan);
 
                 Result = new Image(Dims) { PixelSize = PixelSize };
 
                 for (int z = 0; z < Dims.Z; z++)
-                    Marshal.Copy(new IntPtr((long)Transformed + Dims.ElementsSlice() * sizeof(float)), Result.GetHost(Intent.Write)[z], 0, (int)Dims.ElementsSlice());
+                    Marshal.Copy(new IntPtr((long)Transformed + Dims.ElementsSlice() * sizeof(float) * z), Result.GetHost(Intent.Write)[z], 0, (int)Dims.ElementsSlice());
 
                 lock (Image.FFT_CPU_Sync)
                 {
