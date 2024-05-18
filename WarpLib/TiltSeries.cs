@@ -1470,12 +1470,11 @@ namespace Warp
             CorrData = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
             AngleData = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
 
+            if (!File.Exists(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc")))
+                throw new FileNotFoundException("A reconstruction at the desired resolution was not found.");
+
             if (!File.Exists(CorrVolumePath) || !options.ReuseCorrVolumes)
             {
-                if (!File.Exists(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc")))
-                    return;
-                //throw new FileNotFoundException("A reconstruction at the desired resolution was not found.");
-
                 progressCallback?.Invoke(Grid, 0, "Loading...");
 
                 TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
@@ -1863,6 +1862,9 @@ namespace Warp
             }
             else
             {
+                progressCallback?.Invoke(Grid, 0, "Loading...");
+
+                TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
                 CorrImage = Image.FromFile(CorrVolumePath);
                 CorrData = CorrImage.GetHost(Intent.Read);
             }
