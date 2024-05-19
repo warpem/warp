@@ -1251,13 +1251,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-these-steps-yourself" class="md-nav__link">
+  <a href="#easy-as-1-2-3" class="md-nav__link">
     <span class="md-ellipsis">
-      Running these steps yourself
+      Easy as 1, 2, 3...
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Running these steps yourself">
+    <nav class="md-nav" aria-label="Easy as 1, 2, 3...">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1506,13 +1506,13 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running-these-steps-yourself" class="md-nav__link">
+  <a href="#easy-as-1-2-3" class="md-nav__link">
     <span class="md-ellipsis">
-      Running these steps yourself
+      Easy as 1, 2, 3...
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Running these steps yourself">
+    <nav class="md-nav" aria-label="Easy as 1, 2, 3...">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1566,7 +1566,7 @@
 
 
 <h1 id="custom-tilt-series-alignment-workflows">Custom Tilt Series Alignment Workflows</h1>
-<p><em>WarpTools</em> provides some wrappers around some commonly used programs for
+<p><em>WarpTools</em> provides wrappers around some commonly used programs for
 tilt series alignment <em>IMOD</em> and <em>AreTomo2</em>.</p>
 <ul>
 <li><code>ts_aretomo</code></li>
@@ -1574,16 +1574,16 @@ tilt series alignment <em>IMOD</em> and <em>AreTomo2</em>.</p>
 <li><code>ts_etomo_patches</code></li>
 </ul>
 <p>These wrappers provide fully automated solutions and are well integrated into the
-<em>WarpTools</em> processing flow. </p>
-<p>What if you want to do something <em>different</em>?</p>
+<em>WarpTools</em> processing flow.</p>
+<p>What if you want to do something <strong>different</strong>?</p>
 <h2 id="tilt-series-alignment-in-warptools">Tilt Series Alignment in <em>WarpTools</em></h2>
-<p>Tilt series alignment wrappers in <em>WarpTools</em> can be broken down into three steps</p>
+<p>Tilt series alignment in <em>WarpTools</em> can be broken down into three steps</p>
 <ol>
 <li>generating tilt series stacks</li>
 <li>running a tilt series alignment program</li>
 <li>importing alignments</li>
 </ol>
-<h2 id="running-these-steps-yourself">Running these steps yourself</h2>
+<h2 id="easy-as-1-2-3">Easy as 1, 2, 3...</h2>
 <p><em>WarpTools</em> provides everything you need to do each of these steps separately yourself
 if you want to work outside the wrappers.</p>
 <h3 id="generate-tilt-series-stacks">Generate tilt series stacks</h3>
@@ -1601,10 +1601,12 @@ alignments.</p>
 <h3 id="run-a-tilt-series-alignment-program">Run a tilt series alignment program</h3>
 <p>Any tilt series alignment program can be run inside these tilt series directories.</p>
 <h3 id="importing-alignments">Importing alignments</h3>
-<p><em>WarpTools</em> can import alignment metadata from the <em>IMOD</em> format metadata files
-- <code>.xf</code> text files containing 2D image transformations
-- <code>.tlt</code> text files containing tilt angles</p>
-<p>The IMOD <code>xf</code> format is specified 
+<p><em>WarpTools</em> can import alignment metadata from the <em>IMOD</em> format metadata files</p>
+<ul>
+<li><code>.xf</code> text files containing 2D image transformations</li>
+<li><code>.tlt</code> text files containing tilt angles</li>
+</ul>
+<p>The IMOD <code>xf</code> format is specified
 <a href="https://bio3d.colorado.edu/imod/doc/man/xfmodel.html#transforming_models">in their documentation</a>.</p>
 <p>!!! quote "IMOD <code>xf</code> spec</p>
 <div class="highlight"><pre><span></span><code>Each linear transformation in a transform file is specified by a line
