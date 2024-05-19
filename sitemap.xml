@@ -136,6 +136,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://warpem.com/user_guide/warptools/installation/</loc>
+         <lastmod>2024-05-19</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://warpem.com/user_guide/warptools/quick_start_warptools_frame_series/</loc>
          <lastmod>2024-05-19</lastmod>
          <changefreq>daily</changefreq>
