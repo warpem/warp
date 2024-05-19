@@ -44,6 +44,9 @@ namespace WarpTools.Commands
         [Option("max_mask", Default = 1.0, HelpText = "Exclude tilts if more than this fraction of their pixels is masked; needs frame series with BoxNet masking results")]
         public double MaxMask { get; set; }
 
+        [Option("min_ntilts", Default = 1, HelpText = "Only import tilt series that have at least this many tilts after all the other filters have been applied")]
+        public int MinNTilts { get; set; }
+
         [Option('o', "output", Required = true, HelpText = "Path to a folder where the created .tomostar files will be saved")]
         public string OutputPath { get; set; }
     }
@@ -74,6 +77,8 @@ namespace WarpTools.Commands
                 throw new Exception($"--min_intensity must be positive or 0");
             if (CLI.MaxMask < 0 || CLI.MaxMask > 1)
                 throw new Exception($"--max_mask must be between 0 and 1");
+            if (CLI.MinNTilts < 1)
+                throw new Exception("--min_ntilts must be positive");
 
             #endregion
 
@@ -310,6 +315,9 @@ namespace WarpTools.Commands
                             SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
                         }
                         #endregion
+
+                        if (SortedAngle.Count < CLI.MinNTilts)
+                            throw new Exception($"Too few tilts remain: {SortedAngle.Count}");
 
                         if (SortedAngle.Count == 0)
                             throw new Exception("0 tilts remain after parsing and culling");
