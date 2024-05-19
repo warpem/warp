@@ -129,8 +129,6 @@ namespace WarpTools.Commands
 
             Console.WriteLine("Parsing MDOCs and creating .tomostar files...");
 
-            float[] AverageReadBuffer = null;
-
             {
                 int NDone = 0;
                 int NFailed = 0;
@@ -271,30 +269,37 @@ namespace WarpTools.Commands
                             SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
 
                             MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
-                            if (AverageReadBuffer == null || AverageReadBuffer.Length != Header.Dimensions.ElementsSlice())
-                                AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
-
-                            var AverageValues = new Dictionary<string, float>();
+                            var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
+                            var AverageSparse = new float[AverageReadBuffer.Length / 10];
 
                             foreach (var entry in SortedAngle)
                             {
                                 IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
+                                                                
+                                for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
+                                    AverageSparse[i] = AverageReadBuffer[i * 10];
 
-                                double Average = 0;
-                                int Samples = 0;
-                                for (int i = 0; i < AverageReadBuffer.Length; i += 7)
-                                {
-                                    Average += AverageReadBuffer[i];
-                                    Samples++;
-                                }
-
-                                Average /= Samples;
-                                entry.AverageIntensity = (float)Average;
+                                entry.AverageIntensity = MathHelper.Median(AverageSparse);
                             }
 
-                            float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(3, SortedAbsoluteAngle.Count)).Max();
+                            float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
+                            MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
+                            int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
+                            float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
 
-                            SortedAngle.RemoveAll(e => e.AverageIntensity < CLI.MinIntensity * Math.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f);
+                            foreach (var entry in SortedAngle)
+                                entry.TiltAngle -= ActualZeroAngle;
+
+                            int LowestAngleId = ZeroAngleId;
+                            int HighestAngleId = ZeroAngleId;
+
+                            while (LowestAngleId > 0 && SortedAngle[LowestAngleId].AverageIntensity >= CLI.MinIntensity * MathF.Cos(SortedAngle[LowestAngleId].TiltAngle * Helper.ToRad) * MaxAverage * 0.999f)
+                                LowestAngleId--;
+
+                            while (HighestAngleId < SortedAngle.Count - 1 && SortedAngle[HighestAngleId].AverageIntensity >= CLI.MinIntensity * MathF.Cos(SortedAngle[HighestAngleId].TiltAngle * Helper.ToRad) * MaxAverage * 0.999f)
+                                HighestAngleId++;
+
+                            SortedAngle.RemoveAll(e => SortedAngle.IndexOf(e) <= LowestAngleId || SortedAngle.IndexOf(e) >= HighestAngleId);
                         }
                         #endregion
 
