@@ -23,6 +23,7 @@ nav:
     - Desktop M:
       - user_guide/m/quick_start_m.md
     - WarpTools:
+      - user_guide/warptools/installation.md
       - user_guide/warptools/quick_start_warptools_frame_series.md
       - user_guide/warptools/quick_start_warptools_tilt_series.md
   - 🗄️ Reference:
