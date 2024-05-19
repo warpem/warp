@@ -36,6 +36,7 @@ nav:
     - WarpTools:
         - Environment Variables: reference/warptools/environment_variables.md
         - Subsets of Data: reference/warptools/subsets.md
+        - Custom Tilt Series Alignment: reference/warptools/custom_tilt_series_alignments.md
   - 📜 Papers: papers.md
   - 💬 Discussion Group: https://groups.google.com/forum/#!forum/warp-em
   - 🧑‍🤝‍🧑 Team: team.md
