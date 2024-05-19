@@ -293,13 +293,21 @@ namespace WarpTools.Commands
                             int LowestAngleId = ZeroAngleId;
                             int HighestAngleId = ZeroAngleId;
 
-                            while (LowestAngleId > 0 && SortedAngle[LowestAngleId].AverageIntensity >= CLI.MinIntensity * MathF.Cos(SortedAngle[LowestAngleId].TiltAngle * Helper.ToRad) * MaxAverage * 0.999f)
-                                LowestAngleId--;
+                            bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
+                            for (int i = ZeroAngleId - 1; i >= 0; i--)
+                            {
+                                if (!Passed[i])
+                                    break;
+                                LowestAngleId = i;
+                            }
+                            for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
+                            {
+                                if (!Passed[i])
+                                    break;
+                                HighestAngleId = i;
+                            }
 
-                            while (HighestAngleId < SortedAngle.Count - 1 && SortedAngle[HighestAngleId].AverageIntensity >= CLI.MinIntensity * MathF.Cos(SortedAngle[HighestAngleId].TiltAngle * Helper.ToRad) * MaxAverage * 0.999f)
-                                HighestAngleId++;
-
-                            SortedAngle.RemoveAll(e => SortedAngle.IndexOf(e) <= LowestAngleId || SortedAngle.IndexOf(e) >= HighestAngleId);
+                            SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
                         }
                         #endregion
 
