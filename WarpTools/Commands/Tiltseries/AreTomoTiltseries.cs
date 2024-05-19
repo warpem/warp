@@ -134,6 +134,8 @@ namespace WarpTools.Commands
 
             float AxisAngle = CLI.AxisAngle.HasValue ? (float)CLI.AxisAngle.Value : CalculateAverageAxis();
             var AllSeries = CLI.InputSeries.ToArray();
+            var UsedForSearch = CLI.AxisBatch > 0 ? AllSeries.Take(CLI.AxisBatch).ToArray() : AllSeries;
+            var NotUsedForSearch = CLI.AxisBatch > 0 ? AllSeries.Where(s => !UsedForSearch.Contains(s)).ToArray() : Array.Empty<Movie>();
 
             for (int iiter = 0; iiter < CLI.AxisIterations + 1; iiter++)
             {
@@ -149,7 +151,7 @@ namespace WarpTools.Commands
 
                     if (CLI.AxisBatch > 0)
                     {
-                        CLI.InputSeries = AllSeries.Take(CLI.AxisBatch).ToArray();
+                        CLI.InputSeries = UsedForSearch;
                         Console.WriteLine($"Using {CLI.InputSeries.Length} out of {AllSeries.Length} series for tilt axis refinement");
                     }
                 }
@@ -162,7 +164,7 @@ namespace WarpTools.Commands
 
                 IterateOverItems(Workers, CLI, (worker, t) =>
                 {
-                    if (iiter == 0)
+                    if (iiter == 0 || NotUsedForSearch.Contains(t))
                         worker.TomoStack(t.Path, OptionsStack);
 
                     worker.TomoAretomo(t.Path, OptionsAretomo);
