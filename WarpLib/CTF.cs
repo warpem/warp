@@ -1013,6 +1013,14 @@ namespace Warp
             return new Image(Data, new int3(size, size, 1), true);
         }
 
+        /// <summary>
+        /// Get the phase difference between two different defocus values (phase(f, defocus1) - phase(f, defocus2)) up to a certain frequency
+        /// </summary>
+        /// <param name="components">Number of components to calculate</param>
+        /// <param name="pixelSize">Pixel size</param>
+        /// <param name="defocus1">First defocus value</param>
+        /// <param name="defocus2">Second defocus value</param>
+        /// <returns></returns>
         public float[] GetPhaseDiff(int components, float pixelSize, float defocus1, float defocus2)
         {
             var Diff = new float[components];
