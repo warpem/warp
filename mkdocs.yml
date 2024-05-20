@@ -38,6 +38,7 @@ nav:
         - Environment Variables: reference/warptools/environment_variables.md
         - Subsets of Data: reference/warptools/subsets.md
         - Custom Tilt Series Alignment: reference/warptools/custom_tilt_series_alignments.md
+        - Advanced Data Flow: reference/warptools/advanced_data_flow.md
     - BoxNet:
         Frame Series Training: reference/boxnet/fs_training.md
   - 📜 Papers: papers.md
