@@ -2459,9 +2459,9 @@ We put these in a folder called <code>tomostar</code></p>
 --output<span class="w"> </span>tomostar
 </code></pre></div>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option inverts geometric handedness by flipping the 
-    tomogram reconstruction through the XY plane, we do this here because we know for
-    this dataset it leads to the correct geometric handedness in the tomogram.</li>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option inverts geometric handedness by flipping the
+   tomogram reconstruction through the XY plane, we do this here because we know for
+   this dataset it leads to the correct geometric handedness in the tomogram.</li>
 </ol>
 <details class="note">
 <summary>example tomoSTAR file</summary>
@@ -2528,12 +2528,16 @@ wrappers around <a href="https://bio3d.colorado.edu/imod/">IMOD</a> and
 <ol>
 <li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> <code>ts_etomo_fiducials</code> and <code>ts_aretomo</code> are also available.</li>
 </ol>
-<div class="highlight"><span class="filename">Tilt Series Alignment in Etomo using Patch Tracking</span><pre><span></span><code>WarpTools ts_etomo_patches \
---settings warp_tiltseries.settings \
---angpix 10 \
---patch_size 500 \
---initial_axis -85.6
+<div class="highlight"><span class="filename">Tilt Series Alignment in Etomo using Patch Tracking</span><pre><span></span><code>WarpTools<span class="w"> </span>ts_etomo_patches<span class="w"> </span><span class="se">\</span>
+--settings<span class="w"> </span>warp_tiltseries.settings<span class="w"> </span><span class="se">\</span>
+--angpix<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+--patch_size<span class="w"> </span><span class="m">500</span><span class="w"> </span><span class="se">\ </span><span class="c1"># (1)!</span>
+--initial_axis<span class="w"> </span>-85.6
 </code></pre></div>
+<ol>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option is the sidelength of patches in Ångstroms. Patches
+   are arranged on a regular grid with 80% overlap.</li>
+</ol>
 <h3 id="tilt-series-check-defocus-handedness">Tilt Series: Check Defocus Handedness</h3>
 <p><em>WarpTools</em> contains a program, <code>ts_defocus_hand</code> for checking
 <a href="../../../reference/warp/defocus_handedness/">defocus handedness</a> across a dataset
@@ -2602,16 +2606,17 @@ It's recommended that you look at volumes in a viewer like <em>3dmod</em> to ass
 quality.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Warp writes images as 16 bit MRC files, saving you valuable disk space and speeding up 
-file input/output. If you need 32 bit images for compatibility see 
-<a href="../../../reference/warptools/environment_variables/#force-writing-32-bit-mrcs"><code>WARP_FORCE_MRC_FLOAT32</code></a>.</p>
 </div>
+<p>Warp writes images as 16 bit MRC files, saving you valuable disk space and speeding up
+file input/output. If you need 32 bit images for compatibility see
+<a href="../../../reference/warptools/environment_variables/#force-writing-32-bit-mrcs"><code>WARP_FORCE_MRC_FLOAT32</code></a>.</p>
 <figure>
   <img alt="tomogram preview" src="../assets/tomogram_slice_preview.png" width="60%" />
   <figcaption>preview image of tomogram reconstruction</figcaption>
 </figure>
 <p>If you would like to reconstruct half-tomograms for subsequent denoising using
-<a href="../../../reference/noise2map/noise2map/">Noise2Map</a> add the <code>--halfmap_frames</code> option to your command.</p>
+<a href="../../../reference/noise2map/noise2map/">Noise2Map</a> add the <code>--halfmap_frames</code> option to
+your command.</p>
 <h4 id="improving-alignments-in-etomo">Improving alignments in Etomo</h4>
 <p>Running tilt series alignment programs in a fully automated way does not always give
 the best results. If you would like to improve results for a particlular tilt series
@@ -2685,8 +2690,9 @@ suffix in the filename</p>
 <p class="annotate">Both output types are compatible with the latest version of RELION, RELION-5.
 For this tutorial we will write out 2D particle image series. (1)</p>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> if using 3D particles you need to launch refinements from the <code>relion</code> GUI, 
-not the <code>relion --tomo</code> GUI.</li>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> if using 3D particles you need to launch refinements from
+   the <code>relion</code> GUI,
+   not the <code>relion --tomo</code> GUI.</li>
 </ol>
 <div class="highlight"><span class="filename">Export 2D particle series</span><pre><span></span><code>WarpTools ts_export_particles \
 --settings warp_tiltseries.settings \
@@ -2709,10 +2715,10 @@ the same directory for debugging, you should see a blob in the center of these i
 </figure>
 <div class="admonition question">
 <p class="admonition-title">Why 4Å per pixel?</p>
+</div>
 <p>The major features of apoferritin
 are alpha helices which resolve nicely at around 9Å. 9Å is slightly lower than the
 Nyquist limit of 8Å.</p>
-</div>
 <p>A particle STAR file will be written to the file specified as <code>--output_star</code>. In the
 case of 2D averages, a RELION compatible <code>optimisation_set</code> STAR file will be written
 out
