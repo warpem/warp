@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.24">
     
     
       
@@ -1279,9 +1279,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#importing-alignments" class="md-nav__link">
+  <a href="#import-alignments" class="md-nav__link">
     <span class="md-ellipsis">
-      Importing alignments
+      Import alignments
     </span>
   </a>
   
@@ -1534,9 +1534,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#importing-alignments" class="md-nav__link">
+  <a href="#import-alignments" class="md-nav__link">
     <span class="md-ellipsis">
-      Importing alignments
+      Import alignments
     </span>
   </a>
   
@@ -1600,7 +1600,7 @@ alignments.</p>
 <code>.rawtlt</code> file will be placed in subdirectories of <code>&lt;processing_directory&gt;/tiltstack</code>.</p>
 <h3 id="run-a-tilt-series-alignment-program">Run a tilt series alignment program</h3>
 <p>Any tilt series alignment program can be run inside these tilt series directories.</p>
-<h3 id="importing-alignments">Importing alignments</h3>
+<h3 id="import-alignments">Import alignments</h3>
 <p><em>WarpTools</em> can import alignment metadata from the <em>IMOD</em> format metadata files</p>
 <ul>
 <li><code>.xf</code> text files containing 2D image transformations</li>
@@ -1608,14 +1608,15 @@ alignments.</p>
 </ul>
 <p>The IMOD <code>xf</code> format is specified
 <a href="https://bio3d.colorado.edu/imod/doc/man/xfmodel.html#transforming_models">in their documentation</a>.</p>
-<p>!!! quote "IMOD <code>xf</code> spec</p>
-<div class="highlight"><pre><span></span><code>Each linear transformation in a transform file is specified by a line
+<div class="admonition quote">
+<p class="admonition-title">IMOD <code>xf</code> spec</p>
+<p>Each linear transformation in a transform file is specified by a line
 with six numbers:
 A11 A12 A21 A22 DX DY where the coordinate (X, Y) is transformed to
-(X&#39;, Y&#39;) by:
-X&#39; = A11 * X + A12 * Y + DX
-Y&#39; = A21 * X + A22 * Y + DY
-</code></pre></div>
+(X', Y') by:
+X' = A11 * X + A12 * Y + DX
+Y' = A21 * X + A22 * Y + DY</p>
+</div>
 
 
 
@@ -1671,7 +1672,7 @@ Y&#39; = A21 * X + A22 * Y + DY
     <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.081f42fc.min.js"></script>
       
     
   </body>
