@@ -465,7 +465,7 @@ the `warp_frameseries` directory.
 The `--m_grid 1x1x3` and `--c_grid 2x2x1` parameters define the resolution (`XxYxT`) of
 motion and CTF models that will be estimated.
 
-When processing tilt series data we typically recommend `1x1xNTilts` for motion grids
+When processing tilt series data we typically recommend `1x1xNFrames` for motion grids
 due to the low amount of signal available per tilt and `2x2x1` for CTF grids to enable
 checking that defocus varies as expected across the tilt axis.
 
