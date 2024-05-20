@@ -46,7 +46,7 @@ Tilt series in `.mrc` format and tilt angles in the IMOD format
 
 Any tilt series alignment program can be run inside these tilt series directories.
 
-### Importing alignments
+### Import alignments
 
 *WarpTools* can import alignment metadata from the *IMOD* format metadata files
 
@@ -56,7 +56,7 @@ Any tilt series alignment program can be run inside these tilt series directorie
 The IMOD `xf` format is specified
 [in their documentation](https://bio3d.colorado.edu/imod/doc/man/xfmodel.html#transforming_models).
 
-!!! quote "IMOD `xf` spec
+!!! quote "IMOD `xf` spec"
 
     Each linear transformation in a transform file is specified by a line
     with six numbers:
