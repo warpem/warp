@@ -1376,6 +1376,48 @@ namespace Warp.Tools
 
             return null; // Intersection is outside of the rays
         }
+
+        public static bool IsProductOf(int value, int[] factors)
+        {
+            for (int i = 0; i < factors.Length; i++)
+            {
+                int factor = factors[i];
+                while (value % factor == 0)
+                    value /= factor;
+            }
+
+            return value == 1;
+        }
+
+        /// <summary>
+        /// Find the next product of 2, 3, 5, 7 that is <=size
+        /// </summary>
+        /// <param name="size">Size</param>
+        /// <returns></returns>
+        public static int FindFFTFriendlySizeLower(int size)
+        {
+            int[] Factors = { 2, 3, 5, 7 };
+            int Result = size;
+            while (!IsProductOf(Result, Factors))
+                Result--;
+
+            return Result;
+        }
+
+        /// <summary>
+        /// Find the next product of 2, 3, 5, 7 that is >=size
+        /// </summary>
+        /// <param name="size"></param>
+        /// <returns></returns>
+        public static int FindFFTFriendlySizeHigher(int size)
+        {
+            int[] Factors = { 2, 3, 5, 7 };
+            int Result = size;
+            while (!IsProductOf(Result, Factors))
+                Result++;
+
+            return Result;
+        }
     }
 
     public class KaiserTable
