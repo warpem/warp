@@ -81,6 +81,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://warpem.com/reference/warptools/advanced_data_flow/</loc>
+         <lastmod>2024-05-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://warpem.com/reference/warptools/custom_tilt_series_alignments/</loc>
          <lastmod>2024-05-20</lastmod>
          <changefreq>daily</changefreq>
