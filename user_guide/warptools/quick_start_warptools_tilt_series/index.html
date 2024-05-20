@@ -2314,7 +2314,7 @@ per GPU. We typically use <code>--perdevice 4</code> on A100 cards with 80GB mem
 <h4 id="grids">Grids</h4>
 <p>The <code>--m_grid 1x1x3</code> and <code>--c_grid 2x2x1</code> parameters define the resolution (<code>XxYxT</code>) of
 motion and CTF models that will be estimated.</p>
-<p>When processing tilt series data we typically recommend <code>1x1xNTilts</code> for motion grids
+<p>When processing tilt series data we typically recommend <code>1x1xNFrames</code> for motion grids
 due to the low amount of signal available per tilt and <code>2x2x1</code> for CTF grids to enable
 checking that defocus varies as expected across the tilt axis.</p>
 <h4 id="ctf-parameters">CTF Parameters</h4>
