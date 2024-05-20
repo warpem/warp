@@ -1013,6 +1013,25 @@ namespace Warp
             return new Image(Data, new int3(size, size, 1), true);
         }
 
+        public float[] GetPhaseDiff(int components, float pixelSize, float defocus1, float defocus2)
+        {
+            var Diff = new float[components];
+
+            CTF CTF1 = GetCopy();
+            CTF1.Defocus = (decimal)defocus1;
+            CTF CTF2 = GetCopy();
+            CTF2.Defocus = (decimal)defocus2;
+
+            float Nyquist = 1.0f / (2 * pixelSize);
+            for (int i = 0; i < components; i++)
+            {
+                float Freq = i / (float)(components - 1) * Nyquist;
+                Diff[i] = (float)(CTF1.GetPhaseAtFrequency(Freq) - CTF2.GetPhaseAtFrequency(Freq));
+            }
+
+            return Diff;
+        }
+
         public static Image GetCTFCoords(int size, int originalSize, float pixelSize = 1, float pixelSizeDelta = 0, float pixelSizeAngle = 0)
         {
             Image CTFCoords;
