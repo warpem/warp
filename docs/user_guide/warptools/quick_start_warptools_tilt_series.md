@@ -726,24 +726,25 @@ WarpTools ts_defocus_hand \
 --check
 ```
 
-In this case, the program tells us we should set the defocus handedness to 'flip'.
+In this case, the program tells us that the data match our expectations so we don't need to do anything.
 
 ```txt title="Output from Defocus Handedness Check"
 Checking defocus handedness for all tilt series...
-5/5, -0.931                                                                                                                                                                                  
-Average correlation: -0.931
-The average correlation is negative, which means that the defocus handedness should be set to 'flip'
+5/5, 0.932                                                                                                                                                                                
+Average correlation: 0.932
+The average correlation is positive, which means that the defocus handedness should be set to 'no flip'
 ```
 
-We run the program again with the `--set_flip` flag to set the correct defocus
-handedness
-for all tilt series.
+!!! tip 
 
-```txt title="Defocus Handedness Correction"
-WarpTools ts_defocus_hand \
---settings warp_tiltseries.settings \
---set_flip
-```
+    If the correlation had been negative, we would rerun the program with the `--set_flip` 
+    flag to set the correct defocus handedness for all tilt series.
+    
+    ```txt title="Defocus Handedness Correction"
+    WarpTools ts_defocus_hand \
+    --settings warp_tiltseries.settings \
+    --set_flip
+    ```
 
 ### Tilt Series: CTF Estimation
 
