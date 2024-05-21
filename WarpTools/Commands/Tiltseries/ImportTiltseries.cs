@@ -44,6 +44,9 @@ namespace WarpTools.Commands
         [Option("max_mask", Default = 1.0, HelpText = "Exclude tilts if more than this fraction of their pixels is masked; needs frame series with BoxNet masking results")]
         public double MaxMask { get; set; }
 
+        [Option("min_ntilts", Default = 1, HelpText = "Only import tilt series that have at least this many tilts after all the other filters have been applied")]
+        public int MinNTilts { get; set; }
+
         [Option('o', "output", Required = true, HelpText = "Path to a folder where the created .tomostar files will be saved")]
         public string OutputPath { get; set; }
     }
@@ -74,6 +77,8 @@ namespace WarpTools.Commands
                 throw new Exception($"--min_intensity must be positive or 0");
             if (CLI.MaxMask < 0 || CLI.MaxMask > 1)
                 throw new Exception($"--max_mask must be between 0 and 1");
+            if (CLI.MinNTilts < 1)
+                throw new Exception("--min_ntilts must be positive");
 
             #endregion
 
@@ -128,8 +133,6 @@ namespace WarpTools.Commands
             Directory.CreateDirectory(CLI.OutputPath);
 
             Console.WriteLine("Parsing MDOCs and creating .tomostar files...");
-
-            float[] AverageReadBuffer = null;
 
             {
                 int NDone = 0;
@@ -271,32 +274,50 @@ namespace WarpTools.Commands
                             SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
 
                             MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
-                            if (AverageReadBuffer == null || AverageReadBuffer.Length != Header.Dimensions.ElementsSlice())
-                                AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
-
-                            var AverageValues = new Dictionary<string, float>();
+                            var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
+                            var AverageSparse = new float[AverageReadBuffer.Length / 10];
 
                             foreach (var entry in SortedAngle)
                             {
                                 IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
+                                                                
+                                for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
+                                    AverageSparse[i] = AverageReadBuffer[i * 10];
 
-                                double Average = 0;
-                                int Samples = 0;
-                                for (int i = 0; i < AverageReadBuffer.Length; i += 7)
-                                {
-                                    Average += AverageReadBuffer[i];
-                                    Samples++;
-                                }
-
-                                Average /= Samples;
-                                entry.AverageIntensity = (float)Average;
+                                entry.AverageIntensity = MathHelper.Median(AverageSparse);
                             }
 
-                            float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(3, SortedAbsoluteAngle.Count)).Max();
+                            float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
+                            MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
+                            int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
+                            float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
 
-                            SortedAngle.RemoveAll(e => e.AverageIntensity < CLI.MinIntensity * Math.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f);
+                            foreach (var entry in SortedAngle)
+                                entry.TiltAngle -= ActualZeroAngle;
+
+                            int LowestAngleId = ZeroAngleId;
+                            int HighestAngleId = ZeroAngleId;
+
+                            bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
+                            for (int i = ZeroAngleId - 1; i >= 0; i--)
+                            {
+                                if (!Passed[i])
+                                    break;
+                                LowestAngleId = i;
+                            }
+                            for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
+                            {
+                                if (!Passed[i])
+                                    break;
+                                HighestAngleId = i;
+                            }
+
+                            SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
                         }
                         #endregion
+
+                        if (SortedAngle.Count < CLI.MinNTilts)
+                            throw new Exception($"Too few tilts remain: {SortedAngle.Count}");
 
                         if (SortedAngle.Count == 0)
                             throw new Exception("0 tilts remain after parsing and culling");

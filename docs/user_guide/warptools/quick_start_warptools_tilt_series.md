@@ -465,7 +465,7 @@ the `warp_frameseries` directory.
 The `--m_grid 1x1x3` and `--c_grid 2x2x1` parameters define the resolution (`XxYxT`) of
 motion and CTF models that will be estimated.
 
-When processing tilt series data we typically recommend `1x1xNTilts` for motion grids
+When processing tilt series data we typically recommend `1x1xNFrames` for motion grids
 due to the low amount of signal available per tilt and `2x2x1` for CTF grids to enable
 checking that defocus varies as expected across the tilt axis.
 
@@ -626,9 +626,9 @@ WarpTools ts_import \
 --output tomostar
 ```
 
-1.  :man_raising_hand: this option inverts geometric handedness by flipping the 
-    tomogram reconstruction through the XY plane, we do this here because we know for
-    this dataset it leads to the correct geometric handedness in the tomogram.
+1. :man_raising_hand: this option inverts geometric handedness by flipping the
+   tomogram reconstruction through the XY plane, we do this here because we know for
+   this dataset it leads to the correct geometric handedness in the tomogram.
 
 ??? note "example tomoSTAR file"
 
@@ -700,13 +700,16 @@ In this case, we will use patch tracking from IMOD via the `etomo_patches` WarpT
 
 1. :man_raising_hand: `ts_etomo_fiducials` and `ts_aretomo` are also available.
 
-```txt title="Tilt Series Alignment in Etomo using Patch Tracking"
+```sh title="Tilt Series Alignment in Etomo using Patch Tracking"
 WarpTools ts_etomo_patches \
 --settings warp_tiltseries.settings \
 --angpix 10 \
---patch_size 500 \
+--patch_size 500 \ # (1)!
 --initial_axis -85.6
 ``` 
+
+1. :man_raising_hand: this option is the sidelength of patches in Ångstroms. Patches
+   are arranged on a regular grid with 80% overlap.
 
 ### Tilt Series: Check Defocus Handedness
 
@@ -726,24 +729,25 @@ WarpTools ts_defocus_hand \
 --check
 ```
 
-In this case, the program tells us we should set the defocus handedness to 'flip'.
+In this case, the program tells us that the data match our expectations so we don't need to do anything.
 
 ```txt title="Output from Defocus Handedness Check"
 Checking defocus handedness for all tilt series...
-5/5, -0.931                                                                                                                                                                                  
-Average correlation: -0.931
-The average correlation is negative, which means that the defocus handedness should be set to 'flip'
+5/5, 0.932                                                                                                                                                                                
+Average correlation: 0.932
+The average correlation is positive, which means that the defocus handedness should be set to 'no flip'
 ```
 
-We run the program again with the `--set_flip` flag to set the correct defocus
-handedness
-for all tilt series.
+!!! tip 
 
-```txt title="Defocus Handedness Correction"
-WarpTools ts_defocus_hand \
---settings warp_tiltseries.settings \
---set_flip
-```
+    If the correlation had been negative, we would rerun the program with the `--set_flip` 
+    flag to set the correct defocus handedness for all tilt series.
+    
+    ```txt title="Defocus Handedness Correction"
+    WarpTools ts_defocus_hand \
+    --settings warp_tiltseries.settings \
+    --set_flip
+    ```
 
 ### Tilt Series: CTF Estimation
 
@@ -801,6 +805,7 @@ quality.
     file input/output. If you need 32 bit images for compatibility see 
     [`WARP_FORCE_MRC_FLOAT32`](../../reference/warptools/environment_variables.md#force-writing-32-bit-mrcs).
 
+
 <figure markdown="span">
   ![tomogram preview](./assets/tomogram_slice_preview.png){ width="60%" }
   <figcaption>preview image of tomogram reconstruction</figcaption>
@@ -808,7 +813,8 @@ quality.
 
 
 If you would like to reconstruct half-tomograms for subsequent denoising using
-[Noise2Map](../../reference/noise2map/noise2map.md) add the `--halfmap_frames` option to your command.
+[Noise2Map](../../reference/noise2map/noise2map.md) add the `--halfmap_frames` option to
+your command.
 
 #### Improving alignments in Etomo
 
@@ -907,8 +913,9 @@ Both output types are compatible with the latest version of RELION, RELION-5.
 For this tutorial we will write out 2D particle image series. (1)
 { .annotate }
 
-1. :man_raising_hand: if using 3D particles you need to launch refinements from the `relion` GUI, 
-not the `relion --tomo` GUI.
+1. :man_raising_hand: if using 3D particles you need to launch refinements from
+   the `relion` GUI,
+   not the `relion --tomo` GUI.
 
 ```txt title="Export 2D particle series"
 WarpTools ts_export_particles \
@@ -934,9 +941,9 @@ the same directory for debugging, you should see a blob in the center of these i
 </figure>
 
 !!! question "Why 4Å per pixel?"
-    The major features of apoferritin
-    are alpha helices which resolve nicely at around 9Å. 9Å is slightly lower than the
-    Nyquist limit of 8Å.
+The major features of apoferritin
+are alpha helices which resolve nicely at around 9Å. 9Å is slightly lower than the
+Nyquist limit of 8Å.
 
 A particle STAR file will be written to the file specified as `--output_star`. In the
 case of 2D averages, a RELION compatible `optimisation_set` STAR file will be written

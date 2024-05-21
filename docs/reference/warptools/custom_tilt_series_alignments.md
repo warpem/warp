@@ -1,6 +1,6 @@
 # Custom Tilt Series Alignment Workflows
 
-*WarpTools* provides some wrappers around some commonly used programs for
+*WarpTools* provides wrappers around some commonly used programs for
 tilt series alignment *IMOD* and *AreTomo2*.
 
 - `ts_aretomo`
@@ -8,19 +8,19 @@ tilt series alignment *IMOD* and *AreTomo2*.
 - `ts_etomo_patches`
 
 These wrappers provide fully automated solutions and are well integrated into the
-*WarpTools* processing flow. 
+*WarpTools* processing flow.
 
-What if you want to do something *different*?
+What if you want to do something **different**?
 
 ## Tilt Series Alignment in *WarpTools*
 
-Tilt series alignment wrappers in *WarpTools* can be broken down into three steps
+Tilt series alignment in *WarpTools* can be broken down into three steps
 
 1. generating tilt series stacks
 2. running a tilt series alignment program
 3. importing alignments
 
-## Running these steps yourself
+## Easy as 1, 2, 3...
 
 *WarpTools* provides everything you need to do each of these steps separately yourself
 if you want to work outside the wrappers.
@@ -46,16 +46,17 @@ Tilt series in `.mrc` format and tilt angles in the IMOD format
 
 Any tilt series alignment program can be run inside these tilt series directories.
 
-### Importing alignments
+### Import alignments
 
 *WarpTools* can import alignment metadata from the *IMOD* format metadata files
+
 - `.xf` text files containing 2D image transformations
 - `.tlt` text files containing tilt angles
 
-The IMOD `xf` format is specified 
+The IMOD `xf` format is specified
 [in their documentation](https://bio3d.colorado.edu/imod/doc/man/xfmodel.html#transforming_models).
 
-!!! quote "IMOD `xf` spec
+!!! quote "IMOD `xf` spec"
 
     Each linear transformation in a transform file is specified by a line
     with six numbers:
@@ -63,4 +64,5 @@ The IMOD `xf` format is specified
     (X', Y') by:
     X' = A11 * X + A12 * Y + DX
     Y' = A21 * X + A22 * Y + DY
+
 
