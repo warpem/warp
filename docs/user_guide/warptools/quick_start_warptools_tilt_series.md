@@ -800,9 +800,11 @@ It's recommended that you look at volumes in a viewer like *3dmod* to assess ali
 quality.
 
 !!! warning
-Warp writes images as 16 bit MRC files, saving you valuable disk space and speeding up
-file input/output. If you need 32 bit images for compatibility see
-[`WARP_FORCE_MRC_FLOAT32`](../../reference/warptools/environment_variables.md#force-writing-32-bit-mrcs).
+
+    Warp writes images as 16 bit MRC files, saving you valuable disk space and speeding up 
+    file input/output. If you need 32 bit images for compatibility see 
+    [`WARP_FORCE_MRC_FLOAT32`](../../reference/warptools/environment_variables.md#force-writing-32-bit-mrcs).
+
 
 <figure markdown="span">
   ![tomogram preview](./assets/tomogram_slice_preview.png){ width="60%" }
