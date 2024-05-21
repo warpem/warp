@@ -2551,19 +2551,21 @@ and applying a correction to the model if necessary.</p>
 --settings warp_tiltseries.settings \
 --check
 </code></pre></div>
-<p>In this case, the program tells us we should set the defocus handedness to 'flip'.</p>
+<p>In this case, the program tells us that the data match our expectations so we don't need to do anything.</p>
 <div class="highlight"><span class="filename">Output from Defocus Handedness Check</span><pre><span></span><code>Checking defocus handedness for all tilt series...
-5/5, -0.931                                                                                                                                                                                  
-Average correlation: -0.931
-The average correlation is negative, which means that the defocus handedness should be set to &#39;flip&#39;
+5/5, 0.932                                                                                                                                                                                
+Average correlation: 0.932
+The average correlation is positive, which means that the defocus handedness should be set to &#39;no flip&#39;
 </code></pre></div>
-<p>We run the program again with the <code>--set_flip</code> flag to set the correct defocus
-handedness
-for all tilt series.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If the correlation had been negative, we would rerun the program with the <code>--set_flip</code> 
+flag to set the correct defocus handedness for all tilt series.</p>
 <div class="highlight"><span class="filename">Defocus Handedness Correction</span><pre><span></span><code>WarpTools ts_defocus_hand \
 --settings warp_tiltseries.settings \
 --set_flip
 </code></pre></div>
+</div>
 <h3 id="tilt-series-ctf-estimation">Tilt Series: CTF Estimation</h3>
 <p>The initial defocus estimates from 2D frame series processing are great for getting an
 idea about how defocus changes but obtaining accurate estimates is challenging due to
