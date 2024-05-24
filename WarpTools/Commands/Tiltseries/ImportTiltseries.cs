@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Accord;
 using Warp;
 using Warp.Headers;
 using Warp.Tools;
@@ -113,8 +112,8 @@ namespace WarpTools.Commands
                 int NDone = 0;
                 Helper.ForCPU(0, ParsedMovies.Length, 8, null, (i, threadID) =>
                 {
-                    var moviePath = Path.Combine(Path.GetDirectoryName(MoviePaths[i]), Path.GetFileNameWithoutExtension(MoviePaths[i]) + ".mrc");
-                    ParsedMovies[i] = new Movie(moviePath);
+                    ParsedMovies[i] = new Movie(Path.Combine(Path.GetDirectoryName(MoviePaths[i]), Path.GetFileNameWithoutExtension(MoviePaths[i]) + ".mrc"));
+
                     lock (ParsedMovies)
                     {
                         NDone++;
@@ -151,11 +150,7 @@ namespace WarpTools.Commands
                             string Line;
                             while ((Line = Reader.ReadLine()) != null)
                             {
-                                if (CLI.OverrideAxis != null)
-                                {
-                                    AxisAngle = (float)CLI.OverrideAxis;
-                                }
-                                else if (Line.Contains("Tilt axis angle = "))
+                                if (Line.Contains("Tilt axis angle = "))
                                 {
                                     string Suffix = Line.Substring(Line.IndexOf("Tilt axis angle = ") + "Tilt axis angle = ".Length);
                                     Suffix = Suffix.Substring(0, Suffix.IndexOf(","));
@@ -318,70 +313,6 @@ namespace WarpTools.Commands
                             }
 
                             SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
-                        }
-
-                        #endregion
-
-                        #region check if tilt axis seems reasonable in each tilt series
-                        
-                        // calculate plane normal from spatially resolved defocus estimates for each tilt image
-                        int nTilts = SortedAngle.Count;
-                        var planeNormals = new float3[nTilts];
-                        for (int i = 0; i < nTilts; i++)
-                        {
-                            var movie = Movies[Path.GetFileNameWithoutExtension(SortedAngle[i].Name)];
-                            if (movie.GridCTFDefocus.Values.Length < 2)
-                                throw new Exception("One or more tilt movies don't have local defocus information. " +
-                                                    "Please run fs_ctf on all individual tilt movies using a 2x2x1 grid.");
-                            var p0 = new float3(0.5f, 0.75f, 0.5f);
-                            var p1 = new float3(0.25f, 0.25f, 0.5f);
-                            var p2 = new float3(0.75f, 0.25f, 0.5f);
-                            p0.Z = movie.GridCTFDefocus.GetInterpolated(p0);
-                            p1.Z = movie.GridCTFDefocus.GetInterpolated(p1);
-                            p2.Z = movie.GridCTFDefocus.GetInterpolated(p2);
-                            planeNormals[i] = float3.Cross(p1 - p0, p2 - p0).Normalized();
-                        }
-
-                        // 100 tilt axis vector estimates from cross products of random pairs of plane normals
-                        int nPairs = 100;
-                        var tiltAxisEstimates = new float3[nPairs];
-                        var randomSampler = new Random(42);
-                        for (int i = 0; i < nPairs; i++)
-                        {
-                            var idx0 = randomSampler.Next(0, nTilts);
-                            int idx1;
-                            do
-                            {
-                                idx1 = randomSampler.Next(0, nTilts);
-                            } while (idx1 == idx0);
-                            var v0 = planeNormals[idx0];
-                            var v1 = planeNormals[idx1];
-                            tiltAxisEstimates[i] = float3.Cross(v0, v1).Normalized();
-                        }
-                        
-                        // check whether tilt axis vectors point in the same direction as the tilt axis in the mdoc
-                        var tiltAxisEstimates2D = tiltAxisEstimates.Select(v => new float2(v.X, v.Y)).ToArray();
-                        var axisVector = new float2(MathF.Cos(AxisAngle * Helper.ToRad), MathF.Sin(AxisAngle * Helper.ToRad));
-                        var alignmentScores = new float[nPairs];
-                        float sumAlignmentScores = 0f;
-                        for (int i = 0; i < nPairs; i++)
-                        {
-                            alignmentScores[i] = MathF.Abs(
-                                float2.Dot(axisVector, tiltAxisEstimates2D[i]) / 
-                                (axisVector.Length() * tiltAxisEstimates2D[i].Length())
-                                );
-                            sumAlignmentScores += alignmentScores[i];
-                        }
-                        var meanAlignmentScore = sumAlignmentScores / nPairs;
-
-                        if (meanAlignmentScore < 0.95)
-                        {
-                            var mdoc = Path.GetFileName(mdocPath);
-                            Console.WriteLine($"Tilt axis angle of '{AxisAngle}' for {mdoc} correlates poorly with estimated tilt axis angles from spatially resolved defocus estimates.");
-                            Console.WriteLine($"Correlation: {meanAlignmentScore:F3}");
-                            Console.WriteLine($"Mean angular deviation: {MathF.Acos(meanAlignmentScore) * Helper.ToDeg}");
-                            Console.WriteLine("The tilt axis angle value in your mdoc file might be wrong, consider checking.");
-                            Console.WriteLine("Tilt axis angle can be overridden with --override_axis");
                         }
                         #endregion
 
