@@ -361,7 +361,7 @@ namespace WarpTools.Commands
                         
                         // check whether tilt axis vectors point in the same direction as the tilt axis in the mdoc
                         var tiltAxisEstimates2D = tiltAxisEstimates.Select(v => new float2(v.X, v.Y)).ToArray();
-                        var axisVector = new float2(MathF.Cos(AxisAngle * Helper.ToRad), MathF.Sin(AxisAngle * Helper.ToRad));
+                        var axisVector = new float2(MathF.Sin(AxisAngle * Helper.ToRad), MathF.Cos(AxisAngle * Helper.ToRad));
                         var alignmentScores = new float[nPairs];
                         float sumAlignmentScores = 0f;
                         for (int i = 0; i < nPairs; i++)
