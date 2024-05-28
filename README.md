@@ -28,7 +28,8 @@ conda update warp
 
 # Use Warp
 
-While there are currently no dedicated tutorials for the Linux CLI tools, you'll get a very good idea of how to use WarpTools, MTools & MCore by looking at the EMPIAR-10491_5TS_e2e.sh script. This is an end-to-end test that starts by downloading 5 tilt series from EMPIAR-10491, pre-processing them in Warp and IMOD, refining the particles in RELION, and then finishing with multi-particle refinement in MCore to obtain a ca. 2.9 Å apoferritin map.
+For information on how to use Warp, M and friends please check out the user guide section
+of [warpem.github.io/warp](https://warpem.github.io/warp/).
 
 # Build Warp on Linux
 
