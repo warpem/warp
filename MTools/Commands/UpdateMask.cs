@@ -9,7 +9,7 @@ using Warp;
 
 namespace MTools.Commands
 {
-    [Verb("update_mask", HelpText = "Shift particles in a species to reflect a shift of the 3D map")]
+    [Verb("update_mask", HelpText = "Create a new mask for a species")]
     [CommandRunner(typeof(UpdateMap))]
     class UpdateMapOptions
     {
