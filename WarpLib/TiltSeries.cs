@@ -4693,8 +4693,8 @@ namespace Warp
 
                     //AverageRealspace.Multiply(1f / NParticles);
                     AverageAmplitudes.Multiply(1f / NParticles);
-                    if (GPUID == 0)
-                        AverageAmplitudes.WriteMRC($"d_avgamps_{species.Name}.mrc", true);
+                    // if (GPUID == 0)
+                    //     AverageAmplitudes.WriteMRC($"d_avgamps_{species.Name}.mrc", true);
 
                     float[][] Amps2D = AverageAmplitudes.GetHost(Intent.Read);
 
@@ -4864,8 +4864,8 @@ namespace Warp
                     }
 
                     //Weights.FreeDevice();
-                    if (GPUID == 0)
-                        Weights.WriteMRC($"d_weights_{species.Name}.mrc", true);
+                    // if (GPUID == 0)
+                    //     Weights.WriteMRC($"d_weights_{species.Name}.mrc", true);
 
                     Image WeightsRelevantlySized = new Image(new int3(Size, Size, NTilts), true);
                     for (int t = 0; t < NTilts; t++)
@@ -4874,8 +4874,8 @@ namespace Warp
                                             Weights.Dims.Slice(),
                                             new int3(RelevantSizes[t]).Slice(),
                                             1);
-                    if (GPUID == 0)
-                        WeightsRelevantlySized.WriteMRC($"d_weightsrelevant_{species.Name}.mrc", true);
+                    // if (GPUID == 0)
+                    //     WeightsRelevantlySized.WriteMRC($"d_weightsrelevant_{species.Name}.mrc", true);
                     Weights.Dispose();
 
                     Image CTFWeights = WeightsRelevantlySized.GetCopyGPU();
@@ -4892,8 +4892,8 @@ namespace Warp
                     }
 
                     CTFWeights.FreeDevice();
-                    if (GPUID == 0)
-                        CTFWeights.WriteMRC($"d_ctfweights_{species.Name}.mrc", true);
+                    // if (GPUID == 0)
+                    //     CTFWeights.WriteMRC($"d_ctfweights_{species.Name}.mrc", true);
 
                     #endregion
 
