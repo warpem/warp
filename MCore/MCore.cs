@@ -41,7 +41,7 @@ namespace MCore
 
         public static Task ProcessingTask;
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
@@ -88,7 +88,7 @@ namespace MCore
                                   .UseStartup<RESTStartup>()
                                   .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning));
                     }).Build();
-                    RESTHost.RunAsync();
+                    await RESTHost.StartAsync();
                 }
                 catch (Exception exc)
                 {
@@ -98,12 +98,9 @@ namespace MCore
 
             #endregion
 
-            ProcessingTask = new Task(DoProcessing);
-            ProcessingTask.Start();
+            await DoProcessing();
 
-            while (AppRunning) Thread.Sleep(1);
-
-            RESTHost.StopAsync().Wait();
+            RESTHost?.StopAsync().Wait();
         }
 
         static void SetOptionsFromCLI(OptionsCLI cli)
@@ -126,7 +123,7 @@ namespace MCore
                     Options.ImageWarpHeight = int.Parse(Parts[1]);
                     Options.DoImageWarp = true;
                 }
-                catch 
+                catch
                 {
                     Console.WriteLine("Couldn't parse --refine_imagewarp, ignoring");
                 }
@@ -196,8 +193,8 @@ namespace MCore
         {
             if (remoteArgs == null || remoteArgs.Count() == 0)
             {
-                List<int> UsedDevices = (OptionsCLI.DeviceList == null || !OptionsCLI.DeviceList.Any()) ? 
-                                        Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList() : 
+                List<int> UsedDevices = (OptionsCLI.DeviceList == null || !OptionsCLI.DeviceList.Any()) ?
+                                        Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList() :
                                         OptionsCLI.DeviceList.ToList();
                 int NDevices = UsedDevices.Count;
                 //List<int> UsedDeviceProcesses = Helper.Combine(Helper.ArrayOfFunction(i => UsedDevices.Select(d => d + i * NDevices).ToArray(), perDevice)).ToList();
@@ -269,7 +266,7 @@ namespace MCore
 
         #endregion
 
-        static void DoProcessing()
+        static async Task DoProcessing()
         {
             Console.Write("Loading population... ");
             if (!File.Exists(Path.Combine(WorkingDirectory, OptionsCLI.Population)))
@@ -310,7 +307,7 @@ namespace MCore
                         StringBuilder StatusMessage = new StringBuilder();
 
                         for (int iworker = 0; iworker < WorkersRefine.Count; iworker++)
-                        { 
+                        {
                             try
                             {
                                 var Lines = WorkersRefine[iworker].Console.GetLastNLines(1);
@@ -562,7 +559,7 @@ namespace MCore
                             Finishers.Enqueue(Finisher);
 
                             VirtualConsole.ClearLastLine();
-                                                        
+
                             Console.WriteLine($"{S.Name}: {Species.FromFile(S.Path).GlobalResolution:F2} Å");
 
                             NDone++;
