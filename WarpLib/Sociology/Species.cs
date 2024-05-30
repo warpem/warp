@@ -1949,12 +1949,12 @@ namespace Warp.Sociology
 
                     // Multiply half-maps with mask
                     HalfMap1Averaged.Multiply(MaskSoft);
-                    HalfMap1Averaged.WriteMRC($"d_reference_half1_{Name}_{singleGPU}.mrc", true);
+                    // HalfMap1Averaged.WriteMRC($"d_reference_half1_{Name}_{singleGPU}.mrc", true);
                     if (!string.IsNullOrEmpty(stagingSave))
                         HalfMap1Averaged.WriteMRC(System.IO.Path.Join(StagingDirectory, "half1.mrc"), true);
 
                     HalfMap2Averaged.Multiply(MaskSoft);
-                    HalfMap2Averaged.WriteMRC($"d_reference_half2_{Name}_{singleGPU}.mrc", true);
+                    // HalfMap2Averaged.WriteMRC($"d_reference_half2_{Name}_{singleGPU}.mrc", true);
                     if (!string.IsNullOrEmpty(stagingSave))
                         HalfMap2Averaged.WriteMRC(System.IO.Path.Join(StagingDirectory, "half2.mrc"), true);
 
@@ -2094,7 +2094,7 @@ namespace Warp.Sociology
             HalfMap1Reconstruction[0] = null;
             HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 2) / (HalfMap1.Dims.X / 2), true);
             HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
-            HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
+            // HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
 
             Console.WriteLine("Reconstructing half-map 2...");
             HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry, -1, -1, -1, 0, true);
@@ -2104,7 +2104,7 @@ namespace Warp.Sociology
             HalfMap2Reconstruction[0] = null;
             HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 2) / (HalfMap2.Dims.X / 2), true);
             HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
-            HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
+            // HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
 
             Console.WriteLine("Finalizing map...");
             CalculateResolutionAndFilter(-1, s => Console.WriteLine(s), gpuID);
