@@ -14,12 +14,18 @@ You should obtain a ~3Å map from these 5 tilt series following this guide.
   <figcaption>Goal: A ~3Å map of apoferritin</figcaption>
 </figure>
 
+
 ## Overview
 
 - frame series preprocessing with *WarpTools*
 - tilt series preprocessing with *WarpTools*
 - initial 3D refinement in *RELION*
 - multi-particle refinement with *MTools* and *MCore*
+
+## Pre-Calculated Results
+
+Pre-calculated results (38GB) are available to download at
+[10.5281/zenodo.11398168](https://doi.org/10.5281/zenodo.11398168).
 
 ## Preparation
 
