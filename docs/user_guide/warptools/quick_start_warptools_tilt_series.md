@@ -1124,7 +1124,7 @@ MCore \
 This yields a 6.4Å map in our hands.
 
 !!! tip
-the `--perdevice_refine` option can be used to run multiple worker processes per GPU
+    `--perdevice_refine` can be used to run multiple worker processes per GPU
 
 #### First Refinement
 
@@ -1155,8 +1155,8 @@ without
 adding any additional parameters.
 
 !!! tip
-Introduce new parameters one by one when refining in M.
-Be wary of the potential for overfitting parameters if data are weak!
+    Introduce new parameters one by one when refining in M.
+    Be wary of the potential for overfitting parameters if data are weak!
 
 ```txt title="Second M Refinement with 2D Image Warp, Particle Poses Refinement and CTF Refinement"
 MCore \
