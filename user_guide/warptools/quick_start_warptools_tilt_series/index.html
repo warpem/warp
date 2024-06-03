@@ -2877,8 +2877,8 @@ imported correctly.</p>
 <p>This yields a 6.4Å map in our hands.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
+<p><code>--perdevice_refine</code> can be used to run multiple worker processes per GPU</p>
 </div>
-<p>the <code>--perdevice_refine</code> option can be used to run multiple worker processes per GPU</p>
 <h4 id="first-refinement">First Refinement</h4>
 <p>Now we know things have imported correctly we run an iteration of M with 2D image warp
 refinement, particle pose refinement and CTF refinement. We use an exhaustive defocus
@@ -2902,9 +2902,9 @@ without
 adding any additional parameters.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-</div>
 <p>Introduce new parameters one by one when refining in M.
 Be wary of the potential for overfitting parameters if data are weak!</p>
+</div>
 <div class="highlight"><span class="filename">Second M Refinement with 2D Image Warp, Particle Poses Refinement and CTF Refinement</span><pre><span></span><code>MCore \
 --population m/10491.population \
 --refine_imagewarp 6x4 \
