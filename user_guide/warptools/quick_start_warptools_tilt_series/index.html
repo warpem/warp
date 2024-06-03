@@ -2933,17 +2933,16 @@ Be wary of the potential for overfitting parameters if data are weak!</p>
 </code></pre></div>
 <p>In this case, the map stayed at 3.0Å.</p>
 <h4 id="weights-per-tilt-series">+ Weights (Per-Tilt Series)</h4>
-<p>```text title="Estimate Weights (Per-Tilt Series)
-EstimateWeights \
+<div class="highlight"><span class="filename">Estimate Weights (Per-Tilt Series)</span><pre><span></span><code>EstimateWeights \
 --population m/10491.population \
 --source 10491 \
---resolve_items</p>
-<p>MCore \
---population m/10491.population \
-<div class="highlight"><pre><span></span><code>#### + Weights (Per-Tilt, Averaged over all Tilt Series)
+--resolve_items
 
-```txt
-EstimateWeights \
+MCore \
+--population m/10491.population \
+</code></pre></div>
+<h4 id="weights-per-tilt-averaged-over-all-tilt-series">+ Weights (Per-Tilt, Averaged over all Tilt Series)</h4>
+<div class="highlight"><pre><span></span><code>EstimateWeights \
 --population m/10491.population \
 --source 10491 \
 --resolve_frames
@@ -2952,7 +2951,7 @@ MCore \
 --population m/10491.population \
 --perdevice_refine 4 \
 --refine_particles
-</code></pre></div></p>
+</code></pre></div>
 <p>3.0 Å</p>
 <h4 id="temporal-pose-resolution">+ Temporal Pose Resolution</h4>
 <p>M is capable of refining how particle poses change over time through a tilt series.</p>
