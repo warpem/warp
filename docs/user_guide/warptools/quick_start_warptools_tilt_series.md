@@ -1199,7 +1199,7 @@ In this case, the map stayed at 3.0Å.
 
 #### + Weights (Per-Tilt Series)
 
-```text title="Estimate Weights (Per-Tilt Series)
+```text title="Estimate Weights (Per-Tilt Series)"
 EstimateWeights \
 --population m/10491.population \
 --source 10491 \
