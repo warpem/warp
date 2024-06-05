@@ -81,7 +81,9 @@ namespace WarpTools.Commands
                 }
 
                 Processor.Console.Clear();
-                Processor.Console.SetFileOutput(Path.Combine(LogDirectory, $"{M.RootName}.log"));
+                string TimeStamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string FileName = $"{M.RootName}_{TimeStamp}.log";
+                Processor.Console.SetFileOutput(Path.Combine(LogDirectory, FileName));
 
                 try
                 {
