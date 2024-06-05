@@ -243,7 +243,10 @@ namespace WarpTools.Commands
                 }
                 catch (DirectoryNotFoundException e)
                 {
-                    Console.WriteLine($"Data directory {DataDirectory}");
+                    string message = $"data directory {DataDirectory} not found";
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Warning: {message}");
+                    Console.ResetColor();
                     InputFiles = Array.Empty<string>();
                 }
 
