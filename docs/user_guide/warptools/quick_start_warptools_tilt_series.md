@@ -39,9 +39,7 @@ gain reference into an empty directory.
     ```bash
     # download the gain reference
     wget \
-    --show-progress \
     --timestamping \
-    --quiet \
     --no-directories \
     --directory-prefix ./ \
     ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc;
@@ -52,18 +50,14 @@ gain reference into an empty directory.
         echo "================= Downloading TS_${i} ================"
         # download the mdoc file
         wget \
-        --show-progress \
         --timestamping \
-        --quiet \
         --no-directories \
         --directory-prefix ./mdoc \
         ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/mdoc/TS_${i}.mrc.mdoc;
     
         # download the frames
         wget \
-        --show-progress \
         --timestamping \
-        --quiet \
         --no-directories \
         --directory-prefix ./frames \
         ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/data/*-${i}_*.tif;
