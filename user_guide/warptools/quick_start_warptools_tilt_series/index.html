@@ -1917,9 +1917,7 @@ gain reference into an empty directory.</p>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><span class="c1"># download the gain reference</span>
 wget<span class="w"> </span><span class="se">\</span>
---show-progress<span class="w"> </span><span class="se">\</span>
 --timestamping<span class="w"> </span><span class="se">\</span>
---quiet<span class="w"> </span><span class="se">\</span>
 --no-directories<span class="w"> </span><span class="se">\</span>
 --directory-prefix<span class="w"> </span>./<span class="w"> </span><span class="se">\</span>
 ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc<span class="p">;</span>
@@ -1930,18 +1928,14 @@ ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/gain_ref.mrc<span class
 <span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;================= Downloading TS_</span><span class="si">${</span><span class="nv">i</span><span class="si">}</span><span class="s2"> ================&quot;</span>
 <span class="w">    </span><span class="c1"># download the mdoc file</span>
 <span class="w">    </span>wget<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--show-progress<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--timestamping<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--quiet<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--no-directories<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--directory-prefix<span class="w"> </span>./mdoc<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/mdoc/TS_<span class="si">${</span><span class="nv">i</span><span class="si">}</span>.mrc.mdoc<span class="p">;</span>
 
 <span class="w">    </span><span class="c1"># download the frames</span>
 <span class="w">    </span>wget<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--show-progress<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--timestamping<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--quiet<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--no-directories<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--directory-prefix<span class="w"> </span>./frames<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>ftp://ftp.ebi.ac.uk/empiar/world_availability/10491/data/tiltseries/data/*-<span class="si">${</span><span class="nv">i</span><span class="si">}</span>_*.tif<span class="p">;</span>
