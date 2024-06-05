@@ -229,10 +229,27 @@ namespace WarpTools.Commands
             Console.WriteLine("Now trying to find the files referenced by these settings...");
 
             {
-                string[] InputFiles = Directory.EnumerateFiles(Path.Combine(Environment.CurrentDirectory, Path.GetDirectoryName(cli.Output), Options.Import.DataFolder),
-                                                               Options.Import.Extension,
-                                                               Options.Import.DoRecursiveSearch ? SearchOption.AllDirectories :
-                                                                                                  SearchOption.TopDirectoryOnly).ToArray();
+                string DataDirectory = Path.Combine(Environment.CurrentDirectory, Path.GetDirectoryName(cli.Output), Options.Import.DataFolder);
+                string[] InputFiles;
+                try
+                {
+                    InputFiles = Directory.EnumerateFiles(
+                        path: DataDirectory,
+                        searchPattern: Options.Import.Extension,
+                        searchOption: Options.Import.DoRecursiveSearch
+                            ? SearchOption.AllDirectories
+                            : SearchOption.TopDirectoryOnly
+                            ).ToArray();
+                }
+                catch (DirectoryNotFoundException e)
+                {
+                    string message = $"data directory {DataDirectory} not found";
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Warning: {message}");
+                    Console.ResetColor();
+                    InputFiles = Array.Empty<string>();
+                }
+
                 Console.WriteLine($"{InputFiles.Length} files found");
 
                 if (InputFiles.Length > 0 && Path.GetExtension(InputFiles.First()).ToLower() == ".eer")
