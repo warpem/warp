@@ -41,8 +41,9 @@ namespace Warp.Headers
         Int = 4,
         Ulong = 5,
         Long = 6,
-        Float = 7,
-        Double = 8
+        Half = 7,
+        Float = 8,
+        Double = 9
     }
 
     public class HeaderTiff : MapHeader
@@ -114,7 +115,9 @@ namespace Warp.Headers
                     }
                     else if (Format == SampleFormat.IEEEFP)
                     {
-                        if (BitsPerPixel == 32)
+                        if (BitsPerPixel == 16)
+                            Mode = TiffDataType.Half;
+                        else if (BitsPerPixel == 32)
                             Mode = TiffDataType.Float;
                         else if (BitsPerPixel == 64)
                             Mode = TiffDataType.Double;
@@ -227,6 +230,12 @@ namespace Warp.Headers
                                 for (int i = 0; i < ConvertedData.Length; i++)
                                     ConvertedDataPtr[i] = (float)StripsDataP[i];
                             }
+                            else if (Mode == TiffDataType.Half)
+                            {
+                                Half* StripsDataP = (Half*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
                             else if (Mode == TiffDataType.Float)
                             {
                                 float* StripsDataP = (float*)StripsDataPtr;
@@ -239,6 +248,8 @@ namespace Warp.Headers
                                 for (int i = 0; i < ConvertedData.Length; i++)
                                     ConvertedDataPtr[i] = (float)StripsDataP[i];
                             }
+                            else
+                                throw new FormatException("Unexpected data type.");
 
                             // Annoyingly, flip Y axis to adhere to MRC convention
                             if (DoFlipY)
@@ -374,6 +385,12 @@ namespace Warp.Headers
                                 for (int i = 0; i < ConvertedData.Length; i++)
                                     ConvertedDataPtr[i] = (float)StripsDataP[i];
                             }
+                            else if (Mode == TiffDataType.Half)
+                            {
+                                Half* StripsDataP = (Half*)StripsDataPtr;
+                                for (int i = 0; i < ConvertedData.Length; i++)
+                                    ConvertedDataPtr[i] = (float)StripsDataP[i];
+                            }
                             else if (Mode == TiffDataType.Float)
                             {
                                 float* StripsDataP = (float*)StripsDataPtr;
@@ -386,6 +403,8 @@ namespace Warp.Headers
                                 for (int i = 0; i < ConvertedData.Length; i++)
                                     ConvertedDataPtr[i] = (float)StripsDataP[i];
                             }
+                            else
+                                throw new FormatException("Unexpected data type.");
 
                             // Annoyingly, flip Y axis to adhere to MRC convention
                             if (DoFlipY)
