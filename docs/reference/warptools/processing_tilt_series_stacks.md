@@ -2,7 +2,7 @@
 
 `WarpTools` expects multi-frame micrographs (movies) as input when processing
 tilt series data. Sometimes only tilt series stacks are available.
-This page will show you how to prepare tilt series stacks for processing in 
+This page will show you how to prepare tilt series stacks for processing in
 `WarpTools`.
 
 We will use a SARS-CoV-2 tilt series from [EMPIAR-10453](https://www.ebi.ac.uk/empiar/EMPIAR-10453/) to demonstrate.
@@ -13,13 +13,15 @@ The script may need to be modified for other datasets.
 We will use a simple script to split our tilt series into individual tilt images.
 
 ### Preparation
-This Python scripts depends on the Python packages 
-[mrcfile](https://github.com/ccpem/mrcfile) and 
-[mdocfile](https://github.com/teamtomo/mdocfile). 
+This Python scripts depends on the Python packages
+[mrcfile](https://github.com/ccpem/mrcfile),
+[tifffile](https://github.com/cgohlke/tifffile)
+and
+[mdocfile](https://github.com/teamtomo/mdocfile).
 These can be installed from [PyPI](https://pypi.org/) in your warp conda environment.
 
 ```sh
-pip install mrcfile mdocfile
+pip install mrcfile tifffile mdocfile
 ```
 
 ### Running the script
@@ -63,7 +65,10 @@ def process_tilt_series(mdoc_file: Path, output_directory: Path):
     # split tilt series into individual tilts
     for movie_path, image in zip(df['SubFramePath'], tilt_series):
         output_movie_file = output_directory / Path(movie_path.name)
-        mrcfile.write(output_movie_file, image)
+        if output_movie_file.suffix.lower() == '.mrc':
+            mrcfile.write(output_movie_file, image)
+        elif output_movie_file.suffix in ('.tif', '.tiff'):
+            tifffile.imwrite(output_movie_file, image)
 
 # main program which loops over all tilt series...
 if __name__ == '__main__':
@@ -137,6 +142,6 @@ python warp_ts_split_10453.py
 
 ## Subsequent Processing
 
-You should now be able to follow the 
+You should now be able to follow the
 [quick start guide for tilt series processing](../../user_guide/warptools/quick_start_warptools_tilt_series.md).
 Remember to process your data as single frame images!
