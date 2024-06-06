@@ -1279,6 +1279,45 @@ namespace Warp.Tools
             return new float3(Slope, Intercept, Quality);
         }
 
+        public static float FitScaleLeastSq(float[] source, float[] target)
+        {
+            if (source.All(v => v == 0))
+                return 0;
+
+            double Diff09 = 0;
+            double Diff10 = 0;
+            double Diff11 = 0;
+
+            for (int i = 0; i < source.Length; i++)
+            {
+                double S = source[i];
+                double T = target[i];
+
+                double Diff = (S * 0.99) - T;
+                Diff09 += Diff * Diff;
+
+                Diff = S - T;
+                Diff10 += Diff * Diff;
+
+                Diff = (S * 1.01) - T;
+                Diff11 += Diff * Diff;
+            }
+
+            double x1 = 0.99, x2 = 1.0, x3 = 1.01;
+            double y1 = Diff09 / source.Length,
+                   y2 = Diff10 / source.Length,
+                   y3 = Diff11 / source.Length;
+
+            double Denom = (x1 - x2) * (x1 - x3) * (x2 - x3);
+            double A = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / Denom;
+            double B = (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) / Denom;
+            double C = (x2 * x3 * (x2 - x3) * y1 + x3 * x1 * (x3 - x1) * y2 + x1 * x2 * (x1 - x2) * y3) / Denom;
+
+            double xv = -B / (2 * A);
+
+            return (float)xv;
+        }
+
         public static float Gauss(float x, float mu, float sigma)
         {
             sigma = -1f / (sigma * sigma * 2);
