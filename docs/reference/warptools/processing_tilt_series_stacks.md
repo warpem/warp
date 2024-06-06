@@ -135,3 +135,8 @@ python warp_ts_split_10453.py
 └── warp_ts_split_10453.py
 ```
 
+## Subsequent Processing
+
+You should now be able to follow the 
+[quick start guide for tilt series processing](../../user_guide/warptools/quick_start_warptools_tilt_series.md).
+Remember to process your data as single frame images!
