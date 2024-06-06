@@ -392,7 +392,7 @@ namespace WarpTools.Commands
                             string CheckpointName = CLI.ModelOut + $"{NCheckpoints++:D3}" + ".checkpoint";
                             NetworkTrain.Save(CheckpointName);
 
-                            Console.WriteLine("");
+                            VirtualConsole.ClearLastLine();
                             Console.WriteLine($"Saved checkpoint to {CheckpointName}");
                         }
                     }
