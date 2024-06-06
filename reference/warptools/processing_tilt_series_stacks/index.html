@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.25">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.26">
     
     
       
@@ -170,7 +170,7 @@
       
     </form>
     <div class="md-search__output">
-      <div class="md-search__scrollwrap" data-md-scrollfix>
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
         <div class="md-search-result" data-md-component="search-result">
           <div class="md-search-result__meta">
             Initializing search
@@ -1610,18 +1610,20 @@
 <h1 id="processing-tilt-series-stacks">Processing Tilt Series Stacks</h1>
 <p><code>WarpTools</code> expects multi-frame micrographs (movies) as input when processing
 tilt series data. Sometimes only tilt series stacks are available.
-This page will show you how to prepare tilt series stacks for processing in 
+This page will show you how to prepare tilt series stacks for processing in
 <code>WarpTools</code>.</p>
 <p>We will use a SARS-CoV-2 tilt series from <a href="https://www.ebi.ac.uk/empiar/EMPIAR-10453/">EMPIAR-10453</a> to demonstrate.
 The script may need to be modified for other datasets.</p>
 <h2 id="splitting-tilt-series-stacks">Splitting Tilt Series Stacks</h2>
 <p>We will use a simple script to split our tilt series into individual tilt images.</p>
 <h3 id="preparation">Preparation</h3>
-<p>This Python scripts depends on the Python packages 
-<a href="https://github.com/ccpem/mrcfile">mrcfile</a> and 
-<a href="https://github.com/teamtomo/mdocfile">mdocfile</a>. 
+<p>This Python scripts depends on the Python packages
+<a href="https://github.com/ccpem/mrcfile">mrcfile</a>,
+<a href="https://github.com/cgohlke/tifffile">tifffile</a>
+and
+<a href="https://github.com/teamtomo/mdocfile">mdocfile</a>.
 These can be installed from <a href="https://pypi.org/">PyPI</a> in your warp conda environment.</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>mrcfile<span class="w"> </span>mdocfile
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>mrcfile<span class="w"> </span>tifffile<span class="w"> </span>mdocfile
 </code></pre></div>
 <h3 id="running-the-script">Running the script</h3>
 <p>Below is the starting directory structure and the contents of the Python script.</p>
@@ -1659,7 +1661,10 @@ These can be installed from <a href="https://pypi.org/">PyPI</a> in your warp co
     <span class="c1"># split tilt series into individual tilts</span>
     <span class="k">for</span> <span class="n">movie_path</span><span class="p">,</span> <span class="n">image</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;SubFramePath&#39;</span><span class="p">],</span> <span class="n">tilt_series</span><span class="p">):</span>
         <span class="n">output_movie_file</span> <span class="o">=</span> <span class="n">output_directory</span> <span class="o">/</span> <span class="n">Path</span><span class="p">(</span><span class="n">movie_path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-        <span class="n">mrcfile</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_movie_file</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">output_movie_file</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;.mrc&#39;</span><span class="p">:</span>
+            <span class="n">mrcfile</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">output_movie_file</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">output_movie_file</span><span class="o">.</span><span class="n">suffix</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;.tif&#39;</span><span class="p">,</span> <span class="s1">&#39;.tiff&#39;</span><span class="p">):</span>
+            <span class="n">tifffile</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="n">output_movie_file</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
 
 <span class="c1"># main program which loops over all tilt series...</span>
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
@@ -1726,7 +1731,7 @@ These can be installed from <a href="https://pypi.org/">PyPI</a> in your warp co
 └── warp_ts_split_10453.py
 </code></pre></div>
 <h2 id="subsequent-processing">Subsequent Processing</h2>
-<p>You should now be able to follow the 
+<p>You should now be able to follow the
 <a href="../../../user_guide/warptools/quick_start_warptools_tilt_series/">quick start guide for tilt series processing</a>.
 Remember to process your data as single frame images!</p>
 
@@ -1784,7 +1789,7 @@ Remember to process your data as single frame images!</p>
     <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link", "content.code.annotate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.081f42fc.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.ad660dcc.min.js"></script>
       
     
   </body>
