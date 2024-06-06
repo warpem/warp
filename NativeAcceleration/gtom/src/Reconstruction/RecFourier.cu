@@ -101,6 +101,7 @@ namespace gtom
 
 		// Precalc blob values
 		tfloat* d_precompblob;
+		if (iterations > 0)
 		{
 			double radius = blobradius * paddingfactor;
 			double alpha = blobalpha;
@@ -208,7 +209,8 @@ namespace gtom
 
 		cudaFree(d_Fweight);
 		cudaFree(d_Fnewweight);
-		cudaFree(d_precompblob);
+		if (iterations > 0)
+			cudaFree(d_precompblob);
 
 		tfloat3 decenter_shift[] = { tfloat3(dimsoripad.x / 2) };
 		d_Shift(d_convft, d_convft, dimsoripad, decenter_shift);
