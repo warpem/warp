@@ -31,8 +31,13 @@ Pre-calculated results (38GB) are available to download at
 
 ### Download the data
 
-First, let's download the per-tilt frames, mdoc metadata files and the
+First, let's download the frame series data, mdoc metadata files and the
 gain reference into an empty directory.
+
+!!! info "only have tilt series stacks?"
+    Check our guide on 
+    [processing tilt series stacks](../../reference/warptools/processing_tilt_series_stacks.md) 
+    to get started!
 
 === "shell script"
 
