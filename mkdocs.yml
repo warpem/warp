@@ -36,9 +36,10 @@ nav:
         - Particle Operations: reference/m/particle_operations.md
     - WarpTools:
         - Environment Variables: reference/warptools/environment_variables.md
-        - Subsets of Data: reference/warptools/subsets.md
+        - Processing Subsets of Data: reference/warptools/subsets.md
         - Custom Tilt Series Alignment: reference/warptools/custom_tilt_series_alignments.md
         - Advanced Data Flow: reference/warptools/advanced_data_flow.md
+        - Processing Tilt Series Stacks: reference/warptools/processing_tilt_series_stacks.md
     - BoxNet:
         Frame Series Training: reference/boxnet/fs_training.md
   - 📜 Papers: papers.md
@@ -58,7 +59,6 @@ theme:
       scheme: default
       primary: purple
       accent: purple
-
   features:
     - navigation.instant
     - navigation.tracking
@@ -70,6 +70,7 @@ theme:
     - search.suggest
     - content.tabs.link
     - content.code.annotate
+    - content.code.copy
   icon:
     annotation: material/plus-circle
 
