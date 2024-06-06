@@ -769,7 +769,7 @@ whilst
 striving for the same accuracy.
 
 *WarpTools* contains a `ts_ctf` tool which estimates a single defocus value per image
-in a tilt series whilst ensuring that data in all tilt images respects constraints
+in a tilt series whilst ensuring that data in all tilt images respect constraints
 common to the whole series. (1)
 { .annotate }
 
@@ -784,8 +784,8 @@ WarpTools ts_ctf \
 ```
 
 !!! tip
-Remember, you can use `ts_filter_quality` to print histograms of metrics from
-processing!
+    Remember, you can use `ts_filter_quality` to print histograms of metrics from
+    processing!
 
 ### Tilt Series: Reconstruct Tomograms
 
