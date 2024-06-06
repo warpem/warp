@@ -745,6 +745,12 @@ namespace Warp.Tools
             Y = BitConverter.ToSingle(value, sizeof(float));
         }
 
+        public float2(float3 v)
+        {
+            X = v.X;
+            Y = v.Y;
+        }
+
         public static implicit operator byte[] (float2 value)
         {
             return Helper.Combine(new[]
