@@ -273,117 +273,118 @@ namespace WarpTools.Commands
                             return;
                         }
 
-                        #region Determine average intensity in each tilt
-                        {
-                            var SortedAbsoluteAngle = new List<MdocEntry>(SortedAngle);
-                            SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
-
-                            MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
-                            var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
-                            var AverageSparse = new float[AverageReadBuffer.Length / 10];
-
-                            foreach (var entry in SortedAngle)
-                            {
-                                IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
-                                                                
-                                for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
-                                    AverageSparse[i] = AverageReadBuffer[i * 10];
-
-                                entry.AverageIntensity = MathHelper.Median(AverageSparse);
-                            }
-
-                            float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
-                            MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
-                            int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
-                            float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
-
-                            foreach (var entry in SortedAngle)
-                                entry.TiltAngle -= ActualZeroAngle;
-
-                            int LowestAngleId = ZeroAngleId;
-                            int HighestAngleId = ZeroAngleId;
-
-                            bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
-                            for (int i = ZeroAngleId - 1; i >= 0; i--)
-                            {
-                                if (!Passed[i])
-                                    break;
-                                LowestAngleId = i;
-                            }
-                            for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
-                            {
-                                if (!Passed[i])
-                                    break;
-                                HighestAngleId = i;
-                            }
-
-                            SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
-                        }
-
-                        #endregion
-
-                        #region check if tilt axis seems reasonable in each tilt series
-                        
-                        // calculate plane normal from spatially resolved defocus estimates for each tilt image
-                        int nTilts = SortedAngle.Count;
-                        var planeNormals = new float3[nTilts];
-                        for (int i = 0; i < nTilts; i++)
-                        {
-                            var movie = Movies[Path.GetFileNameWithoutExtension(SortedAngle[i].Name)];
-                            if (movie.GridCTFDefocus.Values.Length < 2)
-                                throw new Exception("One or more tilt movies don't have local defocus information. " +
-                                                    "Please run fs_ctf on all individual tilt movies using a 2x2x1 grid.");
-                            var p0 = new float3(0.5f, 0.75f, 0.5f);
-                            var p1 = new float3(0.25f, 0.25f, 0.5f);
-                            var p2 = new float3(0.75f, 0.25f, 0.5f);
-                            p0.Z = movie.GridCTFDefocus.GetInterpolated(p0);
-                            p1.Z = movie.GridCTFDefocus.GetInterpolated(p1);
-                            p2.Z = movie.GridCTFDefocus.GetInterpolated(p2);
-                            planeNormals[i] = float3.Cross(p1 - p0, p2 - p0).Normalized();
-                        }
-
-                        // 100 tilt axis vector estimates from cross products of random pairs of plane normals
-                        int nPairs = 100;
-                        var tiltAxisEstimates = new float3[nPairs];
-                        var randomSampler = new Random(42);
-                        for (int i = 0; i < nPairs; i++)
-                        {
-                            var idx0 = randomSampler.Next(0, nTilts);
-                            int idx1;
-                            do
-                            {
-                                idx1 = randomSampler.Next(0, nTilts);
-                            } while (idx1 == idx0);
-                            var v0 = planeNormals[idx0];
-                            var v1 = planeNormals[idx1];
-                            tiltAxisEstimates[i] = float3.Cross(v0, v1).Normalized();
-                        }
-                        
-                        // check whether tilt axis vectors point in the same direction as the tilt axis in the mdoc
-                        var tiltAxisEstimates2D = tiltAxisEstimates.Select(v => new float2(v.X, v.Y)).ToArray();
-                        var axisVector = new float2(MathF.Sin(AxisAngle * Helper.ToRad), MathF.Cos(AxisAngle * Helper.ToRad));
-                        var alignmentScores = new float[nPairs];
-                        float sumAlignmentScores = 0f;
-                        for (int i = 0; i < nPairs; i++)
-                        {
-                            alignmentScores[i] = MathF.Abs(
-                                float2.Dot(axisVector, tiltAxisEstimates2D[i]) / 
-                                (axisVector.Length() * tiltAxisEstimates2D[i].Length())
-                                );
-                            sumAlignmentScores += alignmentScores[i];
-                        }
-                        var meanAlignmentScore = sumAlignmentScores / nPairs;
-
-                        if (meanAlignmentScore < 0.95)
-                        {
-                            var mdoc = Path.GetFileName(mdocPath);
-                            Console.WriteLine($"Tilt axis angle of '{AxisAngle}' for {mdoc} correlates poorly with estimated tilt axis angles from spatially resolved defocus estimates.");
-                            Console.WriteLine($"Correlation: {meanAlignmentScore:F3}");
-                            Console.WriteLine($"Mean angular deviation: {MathF.Acos(meanAlignmentScore) * Helper.ToDeg}");
-                            Console.WriteLine("The tilt axis angle value in your mdoc file might be wrong, consider checking.");
-                            Console.WriteLine("Tilt axis angle can be overridden with --override_axis");
-                        }
-                        #endregion
+                        // #region Determine average intensity in each tilt
+                        // commented out as appears unreliable in some cases...
+                        // {
+                        //     var SortedAbsoluteAngle = new List<MdocEntry>(SortedAngle);
+                        //     SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
+                        //
+                        //     MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
+                        //     var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
+                        //     var AverageSparse = new float[AverageReadBuffer.Length / 10];
+                        //
+                        //     foreach (var entry in SortedAngle)
+                        //     {
+                        //         IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
+                        //                                         
+                        //         for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
+                        //             AverageSparse[i] = AverageReadBuffer[i * 10];
+                        //
+                        //         entry.AverageIntensity = MathHelper.Median(AverageSparse);
+                        //     }
+                        //
+                        //     float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
+                        //     MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
+                        //     int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
+                        //     float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
+                        //
+                        //     foreach (var entry in SortedAngle)
+                        //         entry.TiltAngle -= ActualZeroAngle;
+                        //
+                        //     int LowestAngleId = ZeroAngleId;
+                        //     int HighestAngleId = ZeroAngleId;
+                        //
+                        //     bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
+                        //     for (int i = ZeroAngleId - 1; i >= 0; i--)
+                        //     {
+                        //         if (!Passed[i])
+                        //             break;
+                        //         LowestAngleId = i;
+                        //     }
+                        //     for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
+                        //     {
+                        //         if (!Passed[i])
+                        //             break;
+                        //         HighestAngleId = i;
+                        //     }
+                        //
+                        //     SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
+                        // }
+                        //
+                        // #endregion
+                        //
+                        // #region check if tilt axis seems reasonable in each tilt series
+                        //
+                        // // calculate plane normal from spatially resolved defocus estimates for each tilt image
+                        // int nTilts = SortedAngle.Count;
+                        // var planeNormals = new float3[nTilts];
+                        // for (int i = 0; i < nTilts; i++)
+                        // {
+                        //     var movie = Movies[Path.GetFileNameWithoutExtension(SortedAngle[i].Name)];
+                        //     if (movie.GridCTFDefocus.Values.Length < 2)
+                        //         throw new Exception("One or more tilt movies don't have local defocus information. " +
+                        //                             "Please run fs_ctf on all individual tilt movies using a 2x2x1 grid.");
+                        //     var p0 = new float3(0.5f, 0.75f, 0.5f);
+                        //     var p1 = new float3(0.25f, 0.25f, 0.5f);
+                        //     var p2 = new float3(0.75f, 0.25f, 0.5f);
+                        //     p0.Z = movie.GridCTFDefocus.GetInterpolated(p0);
+                        //     p1.Z = movie.GridCTFDefocus.GetInterpolated(p1);
+                        //     p2.Z = movie.GridCTFDefocus.GetInterpolated(p2);
+                        //     planeNormals[i] = float3.Cross(p1 - p0, p2 - p0).Normalized();
+                        // }
+                        //
+                        // // 100 tilt axis vector estimates from cross products of random pairs of plane normals
+                        // int nPairs = 100;
+                        // var tiltAxisEstimates = new float3[nPairs];
+                        // var randomSampler = new Random(42);
+                        // for (int i = 0; i < nPairs; i++)
+                        // {
+                        //     var idx0 = randomSampler.Next(0, nTilts);
+                        //     int idx1;
+                        //     do
+                        //     {
+                        //         idx1 = randomSampler.Next(0, nTilts);
+                        //     } while (idx1 == idx0);
+                        //     var v0 = planeNormals[idx0];
+                        //     var v1 = planeNormals[idx1];
+                        //     tiltAxisEstimates[i] = float3.Cross(v0, v1).Normalized();
+                        // }
+                        //
+                        // // check whether tilt axis vectors point in the same direction as the tilt axis in the mdoc
+                        // var tiltAxisEstimates2D = tiltAxisEstimates.Select(v => new float2(v.X, v.Y)).ToArray();
+                        // var axisVector = new float2(MathF.Sin(AxisAngle * Helper.ToRad), MathF.Cos(AxisAngle * Helper.ToRad));
+                        // var alignmentScores = new float[nPairs];
+                        // float sumAlignmentScores = 0f;
+                        // for (int i = 0; i < nPairs; i++)
+                        // {
+                        //     alignmentScores[i] = MathF.Abs(
+                        //         float2.Dot(axisVector, tiltAxisEstimates2D[i]) / 
+                        //         (axisVector.Length() * tiltAxisEstimates2D[i].Length())
+                        //         );
+                        //     sumAlignmentScores += alignmentScores[i];
+                        // }
+                        // var meanAlignmentScore = sumAlignmentScores / nPairs;
+                        //
+                        // if (meanAlignmentScore < 0.95)
+                        // {
+                        //     var mdoc = Path.GetFileName(mdocPath);
+                        //     Console.WriteLine($"Tilt axis angle of '{AxisAngle}' for {mdoc} correlates poorly with estimated tilt axis angles from spatially resolved defocus estimates.");
+                        //     Console.WriteLine($"Correlation: {meanAlignmentScore:F3}");
+                        //     Console.WriteLine($"Mean angular deviation: {MathF.Acos(meanAlignmentScore) * Helper.ToDeg}");
+                        //     Console.WriteLine("The tilt axis angle value in your mdoc file might be wrong, consider checking.");
+                        //     Console.WriteLine("Tilt axis angle can be overridden with --override_axis");
+                        // }
+                        // #endregion
 
                         if (SortedAngle.Count < CLI.MinNTilts)
                             throw new Exception($"Too few tilts remain: {SortedAngle.Count}");
