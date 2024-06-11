@@ -301,8 +301,8 @@ namespace Warp
 
             for (int i = 0; i < table.RowCount; i++)
             {
-                TempAngles.Add(float.Parse(table.GetRowValue(i, "wrpAngleTilt")));
-                TempDose.Add(float.Parse(table.GetRowValue(i, "wrpDose")));
+                TempAngles.Add(float.Parse(table.GetRowValue(i, "wrpAngleTilt"), CultureInfo.InvariantCulture));
+                TempDose.Add(float.Parse(table.GetRowValue(i, "wrpDose"), CultureInfo.InvariantCulture));
 
                 if (table.HasColumn("wrpAxisAngle"))
                     TempAxisAngles.Add(float.Parse(table.GetRowValue(i, "wrpAxisAngle"), CultureInfo.InvariantCulture));
