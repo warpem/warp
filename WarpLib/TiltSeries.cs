@@ -1358,7 +1358,7 @@ namespace Warp
                                 continue;
 
                             string Line = Lines[iline];
-                            float Angle = float.Parse(Line);
+                            float Angle = float.Parse(Line, CultureInfo.InvariantCulture);
 
                             Angles[t] = Angle;
 
