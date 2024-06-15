@@ -158,7 +158,7 @@ struct BoxNetMultiImpl : MultiGPUModule
         for (int i = 0; i < depth_block; i++)
             pick_final_conv->push_back(BoxNetMultiResidualBlock(32 * _width_block, false));
         pick_final_conv->push_back(torch::nn::Conv2d(BoxNetMulti_conv_options2d(32 * _width_block, 3, 1, 1, 0)));
-        register_module("pick_final_conv", pick_final_conv);
+        register_module("final_conv", pick_final_conv);
 
 		denoise_final_conv = torch::nn::Sequential();
 		for (int i = 0; i < depth_block; i++)
