@@ -1,0 +1,14 @@
+name: warp_build
+channels:
+  - nvidia/label/cuda-11.7.0
+  - pytorch
+  - conda-forge
+  - nodefaults
+dependencies:
+  - libtiff
+  - python
+  - pytorch-cuda=11.7
+  - fftw
+  - dotnet=8.0
+  - cuda-toolkit
+  
