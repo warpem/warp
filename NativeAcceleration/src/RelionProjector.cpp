@@ -87,7 +87,7 @@ __declspec(dllexport) void __stdcall BackprojectorReconstruct(int3 dimsori, int 
     }
 }
 
-__declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf, int griddingiterations)
+__declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf, int griddingiterations, int nvolumes)
 {
 	relion::FileName fn_symmetry(c_symmetry);
 
@@ -115,13 +115,13 @@ __declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, i
 		//d_WriteMRC(d_weights, projectordims, "d_weights_sym.mrc");
 	}
 
-    float* d_reconstructed;
-    cudaMalloc((void**)&d_reconstructed, ElementsFFT(dimsori) * sizeof(float2));
-
-    d_ReconstructGridding(d_dataft, d_weights, d_reconstructed, dimsori, dimspadded, oversampling, pre_planforw, pre_planback, griddingiterations);
-
     if (do_reconstruct_ctf)
     {
+		float* d_reconstructed;
+		cudaMalloc((void**)&d_reconstructed, ElementsFFT(dimsori) * nvolumes * sizeof(float2));
+
+		d_ReconstructGridding(d_dataft, d_weights, d_reconstructed, dimsori, dimspadded, oversampling, pre_planforw, pre_planback, griddingiterations, nvolumes);
+
 		float2* d_reconstructedft;
 		cudaMalloc((void**)&d_reconstructedft, ElementsFFT(dimsori) * sizeof(float2));
 
@@ -134,11 +134,10 @@ __declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, i
 		d_MultiplyByScalar(d_result, d_result, ElementsFFT(dimsori), 1.0f / Elements2(dimsori));
 
 		cudaFree(d_reconstructedft);
+		cudaFree(d_reconstructed);
     }
     else
     {
-        cudaMemcpy(d_result, d_reconstructed, Elements(dimsori) * sizeof(float), cudaMemcpyDeviceToDevice);
+		d_ReconstructGridding(d_dataft, d_weights, d_result, dimsori, dimspadded, oversampling, pre_planforw, pre_planback, griddingiterations, nvolumes);
     }
-
-    cudaFree(d_reconstructed);
 }

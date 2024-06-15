@@ -409,7 +409,7 @@ extern "C" __declspec(dllexport) void ParticleSoftBodyDeform(float3* d_initialpo
 // Projector.cpp:
 extern "C" __declspec(dllexport) void InitProjector(int3 dims, int oversampling, float* data, float* initialized, int projdim);
 extern "C" __declspec(dllexport) void BackprojectorReconstruct(int3 dimsori, int oversampling, float2* d_data, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* h_reconstruction);
-extern "C" __declspec(dllexport) void BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf, int griddingiterations);
+extern "C" __declspec(dllexport) void BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf, int griddingiterations, int nvolumes);
 
 // Raycast.cu:
 extern "C" __declspec(dllexport) void RenderVolume(unsigned long long t_intensities,

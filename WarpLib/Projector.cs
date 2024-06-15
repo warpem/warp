@@ -20,16 +20,19 @@ namespace Warp
         public Image Data;
         public Image Weights;
 
+        public readonly int NVolumes;
+
         public ulong t_DataRe, t_DataIm;
         ulong a_DataRe, a_DataIm;
 
-        public Projector(int3 dims, int oversampling)
+        public Projector(int3 dims, int oversampling, int nvolumes = 1)
         {
             Dims = dims;
             Oversampling = oversampling;
+            NVolumes = nvolumes;
 
             int Oversampled = 2 * (oversampling * (Dims.X / 2) + 1) + 1;
-            DimsOversampled = new int3(Oversampled, Oversampled, Oversampled);
+            DimsOversampled = new int3(Oversampled, Oversampled, Oversampled * NVolumes);
 
             Data = new Image(IntPtr.Zero, DimsOversampled, true, true);
             Data.Fill(new float2(0, 0));
@@ -41,6 +44,7 @@ namespace Warp
         {
             Dims = data.Dims;
             Oversampling = oversampling;
+            NVolumes = 1;
 
             int Oversampled = 2 * (oversampling * (Dims.X / 2) + 1) + 1;
             DimsOversampled = new int3(Oversampled, Oversampled, Oversampled);
@@ -192,9 +196,9 @@ namespace Warp
             return ProjIFT;
         }
 
-        public void BackProject(Image projft, Image projweights, float3[] angles, Matrix2 magnification, float ewaldradius = 0, int rmax = 0)
+        public void BackProject(Image projft, Image projweights, float3[] angles, Matrix2 magnification, float ewaldradius = 0, int rmax = 0, int[] ivolume = null)
         {
-            if (!projft.IsFT || !projft.IsComplex || !projweights.IsFT)
+            if (!projft.IsFT || !projft.IsComplex || !projweights.IsFT || projweights.IsComplex)
                 throw new Exception("Input data must be complex (except weights) and in FFTW layout.");
 
             float[] Angles = Helper.ToInterleaved(angles);
@@ -206,7 +210,7 @@ namespace Warp
                                 projft.DimsSlice,
                                 rmax == 0 ? projft.Dims.X / 2 : Math.Min(rmax, projft.Dims.X / 2),
                                 Angles,
-                                null,
+                                ivolume,
                                 magnification.ToVec(),
                                 ewaldradius,
                                 Oversampling,
@@ -217,7 +221,7 @@ namespace Warp
 
         public void BackProject(Image projft, Image projweights, float3[] angles, float3[] shifts, float[] globalweights)
         {
-            if (!projft.IsFT || !projft.IsComplex || !projweights.IsFT)
+            if (!projft.IsFT || !projft.IsComplex || !projweights.IsFT || projweights.IsComplex)
                 throw new Exception("Input data must be complex (except weights) and in FFTW layout.");
 
             float[] Angles = Helper.ToInterleaved(angles);
@@ -245,7 +249,7 @@ namespace Warp
                 Weights.FreeDevice();
             }
 
-            Image Reconstruction = useHostMemory ? new Image(Dims, isctf) : new Image(IntPtr.Zero, Dims, isctf);
+            Image Reconstruction = useHostMemory ? new Image(Dims.MultZ(NVolumes), isctf) : new Image(IntPtr.Zero, Dims.MultZ(NVolumes), isctf);
             GPU.BackprojectorReconstructGPU(Dims,
                                             DimsOversampled,
                                             Oversampling,
@@ -257,7 +261,8 @@ namespace Warp
                                             planForw,
                                             planBack,
                                             planForwCTF,
-                                            griddingiterations);
+                                            griddingiterations,
+                                            NVolumes);
 
             return Reconstruction;
         }
@@ -275,7 +280,8 @@ namespace Warp
                                             planForw,
                                             planBack,
                                             planForwCTF,
-                                            griddingiterations);
+                                            griddingiterations,
+                                            NVolumes);
         }
 
         public Image ReconstructCPU(bool isctf, string symmetry)
@@ -301,28 +307,6 @@ namespace Warp
 
             for (int z = 0; z < reconstruction.Dims.Z; z++)
                 Array.Copy(h_buffer, reconstruction.ElementsSliceReal * z, reconstruction.GetHost(Intent.Write)[z], 0, reconstruction.ElementsSliceReal);
-        }
-
-        public void MakeWeightsPositive()
-        {
-            float[][] DataData = Data.GetHost(Intent.ReadWrite);
-            float[][] WeightsData = Weights.GetHost(Intent.ReadWrite);
-
-            for (int z = 0; z < DataData.Length; z++)
-            {
-                float[] D = DataData[z];
-                float[] W = WeightsData[z];
-
-                for (int i = 0; i < W.Length; i++)
-                {
-                    if (W[i] < 0)
-                    {
-                        W[i] *= -1;
-                        //D[i * 2] *= -1;
-                        //D[i * 2 + 1] *= -1;
-                    }
-                }
-            }
         }
 
         public void FreeDevice()
@@ -391,14 +375,14 @@ namespace Warp
             Combined.Dispose();
         }
 
-        public static void GetPlans(int3 dims, int oversampling, out int planForw, out int planBack, out int planForwCTF)
+        public static void GetPlans(int3 dims, int oversampling, out int planForw, out int planBack, out int planForwCTF, int nvolumes = 1)
         {
             int Oversampled = dims.X * oversampling;
             int3 DimsOversampled = new int3(Oversampled, Oversampled, Oversampled);
 
-            planForw = GPU.CreateFFTPlan(DimsOversampled, 1);
-            planBack = GPU.CreateIFFTPlan(DimsOversampled, 1);
-            planForwCTF = GPU.CreateFFTPlan(dims, 1);
+            planForw = GPU.CreateFFTPlan(DimsOversampled, (uint)nvolumes);
+            planBack = GPU.CreateIFFTPlan(DimsOversampled, (uint)nvolumes);
+            planForwCTF = GPU.CreateFFTPlan(dims, (uint)nvolumes);
         }
 
         public static Projector FromFile(string path)
