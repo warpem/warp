@@ -1335,35 +1335,55 @@ namespace Warp
 
             // .tlt
             {
+                string[] Directories = { "", "../", $"{RootName}_Imod", $"{RootName}_aligned_Imod", $"../{RootName}_Imod" };
+                string[] FileNames =
+                {
+                    $"{RootName}.tlt",
+                    $"{RootName.Replace(".mrc", "")}.tlt",
+                    $"{RootName}_st.tlt",
+                    $"{RootName.Replace(".mrc", "")}_st.tlt"
+                };
+                string[] TltPaths = new string[Directories.Length * FileNames.Length];
+                int idx;
+                for (int i = 0; i < Directories.Length; i++)
+                    for (int j = 0; j < FileNames.Length; j++)
+                    {
+                        idx = i * FileNames.Length + j;
+                        TltPaths[idx] = IOPath.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
+                    }
+
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                {
+                    Console.WriteLine("Possible TLT file paths:");
+                    foreach (string path in TltPaths)
+                        Console.WriteLine($"{path}");
+                }
                 string TltPath = null;
                 try
                 {
-                    TltPath = (new[] 
-                    {
-                        IOPath.Combine(ResultsDir, RootName + "_Imod", RootName + ".tlt"),
-                        IOPath.Combine(ResultsDir, RootName + ".tlt"),
-                        IOPath.Combine(ResultsDir, "../", RootName + ".tlt")
-                    }).First(s => File.Exists(s));
+                    TltPath = TltPaths.First(s => File.Exists(s));
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"\nImporting tilt angles from {TltPath}");
                 }
                 catch { }
-                if (TltPath != null)
+                if (TltPath == null)
+                    throw new Exception($"Could not find {RootName}.xf");
+
+                string[] Lines = File.ReadAllLines(TltPath).Where(l => !string.IsNullOrEmpty(l)).ToArray();
+
+                if (Lines.Length == NValid)
                 {
-                    string[] Lines = File.ReadAllLines(TltPath).Where(l => !string.IsNullOrEmpty(l)).ToArray();
-
-                    if (Lines.Length == NValid)
+                    for (int t = 0, iline = 0; t < NTilts; t++)
                     {
-                        for (int t = 0, iline = 0; t < NTilts; t++)
-                        {
-                            if (!UseTilt[t])
-                                continue;
+                        if (!UseTilt[t])
+                            continue;
 
-                            string Line = Lines[iline];
-                            float Angle = float.Parse(Line, CultureInfo.InvariantCulture);
+                        string Line = Lines[iline];
+                        float Angle = float.Parse(Line, CultureInfo.InvariantCulture);
 
-                            Angles[t] = Angle;
+                        Angles[t] = Angle;
 
-                            iline++;
-                        }
+                        iline++;
                     }
                 }
             }
