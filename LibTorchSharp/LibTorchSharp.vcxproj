@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="LibTorchSharp\BoxNetMulti.cpp" />
     <ClCompile Include="LibTorchSharp\C2DNet.cpp" />
     <ClCompile Include="LibTorchSharp\cifar10.cpp" />
     <ClCompile Include="LibTorchSharp\Conv3dStd.cpp" />
@@ -130,6 +131,7 @@
     <PostBuildEvent>
       <Command>copy /y $(PYTORCH_DIR)\bin\*.dll $(TargetDir)
 copy /y $(PYTORCH_DIR)\lib\*.dll $(TargetDir)
+copy /y $(CONDA_BIN)\uv.dll $(TargetDir)
 copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.dll" $(TargetDir)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

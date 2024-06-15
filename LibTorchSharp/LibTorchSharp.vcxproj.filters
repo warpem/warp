@@ -72,6 +72,9 @@
     <ClCompile Include="LibTorchSharp\PoseToMatrix3D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LibTorchSharp\BoxNetMulti.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LibTorchSharp\cifar10.h">
