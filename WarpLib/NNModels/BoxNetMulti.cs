@@ -128,9 +128,10 @@ namespace Warp
         }
 
 
-        public void Predict(Image data, out Image predictionArgmax, out Image predictionSoftmax)
+        public void PredictPick(Image data, out Image predictionArgmax, out Image predictionSoftmax)
         {
             ScatterData(data, TensorSource);
+            ResultPredictedSoftmax.GetDevice(Intent.Write);
             ResultPredictedArgmax.GetDevice(Intent.Write);
 
             Helper.ForCPU(0, NDevices, NDevices, null, (i, threadID) =>
@@ -139,7 +140,7 @@ namespace Warp
                 {
                     Model[i].Eval();
 
-                    using (TorchTensor t_Prediction = Model[i].Forward(TensorSource[i]))
+                    using (TorchTensor t_Prediction = Model[i].PickForward(TensorSource[i]))
                     using (TorchTensor t_PredictionSoftMax = t_Prediction.Softmax(1))
                     using (TorchTensor t_PredictionArgMax = t_PredictionSoftMax.Argmax(1, false))
                     using (TorchTensor t_PredictionArgMaxFP = t_PredictionArgMax.ToType(ScalarType.Float32))
@@ -159,9 +160,9 @@ namespace Warp
             predictionSoftmax = ResultPredictedSoftmax;
         }
 
-        public void Predict(Image data, out float[] h_predictionArgmax, out float[] h_predictionSoftmax)
+        public void PredictPick(Image data, out float[] h_predictionArgmax, out float[] h_predictionSoftmax)
         {
-            Predict(data, out ResultPredictedArgmax, out ResultPredictedSoftmax);
+            PredictPick(data, out ResultPredictedArgmax, out ResultPredictedSoftmax);
 
             GPU.CopyDeviceToHost(ResultPredictedSoftmax.GetDevice(Intent.Read),
                                  h_ResultPredictedSoftmax,
@@ -175,14 +176,16 @@ namespace Warp
             h_predictionSoftmax = h_ResultPredictedSoftmax;
         }
 
-        public void Train(Image source,
-                          Image target,
-                          float learningRate,
-                          bool needOutput,
-                          out Image prediction,
-                          out float[] loss)
+        public void TrainPick(Image source,
+                              Image target,
+                              float learningRate,
+                              bool needOutput,
+                              out Image prediction,
+                              out float[] loss)
         {
             GPU.CheckGPUExceptions();
+
+            var ResultLoss = new float[1];
 
             Optimizer.SetLearningRateSGD(learningRate);
             Optimizer.ZeroGrad();
@@ -205,7 +208,7 @@ namespace Warp
                 GPU.CheckGPUExceptions();
 
                 using (TorchTensor TargetArgMax = TensorTargetPick[i].Argmax(1))
-                using (TorchTensor Prediction = Model[i].Forward(TensorSource[i]))
+                using (TorchTensor Prediction = Model[i].PickForward(TensorSource[i]))
                 using (TorchTensor PredictionLoss = Loss[i](Prediction, TargetArgMax))
                 {
                     if (needOutput)
