@@ -25,17 +25,28 @@ void THSNN_Module_loadparams(const NNModule module, const char* location, const 
 		std::unordered_set<std::string> module_names_in_file;
 
 		// Determine the names of all sub-modules contained inside the file.
-		for (const auto& module_name : archive.keys()) {
-			module_names_in_file.insert(module_name);
+		for (const auto& module_name : archive.keys()) 
+        {
+			module_names_in_file.insert(module_name);            
+            //std::cout << "Found module: " << module_name << std::endl;
 		}
 
 		// Iterate over all sub-modules of your model and only load those contained in the file.
-		for (const auto& submodule : (*module)->named_children()) {
+		for (const auto& submodule : (*module)->named_children()) 
+        {
+            //std::cout << "Checking module: " << submodule.key() << std::endl;
+
 			if (module_names_in_file.count(submodule.key())) {
 				torch::serialize::InputArchive submodule_archive;
 				archive.read(submodule.key(), submodule_archive);
 				submodule.value()->load(submodule_archive);
+
+                //std::cout << "Loaded module: " << submodule.key() << std::endl;
 			}
+            else
+            {
+                std::cout << "No parameters found for module: " << submodule.key() << std::endl;
+            }
 		}
     );
 }
