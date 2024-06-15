@@ -10,6 +10,7 @@ using Warp;
 using System.Diagnostics;
 using System.Threading;
 using MathNet.Numerics.Statistics;
+using TorchSharp;
 
 namespace WarpTools.Commands
 {
@@ -253,7 +254,7 @@ namespace WarpTools.Commands
 
             Console.Write("Loading model...");
 
-            BoxNetTorch NetworkTrain = new BoxNetTorch(new int2(CLI.PatchSize), AllLabelWeights[0][0].ToArray(), CLI.Devices.ToArray(), CLI.BatchSize);
+            BoxNetMulti NetworkTrain = new BoxNetMulti(new int2(CLI.PatchSize), AllLabelWeights[0][0].ToArray(), CLI.Devices.ToArray(), CLI.BatchSize);
             if (CLI.ModelIn != null)
                 NetworkTrain.Load(CLI.ModelIn);
 
@@ -349,12 +350,12 @@ namespace WarpTools.Commands
                     float[] Loss;
 
                     lock (NetworkTrain)
-                        NetworkTrain.Train(d_AugmentedData[threadID],
-                                            d_AugmentedLabels[threadID],
-                                            LearningRate,
-                                            false,
-                                            out _,
-                                            out Loss);
+                        NetworkTrain.TrainPick(d_AugmentedData[threadID],
+                                               d_AugmentedLabels[threadID],
+                                               LearningRate,
+                                               false,
+                                               out _,
+                                               out Loss);
 
                     if (float.IsNaN(Loss[0]))
                         throw new Exception("Something went wrong because loss = NaN");
@@ -443,7 +444,7 @@ namespace WarpTools.Commands
                                 }
 
                                 Image Prediction, Probabilities;
-                                NetworkTrain.Predict(d_AugmentedData[threadID], out Prediction, out Probabilities);
+                                NetworkTrain.PredictPick(d_AugmentedData[threadID], out Prediction, out Probabilities);
                                 Image Merged = new Image(Prediction.Dims.MultZ(2));
                                 for (int z = 0; z < Prediction.Dims.Z; z++)
                                 {
