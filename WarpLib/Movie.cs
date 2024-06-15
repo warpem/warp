@@ -2501,11 +2501,11 @@ namespace Warp
             Image AverageBN = Average.AsScaled(DimsBN).AndDisposeParent();
             //AverageBN.Normalize();
 
-            AverageBN = AverageBN.AsPadded(DimsBN - 8).AndDisposeParent();
+            AverageBN = AverageBN.AsPadded(DimsBN - 2).AndDisposeParent();
             Image AverageBNPadded = AverageBN.AsPaddedClamped(DimsBN * 2).AndDisposeParent();
             //AverageBNPadded.MultiplySlices(SoftMask);
             AverageBNPadded.MaskRectangularly(new int3(DimsBN), Math.Min(DimsBN.X, DimsBN.Y) / 2, false);
-            AverageBNPadded.Bandpass(2f / 32, 1, false, 2f / 32);
+            AverageBNPadded.Bandpass(2f * PixelSizeBN / 500f, 1, false, 2f * PixelSizeBN / 500f);
             //SoftMask.Dispose();
 
             AverageBN = AverageBNPadded.AsPadded(DimsBN).AndDisposeParent();
