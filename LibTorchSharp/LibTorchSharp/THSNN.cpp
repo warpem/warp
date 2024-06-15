@@ -20,7 +20,23 @@ void THSNN_Module_loadparams(const NNModule module, const char* location, const 
     CATCH(
         torch::serialize::InputArchive archive;
         archive.load_from(location, c10::Device((c10::DeviceType)device_type, (c10::DeviceIndex)device_index));
-        (*module)->load(archive);
+        //(*module)->load(archive);
+
+		std::unordered_set<std::string> module_names_in_file;
+
+		// Determine the names of all sub-modules contained inside the file.
+		for (const auto& module_name : archive.keys()) {
+			module_names_in_file.insert(module_name);
+		}
+
+		// Iterate over all sub-modules of your model and only load those contained in the file.
+		for (const auto& submodule : (*module)->named_children()) {
+			if (module_names_in_file.count(submodule.key())) {
+				torch::serialize::InputArchive submodule_archive;
+				archive.read(submodule.key(), submodule_archive);
+				submodule.value()->load(submodule_archive);
+			}
+		}
     );
 }
 
