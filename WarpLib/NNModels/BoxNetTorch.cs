@@ -48,7 +48,6 @@ namespace Warp
         private Image ResultPredictedSoftmax;
         private float[] h_ResultPredictedArgmax;
         private float[] h_ResultPredictedSoftmax;
-        private float[] ResultLoss = new float[1];
 
         private bool IsDisposed = false;
 
@@ -90,7 +89,8 @@ namespace Warp
                 Loss[i] = CE(TensorClassWeights[i]);
 
             }//, null);
-            Optimizer = Optimizer.SGD(UNetModel[0].GetParameters(), 0.01, 0.9, false, 5e-4);
+            Optimizer = Optimizer.SGD(UNetModel[0].GetParameters(), 0.01, 0.9, false, 1e-4);
+            //Optimizer = Optimizer.Adam(UNetModel[0].GetParameters(), 0.01, 1e-4);
 
             ResultPredictedArgmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize));
             ResultPredictedSoftmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize * 3));
@@ -178,7 +178,10 @@ namespace Warp
         {
             GPU.CheckGPUExceptions();
 
+            float[] ResultLoss = new float[1];
+
             Optimizer.SetLearningRateSGD(learningRate);
+            //Optimizer.SetLearningRateAdam(learningRate);
             Optimizer.ZeroGrad();
 
             SyncParams();
