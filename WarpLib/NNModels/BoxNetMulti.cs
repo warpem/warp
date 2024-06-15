@@ -94,7 +94,7 @@ namespace Warp
                 Loss[i] = CE(TensorClassWeights[i]);
 
             }//, null);
-            Optimizer = Optimizer.SGD(Model[0].GetParameters(), 1e-4, 0.9, false, 5e-4);
+            Optimizer = Optimizer.SGD(Model[0].GetParameters(), 1e-4, 0.9, false, 1e-4);
 
             ResultPredictedArgmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize));
             ResultPredictedSoftmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize * 3));
