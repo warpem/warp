@@ -120,14 +120,14 @@ namespace Noise2Mic
                     float LP = Options.Lowpass > 0 ? Options.PixelSize * 2 / Options.Lowpass : 1f;
                     int3 OriDims = MapScaled1.Dims;
 
-                    MapScaled1 = MapScaled1.AsPadded(new int2(MapScaled1.Dims) - 16).AndDisposeParent();
+                    //MapScaled1 = MapScaled1.AsPadded(new int2(MapScaled1.Dims) - 16).AndDisposeParent();
                     MapScaled1 = MapScaled1.AsPaddedClamped(new int2(OriDims) * 2).AndDisposeParent();
-                    MapScaled1.Bandpass(1f / 32f / BPScaling, LP, false, 1f / 32f / BPScaling);
+                    MapScaled1.Bandpass(2f / (500f / Options.PixelSize), LP, false, 2f / (500f / Options.PixelSize));
                     MapScaled1 = MapScaled1.AsPadded(new int2(OriDims)).AndDisposeParent();
 
-                    MapScaled2 = MapScaled2.AsPadded(new int2(MapScaled1.Dims) - 16).AndDisposeParent();
+                    //MapScaled2 = MapScaled2.AsPadded(new int2(MapScaled1.Dims) - 16).AndDisposeParent();
                     MapScaled2 = MapScaled2.AsPaddedClamped(new int2(OriDims) * 2).AndDisposeParent();
-                    MapScaled2.Bandpass(1f / 32f / BPScaling, LP, false, 1f / 32f / BPScaling);
+                    MapScaled2.Bandpass(2f / (500f / Options.PixelSize), LP, false, 2f / (500f / Options.PixelSize));
                     MapScaled2 = MapScaled2.AsPadded(new int2(OriDims)).AndDisposeParent();
 
                     //MapScaled1.Bandpass(0, Options.PixelSize * 2 / Options.Lowpass, true, 0.01f);
@@ -426,7 +426,7 @@ namespace Noise2Mic
                     Map1 = Map1.AsScaled(OriginalDims[imap]).AndDisposeParent();
 
                 string SavePath1 = OriginalMovies[imap].AverageDenoisedPath;
-                Map1.WriteMRC(SavePath1, true);
+                Map1.WriteMRC16b(SavePath1, true);
                 Map1.Dispose();
 
                 Console.WriteLine("Done. Saved to " + SavePath1);
