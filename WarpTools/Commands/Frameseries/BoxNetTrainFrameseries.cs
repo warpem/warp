@@ -9,6 +9,7 @@ using Warp.Tools;
 using Warp;
 using System.Diagnostics;
 using System.Threading;
+using MathNet.Numerics.Statistics;
 
 namespace WarpTools.Commands
 {
@@ -148,29 +149,21 @@ namespace WarpTools.Commands
 
                     Image OnlyImages = new Image(Helper.ArrayOfSequence(0, N, 1).Select(i => ExampleImage.GetHost(Intent.Read)[i * 3]).ToArray(), new int3(ExampleImage.Dims.X, ExampleImage.Dims.Y, N));
                     int2 DimsOri = new int2(OnlyImages.Dims);
-                    OnlyImages = OnlyImages.AsPadded(DimsOri - 8);
+                    OnlyImages = OnlyImages.AsPadded(DimsOri - 2).AndDisposeParent();
 
                     if (SoftMask == null || SoftMask.Dims != new int3(OnlyImages.Dims.X * 2, OnlyImages.Dims.Y * 2, 1))
                     {
                         SoftMask?.Dispose();
 
                         SoftMask = new Image(new int3(OnlyImages.Dims.X * 2, OnlyImages.Dims.Y * 2, 1));
-                        SoftMask.TransformValues((x, y, z, v) =>
-                        {
-                            float xx = (float)Math.Max(0, Math.Max(OnlyImages.Dims.X / 2 - x, x - OnlyImages.Dims.X * 3 / 2)) / (OnlyImages.Dims.X / 2);
-                            float yy = (float)Math.Max(0, Math.Max(OnlyImages.Dims.Y / 2 - y, y - OnlyImages.Dims.Y * 3 / 2)) / (OnlyImages.Dims.Y / 2);
-
-                            float r = Math.Min(1, (float)Math.Sqrt(xx * xx + yy * yy));
-                            float w = ((float)Math.Cos(r * Math.PI) + 1) * 0.5f;
-
-                            return w;
-                        });
+                        SoftMask.Fill(1f);
+                        SoftMask.MaskRectangularly(OnlyImages.Dims.Slice(), Math.Min(OnlyImages.Dims.X, OnlyImages.Dims.Y) / 2f, false);
                     }
 
                     Image OriginalPadded = OnlyImages.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
                     OriginalPadded.MultiplySlices(SoftMask);
                     //OriginalPadded.WriteMRC("d_oripadded.mrc", true);
-                    OriginalPadded.Bandpass(2f / 32, 1, false, 2f / 32);
+                    OriginalPadded.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
                     //OriginalPadded.WriteMRC("d_oripadded_bp.mrc", true);
 
                     OnlyImages = OriginalPadded.AsPadded(DimsOri).AndDisposeParent();
@@ -179,7 +172,12 @@ namespace WarpTools.Commands
                     OnlyImages.Normalize();
                     //OnlyImages.WriteMRC("d_onlyimages.mrc", true);
 
-                    SoftMask.Dispose();
+                    if (OnlyImages.GetHost(Intent.Read).Any(a => a.All(v => v == 0)))
+                    {
+                        OnlyImages.WriteMRC("d_stackzeros.mrc", true);
+                        Console.WriteLine(examplePath);
+                        throw new Exception("All zeros");
+                    }
 
                     for (int n = 0; n < N; n++)
                     {
@@ -209,6 +207,8 @@ namespace WarpTools.Commands
 
                     DimsLargest.X = Math.Max(DimsLargest.X, ExampleImage.Dims.X);
                     DimsLargest.Y = Math.Max(DimsLargest.Y, ExampleImage.Dims.Y);
+
+                    GPU.CheckGPUExceptions();
                 }
             }
 
@@ -265,15 +265,16 @@ namespace WarpTools.Commands
 
             Console.WriteLine("Started training");
 
-            int NThreads = 2;
+            int NThreads = 1;
 
-            int2 DimsAugmented = BoxNetTorch.DefaultDimensionsTrain;
-            int Border = (BoxNetTorch.DefaultDimensionsTrain.X - BoxNetTorch.DefaultDimensionsValidTrain.X) / 2;
+            int2 DimsAugmented = new int2(CLI.PatchSize);
+            int Border = CLI.PatchSize / 8;
             int BatchSize = NetworkTrain.BatchSize;
             int PlotEveryN = 10;
             int SmoothN = 100;
 
             Queue<float>[] LastAccuracies = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
+            Queue<float>[] CheckpointAccuracies = { new Queue<float>(), new Queue<float>() };
             List<float>[] LastBaselines = { new List<float>(), new List<float>() };
             GPU.SetDevice(CLI.Devices.First());
 
@@ -367,6 +368,7 @@ namespace WarpTools.Commands
                             LastAccuracies[icorpus].Enqueue(Loss[0]);
                             if (LastAccuracies[icorpus].Count > SmoothN)
                                 LastAccuracies[icorpus].Dequeue();
+                            CheckpointAccuracies[icorpus].Enqueue(Loss[0]);
                         }
                         //if (!float.IsNaN(AccuracyParticles[1]))
                         //    LastBaselines[icorpus].Add(AccuracyParticles[1]);
@@ -386,14 +388,91 @@ namespace WarpTools.Commands
                             }
                         }
 
-                        if (CLI.Checkpoints > 0 && CheckpointWatch.Elapsed.TotalMinutes > CLI.Checkpoints)
+                        if ((CLI.Checkpoints > 0 && CheckpointWatch.Elapsed.TotalMinutes > CLI.Checkpoints) || b == NIterations - 1)
                         {
                             CheckpointWatch.Restart();
-                            string CheckpointName = CLI.ModelOut + $"{NCheckpoints++:D3}" + ".checkpoint";
+                            string CheckpointName = CLI.ModelOut + $".{NCheckpoints:D3}" + ".checkpoint";
                             NetworkTrain.Save(CheckpointName);
 
-                            VirtualConsole.ClearLastLine();
+                            Random RGPrediction = new(123);
+
+                            lock (NetworkTrain)
+                            {
+                                for (int ib = 0; ib < BatchSize; ib++)
+                                {
+                                    int ExampleID = RGPrediction.Next(AllMicrographs[icorpus].Count);
+                                    int2 Dims = AllDims[icorpus][ExampleID];
+
+                                    int2 DimsValid = new int2(Math.Max(0, Dims.X - Border * 4), Math.Max(0, Dims.Y - Border * 4));
+                                    int2 DimsBorder = (Dims - DimsValid) / 2;
+
+                                    float2[] Translations = Helper.ArrayOfFunction(x => new float2(RGPrediction.Next(DimsValid.X) + DimsBorder.X,
+                                                                                                   RGPrediction.Next(DimsValid.Y) + DimsBorder.Y), 1);
+
+                                    float[] Rotations = Helper.ArrayOfFunction(i => 0f, 1);
+                                    float3[] Scales = Helper.ArrayOfFunction(i => new float3(1, 1, 0), 1);
+                                    float StdDev = 0;
+                                    float OffsetMean = 0;
+                                    float OffsetScale = 1;
+
+                                    GPU.BoxNet2Augment(AllMicrographs[icorpus][ExampleID].GetDevice(Intent.Read),
+                                                        AllLabels[icorpus][ExampleID].GetDevice(Intent.Read),
+                                                        Dims,
+                                                        d_AugmentedData[threadID].GetDeviceSlice(ib, Intent.Write),
+                                                        d_AugmentedLabels[threadID].GetDeviceSlice(ib * 3, Intent.Write),
+                                                        DimsAugmented,
+                                                        Helper.ToInterleaved(Translations),
+                                                        Rotations,
+                                                        Helper.ToInterleaved(Scales),
+                                                        OffsetMean,
+                                                        OffsetScale,
+                                                        StdDev,
+                                                        RGPrediction.Next(99999),
+                                                        false,
+                                                        (uint)1);
+
+                                    if (d_AugmentedData[threadID].GetHost(Intent.Read)[ib].All(v => v == 0))
+                                    {
+                                        AllMicrographs[icorpus][ExampleID].WriteMRC("d_allzeros.mrc", true);
+                                        Console.WriteLine();
+                                        Console.WriteLine(Dims);
+                                        Console.WriteLine(DimsValid);
+                                        Console.WriteLine(DimsBorder);
+                                        throw new Exception("All zeros");
+                                    }
+                                }
+
+                                Image Prediction, Probabilities;
+                                NetworkTrain.Predict(d_AugmentedData[threadID], out Prediction, out Probabilities);
+                                Image Merged = new Image(Prediction.Dims.MultZ(2));
+                                for (int z = 0; z < Prediction.Dims.Z; z++)
+                                {
+                                    float[] Labels = Prediction.GetHost(Intent.Read)[z];
+                                    for (int i = 0; i < Labels.Length; i++)
+                                    {
+                                        int Label = (int)Labels[i];
+                                        float Probability = Probabilities.GetHost(Intent.Read)[z * 3 + Label][i];
+                                        if (Label == 1 && Probability < 0.5f)
+                                            Labels[i] = 0;
+                                        if (Label == 2 && Probability < 0.1f)
+                                            Labels[i] = 0;
+                                    }
+
+                                    Merged.GetHost(Intent.Write)[z * 2 + 0] = d_AugmentedData[threadID].GetHost(Intent.Read)[z];
+                                    Merged.GetHost(Intent.Write)[z * 2 + 1] = Labels;
+                                }
+
+                                Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".checkpoint.mrc", true);
+                                Merged.Dispose();
+                            }
+
+                            Console.WriteLine();
+                            Console.WriteLine($"Average loss since previous checkpoint: {CheckpointAccuracies[0].Mean():E2}");
                             Console.WriteLine($"Saved checkpoint to {CheckpointName}");
+
+                            CheckpointAccuracies[0].Clear();
+                            CheckpointAccuracies[1].Clear();
+                            NCheckpoints++;
                         }
                     }
                 },
