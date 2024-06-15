@@ -133,12 +133,12 @@ struct BoxNetMultiImpl : MultiGPUModule
         encoder5 = register_module("encoder5", make_encoder(256 * _width_block, 512 * _width_block, _depth_block, true));
         encoder6 = register_module("encoder6", make_encoder(512 * _width_block, 1024 * _width_block, _depth_block, true));
 
-        pick_decoder5 = register_module("pick_decoder5", make_decoder(1536 * _width_block, 512 * _width_block, _depth_block, true));
-        pick_decoder4 = register_module("pick_decoder4", make_decoder(768 * _width_block, 256 * _width_block, _depth_block, true));
-        pick_decoder3 = register_module("pick_decoder3", make_decoder(384 * _width_block, 128 * _width_block, _depth_block, true));
-        pick_decoder2 = register_module("pick_decoder2", make_decoder(192 * _width_block, 64 * _width_block, _depth_block, true));
-        pick_decoder1 = register_module("pick_decoder1", make_decoder(96 * _width_block, 32 * _width_block, _depth_block, true));
-        pick_decoder0 = register_module("pick_decoder0", make_decoder(64 * _width_block, 32 * _width_block, _depth_block, false));
+        pick_decoder5 = register_module("decoder5", make_decoder(1536 * _width_block, 512 * _width_block, _depth_block, true));
+        pick_decoder4 = register_module("decoder4", make_decoder(768 * _width_block, 256 * _width_block, _depth_block, true));
+        pick_decoder3 = register_module("decoder3", make_decoder(384 * _width_block, 128 * _width_block, _depth_block, true));
+        pick_decoder2 = register_module("decoder2", make_decoder(192 * _width_block, 64 * _width_block, _depth_block, true));
+        pick_decoder1 = register_module("decoder1", make_decoder(96 * _width_block, 32 * _width_block, _depth_block, true));
+        pick_decoder0 = register_module("decoder0", make_decoder(64 * _width_block, 32 * _width_block, _depth_block, false));
 
 		denoise_decoder5 = register_module("denoise_decoder5", make_decoder(1536 * _width_block, 512 * _width_block, _depth_block, true));
 		denoise_decoder4 = register_module("denoise_decoder4", make_decoder(768 * _width_block, 256 * _width_block, _depth_block, true));
