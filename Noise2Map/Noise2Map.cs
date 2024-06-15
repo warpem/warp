@@ -33,7 +33,8 @@ namespace Noise2Map
             {
                 var Result = Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(opts => Options = opts);
 
-                if (Result.Tag == ParserResultType.NotParsed ||
+                if (args.Length == 0 ||
+                    Result.Tag == ParserResultType.NotParsed ||
                     Result.Errors.Any(e => e.Tag == ErrorType.HelpVerbRequestedError ||
                                            e.Tag == ErrorType.HelpRequestedError))
                     return;
