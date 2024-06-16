@@ -43,7 +43,9 @@ namespace Warp
         private TorchTensor[] TensorClassWeights;
 
         private Loss[] Loss;
-        private Optimizer Optimizer;
+        private Optimizer OptimizerEncoder;
+        private Optimizer OptimizerDecoderPick;
+        private Optimizer OptimizerDecoderDenoise;
 
         private Image ResultPredictedArgmax;
         private Image ResultPredictedSoftmax;
@@ -94,7 +96,9 @@ namespace Warp
                 Loss[i] = CE(TensorClassWeights[i]);
 
             }//, null);
-            Optimizer = Optimizer.SGD(Model[0].GetParameters(), 1e-4, 0.9, false, 1e-4);
+            OptimizerEncoder = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("encoder")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
+            OptimizerDecoderPick = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("decoder") || p.name.StartsWith("final_conv")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
+            OptimizerDecoderDenoise = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("denoise")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
 
             ResultPredictedArgmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize));
             ResultPredictedSoftmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize * 3));
@@ -126,7 +130,6 @@ namespace Warp
             for (int i = 1; i < NDevices; i++)
                 Model[0].GatherGrad(Model[i]);
         }
-
 
         public void PredictPick(Image data, out Image predictionArgmax, out Image predictionSoftmax)
         {
@@ -175,6 +178,40 @@ namespace Warp
             h_predictionArgmax = h_ResultPredictedArgmax;
             h_predictionSoftmax = h_ResultPredictedSoftmax;
         }
+        
+        public void PredictDenoise(Image data, out Image predictionDenoised)
+        {
+            ScatterData(data, TensorSource);
+            ResultPredictedDenoised.GetDevice(Intent.Write);
+
+            Helper.ForCPU(0, NDevices, NDevices, null, (i, threadID) =>
+            {
+                using (var mode = new InferenceMode(true))
+                {
+                    Model[i].Eval();
+
+                    using (TorchTensor t_Prediction = Model[i].DenoiseForward(TensorSource[i]))
+                    {
+                        GPU.CopyDeviceToDevice(t_Prediction.DataPtr(),
+                                               ResultPredictedDenoised.GetDeviceSlice(i * DeviceBatch, Intent.Write),
+                                               DeviceBatch * BoxDimensions.Elements());
+                    }
+                }
+            }, null);
+
+            predictionDenoised = ResultPredictedDenoised;
+        }
+
+        public void PredictDenoise(Image data, out float[] h_predictionDenoised)
+        {
+            PredictDenoise(data, out ResultPredictedDenoised);
+
+            GPU.CopyDeviceToHost(ResultPredictedArgmax.GetDevice(Intent.Read),
+                                 h_ResultPredictedDenoised,
+                                 BatchSize * BoxDimensions.Elements());
+
+            h_predictionDenoised = h_ResultPredictedDenoised;
+        }
 
         public void TrainPick(Image source,
                               Image target,
@@ -187,8 +224,8 @@ namespace Warp
 
             var ResultLoss = new float[1];
 
-            Optimizer.SetLearningRateSGD(learningRate);
-            Optimizer.ZeroGrad();
+            OptimizerEncoder.SetLearningRateSGD(learningRate);
+            OptimizerDecoderPick.SetLearningRateSGD(learningRate);
 
             SyncParams();
             ResultPredictedArgmax.GetDevice(Intent.Write);
@@ -232,12 +269,68 @@ namespace Warp
 
             GatherGrads();
 
-            //if (NDevices > 1)
-            //    UNetModel[0].ScaleGrad(1f / NDevices);
-
-            Optimizer.Step();
+            OptimizerEncoder.Step();
+            OptimizerDecoderPick.Step();
 
             prediction = ResultPredictedArgmax;
+            loss = ResultLoss;
+        }
+
+        public void TrainDenoise(Image source,
+                                 Image target,
+                                 float learningRate,
+                                 bool needOutput,
+                                 out Image prediction,
+                                 out float[] loss)
+        {
+            GPU.CheckGPUExceptions();
+
+            var ResultLoss = new float[1];
+
+            OptimizerEncoder.SetLearningRateSGD(learningRate);
+            OptimizerDecoderDenoise.SetLearningRateSGD(learningRate);
+
+            SyncParams();
+            ResultPredictedDenoised.GetDevice(Intent.Write);
+
+            Helper.ForCPU(0, NDevices, NDevices, null, (i, threadID) =>
+            {
+                Model[i].Train();
+                Model[i].ZeroGrad();
+
+                GPU.CopyDeviceToDevice(source.GetDeviceSlice(i * DeviceBatch, Intent.Read),
+                                       TensorSource[i].DataPtr(),
+                                       DeviceBatch * (int)BoxDimensions.Elements());
+                GPU.CopyDeviceToDevice(target.GetDeviceSlice(i * DeviceBatch, Intent.Read),
+                                       TensorTargetDenoise[i].DataPtr(),
+                                       DeviceBatch * (int)BoxDimensions.Elements());
+
+                GPU.CheckGPUExceptions();
+
+                using (TorchTensor TargetArgMax = TensorTargetDenoise[i].Argmax(1))
+                using (TorchTensor Prediction = Model[i].DenoiseForward(TensorSource[i]))
+                using (TorchTensor PredictionLoss = Loss[i](Prediction, TargetArgMax))
+                {
+                    if (needOutput)
+                    {
+                        GPU.CopyDeviceToDevice(Prediction.DataPtr(),
+                                               ResultPredictedDenoised.GetDeviceSlice(i * DeviceBatch, Intent.Write),
+                                               DeviceBatch * (int)BoxDimensions.Elements());
+                    }
+
+                    if (i == 0)
+                        GPU.CopyDeviceToHost(PredictionLoss.DataPtr(), ResultLoss, 1);
+
+                    PredictionLoss.Backward();
+                }
+            }, null);
+
+            GatherGrads();
+
+            OptimizerEncoder.Step();
+            OptimizerDecoderDenoise.Step();
+
+            prediction = ResultPredictedDenoised;
             loss = ResultLoss;
         }
 
@@ -251,10 +344,7 @@ namespace Warp
         public void Load(string path)
         {
             for (int i = 0; i < NDevices; i++)
-            {
                 Model[i].Load(path, DeviceType.CUDA, Devices[i]);
-                //UNetModel[i].ToCuda(Devices[i]);
-            }
         }
 
         ~BoxNetMulti()
@@ -271,17 +361,22 @@ namespace Warp
                     IsDisposed = true;
 
                     ResultPredictedArgmax.Dispose();
+                    ResultPredictedSoftmax.Dispose();
+                    ResultPredictedDenoised.Dispose();
 
                     for (int i = 0; i < NDevices; i++)
                     {
                         TensorSource[i].Dispose();
                         TensorTargetPick[i].Dispose();
+                        TensorTargetDenoise[i].Dispose();
                         TensorClassWeights[i].Dispose();
 
                         Model[i].Dispose();
                     }
 
-                    Optimizer.Dispose();
+                    OptimizerEncoder.Dispose();
+                    OptimizerDecoderPick.Dispose();
+                    OptimizerDecoderDenoise.Dispose();
                 }
             }
         }
