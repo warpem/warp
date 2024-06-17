@@ -216,6 +216,7 @@ namespace Warp
         public void TrainPick(Image source,
                               Image target,
                               float learningRate,
+                              bool skipDecoder,
                               bool needOutput,
                               out Image prediction,
                               out float[] loss)
@@ -270,7 +271,8 @@ namespace Warp
             GatherGrads();
 
             OptimizerEncoder.Step();
-            OptimizerDecoderPick.Step();
+            if (!skipDecoder)
+                OptimizerDecoderPick.Step();
 
             prediction = ResultPredictedArgmax;
             loss = ResultLoss;
@@ -279,6 +281,7 @@ namespace Warp
         public void TrainDenoise(Image source,
                                  Image target,
                                  float learningRate,
+                                 bool skipDecoder,
                                  bool needOutput,
                                  out Image prediction,
                                  out float[] loss)
@@ -328,7 +331,8 @@ namespace Warp
             GatherGrads();
 
             OptimizerEncoder.Step();
-            OptimizerDecoderDenoise.Step();
+            if (!skipDecoder)
+                OptimizerDecoderDenoise.Step();
 
             prediction = ResultPredictedDenoised;
             loss = ResultLoss;
