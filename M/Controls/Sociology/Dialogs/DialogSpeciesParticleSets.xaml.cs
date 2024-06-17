@@ -612,8 +612,8 @@ namespace M.Controls.Sociology.Dialogs
                 {
                     try
                     {
-                        decimal DetectorPixel = decimal.Parse(TableRelion.GetRowValue(0, "rlnDetectorPixelSize")) * 1e4M;
-                        decimal Mag = decimal.Parse(TableRelion.GetRowValue(0, "rlnMagnification"));
+                        decimal DetectorPixel = decimal.Parse(TableRelion.GetRowValue(0, "rlnDetectorPixelSize"), CultureInfo.InvariantCulture) * 1e4M;
+                        decimal Mag = decimal.Parse(TableRelion.GetRowValue(0, "rlnMagnification"), CultureInfo.InvariantCulture);
 
                         PauseParticleUpdates = true;
                         {
@@ -627,7 +627,7 @@ namespace M.Controls.Sociology.Dialogs
                 }
                 else if (TableRelion.HasColumn("rlnImagePixelSize"))
                 {
-                    decimal PixelSize = decimal.Parse(TableRelion.GetRowValue(0, "rlnImagePixelSize"));
+                    decimal PixelSize = decimal.Parse(TableRelion.GetRowValue(0, "rlnImagePixelSize"), CultureInfo.InvariantCulture);
                     ParticleCoordinatesPixel = PixelSize;
                     ParticleShiftsPixel = 1;
                 }

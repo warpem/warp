@@ -59,7 +59,7 @@ namespace Sparta
                 Sender.IsPerformingManualEdit = false;
                 try
                 {
-                    decimal NewValue = decimal.Parse((string)e.NewValue);
+                    decimal NewValue = decimal.Parse((string)e.NewValue, CultureInfo.InvariantCulture);
                     decimal OldValue = Sender.Value;
                     Sender.Value = Math.Max(Math.Min(Math.Round(NewValue / Sender.DisplayMultiplicator / Sender.StepSize) * Sender.StepSize, Sender.MaxValue), Sender.MinValue);
 

@@ -2,6 +2,7 @@
 using MathNet.Numerics.Distributions;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -104,7 +105,7 @@ namespace WarpTools.Commands
                 decimal PixelSize = 0;
                 try
                 {
-                    PixelSize = decimal.Parse(cli.PixelSize);
+                    PixelSize = decimal.Parse(cli.PixelSize, CultureInfo.InvariantCulture);
                 }
                 catch
                 {
@@ -124,7 +125,7 @@ namespace WarpTools.Commands
                         if (PixelLine == null)
                             throw new Exception("No PixelSpacing line found in MDOC file");
 
-                        PixelSize = decimal.Parse(PixelLine.Split('=')[1].Trim());                        
+                        PixelSize = decimal.Parse(PixelLine.Split('=')[1].Trim(), CultureInfo.InvariantCulture);                        
                     }
                     else
                     {
@@ -199,7 +200,7 @@ namespace WarpTools.Commands
                 if (Parts.Length != 3)
                     throw new Exception($"Invalid number of dimensions specified: {Parts.Length}, expected 3");
 
-                int[] Parsed = Parts.Select(p => int.Parse(p)).ToArray();
+                int[] Parsed = Parts.Select(p => int.Parse(p, CultureInfo.InvariantCulture)).ToArray();
                 Options.Tomo.DimensionsX = Parsed[0];
                 Options.Tomo.DimensionsY = Parsed[1];
                 Options.Tomo.DimensionsZ = Parsed[2];
