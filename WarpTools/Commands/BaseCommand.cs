@@ -96,6 +96,7 @@ namespace WarpTools.Commands
                     {
                         VirtualConsole.ClearLastLine();
                         Console.WriteLine($"Failed to process {M.Path}, marked as unselected");
+                        Console.WriteLine($"Check logs in {LogDirectory} for more info.");
                         NFailed++;
                     }
                 }
