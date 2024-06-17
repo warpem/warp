@@ -185,11 +185,10 @@ namespace WarpTools.Commands
                         float[] Mic = OnlyImages.GetHost(Intent.Read)[n];
 
                         AllMicrographs[icorpus].Add(new Image(Mic, ExampleImage.Dims.Slice()));
-                        AllLabels[icorpus].Add(new Image(ExampleImage.GetHost(Intent.Read)[n * 3 + 1], ExampleImage.Dims.Slice()));
 
                         AllDims[icorpus].Add(new int2(ExampleImage.Dims));
 
-                        float[] Labels = ExampleImage.GetHost(Intent.Read)[n * 3 + 1];
+                        float[] Labels = ExampleImage.GetHost(Intent.ReadWrite)[n * 3 + 1];
                         float[] Uncertains = ExampleImage.GetHost(Intent.Read)[n * 3 + 2];
                         for (int i = 0; i < Labels.Length; i++)
                         {
@@ -201,6 +200,8 @@ namespace WarpTools.Commands
                             }
                             ClassHist[Label]++;
                         }
+
+                        AllLabels[icorpus].Add(new Image(Labels, ExampleImage.Dims.Slice()));
                     }
 
                     ExampleImage.Dispose();
@@ -353,6 +354,7 @@ namespace WarpTools.Commands
                         NetworkTrain.TrainPick(d_AugmentedData[threadID],
                                                d_AugmentedLabels[threadID],
                                                LearningRate,
+                                               false,
                                                false,
                                                out _,
                                                out Loss);
