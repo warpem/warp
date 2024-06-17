@@ -1334,6 +1334,9 @@ namespace Warp
             int MinFreqInclusive = (int)(options.RangeMin * DimsRegion.X / 2);
             int MaxFreqExclusive = (int)(options.RangeMax * DimsRegion.X / 2);
             int NFreq = MaxFreqExclusive - MinFreqInclusive;
+            
+            if (MaxFreqExclusive > DimsRegion.X / 2)
+                throw new Exception("Max frequency to fit is higher than the Nyquist frequency")
 
             #endregion
 
