@@ -769,7 +769,7 @@ namespace WarpWorker
 
         static Image LoadAndPrepareGainReference(string path, bool flipX, bool flipY, bool transpose)
         {
-            Image Gain = Image.FromFilePatient(50, 500,
+            Image Gain = Image.FromFilePatient(10, 500,
                                                path,
                                                HeaderlessDims,
                                                (int)HeaderlessOffset,
@@ -790,7 +790,7 @@ namespace WarpWorker
 
         static DefectModel LoadAndPrepareDefectMap(string path, bool flipX, bool flipY, bool transpose)
         {
-            Image Defects = Image.FromFilePatient(50, 500,
+            Image Defects = Image.FromFilePatient(10, 500,
                                                   path,
                                                   HeaderlessDims,
                                                   (int)HeaderlessOffset,
@@ -813,7 +813,7 @@ namespace WarpWorker
         {
             Image stack = null;
 
-            MapHeader header = MapHeader.ReadFromFilePatient(50, 500,
+            MapHeader header = MapHeader.ReadFromFilePatient(10, 500,
                                                              path,
                                                              HeaderlessDims,
                                                              (int)HeaderlessOffset,
@@ -889,11 +889,11 @@ namespace WarpWorker
                 Helper.ForCPU(0, header.Dimensions.Z, NThreads, threadID => GPU.SetDevice(DeviceID), (z, threadID) =>
                 {
                     if (IsTiff)
-                        TiffNative.ReadTIFFPatient(50, 500, path, z, true, RawLayers[threadID]);
+                        TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
                     else if (IsEER)
-                        EERNative.ReadEERPatient(50, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
                     else
-                        IOHelper.ReadMapFloatPatient(50, 500,
+                        IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
                                                      HeaderlessDims,
                                                      (int)HeaderlessOffset,
@@ -965,11 +965,11 @@ namespace WarpWorker
                 Helper.ForCPU(0, ScaledDims.Z, NThreads, threadID => GPU.SetDevice(DeviceID), (z, threadID) =>
                 {
                     if (IsTiff)
-                        TiffNative.ReadTIFFPatient(50, 500, path, z, true, RawLayers[threadID]);
+                        TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
                     else if (IsEER)
-                        EERNative.ReadEERPatient(50, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
                     else
-                        IOHelper.ReadMapFloatPatient(50, 500,
+                        IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
                                                      HeaderlessDims,
                                                      (int)HeaderlessOffset,
