@@ -205,11 +205,11 @@ namespace WarpTools.Commands
                 Options.Tomo.DimensionsY = Parsed[1];
                 Options.Tomo.DimensionsZ = Parsed[2];
 
-                bool AllAbove2000 = Parsed.All(x => x > 2000);
-                if (!AllAbove2000)
+                bool AllAbove3500 = Parsed.All(x => x > 3500);
+                if (!AllAbove3500)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Warning: unbinned tomogram dimensions {Parsed[0]}x{Parsed[1]}x{Parsed[2]} appear small.");
+                    Console.WriteLine($"Warning: unbinned tomogram dimensions {Parsed[0]}x{Parsed[1]}x{Parsed[2]} appear smaller than expected for 4k+ images.");
                     Console.WriteLine($"Tomograms should encompass whole field of view.");
                     Console.ResetColor();
                 }
