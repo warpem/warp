@@ -230,10 +230,23 @@ namespace WarpTools.Commands
                 {
                     LabelWeights[0] = Math.Min((float)Math.Pow((float)ClassHist[1] / ClassHist[0], 1 / 3.0) * 0.5f, 1);
                     LabelWeights[2] = 1;//(float)Math.Sqrt((float)ClassHist[1] / ClassHist[2]);
+                    //double Beta = 0.9;
+                    //double HistNorm0 = (double)ClassHist[0] / ClassHist[1];
+                    //double HistNorm2 = (double)ClassHist[2] / ClassHist[1];
+
+                    //LabelWeights[0] = (float)((1 - Beta) / (1 - Math.Pow(Beta, HistNorm0)));
+                    //LabelWeights[1] = 1;
+                    //LabelWeights[2] = (float)(ClassHist[2] == 0 ? 1 : (1 - Beta) / (1 - Math.Pow(Beta, HistNorm2)));
                 }
                 else
                 {
-                    LabelWeights[0] = (float)Math.Pow((float)ClassHist[2] / ClassHist[0], 1 / 3.0);
+                    //LabelWeights[0] = (float)Math.Pow((float)ClassHist[2] / ClassHist[0], 1 / 3.0);
+                    double Beta = 0.9;
+                    double HistNorm0 = (double)ClassHist[0] / ClassHist[1];
+
+                    LabelWeights[0] = (float)((1 - Beta) / (1 - Math.Pow(Beta, HistNorm0)));
+                    LabelWeights[1] = 1;
+                    LabelWeights[2] = 1;
                 }
 
                 for (int icorpus = 0; icorpus < AllPaths.Length; icorpus++)

@@ -606,11 +606,11 @@ Tensor THSNN_poisson_loss(const Tensor input, const Tensor target, const bool lo
     )
 }
 
-Optimizer THSNN_Adam_ctor(const Tensor* parameters, const int length, const double learnig_rate, const double weight_decay)
+Optimizer THSNN_Adam_ctor(const Tensor* parameters, const int length, const double learnig_rate, const double weight_decay, const bool amsgrad, const double beta1, const double beta2)
 {
     auto  params = toTensors<at::Tensor>((torch::Tensor**)parameters, length);
 
-    return new std::shared_ptr<torch::optim::Optimizer>(std::make_shared<torch::optim::Adam>(torch::optim::Adam(params, torch::optim::AdamOptions(learnig_rate).weight_decay(weight_decay))));// .betas(std::make_tuple(0.0, 0.999)))));
+    return new std::shared_ptr<torch::optim::Optimizer>(std::make_shared<torch::optim::AdamW>(torch::optim::AdamW(params, torch::optim::AdamWOptions(learnig_rate).weight_decay(weight_decay).amsgrad(amsgrad).betas(std::make_tuple(beta1, beta2)))));
 }
 
 Optimizer THSNN_SGD_ctor(const Tensor* parameters, const int length, const double learnig_rate, const double momentum, const bool nesterov, const double weight_decay)
@@ -639,7 +639,7 @@ void THSNN_Adam_setlearningrate(const Optimizer optimizer, const double learning
     {
         if (group.has_options())
         {
-            auto& options = static_cast<torch::optim::AdamOptions&>(group.options());
+            auto& options = static_cast<torch::optim::AdamWOptions&>(group.options());
             options.lr(learning_rate);
         }
     }

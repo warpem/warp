@@ -79,14 +79,14 @@ namespace TorchSharp.NN
     public partial class Optimizer
     {
         [DllImport ("LibTorchSharp")]
-        private static extern IntPtr THSNN_Adam_ctor (IntPtr parameters, int len, double learningRate, double weightdecay);
+        private static extern IntPtr THSNN_Adam_ctor (IntPtr parameters, int len, double learningRate, double weightdecay, bool amsgrad, double beta1, double beta2);
 
-        public static Optimizer Adam (IEnumerable<TorchTensor> parameters, double learningRate, double weightdecay)
+        public static Optimizer Adam (IEnumerable<TorchTensor> parameters, double learningRate, double weightdecay, bool amsgrad = false, double beta1 = 0.9, double beta2 = 0.999)
         {
             var parray = new PinnedArray<IntPtr> ();
             IntPtr paramsRef = parray.CreateArray (parameters.Select (p => p.Handle).ToArray ());
 
-            var res = THSNN_Adam_ctor (paramsRef, parray.Array.Length, learningRate, weightdecay);
+            var res = THSNN_Adam_ctor (paramsRef, parray.Array.Length, learningRate, weightdecay, amsgrad, beta1, beta2);
             if (res == IntPtr.Zero) { Torch.CheckForErrors(); }
             return new Optimizer (res);
         }
