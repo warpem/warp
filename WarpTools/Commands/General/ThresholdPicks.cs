@@ -81,7 +81,13 @@ namespace WarpTools.Commands
                     path: item.MatchingDir, searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star"
                 );
                 if (MatchingFiles.Count() > 1)
-                    throw new Exception($"Multiple files found matching {item.RootName}_*{CLI.InSuffix}.star");
+                {
+                    Console.WriteLine($"found multiple files matching {item.RootName}_*{CLI.InSuffix}.star");
+                    Console.WriteLine($"trying exact match: {item.RootName}_{CLI.InSuffix}.star");
+                    MatchingFiles = MatchingFiles.Where(file => Path.GetFileName(file) == $"{item.RootName}_{CLI.InSuffix}.star");
+                    if (MatchingFiles.Count() > 1 || MatchingFiles.Count() == 0)
+                        throw new Exception($"Please provide a suffix with an exact match for {item.RootName}_{{in_suffix}}.star");
+                }
                 else if (MatchingFiles.Count() == 0)
                     throw new Exception($"No files found matching {item.RootName}_*{CLI.InSuffix}.star");
                 string PathTable = MatchingFiles.First();
