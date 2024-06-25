@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
 
-namespace WarpTools.Commands.Frameseries
+namespace WarpTools.Commands
 {
     [VerbGroup("Frame series")]
     [Verb("fs_boxnet_infer", HelpText = "Run a trained BoxNet model on frameseries averages, producing particle positions and masks")]
