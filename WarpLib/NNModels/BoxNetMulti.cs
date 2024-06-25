@@ -42,7 +42,8 @@ namespace Warp
         private TorchTensor[] TensorTargetDenoise;
         private TorchTensor[] TensorClassWeights;
 
-        private Loss[] Loss;
+        private Loss[] LossPick;
+        private Loss[] LossDenoise;
         private Optimizer OptimizerEncoder;
         private Optimizer OptimizerDecoderPick;
         private Optimizer OptimizerDecoderDenoise;
@@ -74,7 +75,8 @@ namespace Warp
             TensorTargetDenoise = new TorchTensor[NDevices];
             TensorClassWeights = new TorchTensor[NDevices];
 
-            Loss = new Loss[NDevices];
+            LossPick = new Loss[NDevices];
+            LossDenoise = new Loss[NDevices];
             if (classWeights.Length != 3)
                 throw new Exception();
 
@@ -93,7 +95,8 @@ namespace Warp
                 TensorClassWeights[i] = Float32Tensor.Zeros(new long[] { 3 }, DeviceType.CUDA, DeviceID);
                 GPU.CopyHostToDevice(classWeights, TensorClassWeights[i].DataPtr(), 3);
 
-                Loss[i] = CE(TensorClassWeights[i]);
+                LossPick[i] = CE(TensorClassWeights[i]);
+                LossDenoise[i] = MSE(Reduction.Mean);
 
             }//, null);
             OptimizerEncoder = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("encoder")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
@@ -238,16 +241,16 @@ namespace Warp
 
                 GPU.CopyDeviceToDevice(source.GetDeviceSlice(i * DeviceBatch, Intent.Read),
                                        TensorSource[i].DataPtr(),
-                                       DeviceBatch * (int)BoxDimensions.Elements());
+                                       DeviceBatch * BoxDimensions.Elements());
                 GPU.CopyDeviceToDevice(target.GetDeviceSlice(i * DeviceBatch * 3, Intent.Read),
                                        TensorTargetPick[i].DataPtr(),
-                                       DeviceBatch * (int)BoxDimensions.Elements() * 3);
+                                       DeviceBatch * BoxDimensions.Elements() * 3);
 
                 GPU.CheckGPUExceptions();
 
                 using (TorchTensor TargetArgMax = TensorTargetPick[i].Argmax(1))
                 using (TorchTensor Prediction = Model[i].PickForward(TensorSource[i]))
-                using (TorchTensor PredictionLoss = Loss[i](Prediction, TargetArgMax))
+                using (TorchTensor PredictionLoss = LossPick[i](Prediction, TargetArgMax))
                 {
                     if (needOutput)
                     {
@@ -256,7 +259,7 @@ namespace Warp
                         {
                             GPU.CopyDeviceToDevice(PredictionArgMaxFP.DataPtr(),
                                                    ResultPredictedArgmax.GetDeviceSlice(i * DeviceBatch, Intent.Write),
-                                                   DeviceBatch * (int)BoxDimensions.Elements());
+                                                   DeviceBatch * BoxDimensions.Elements());
                         }
                     }
 
@@ -303,22 +306,21 @@ namespace Warp
 
                 GPU.CopyDeviceToDevice(source.GetDeviceSlice(i * DeviceBatch, Intent.Read),
                                        TensorSource[i].DataPtr(),
-                                       DeviceBatch * (int)BoxDimensions.Elements());
+                                       DeviceBatch * BoxDimensions.Elements());
                 GPU.CopyDeviceToDevice(target.GetDeviceSlice(i * DeviceBatch, Intent.Read),
                                        TensorTargetDenoise[i].DataPtr(),
-                                       DeviceBatch * (int)BoxDimensions.Elements());
+                                       DeviceBatch * BoxDimensions.Elements());
 
                 GPU.CheckGPUExceptions();
 
-                using (TorchTensor TargetArgMax = TensorTargetDenoise[i].Argmax(1))
                 using (TorchTensor Prediction = Model[i].DenoiseForward(TensorSource[i]))
-                using (TorchTensor PredictionLoss = Loss[i](Prediction, TargetArgMax))
+                using (TorchTensor PredictionLoss = LossDenoise[i](Prediction, TensorTargetDenoise[i]))
                 {
                     if (needOutput)
                     {
                         GPU.CopyDeviceToDevice(Prediction.DataPtr(),
                                                ResultPredictedDenoised.GetDeviceSlice(i * DeviceBatch, Intent.Write),
-                                               DeviceBatch * (int)BoxDimensions.Elements());
+                                               DeviceBatch * BoxDimensions.Elements());
                     }
 
                     if (i == 0)
