@@ -1659,8 +1659,7 @@ namespace Warp.Sociology
                                                                                                           TrainingFromScratch ? 3000 * 8 : 600 * 8,
                                                                                                           0,
                                                                                                           Denoiser.BatchSize,
-                                                                                                          //((gpuID < 0 ? GPU.GetDeviceWithMostMemory() : gpuID) + 1) % GPU.GetDeviceCount(),
-                                                                                                          0,
+                                                                                                          gpuID < 0 ? GPU.GetDeviceWithMostMemory() : gpuID,
                                                                                                           s => progressCallback?.Invoke($"4/5: Training denoising: {s}"));
 
             GPU.SetDevice(gpuID < 0 ? 0 : gpuID);
@@ -2094,7 +2093,8 @@ namespace Warp.Sociology
             HalfMap1Reconstruction[0] = null;
             HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 2) / (HalfMap1.Dims.X / 2), true);
             HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
-            // HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
+            HalfMap1.FreeDevice();
+            //HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
 
             Console.WriteLine("Reconstructing half-map 2...");
             HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry, -1, -1, -1, 0, true);
@@ -2104,7 +2104,8 @@ namespace Warp.Sociology
             HalfMap2Reconstruction[0] = null;
             HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 2) / (HalfMap2.Dims.X / 2), true);
             HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
-            // HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
+            HalfMap1.FreeDevice();
+            //HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
 
             Console.WriteLine("Finalizing map...");
             CalculateResolutionAndFilter(-1, s => Console.WriteLine(s), gpuID);
