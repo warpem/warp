@@ -269,7 +269,15 @@ namespace Warp
                     //Import.RecalcBinnedPixelSize();
                 }
             }
-            catch { }
+            catch (FileNotFoundException ex)
+            {
+                Console.WriteLine("File not found: " + ex.Message);
+                Environment.Exit(1);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("An error occurred: " + ex.Message);
+            }
         }
 
         #region 2D processing settings creation and adoption
