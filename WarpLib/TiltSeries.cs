@@ -1373,17 +1373,23 @@ namespace Warp
 
                 if (Lines.Length == NValid)
                 {
-                    for (int t = 0, iline = 0; t < NTilts; t++)
+                    float[] ParsedTiltAngles = new float[NTilts];
+                    for (int t = 0; t < NTilts; t++)
                     {
-                        if (!UseTilt[t])
-                            continue;
+                        string Line = Lines[t];
+                        ParsedTiltAngles[t] = float.Parse(Line, CultureInfo.InvariantCulture);
+                    }
 
-                        string Line = Lines[iline];
-                        float Angle = float.Parse(Line, CultureInfo.InvariantCulture);
-
-                        Angles[t] = Angle;
-
-                        iline++;
+                    if (ParsedTiltAngles.All(angle => angle == 0))
+                        throw new Exception($"all tilt angles are zero in {TltPath}");
+                    else
+                    {
+                        for (int t = 0; t < NTilts; t++)
+                        {
+                            if (!UseTilt[t])
+                                continue;
+                            Angles[t] = ParsedTiltAngles[t];
+                        }
                     }
                 }
             }
