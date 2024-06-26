@@ -1380,7 +1380,7 @@ namespace Warp
                         ParsedTiltAngles[t] = float.Parse(Line, CultureInfo.InvariantCulture);
                     }
 
-                    if (ParsedTiltAngles.Select(angle => { angle == 0 }).All())
+                    if (ParsedTiltAngles.All(angle => angle == 0))
                         throw new Exception($"all tilt angles are zero in {TltPath}");
                     else
                     {
