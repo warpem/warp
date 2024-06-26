@@ -1384,7 +1384,7 @@ namespace Warp
                         throw new Exception($"all tilt angles are zero in {TltPath}");
                     else
                     {
-                        for (int t = 0, t < NTilts; t++)
+                        for (int t = 0; t < NTilts; t++)
                         {
                             if (!UseTilt[t])
                                 continue;
