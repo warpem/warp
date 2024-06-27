@@ -273,58 +273,58 @@ namespace WarpTools.Commands
                             return;
                         }
 
-                        // #region Determine average intensity in each tilt
-                        // commented out as appears unreliable in some cases...
-                        // {
-                        //     var SortedAbsoluteAngle = new List<MdocEntry>(SortedAngle);
-                        //     SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
-                        //
-                        //     MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
-                        //     var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
-                        //     var AverageSparse = new float[AverageReadBuffer.Length / 10];
-                        //
-                        //     foreach (var entry in SortedAngle)
-                        //     {
-                        //         IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
-                        //                                         
-                        //         for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
-                        //             AverageSparse[i] = AverageReadBuffer[i * 10];
-                        //
-                        //         entry.AverageIntensity = MathHelper.Median(AverageSparse);
-                        //     }
-                        //
-                        //     float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
-                        //     MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
-                        //     int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
-                        //     float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
-                        //
-                        //     foreach (var entry in SortedAngle)
-                        //         entry.TiltAngle -= ActualZeroAngle;
-                        //
-                        //     int LowestAngleId = ZeroAngleId;
-                        //     int HighestAngleId = ZeroAngleId;
-                        //
-                        //     bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
-                        //     for (int i = ZeroAngleId - 1; i >= 0; i--)
-                        //     {
-                        //         if (!Passed[i])
-                        //             break;
-                        //         LowestAngleId = i;
-                        //     }
-                        //     for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
-                        //     {
-                        //         if (!Passed[i])
-                        //             break;
-                        //         HighestAngleId = i;
-                        //     }
-                        //
-                        //     SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
-                        // }
-                        //
-                        // #endregion
-                        //
+                        #region Determine average intensity in each tilt
+                        
+                        {
+                            var SortedAbsoluteAngle = new List<MdocEntry>(SortedAngle);
+                            SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
+                        
+                            MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
+                            var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
+                            var AverageSparse = new float[AverageReadBuffer.Length / 10];
+                        
+                            foreach (var entry in SortedAngle)
+                            {
+                                IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
+                                                                
+                                for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
+                                    AverageSparse[i] = AverageReadBuffer[i * 10];
+                        
+                                entry.AverageIntensity = MathHelper.Median(AverageSparse);
+                            }
+                        
+                            float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
+                            MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
+                            int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
+                            float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
+                        
+                            foreach (var entry in SortedAngle)
+                                entry.TiltAngle -= ActualZeroAngle;
+                        
+                            int LowestAngleId = ZeroAngleId;
+                            int HighestAngleId = ZeroAngleId;
+                        
+                            bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
+                            for (int i = ZeroAngleId - 1; i >= 0; i--)
+                            {
+                                if (!Passed[i])
+                                    break;
+                                LowestAngleId = i;
+                            }
+                            for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
+                            {
+                                if (!Passed[i])
+                                    break;
+                                HighestAngleId = i;
+                            }
+                        
+                            SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
+                        }
+                        
+                        #endregion
+                        
                         // #region check if tilt axis seems reasonable in each tilt series
-                        //
+                        // commented out as appears unreliable in some cases...
                         // // calculate plane normal from spatially resolved defocus estimates for each tilt image
                         // int nTilts = SortedAngle.Count;
                         // var planeNormals = new float3[nTilts];
