@@ -61,6 +61,11 @@ namespace Warp
             }
             else
             {
+                // named pipes on linux don't work well on remote filesystems
+                // https://github.com/warpem/warp/issues/28#issuecomment-2197168677
+                string PipeDirectory = Environment.GetEnvironmentVariable("TMPDIR");
+                PipeName = $"{PipeDirectory}{PipeName}";
+                
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
                     StartInfo = new ProcessStartInfo()
                     {
@@ -86,7 +91,7 @@ namespace Warp
 
             Worker = new Process { StartInfo = StartInfo };
             Worker.Start();
-
+            
             Port = ListenForPort(PipeName, 100_000);
 
             Stopwatch Timeout = new Stopwatch();
