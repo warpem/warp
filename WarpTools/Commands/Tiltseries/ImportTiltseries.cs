@@ -80,7 +80,7 @@ namespace WarpTools.Commands
                 throw new Exception($"--tilt_exposure must be higher than 0");
 
             if (CLI.AutoZero && CLI.TiltOffset != null)
-                throw new Exception("--auto_zero and --offset_zero cannot be used together")
+                throw new Exception("--auto_zero and --offset_zero cannot be used together");
 
             if (CLI.MaxTilt <= 0)
                 throw new Exception($"--max_tilt must be higher than 0");
