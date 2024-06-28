@@ -36,6 +36,12 @@ namespace WarpTools.Commands
         [Option("override_axis", HelpText = "Override the tilt axis angle with this value")]
         public double? OverrideAxis { get; set; }
 
+        [Option("auto_zero", HelpText = "Adjust tilt angles so that the tilt with the highest average intensity becomes the 0-tilt")]
+        public bool AutoZero { get; set; }
+
+        [Option("tilt_offset", HelpText = "Subtract this value from all tilt angle values to compensate pre-tilt")]
+        public double? TiltOffset { get; set; }
+
         [Option("max_tilt", Default = 90, HelpText = "Exclude all tilts above this (absolute) tilt angle")]
         public int MaxTilt { get; set; }
 
@@ -72,6 +78,10 @@ namespace WarpTools.Commands
 
             if (CLI.TiltExposure <= 0)
                 throw new Exception($"--tilt_exposure must be higher than 0");
+
+            if (CLI.AutoZero && CLI.TiltOffset != null)
+                throw new Exception("--auto_zero and --offset_zero cannot be used together")
+
             if (CLI.MaxTilt <= 0)
                 throw new Exception($"--max_tilt must be higher than 0");
             if (CLI.MinIntensity < 0)
@@ -96,7 +106,7 @@ namespace WarpTools.Commands
 
             #endregion
 
-            #region Find frame series
+            #region Find tilt movies
 
             Dictionary<string, Movie> Movies;
             {
@@ -297,10 +307,15 @@ namespace WarpTools.Commands
                             MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
                             int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
                             float ActualZeroAngle = ZeroAngleEntry.TiltAngle;
-                        
+
                             foreach (var entry in SortedAngle)
-                                entry.TiltAngle -= ActualZeroAngle;
-                        
+                            {
+                                if (CLI.AutoZero)
+                                    entry.TiltAngle -= ActualZeroAngle;
+                                else if (CLI.TiltOffset != null)
+                                    entry.TiltAngle -= (float)CLI.TiltOffset;
+                            }
+
                             int LowestAngleId = ZeroAngleId;
                             int HighestAngleId = ZeroAngleId;
                         
