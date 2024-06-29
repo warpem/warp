@@ -65,4 +65,5 @@ The IMOD `xf` format is specified
     X' = A11 * X + A12 * Y + DX
     Y' = A21 * X + A22 * Y + DY
 
+This is done with the program [`ts_import_alignments`](./api/tilt_series.md#ts_import_alignments).
 
