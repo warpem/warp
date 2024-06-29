@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tilt_series" class="md-skip">
+        <a href="#ts_import" class="md-skip">
           Skip to content
         </a>
       
@@ -1244,8 +1244,6 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
-        
-      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
@@ -1273,8 +1271,6 @@
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
-  
-    
   
   
     <label class="md-nav__title" for="__toc">
@@ -1347,9 +1343,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ts_template_matchts_import_alignments" class="md-nav__link">
+  <a href="#ts_template_match" class="md-nav__link">
     <span class="md-ellipsis">
-      ts_template_matchts_import_alignments
+      ts_template_match
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ts_import_alignments" class="md-nav__link">
+    <span class="md-ellipsis">
+      ts_import_alignments
     </span>
   </a>
   
@@ -1672,8 +1677,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1745,9 +1748,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ts_template_matchts_import_alignments" class="md-nav__link">
+  <a href="#ts_template_match" class="md-nav__link">
     <span class="md-ellipsis">
-      ts_template_matchts_import_alignments
+      ts_template_match
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ts_import_alignments" class="md-nav__link">
+    <span class="md-ellipsis">
+      ts_import_alignments
     </span>
   </a>
   
@@ -1780,7 +1792,8 @@
   
 
 
-<h1 id="tilt_series">tilt_series</h1>
+  <h1>Tilt Series</h1>
+
 <h2 id="ts_import">ts_import</h2>
 <div class="highlight"><pre><span></span><code>WarpTools - a collection of tools for EM data pre-processing
 Version 2.0.0
@@ -2289,94 +2302,152 @@ Showing all available options for command ts_reconstruct:
                           pawned processes. Formatted as hostname:port, separate
                           d by spaces
 </code></pre></div>
-<h2 id="ts_template_matchts_import_alignments">ts_template_matchts_import_alignments</h2>
+<h2 id="ts_template_match">ts_template_match</h2>
 <div class="highlight"><pre><span></span><code>WarpTools - a collection of tools for EM data pre-processing
 Version 2.0.0
 
-Unknown command, showing all available commands:
+Showing all available options for command ts_template_match:
 
-------------------------------------General-------------------------------------
+------------------------------Data import settings------------------------------
 
-change_selection         Change the manual selection status (selected | deselect
-                         ed | null) for every item
-
-create_settings          Create data import settings
-
-filter_quality           Filter frame/tilt series by various quality metrics, or
-                          just print out histograms
-
-move_data                Changes the location of raw data in XML metadata; use i
-                         t when the raw data moves, or you switch between Window
-                         s and Linux
-
-threshold_picks          Apply a score threshold to particles picked through tem
-                         plate-matching from tilt or frame series
+--settings                REQUIRED Path to Warp&#39;s .settings file, typically loca
+                          ted in the processing folder. Default file name is &#39;pr
+                          evious.settings&#39;.
 
 
-----------------------------------Frame series----------------------------------
+--------------------------------------------------------------------------------
 
-fs_motion_and_ctf        Estimate motion in frame series, produce aligned averag
-                         es, estimate CTF – all in one go!
+--tomo_angpix             REQUIRED Pixel size of the reconstructed tomograms in 
+                          Angstrom
 
-fs_motion                Estimate motion in frame series, produce aligned averag
-                         es
+--template_path           Path to the template file
 
-fs_boxnet_infer          Run a trained BoxNet model on frameseries averages, pro
-                         ducing particle positions and masks
+--template_emdb           Instead of providing a local map, download the EMDB en
+                          try with this ID and use its main map
 
-fs_boxnet_train          (Re)train a BoxNet model on image/label pairs, producin
-                         g a new model
+--template_angpix         Pixel size of the template; leave empty to use value f
+                          rom map header
 
-fs_ctf                   Estimate CTF parameters in frame series
+--template_diameter       REQUIRED Template diameter in Angstrom
 
-fs_export_micrographs    Create aligned averages or half-averages from frame ser
-                         ies with previously estimated motion
+--template_flip           Mirror the template along the X axis to flip the hande
+                          dness; &#39;_flipx&#39; will be added to the template&#39;s name
 
-fs_export_particles      Extract particles from tilt series
+--symmetry                Default: C1. Symmetry of the template, e.g. C1, D7, O
+
+--subdivisions            Default: 3. Number of subdivisions defining the angula
+                          r search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and s
+                          o on
+
+--batch_angles            Default: 32. How many orientations to evaluate at once
+                          ; memory consumption scales linearly with this; higher
+                           than 32 probably won&#39;t lead to speed-ups
+
+--peak_distance           Minimum distance (in Angstrom) between peaks; leave em
+                          pty to use template diameter
+
+--npeaks                  Default: 2000. Maximum number of peak positions to sav
+                          e
+
+--dont_normalize          Don&#39;t set score distribution to median = 0, stddev = 1
+
+--dont_whiten             Don&#39;t perform spectral whitening; this can help when t
+                          he alignments are poor by up-weighting lower frequenci
+                          es
+
+--reuse_results           Reuse correlation volumes from a previous run if avail
+                          able, only extract peak positions
+
+--check_hand              Default: 0. Also try a flipped version of the template
+                           on this many tomograms to see what geometric hand the
+                          y have
+
+--subvolume_size          Default: 192. Matching is performed locally using sub-
+                          volumes of this size in pixel
 
 
---------------------------------------Help--------------------------------------
+-------------------------------Work distribution--------------------------------
 
-helpgpt                  Get help from ChatGPT; requires an OpenAI API key store
-                         d in ~/openai.key
+--device_list             Space-separated list of GPU IDs to use for processing.
+                           Default: all GPUs in the system
+
+--perdevice               Default: 1. Number of processes per GPU
 
 
-----------------------------------Tilt series-----------------------------------
+----------------------Advanced data import &amp; flow options-----------------------
 
-ts_aretomo               Create tilt series stacks and run AreTomo2 to obtain ti
-                         lt series alignments
+--input_data              Overrides the list of input files specified in the .se
+                          ttings file. Accepts a space-separated list of files, 
+                          wildcard patterns, or .txt files with one file name pe
+                          r line.
 
-ts_ctf                   Estimate CTF parameters in frame series
+--input_data_recursive    Enables recursive search for files matching the wildca
+                          rd pattern specified in --input_data. Only applicable 
+                          when processing and directories are separate. All file
+                           names must be unique.
 
-ts_defocus_hand          Check and/or set defocus handedness for all tilt series
+--input_processing        Specifies an alternative directory containing pre-proc
+                          essed results. Overrides the processing directory in t
+                          he .settings file.
 
-ts_etomo_fiducials       Create tilt series stacks and run Etomo fiducial tracki
-                         ng to obtain tilt series alignments
+--output_processing       Specifies an alternative directory to save processing 
+                          results. Overrides the processing directory in the .se
+                          ttings file.
 
-ts_etomo_patches         Create tilt series stacks and run Etomo patch tracking 
-                         to obtain tilt series alignments
 
-ts_eval_model            Map 3D positions to sets of 2D image coordinates consid
-                         ering a tilt series&#39; deformation model
+-----------------------Advanced remote work distribution------------------------
 
-ts_export_particles      Export particles as 3D volumes or 2D image series.
+--workers                 List of remote workers to be used instead of locally s
+                          pawned processes. Formatted as hostname:port, separate
+                          d by spaces
+</code></pre></div>
+<h2 id="ts_import_alignments">ts_import_alignments</h2>
+<div class="highlight"><pre><span></span><code>WarpTools - a collection of tools for EM data pre-processing
+Version 2.0.0
 
-ts_import_alignments     Import tilt series alignments from IMOD or AreTomo
+Showing all available options for command ts_import_alignments:
 
-ts_import                Create .tomostar files based on a combination of MDOC f
-                         iles, aligned frame series, and optional tilt series al
-                         ignments from IMOD or AreTomo
+------------------------------Data import settings------------------------------
 
-ts_reconstruct           Reconstruct tomograms for various tasks and, optionally
-                         , half-tomograms for denoiser training
+--settings                REQUIRED Path to Warp&#39;s .settings file, typically loca
+                          ted in the processing folder. Default file name is &#39;pr
+                          evious.settings&#39;.
 
-ts_stack                 Create tilt series stacks, i.e. put all of a series&#39; ti
-                         lt images in one .st file, to be used with IMOD, AreTom
-                         o etc.
 
-ts_template_match        Match previously reconstructed tomograms against a 3D t
-                         emplate, producing a list of the highest-scoring matche
-                         s
+--------------------------------------------------------------------------------
+
+--alignments              REQUIRED Path to a folder containing one sub-folder pe
+                          r tilt series with alignment results from IMOD or AreT
+                          omo
+
+--alignment_angpix        REQUIRED Pixel size (in Angstrom) of the images used t
+                          o create the alignments (used to convert the alignment
+                           shifts from pixels to Angstrom)
+
+--min_fov                 Default: 0. Disable tilts that contain less than this 
+                          fraction of the tomogram&#39;s field of view due to excess
+                          ive shifts
+
+
+----------------------Advanced data import &amp; flow options-----------------------
+
+--input_data              Overrides the list of input files specified in the .se
+                          ttings file. Accepts a space-separated list of files, 
+                          wildcard patterns, or .txt files with one file name pe
+                          r line.
+
+--input_data_recursive    Enables recursive search for files matching the wildca
+                          rd pattern specified in --input_data. Only applicable 
+                          when processing and directories are separate. All file
+                           names must be unique.
+
+--input_processing        Specifies an alternative directory containing pre-proc
+                          essed results. Overrides the processing directory in t
+                          he .settings file.
+
+--output_processing       Specifies an alternative directory to save processing 
+                          results. Overrides the processing directory in the .se
+                          ttings file.
 </code></pre></div>
 <h2 id="ts_eval_model">ts_eval_model</h2>
 <div class="highlight"><pre><span></span><code>WarpTools - a collection of tools for EM data pre-processing
