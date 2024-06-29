@@ -35,6 +35,10 @@ nav:
     - M:
         - Particle Operations: reference/m/particle_operations.md
     - WarpTools:
+        - API Reference:
+          - General: reference/warptools/api/general.md
+          - Frame Series: reference/warptools/api/frame_series.md
+          - Tilt Series: reference/warptools/api/tilt_series.md
         - Environment Variables: reference/warptools/environment_variables.md
         - Processing Subsets of Data: reference/warptools/subsets.md
         - Custom Tilt Series Alignment: reference/warptools/custom_tilt_series_alignments.md
