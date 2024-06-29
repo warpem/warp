@@ -15,10 +15,11 @@ def generate_docs(cli_programs, output_file):
         help_text = result.stdout
 
         with open(output_file, 'a') as f:
-            f.write(f"## {program}\n")
+            f.write(f"## {program}\n\n")
             f.write("```\n")
             f.write(help_text)
-            f.write("```\n")
+            f.write("```\n\n")
+    
 
 cli_programs_general = [
     "create_settings", 
