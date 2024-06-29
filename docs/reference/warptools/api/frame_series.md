@@ -1,5 +1,3 @@
-# frame_series
-
 ## fs_motion_and_ctf
 
 ```

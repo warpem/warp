@@ -1,5 +1,3 @@
-# general
-
 ## create_settings
 
 ```
