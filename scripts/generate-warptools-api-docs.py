@@ -7,8 +7,7 @@ def generate_docs(cli_programs, output_file):
     output_dir = output_file.parent
     output_dir.mkdir(exist_ok=True, parents=True)
        
-    with open(output_file, 'w') as f:
-        f.write(f'# {Path(output_file).stem}\n\n')
+    output_file.unlink(missing_ok=True)
 
     for program in cli_programs:
         result = subprocess.run(['WarpTools', f'{program}', '--help'], capture_output=True, text=True)
@@ -48,7 +47,7 @@ cli_programs_tiltseries =[
     "ts_etomo_patches",
     "ts_ctf",
     "ts_reconstruct",
-    "ts_template_match"
+    "ts_template_match",
     "ts_import_alignments",
     "ts_eval_model"
 ]
