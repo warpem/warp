@@ -8,7 +8,7 @@ def generate_docs(cli_programs, output_file):
     output_dir.mkdir(exist_ok=True, parents=True)
        
     with open(output_file, 'w') as f:
-        f.write(f'# {Path(output_file).stem}\n')
+        f.write(f'# {Path(output_file).stem}\n\n')
 
     for program in cli_programs:
         result = subprocess.run(['WarpTools', f'{program}', '--help'], capture_output=True, text=True)
