@@ -18,7 +18,7 @@ def generate_docs(cli_programs, output_file):
             f.write(f"## {program}\n\n")
             f.write("```\n")
             f.write(help_text)
-            f.write("```\n\n")
+            f.write("```\n\n\n")
     
 
 cli_programs_general = [
