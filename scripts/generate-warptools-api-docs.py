@@ -13,7 +13,7 @@ def generate_docs(cli_programs, output_file):
         result = subprocess.run(['WarpTools', f'{program} --help'], capture_output=True, text=True)
         help_text = result.stdout
 
-        with open(output_file), 'w+') as f:
+        with open(output_file, 'w+') as f:
             f.write(f"## {program}\n")
             f.write("```\n")
             f.write(help_text)
