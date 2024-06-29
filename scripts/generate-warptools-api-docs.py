@@ -3,8 +3,9 @@ import subprocess
 from pathlib import Path
 
 def generate_docs(cli_programs, output_file):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    output_file = Path(output_file)
+    output_dir = output_file.parent
+    output_dir.mkdir(exist_ok=True, parents=True)
        
     with open(output_file, 'w+') as f:
         f.write(f'# {Path(output_file).stem}\n')
