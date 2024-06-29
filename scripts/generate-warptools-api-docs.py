@@ -48,7 +48,7 @@ cli_programs_tiltseries =[
     "ts_etomo_patches",
     "ts_ctf",
     "ts_reconstruct",
-    "ts_template_match"
+    "ts_template_match",
     "ts_import_alignments",
     "ts_eval_model"
 ]
