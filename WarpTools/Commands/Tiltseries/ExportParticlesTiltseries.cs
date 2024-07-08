@@ -140,7 +140,8 @@ namespace WarpTools.Commands
 
             ValidateInputStar(InputStar);
             Dictionary<string, List<int>> TiltSeriesIDToParticleIndices = GroupParticles(
-                tiltSeriesIDs: InputStar.GetColumn("rlnMicrographName")
+                tiltSeriesIDs: InputStar.HasColumn("rlnMicrographName") 
+                    ? InputStar.GetColumn("rlnMicrographName") : InputStar.GetColumn("rlnTomoName")
             );
             if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
             {
@@ -381,7 +382,6 @@ namespace WarpTools.Commands
         {
             string[] requiredColumns = new string[]
             {
-                "rlnMicrographName",
                 "rlnCoordinateX",
                 "rlnCoordinateY",
                 "rlnCoordinateZ",
@@ -393,6 +393,16 @@ namespace WarpTools.Commands
                 {
                     throw new Exception($"Couldn't find {column} column in input STAR file.");
                 }
+            }
+
+            string[] tsIDColumns = new string[]
+            {
+                "rlnMicrographName",
+                "rlnTomoName",
+            };
+            if (!tsIDColumns.Any(columnName => star.HasColumn(columnName)))
+            {
+                throw new Exception($"Input STAR must have one of rlnMicrographName or rlnTomoName to identify tilt series.");
             }
         }
 
