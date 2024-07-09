@@ -431,90 +431,83 @@ namespace WarpTools.Commands
         private float3[] GetInputCoordinates(Star InputStar)
         {
             // parse positions
-            float[] PosX = InputStar.GetColumn("rlnCoordinateX")
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
-            float[] PosY = InputStar.GetColumn("rlnCoordinateY")
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
-            float[] PosZ = InputStar.GetColumn("rlnCoordinateZ")
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] posX = ParseFloatColumn(InputStar, "rlnCoordinateX");
+            float[] posY = ParseFloatColumn(InputStar, "rlnCoordinateY");
+            float[] posZ = ParseFloatColumn(InputStar, "rlnCoordinateZ");
             
             // parse shifts
-            // x shifts
-            float[] ShiftX = null;
-            if (InputStar.HasColumn("rlnOriginX"))
-            {
-                ShiftX = InputStar.GetColumn("rlnOriginX").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-            }
-            else if (InputStar.HasColumn("rlnOriginXAngst"))
-            {
-                ShiftX = InputStar.GetColumn("rlnOriginXAngst").Zip(
-                    InputStar.GetColumn("rlnPixelSize"), 
-                    (v, pixel_size) => 
-                        float.Parse(v, CultureInfo.InvariantCulture) / float.Parse(pixel_size, CultureInfo.InvariantCulture))
-                    .ToArray();
-            }
-            else
-            {
-                ShiftX = new float[InputStar.RowCount];
-            }
+            bool inputHasPixelSize = InputStar.HasColumn("rlnPixelSize") ||
+                             InputStar.HasColumn("rlnImagePixelSize");
+            float[] pixelSizes = inputHasPixelSize ? ParsePixelSizes(InputStar) : null;
             
-            // y shifts
-            float[] ShiftY = null;
-            if (InputStar.HasColumn("rlnOriginY"))
-            {
-                ShiftY = InputStar.GetColumn("rlnOriginY").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-            }
-            else if (InputStar.HasColumn("rlnOriginYAngst"))
-            {
-                ShiftY = InputStar.GetColumn("rlnOriginYAngst").Zip(
-                        InputStar.GetColumn("rlnPixelSize"), 
-                        (v, pixel_size) => 
-                            float.Parse(v, CultureInfo.InvariantCulture) / float.Parse(pixel_size, CultureInfo.InvariantCulture))
-                    .ToArray();
-            }
-            else
-            {
-                ShiftY = new float[InputStar.RowCount];
-            }
-
-            // z shifts
-            float[] ShiftZ = null;
-            if (InputStar.HasColumn("rlnOriginZ"))
-            {
-                ShiftZ = InputStar.GetColumn("rlnOriginZ").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-            }
-            else if (InputStar.HasColumn("rlnOriginZAngst"))
-            {
-                ShiftZ = InputStar.GetColumn("rlnOriginZAngst").Zip(
-                        InputStar.GetColumn("rlnPixelSize"), 
-                        (v, pixel_size) => 
-                            float.Parse(v, CultureInfo.InvariantCulture) / float.Parse(pixel_size, CultureInfo.InvariantCulture))
-                    .ToArray();
-            }
-            else
-            {
-                ShiftZ = new float[InputStar.RowCount];
-            }
+            float[] shiftsX = ParseShifts(
+                InputStar, 
+                shiftColumn: "rlnOriginX", 
+                angstromShiftColumn: "rlnOriginXAngst", 
+                pixelSizes: pixelSizes
+                );
+            float[] shiftsY = ParseShifts(
+                InputStar, 
+                shiftColumn: "rlnOriginX", 
+                angstromShiftColumn: "rlnOriginXAngst", 
+                pixelSizes: pixelSizes
+                );
+            float[] shiftsZ = ParseShifts(
+                InputStar, 
+                shiftColumn: "rlnOriginX", 
+                angstromShiftColumn: "rlnOriginXAngst", 
+                pixelSizes: pixelSizes
+                );
             
-            // combine xyz and shifts into absolute positions
+            // combine extraction positions and shifts into absolute positions
             float3[] XYZ = new float3[InputStar.RowCount];
             for (int r = 0; r < InputStar.RowCount; r++)
             {
                 XYZ[r] = new float3(
-                    x: PosX[r] - ShiftX[r],
-                    y: PosY[r] - ShiftY[r],
-                    z: PosZ[r] - ShiftZ[r]
+                    x: posX[r] - shiftsX[r],
+                    y: posY[r] - shiftsY[r],
+                    z: posZ[r] - shiftsZ[r]
                 );
             }
 
             return XYZ;
         }
+        
+        private float[] ParseFloatColumn(Star star, string columnName)
+        {
+            return star.GetColumn(columnName)
+                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+        }
+        
+        private float[] ParsePixelSizes(Star star)
+        {
+            float[] pixelSizes = star.HasColumn("rlnPixelSize") 
+                ? ParseFloatColumn(star, "rlnPixelSize") 
+                : ParseFloatColumn(star, "rlnImagePixelSize");
+
+            return pixelSizes;
+        }
+        
+        private float[] ParseShifts(Star star, string shiftColumn, string angstromShiftColumn, float[] pixelSizes)
+        {
+            if (star.HasColumn(shiftColumn))
+                return ParseFloatColumn(star, shiftColumn);
+            else if (star.HasColumn(angstromShiftColumn))
+            {
+                if (pixelSizes == null)
+                    throw new Exception("shifts in angstroms found without pixel sizes...");
+                else
+                    return ParseFloatColumn(star, angstromShiftColumn)
+                        .Zip(pixelSizes, (shift, pixelSize) => shift / pixelSize)
+                        .ToArray();
+            }
+            else
+            {
+                return new float[star.RowCount];
+            }
+        }
+        
+
 
         private float3[]? GetInputEulerAngles(Star InputStar)
         {
