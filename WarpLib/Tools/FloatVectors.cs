@@ -412,6 +412,11 @@ namespace Warp.Tools
             return this / Length();
         }
 
+        public bool EqualsZero()
+        {
+            return X == 0 && Y == 0 && Z == 0;
+        }
+
         public static float Dot(float3 a, float3 b)
         {
             return a.X * b.X + a.Y * b.Y + a.Z * b.Z;
@@ -564,6 +569,8 @@ namespace Warp.Tools
 
             return Result;
         }
+        
+        
 
         // Given H,S,L in range of 0-1
         // Returns a Color (RGB struct) in range of 0-255
