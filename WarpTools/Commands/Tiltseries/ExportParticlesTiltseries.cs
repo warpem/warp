@@ -617,7 +617,7 @@ namespace WarpTools.Commands
                 $"{tiltSeries.RootName}{suffix}_{particleIndex:D7}_{pixelSize:F2}A.mrc"
             );
 
-            if (relativeToParticleStarFile != null)
+            if (relativeToParticleStarFile)
             {
                 path = Path.GetRelativePath(relativeTo: Path.GetDirectoryName(particleStarFilePath), path);
             }
