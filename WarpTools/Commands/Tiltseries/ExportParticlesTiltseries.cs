@@ -139,10 +139,11 @@ namespace WarpTools.Commands
             }
 
             ValidateInputStar(InputStar);
-            Dictionary<string, List<int>> TiltSeriesIDToParticleIndices = GroupParticles(
-                tiltSeriesIDs: InputStar.HasColumn("rlnMicrographName") 
-                    ? InputStar.GetColumn("rlnMicrographName") : InputStar.GetColumn("rlnTomoName")
-            );
+            string[] tiltSeriesIDs = InputStar.HasColumn("rlnMicrographName")
+                ? InputStar.GetColumn("rlnMicrographName")
+                : InputStar.GetColumn("rlnTomoName");
+            Dictionary<string, List<int>> TiltSeriesIDToParticleIndices = GroupParticles(tiltSeriesIDs);
+            
             if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
             {
                 foreach (var kvp in TiltSeriesIDToParticleIndices)
@@ -352,7 +353,12 @@ namespace WarpTools.Commands
             
             // does it look like a 3.0+ style file? if not, just grab the table
             if (!Star.IsMultiTable(path) || !Star.ContainsTable(path, "optics"))
+            {
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"file is not a multitable or does not contain an optics table, parsing as single table...");
                 return new Star(path);
+            }
+
             
             // okay, join the optics data with the particle data
             Star opticsTable = new Star(path, "optics");
@@ -430,6 +436,14 @@ namespace WarpTools.Commands
 
         private void ValidateInputStar(Star star)
         {
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            {
+                string[] columnNames = star.GetColumnNames();
+                Console.WriteLine("columns in table...");
+                foreach (var colName in columnNames)
+                    Console.WriteLine($"{colName}");
+            }
+
             string[] requiredColumns = new string[]
             {
                 "rlnCoordinateX",
