@@ -617,7 +617,7 @@ namespace WarpTools.Commands
                 $"{tiltSeries.RootName}{suffix}_{particleIndex:D7}_{pixelSize:F2}A.mrc"
             );
 
-            if (relativeToParticleStarFile)
+            if (relativeToParticleStarFile != null)
             {
                 path = Path.GetRelativePath(relativeTo: Path.GetDirectoryName(particleStarFilePath), path);
             }
@@ -696,12 +696,22 @@ namespace WarpTools.Commands
                 particleMagnification[i] = "10000.0";
                 particleDetectorPixelSize[i] = FormattableString.Invariant($"{outputPixelSize:F5}");
                 particleResolutionEstimate[i] = FormattableString.Invariant($"{tiltSeries.CTFResolutionEstimate}");
-                particleImageFilePaths[i] =
-                    GetOutputImagePath(tiltSeries, particleIndex: i, pixelSize: outputPixelSize, suffix: "",
-                        relativeToParticleStarFile: relativeToParticleStarFile, particleStarFilePath: particleStarFile);
-                particleCtfFilePaths[i] =
-                    GetOutputCTFPath(tiltSeries, particleIndex: i, pixelSize: outputPixelSize, suffix: "",
-                        relativeToParticleStarFile: relativeToParticleStarFile, particleStarFilePath: particleStarFile);
+                particleImageFilePaths[i] = GetOutputImagePath(
+                    tiltSeries, 
+                    particleIndex: i, 
+                    pixelSize: outputPixelSize, 
+                    suffix: "",
+                    relativeToParticleStarFile: relativeToParticleStarFile, 
+                    particleStarFilePath: particleStarFile
+                    );
+                particleCtfFilePaths[i] = GetOutputCTFPath(
+                    tiltSeries, 
+                    particleIndex: i, 
+                    pixelSize: outputPixelSize, 
+                    suffix: "",
+                    relativeToParticleStarFile: relativeToParticleStarFile, 
+                    particleStarFilePath: particleStarFile
+                    );
                 particlePixelSize[i] = FormattableString.Invariant($"{outputPixelSize:F5}");
                 particleCtfVoltage[i] = FormattableString.Invariant($"{tiltSeries.CTF.Voltage:F3}");
                 particleCtfSphericalAberration[i] = FormattableString.Invariant($"{tiltSeries.CTF.Cs:F3}");
