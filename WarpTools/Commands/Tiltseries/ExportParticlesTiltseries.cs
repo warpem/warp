@@ -123,7 +123,7 @@ namespace WarpTools.Commands
             Star InputStar = null;
 
             if (HandleSingleFile)
-                (InputStar, bool is3) = Star.LoadRelion3Particles(CLI.InputStarFile);
+                InputStar = ParseRelionParticleStar(CLI.InputStarFile);
             else if (HandleMultipleFiiles)
             {
                 string[] InputStarFiles = Directory.GetFiles(path: CLI.InputDirectory, searchPattern: CLI.InputPattern);
@@ -343,6 +343,56 @@ namespace WarpTools.Commands
             Console.WriteLine(" Done");
 
             #endregion
+        }
+
+        private Star ParseRelionParticleStar(string path)
+        {
+            // Modified from Star.LoadRelion3Particles
+            // that method renames columns so prefer to simply parse data here
+            
+            // does it look like a 3.0+ style file? if not, just grab the table
+            if (!Star.IsMultiTable(path) || !Star.ContainsTable(path, "optics"))
+                return new Star(path);
+            
+            // okay, join the optics data with the particle data
+            Star opticsTable = new Star(path, "optics");
+            int[] groupIDs = opticsTable.GetColumn("rlnOpticsGroup").Select(s => int.Parse(s)).ToArray();
+            string[][] opticsGroupData = new string[groupIDs.Max() + 1][];
+            string[] opticsColumnNames = opticsTable.GetColumnNames().Where(n => n != "rlnOpticsGroup" && n != "rlnOpticsGroupName").ToArray();
+
+            // first parse data out of the optics table
+            for (int r = 0; r < opticsTable.RowCount; r++)
+            {
+                List<string> opticsRowData = new List<string>();
+                foreach (var columnName in opticsColumnNames)
+                    opticsRowData.Add(opticsTable.GetRowValue(r, columnName));
+                opticsGroupData[groupIDs[r]] = opticsRowData.ToArray();
+            }
+            
+            // load the particle table and remove and columns present in optics group data
+            Star particlesTable = new Star(path, "particles");
+            foreach (var columnName in opticsColumnNames)
+                if (particlesTable.HasColumn(columnName))
+                    particlesTable.RemoveColumn(columnName);
+
+            // construct a new column with the data from the correct optics group
+            // and add it to the particle table
+            int[] ColumnOpticsGroupID = particlesTable.GetColumn("rlnOpticsGroup").Select(s => int.Parse(s)).ToArray();
+
+            for (int iField = 0; iField < opticsColumnNames.Length; iField++)
+            {
+                string[] NewColumn = new string[particlesTable.RowCount];
+
+                for (int r = 0; r < ColumnOpticsGroupID.Length; r++)
+                {
+                    int GroupID = ColumnOpticsGroupID[r];
+                    NewColumn[r] = opticsGroupData[GroupID][iField];
+                }
+
+                particlesTable.AddColumn(opticsColumnNames[iField], NewColumn);
+            }
+
+            return particlesTable;
         }
 
         private ProcessingOptionsTomoSubReconstruction PrepareWarpWorkerExportOptions(
