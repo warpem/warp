@@ -149,7 +149,7 @@ namespace WarpTools.Commands
             
             float3[] xyz = GetCoordinates(inputStar);
             float3[] rotTiltPsi = GetEulerAngles(inputStar); // degrees
-            bool inputHasEulerAngles = rotTiltPsi.All(v => v.EqualsZero());
+            bool inputHasEulerAngles = rotTiltPsi.All(v => !v.EqualsZero());
             
             if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
                 Console.WriteLine($"input has euler angles?: {inputHasEulerAngles}");
