@@ -1,4 +1,3 @@
-#nullable enable
 using CommandLine;
 using System;
 using System.Collections.Generic;
@@ -55,10 +54,6 @@ namespace WarpTools.Commands
         [Option("relative_output_paths", HelpText = "Make paths in output STAR file relative to the location of the STAR file. They will be relative to the working directory otherwise.")]
         public bool OutputPathsRelativeToStarFile { get; set; }
 
-        // [Option("_relative_to_working_directory", Required = false, Default = false,
-        //     HelpText = "Make paths in output file(s) relative to the working directory")]
-        // public bool OutputPathsRelativeToWorkingDirectory { get; set; }
-
         [OptionGroup("Export type (REQUIRED, mutually exclusive)")]
         [Option("2d", HelpText = "Output particles as 2d image series centered on the particle (particle series)")]
         public bool Output2DParticles { get; set; }
@@ -84,52 +79,52 @@ namespace WarpTools.Commands
         public override async Task Run(object options)
         {
             await base.Run(options);
-            ExportParticlesTiltseriesOptions CLI = options as ExportParticlesTiltseriesOptions;
-            CLI.Evaluate();
+            ExportParticlesTiltseriesOptions cli = options as ExportParticlesTiltseriesOptions;
+            cli.Evaluate();
 
             #region Validate options
 
-            if (CLI.InputPixelSize == null && CLI.InputCoordinatesAreNormalized == false)
+            if (cli.InputPixelSize == null && cli.InputCoordinatesAreNormalized == false)
                 throw new Exception(
                     "Invalid combination of arguments, either input pixel size or coordinates are normalized must be set.");
-            else if (CLI.InputPixelSize != null && CLI.InputCoordinatesAreNormalized == true)
+            else if (cli.InputPixelSize != null && cli.InputCoordinatesAreNormalized == true)
                 throw new Exception(
                     "Invalid combination of arguments, only one of input pixel size and coordinates are normalized can be set.");
 
-            if (CLI.InputPixelSize != null && CLI.InputPixelSize <= 0)
+            if (cli.InputPixelSize != null && cli.InputPixelSize <= 0)
                 throw new Exception("Input pixel size must be a positive number.");
 
-            if (CLI.OutputBoxSize % 2 != 0 || CLI.OutputBoxSize < 2)
+            if (cli.OutputBoxSize % 2 != 0 || cli.OutputBoxSize < 2)
                 throw new Exception("Output box size must be an even, positive number.");
 
-            if (CLI.ParticleDiameter < 1)
+            if (cli.ParticleDiameter < 1)
                 throw new Exception("Particle diameter must be a positive number.");
 
-            if (CLI.OutputNTilts != null && CLI.OutputNTilts < 1)
+            if (cli.OutputNTilts != null && cli.OutputNTilts < 1)
                 throw new Exception("Output number of tilts must be a positive integer.");
 
-            if (new bool[] { CLI.Output2DParticles, CLI.Output3DParticles }.Count(v => v) != 1)
+            if (new bool[] { cli.Output2DParticles, cli.Output3DParticles }.Count(v => v) != 1)
                 throw new Exception("Choose either --2d or --3d as the export type");
 
             #endregion
 
             #region Parse input
 
-            bool HandleSingleFile =
-                !string.IsNullOrEmpty(CLI.InputStarFile) && string.IsNullOrEmpty(CLI.InputDirectory);
-            bool HandleMultipleFiiles =
-                !string.IsNullOrEmpty(CLI.InputDirectory) && !string.IsNullOrEmpty(CLI.InputPattern);
+            bool handleSingleFile =
+                !string.IsNullOrEmpty(cli.InputStarFile) && string.IsNullOrEmpty(cli.InputDirectory);
+            bool handleMultipleFiles =
+                !string.IsNullOrEmpty(cli.InputDirectory) && !string.IsNullOrEmpty(cli.InputPattern);
 
-            Star InputStar = null;
+            Star inputStar;
 
-            if (HandleSingleFile)
-                (InputStar, bool is3) = Star.LoadRelion3Particles(CLI.InputStarFile);
-            else if (HandleMultipleFiiles)
+            if (handleSingleFile)
+                inputStar = ParseRelionParticleStar(cli.InputStarFile);
+            else if (handleMultipleFiles)
             {
-                string[] InputStarFiles = Directory.GetFiles(path: CLI.InputDirectory, searchPattern: CLI.InputPattern);
+                string[] inputStarFiles = Directory.GetFiles(path: cli.InputDirectory, searchPattern: cli.InputPattern);
                 Console.WriteLine(
-                    $"Found {InputStarFiles.Length} files in {CLI.InputDirectory} matching {CLI.InputPattern};");
-                InputStar = new Star(InputStarFiles.Select(file => new Star(file)).ToArray());
+                    $"Found {inputStarFiles.Length} files in {cli.InputDirectory} matching {cli.InputPattern};");
+                inputStar = new Star(inputStarFiles.Select(file => new Star(file)).ToArray());
             }
             else
             {
@@ -138,42 +133,38 @@ namespace WarpTools.Commands
                 );
             }
 
-            ValidateInputStar(InputStar);
-            Dictionary<string, List<int>> TiltSeriesIDToParticleIndices = GroupParticles(
-                tiltSeriesIDs: InputStar.GetColumn("rlnMicrographName")
-            );
+            ValidateInputStar(inputStar);
+            string[] tiltSeriesIDs = inputStar.HasColumn("rlnMicrographName")
+                ? inputStar.GetColumn("rlnMicrographName")
+                : inputStar.GetColumn("rlnTomoName");
+            Dictionary<string, List<int>> tiltSeriesIdToParticleIndices = GroupParticles(tiltSeriesIDs);
+            
             if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
             {
-                foreach (var kvp in TiltSeriesIDToParticleIndices)
+                foreach (var kvp in tiltSeriesIdToParticleIndices)
                 {
                     Console.WriteLine($"TS: {kvp.Key}   Particles: {kvp.Value.Count}");
                 }
             }
             
-            float3[] InputXYZ = GetInputCoordinates(InputStar);
-            float3[]? InputEulerAnglesRotTiltPsi = GetInputEulerAngles(InputStar); // degrees
-
-            bool InputHasEulerAngles;
-            if (InputEulerAnglesRotTiltPsi == null)
-            {
-                InputHasEulerAngles = false;
-                InputEulerAnglesRotTiltPsi = new float3[InputXYZ.Length]; // initialise as zeros
-            }
-            else
-            {
-                InputHasEulerAngles = true;
-            }
+            float3[] xyz = GetCoordinates(inputStar);
+            float3[] rotTiltPsi = GetEulerAngles(inputStar); // degrees
+            bool inputHasEulerAngles = rotTiltPsi.All(v => !v.EqualsZero());
+            
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                Console.WriteLine($"input has euler angles?: {inputHasEulerAngles}");
+            Console.WriteLine($"Found {xyz.Count()} particles in {tiltSeriesIdToParticleIndices.Count()} tilt series");
 
             #endregion
-            Console.WriteLine($"Found {InputXYZ.Count()} particles in {TiltSeriesIDToParticleIndices.Count()} tilt series");
+            
 
             #region Prepare WarpWorker options and output-related variables
 
-            ProcessingOptionsTomoSubReconstruction ExportOptions = PrepareWarpWorkerExportOptions(CLI, CLI.Options);
-            int OutputImageDimensionality = DetermineOutputImageDimensionality(CLI);
+            ProcessingOptionsTomoSubReconstruction ExportOptions = PrepareWarpWorkerExportOptions(cli, cli.Options);
+            int OutputImageDimensionality = DetermineOutputImageDimensionality(cli);
 
             var OutputStarTables = new Dictionary<string, Star>();
-            string OutputStarPath = Path.GetFullPath(CLI.OutputStarFile);
+            string OutputStarPath = Path.GetFullPath(cli.OutputStarFile);
             int currentOpticsGroup = 1;
             var opticsGroupLock = new object();
 
@@ -181,9 +172,9 @@ namespace WarpTools.Commands
 
             #region Process tilt-series and accumulate metadata
 
-            WorkerWrapper[] Workers = CLI.GetWorkers(attachDebugger: false);
+            WorkerWrapper[] Workers = cli.GetWorkers(attachDebugger: false);
 
-            IterateOverItems(Workers, CLI, (worker, tiltSeries) =>
+            IterateOverItems(Workers, cli, (worker, tiltSeries) =>
             {
                 TiltSeries TiltSeries = (TiltSeries)tiltSeries;
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
@@ -196,47 +187,47 @@ namespace WarpTools.Commands
                     return;
                 }
 
-                if (!TiltSeriesIDToParticleIndices.ContainsKey(tiltSeries.Name))
+                if (!tiltSeriesIdToParticleIndices.ContainsKey(tiltSeries.Name))
                 {
                     Console.WriteLine($"no particles found in {tiltSeries.Name}, skipping...");
                     return;
                 }
                 
                 // Get positions and orientations for this tilt-series, rescale to Angstroms
-                List<int> TSParticleIndices = TiltSeriesIDToParticleIndices[tiltSeries.Name];
-                float3[] TSParticleXYZAngstroms = new float3[TSParticleIndices.Count];
-                float3[] TSParticleRotTiltPsi = new float3[TSParticleIndices.Count];
+                List<int> tsParticleIdx = tiltSeriesIdToParticleIndices[tiltSeries.Name];
+                float3[] tsParticleXyzAngstroms = new float3[tsParticleIdx.Count];
+                float3[] tsParticleRotTiltPsi = new float3[tsParticleIdx.Count];
                 
                 if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
-                    Console.WriteLine($"{TSParticleIndices.Count} particles for {TiltSeries.Name}");
+                    Console.WriteLine($"{tsParticleIdx.Count} particles for {TiltSeries.Name}");
 
-                for (int i = 0; i < TSParticleIndices.Count; i++)
+                for (int i = 0; i < tsParticleIdx.Count; i++)
                 {
                     // get positions
-                    if (CLI.InputCoordinatesAreNormalized)
+                    if (cli.InputCoordinatesAreNormalized)
                     {
-                        InputXYZ[TSParticleIndices[i]].X *= (float)(CLI.Options.Tomo.DimensionsX - 1);
-                        InputXYZ[TSParticleIndices[i]].Y *= (float)(CLI.Options.Tomo.DimensionsY - 1);
-                        InputXYZ[TSParticleIndices[i]].Z *= (float)(CLI.Options.Tomo.DimensionsZ - 1);
-                        TSParticleXYZAngstroms[i] = InputXYZ[TSParticleIndices[i]] * (float)CLI.Options.Import.PixelSize;
+                        xyz[tsParticleIdx[i]].X *= (float)(cli.Options.Tomo.DimensionsX - 1);
+                        xyz[tsParticleIdx[i]].Y *= (float)(cli.Options.Tomo.DimensionsY - 1);
+                        xyz[tsParticleIdx[i]].Z *= (float)(cli.Options.Tomo.DimensionsZ - 1);
+                        tsParticleXyzAngstroms[i] = xyz[tsParticleIdx[i]] * (float)cli.Options.Import.PixelSize;
                     }
                     else
-                        TSParticleXYZAngstroms[i] = InputXYZ[TSParticleIndices[i]] * (float)CLI.InputPixelSize;
+                        tsParticleXyzAngstroms[i] = xyz[tsParticleIdx[i]] * (float)cli.InputPixelSize;
                     
                     // get euler angles
-                    TSParticleRotTiltPsi[i] = InputEulerAnglesRotTiltPsi[TSParticleIndices[i]];
+                    tsParticleRotTiltPsi[i] = rotTiltPsi[tsParticleIdx[i]];
                 }
 
 
                 // Replicate positions and angles NTilts times because the
                 // WarpWorker method is parametrised for particle trajectories
-                float3[] TSParticleXYZAngstromsReplicated = Helper.Combine(
-                    TSParticleXYZAngstroms.Select(
+                float3[] tsParticleXYZAngstromsReplicated = Helper.Combine(
+                    tsParticleXyzAngstroms.Select(
                         p => Helper.ArrayOfConstant(p, ((TiltSeries)tiltSeries).NTilts)
                     ).ToArray()
                 );
                 float3[] TSParticleRotTiltPsiReplicated = Helper.Combine(
-                    TSParticleRotTiltPsi.Select(
+                    tsParticleRotTiltPsi.Select(
                         p => Helper.ArrayOfConstant(p, ((TiltSeries)tiltSeries).NTilts)
                     ).ToArray());
 
@@ -249,19 +240,19 @@ namespace WarpTools.Commands
                     worker.TomoExportParticleSubtomos(
                         path: tiltSeries.Path,
                         options: ExportOptions,
-                        coordinates: TSParticleXYZAngstromsReplicated,
+                        coordinates: tsParticleXYZAngstromsReplicated,
                         angles: TSParticleRotTiltPsiReplicated
                     );
                     if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
                         Console.WriteLine($"Constructing output table for {TiltSeries.Name}");
                     TiltSeriesTable = ConstructSubvolumeOutputTable(
                         tiltSeries: TiltSeries,
-                        xyz: TSParticleXYZAngstroms,
-                        eulerAngles: TSParticleRotTiltPsi,
-                        inputHasEulerAngles: InputHasEulerAngles,
-                        outputPixelSize: CLI.OutputPixelSize,
-                        relativeToParticleStarFile: CLI.OutputPathsRelativeToStarFile,
-                        particleStarFile: CLI.OutputStarFile
+                        xyz: tsParticleXyzAngstroms,
+                        eulerAngles: tsParticleRotTiltPsi,
+                        inputHasEulerAngles: inputHasEulerAngles,
+                        outputPixelSize: cli.OutputPixelSize,
+                        relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
+                        particleStarFile: cli.OutputStarFile
                     );
                     lock (OutputStarTables)
                         OutputStarTables.Add(tiltSeries.Name, TiltSeriesTable);
@@ -281,7 +272,7 @@ namespace WarpTools.Commands
                             worker.TomoExportParticleSeries(
                                 path: tiltSeries.Path,
                                 options: ExportOptions,
-                                coordinates: TSParticleXYZAngstromsReplicated,
+                                coordinates: tsParticleXYZAngstromsReplicated,
                                 angles: TSParticleRotTiltPsiReplicated,
                                 pathTableOut: TempTiltSeriesParticleStarPath,
                                 pathsRelativeTo: OutputStarPath
@@ -295,7 +286,7 @@ namespace WarpTools.Commands
                             );
                             Star ParticleOpticsTable = Construct2DOpticsTable(
                                 tiltSeries: TiltSeries,
-                                tiltSeriesPixelSize: (float)CLI.Options.Import.PixelSize,
+                                tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
                                 downsamplingFactor: (float)ExportOptions.DownsampleFactor,
                                 boxSize: ExportOptions.BoxSize,
                                 opticsGroup: currentOpticsGroup
@@ -328,7 +319,7 @@ namespace WarpTools.Commands
 
             WriteOutputStarFile(
                 perTiltSeriesTables: OutputStarTables,
-                particleStarPath: CLI.OutputStarFile,
+                particleStarPath: cli.OutputStarFile,
                 outputDimensionality: OutputImageDimensionality
             );
 
@@ -342,6 +333,61 @@ namespace WarpTools.Commands
             Console.WriteLine(" Done");
 
             #endregion
+        }
+
+        private Star ParseRelionParticleStar(string path)
+        {
+            // Modified from Star.LoadRelion3Particles
+            // that method renames columns so prefer to simply parse data here
+            
+            // does it look like a 3.0+ style file? if not, just grab the table
+            if (!Star.IsMultiTable(path) || !Star.ContainsTable(path, "optics"))
+            {
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"file is not a multitable or does not contain an optics table, parsing as single table...");
+                return new Star(path);
+            }
+
+            
+            // okay, join the optics data with the particle data
+            Star opticsTable = new Star(path, "optics");
+            int[] groupIDs = opticsTable.GetColumn("rlnOpticsGroup").Select(s => int.Parse(s)).ToArray();
+            string[][] opticsGroupData = new string[groupIDs.Max() + 1][];
+            string[] opticsColumnNames = opticsTable.GetColumnNames().Where(n => n != "rlnOpticsGroup" && n != "rlnOpticsGroupName").ToArray();
+
+            // first parse data out of the optics table
+            for (int r = 0; r < opticsTable.RowCount; r++)
+            {
+                List<string> opticsRowData = new List<string>();
+                foreach (var columnName in opticsColumnNames)
+                    opticsRowData.Add(opticsTable.GetRowValue(r, columnName));
+                opticsGroupData[groupIDs[r]] = opticsRowData.ToArray();
+            }
+            
+            // load the particle table and remove and columns present in optics group data
+            Star particlesTable = new Star(path, "particles");
+            foreach (var columnName in opticsColumnNames)
+                if (particlesTable.HasColumn(columnName))
+                    particlesTable.RemoveColumn(columnName);
+
+            // construct a new column with the data from the correct optics group
+            // and add it to the particle table
+            int[] columnOpticsGroupId = particlesTable.GetColumn("rlnOpticsGroup").Select(s => int.Parse(s)).ToArray();
+
+            for (int iField = 0; iField < opticsColumnNames.Length; iField++)
+            {
+                string[] NewColumn = new string[particlesTable.RowCount];
+
+                for (int r = 0; r < columnOpticsGroupId.Length; r++)
+                {
+                    int GroupID = columnOpticsGroupId[r];
+                    NewColumn[r] = opticsGroupData[GroupID][iField];
+                }
+
+                particlesTable.AddColumn(opticsColumnNames[iField], NewColumn);
+            }
+
+            return particlesTable;
         }
 
         private ProcessingOptionsTomoSubReconstruction PrepareWarpWorkerExportOptions(
@@ -379,9 +425,16 @@ namespace WarpTools.Commands
 
         private void ValidateInputStar(Star star)
         {
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            {
+                string[] columnNames = star.GetColumnNames();
+                Console.WriteLine("columns in table...");
+                foreach (var colName in columnNames)
+                    Console.WriteLine($"{colName}");
+            }
+
             string[] requiredColumns = new string[]
             {
-                "rlnMicrographName",
                 "rlnCoordinateX",
                 "rlnCoordinateY",
                 "rlnCoordinateZ",
@@ -393,6 +446,16 @@ namespace WarpTools.Commands
                 {
                     throw new Exception($"Couldn't find {column} column in input STAR file.");
                 }
+            }
+
+            string[] tsIDColumns = new string[]
+            {
+                "rlnMicrographName",
+                "rlnTomoName",
+            };
+            if (!tsIDColumns.Any(columnName => star.HasColumn(columnName)))
+            {
+                throw new Exception($"Input STAR must have one of rlnMicrographName or rlnTomoName to identify tilt series.");
             }
         }
 
@@ -418,123 +481,126 @@ namespace WarpTools.Commands
             return groups;
         }
 
-        private float3[] GetInputCoordinates(Star InputStar)
+        private float3[] GetCoordinates(Star InputStar)
         {
             // parse positions
-            float[] PosX = InputStar.GetColumn("rlnCoordinateX")
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
-            float[] PosY = InputStar.GetColumn("rlnCoordinateY")
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
-            float[] PosZ = InputStar.GetColumn("rlnCoordinateZ")
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+            float[] posX = ParseFloatColumn(InputStar, "rlnCoordinateX");
+            float[] posY = ParseFloatColumn(InputStar, "rlnCoordinateY");
+            float[] posZ = ParseFloatColumn(InputStar, "rlnCoordinateZ");
             
             // parse shifts
-            // x shifts
-            float[] ShiftX = null;
-            if (InputStar.HasColumn("rlnOriginX"))
-            {
-                ShiftX = InputStar.GetColumn("rlnOriginX").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-            }
-            else if (InputStar.HasColumn("rlnOriginXAngst"))
-            {
-                ShiftX = InputStar.GetColumn("rlnOriginXAngst").Zip(
-                    InputStar.GetColumn("rlnPixelSize"), 
-                    (v, pixel_size) => 
-                        float.Parse(v, CultureInfo.InvariantCulture) / float.Parse(pixel_size, CultureInfo.InvariantCulture))
-                    .ToArray();
-            }
-            else
-            {
-                ShiftX = new float[InputStar.RowCount];
-            }
+            bool inputHasPixelSize = InputStar.HasColumn("rlnPixelSize") ||
+                             InputStar.HasColumn("rlnImagePixelSize");
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                Console.WriteLine($"input has pixel size?: {inputHasPixelSize}");
             
-            // y shifts
-            float[] ShiftY = null;
-            if (InputStar.HasColumn("rlnOriginY"))
+            float[] pixelSizes = inputHasPixelSize ? ParsePixelSizes(InputStar) : null;
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
             {
-                ShiftY = InputStar.GetColumn("rlnOriginY").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
+                if (pixelSizes == null)
+                    Console.WriteLine($"pixel sizes: {pixelSizes}");
+                else
+                    Console.WriteLine($"pixel sizes: [{pixelSizes[0]}, {pixelSizes[1]}, ...]");
             }
-            else if (InputStar.HasColumn("rlnOriginYAngst"))
-            {
-                ShiftY = InputStar.GetColumn("rlnOriginYAngst").Zip(
-                        InputStar.GetColumn("rlnPixelSize"), 
-                        (v, pixel_size) => 
-                            float.Parse(v, CultureInfo.InvariantCulture) / float.Parse(pixel_size, CultureInfo.InvariantCulture))
-                    .ToArray();
-            }
-            else
-            {
-                ShiftY = new float[InputStar.RowCount];
-            }
-
-            // z shifts
-            float[] ShiftZ = null;
-            if (InputStar.HasColumn("rlnOriginZ"))
-            {
-                ShiftZ = InputStar.GetColumn("rlnOriginZ").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-            }
-            else if (InputStar.HasColumn("rlnOriginZAngst"))
-            {
-                ShiftZ = InputStar.GetColumn("rlnOriginZAngst").Zip(
-                        InputStar.GetColumn("rlnPixelSize"), 
-                        (v, pixel_size) => 
-                            float.Parse(v, CultureInfo.InvariantCulture) / float.Parse(pixel_size, CultureInfo.InvariantCulture))
-                    .ToArray();
-            }
-            else
-            {
-                ShiftZ = new float[InputStar.RowCount];
-            }
+                
             
-            // combine xyz and shifts into absolute positions
+            float[] shiftsX = ParseShifts(
+                InputStar, 
+                shiftColumn: "rlnOriginX", 
+                angstromShiftColumn: "rlnOriginXAngst", 
+                pixelSizes: pixelSizes
+                );
+            float[] shiftsY = ParseShifts(
+                InputStar, 
+                shiftColumn: "rlnOriginY", 
+                angstromShiftColumn: "rlnOriginYAngst", 
+                pixelSizes: pixelSizes
+                );
+            float[] shiftsZ = ParseShifts(
+                InputStar, 
+                shiftColumn: "rlnOriginZ", 
+                angstromShiftColumn: "rlnOriginZAngst", 
+                pixelSizes: pixelSizes
+                );
+            
+            // combine extraction positions and shifts into absolute positions
             float3[] XYZ = new float3[InputStar.RowCount];
             for (int r = 0; r < InputStar.RowCount; r++)
             {
                 XYZ[r] = new float3(
-                    x: PosX[r] - ShiftX[r],
-                    y: PosY[r] - ShiftY[r],
-                    z: PosZ[r] - ShiftZ[r]
+                    x: posX[r] - shiftsX[r],
+                    y: posY[r] - shiftsY[r],
+                    z: posZ[r] - shiftsZ[r]
                 );
             }
 
             return XYZ;
         }
-
-        private float3[]? GetInputEulerAngles(Star InputStar)
+        
+        private float[] ParseFloatColumn(Star star, string columnName)
         {
-            try
-            {
-                float[] AngleRot = InputStar.GetColumn("rlnAngleRot").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-                float[] AngleTilt = InputStar.GetColumn("rlnAngleTilt").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-                float[] AnglePsi = InputStar.GetColumn("rlnAnglePsi").Select(
-                    v => float.Parse(v, CultureInfo.InvariantCulture)
-                ).ToArray();
-                float3[] AnglesRotTiltPsi = new float3[InputStar.RowCount];
-                for (int r = 0; r < InputStar.RowCount; r++)
-                {
-                    AnglesRotTiltPsi[r] = new float3(
-                        x: AngleRot[r],
-                        y: AngleTilt[r],
-                        z: AnglePsi[r]
-                    );
-                }
+            return star.GetColumn(columnName)
+                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+        }
+        
+        private float[] ParsePixelSizes(Star star)
+        {
+            float[] pixelSizes = star.HasColumn("rlnPixelSize") 
+                ? ParseFloatColumn(star, "rlnPixelSize") 
+                : ParseFloatColumn(star, "rlnImagePixelSize");
 
-                return AnglesRotTiltPsi;
-            }
-            catch (ArgumentNullException) // GetColumn returns null if not present, fails at Select
+            return pixelSizes;
+        }
+        
+        private float[] ParseShifts(Star star, string shiftColumn, string angstromShiftColumn, float[] pixelSizes)
+        {
+            if (star.HasColumn(shiftColumn))
             {
-                return null;
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"got shifts from {shiftColumn}");
+                return ParseFloatColumn(star, shiftColumn);
             }
+
+            if (star.HasColumn(angstromShiftColumn))
+            {
+                if (pixelSizes == null)
+                    throw new Exception("shifts in angstroms found without pixel sizes...");
+                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    Console.WriteLine($"got shifts from {angstromShiftColumn}");
+                return ParseFloatColumn(star, angstromShiftColumn)
+                    .Zip(pixelSizes, (shift, pixelSize) => shift / pixelSize)
+                    .ToArray();
+            }
+            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                Console.WriteLine($"no shifts found in table");
+            return new float[star.RowCount];  // all zeros
+        }
+        
+
+
+        private float3[] GetEulerAngles(Star star)
+        {
+            string[] relionEulerColumns = ["rlnAngleRot", "rlnAngleTilt", "rlnAnglePsi"];
+            
+            // set to all zeros if any column not found
+            foreach (var colName in relionEulerColumns)
+            {
+                if (!star.HasColumn(colName))
+                {
+                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                        Console.WriteLine($"no euler angles found for {star.RowCount}");
+                    return new float3[star.RowCount]; 
+                }
+            }
+            
+            // otherwise get from table
+            float[] rot = ParseFloatColumn(star, "rlnAngleRot");
+            float[] tilt = ParseFloatColumn(star, "rlnAngleTilt");
+            float[] psi = ParseFloatColumn(star, "rlnAnglePsi");
+            float3[] rotTiltPsi = new float3[star.RowCount];
+            for (int r = 0; r < star.RowCount; r++)
+                rotTiltPsi[r] = new float3(x: rot[r], y: tilt[r], z: psi[r]);
+            return rotTiltPsi;
         }
 
         private string GetOutputImagePath(
@@ -601,44 +667,54 @@ namespace WarpTools.Commands
             string? particleStarFile
         )
         {
-            int NParticles = xyz.Length;
-            string[] ParticleCoordinateX = new string[NParticles];
-            string[] ParticleCoordinateY = new string[NParticles];
-            string[] ParticleCoordinateZ = new string[NParticles];
-            string[] ParticleAngleRot = new string[NParticles];
-            string[] ParticleAngleTilt = new string[NParticles];
-            string[] ParticleAnglePsi = new string[NParticles];
-            string[] TSIdentifier = new string[NParticles];
-            string[] ParticleMagnification = new string[NParticles];
-            string[] ParticleDetectorPixelSize = new string[NParticles];
-            string[] ParticleResolutionEstimate = new string[NParticles];
-            string[] ParticleImageFilePaths = new string[NParticles];
-            string[] ParticleCTFFilePaths = new string[NParticles];
-            string[] ParticlePixelSize = new string[NParticles];
-            string[] ParticleCTFVoltage = new string[NParticles];
-            string[] ParticleCTFSphericalAberration = new string[NParticles];
+            int nParticles = xyz.Length;
+            string[] particleCoordinateX = new string[nParticles];
+            string[] particleCoordinateY = new string[nParticles];
+            string[] particleCoordinateZ = new string[nParticles];
+            string[] particleAngleRot = new string[nParticles];
+            string[] particleAngleTilt = new string[nParticles];
+            string[] particleAnglePsi = new string[nParticles];
+            string[] tsIdentifier = new string[nParticles];
+            string[] particleMagnification = new string[nParticles];
+            string[] particleDetectorPixelSize = new string[nParticles];
+            string[] particleResolutionEstimate = new string[nParticles];
+            string[] particleImageFilePaths = new string[nParticles];
+            string[] particleCtfFilePaths = new string[nParticles];
+            string[] particlePixelSize = new string[nParticles];
+            string[] particleCtfVoltage = new string[nParticles];
+            string[] particleCtfSphericalAberration = new string[nParticles];
 
-            for (int i = 0; i < NParticles; i++)
+            for (int i = 0; i < nParticles; i++)
             {
-                ParticleCoordinateX[i] = FormattableString.Invariant($"{xyz[i].X / outputPixelSize:F3}");
-                ParticleCoordinateY[i] = FormattableString.Invariant($"{xyz[i].Y / outputPixelSize:F3}");
-                ParticleCoordinateZ[i] = FormattableString.Invariant($"{xyz[i].Z / outputPixelSize:F3}");
-                ParticleAngleRot[i] = FormattableString.Invariant($"{eulerAngles[i].X}");
-                ParticleAngleTilt[i] = FormattableString.Invariant($"{eulerAngles[i].Y}");
-                ParticleAnglePsi[i] = FormattableString.Invariant($"{eulerAngles[i].Z}");
-                TSIdentifier[i] = tiltSeries.Name;
-                ParticleMagnification[i] = "10000.0";
-                ParticleDetectorPixelSize[i] = FormattableString.Invariant($"{outputPixelSize:F5}");
-                ParticleResolutionEstimate[i] = FormattableString.Invariant($"{tiltSeries.CTFResolutionEstimate}");
-                ParticleImageFilePaths[i] =
-                    GetOutputImagePath(tiltSeries, particleIndex: i, pixelSize: outputPixelSize, suffix: "",
-                        relativeToParticleStarFile: relativeToParticleStarFile, particleStarFilePath: particleStarFile);
-                ParticleCTFFilePaths[i] =
-                    GetOutputCTFPath(tiltSeries, particleIndex: i, pixelSize: outputPixelSize, suffix: "",
-                        relativeToParticleStarFile: relativeToParticleStarFile, particleStarFilePath: particleStarFile);
-                ParticlePixelSize[i] = FormattableString.Invariant($"{outputPixelSize:F5}");
-                ParticleCTFVoltage[i] = FormattableString.Invariant($"{tiltSeries.CTF.Voltage:F3}");
-                ParticleCTFSphericalAberration[i] = FormattableString.Invariant($"{tiltSeries.CTF.Cs:F3}");
+                particleCoordinateX[i] = FormattableString.Invariant($"{xyz[i].X / outputPixelSize:F3}");
+                particleCoordinateY[i] = FormattableString.Invariant($"{xyz[i].Y / outputPixelSize:F3}");
+                particleCoordinateZ[i] = FormattableString.Invariant($"{xyz[i].Z / outputPixelSize:F3}");
+                particleAngleRot[i] = FormattableString.Invariant($"{eulerAngles[i].X}");
+                particleAngleTilt[i] = FormattableString.Invariant($"{eulerAngles[i].Y}");
+                particleAnglePsi[i] = FormattableString.Invariant($"{eulerAngles[i].Z}");
+                tsIdentifier[i] = tiltSeries.Name;
+                particleMagnification[i] = "10000.0";
+                particleDetectorPixelSize[i] = FormattableString.Invariant($"{outputPixelSize:F5}");
+                particleResolutionEstimate[i] = FormattableString.Invariant($"{tiltSeries.CTFResolutionEstimate}");
+                particleImageFilePaths[i] = GetOutputImagePath(
+                    tiltSeries, 
+                    particleIndex: i, 
+                    pixelSize: outputPixelSize, 
+                    suffix: "",
+                    relativeToParticleStarFile: relativeToParticleStarFile, 
+                    particleStarFilePath: particleStarFile
+                    );
+                particleCtfFilePaths[i] = GetOutputCTFPath(
+                    tiltSeries, 
+                    particleIndex: i, 
+                    pixelSize: outputPixelSize, 
+                    suffix: "",
+                    relativeToParticleStarFile: relativeToParticleStarFile, 
+                    particleStarFilePath: particleStarFile
+                    );
+                particlePixelSize[i] = FormattableString.Invariant($"{outputPixelSize:F5}");
+                particleCtfVoltage[i] = FormattableString.Invariant($"{tiltSeries.CTF.Voltage:F3}");
+                particleCtfSphericalAberration[i] = FormattableString.Invariant($"{tiltSeries.CTF.Cs:F3}");
             }
 
             string[] columnNames = new string[]
@@ -662,21 +738,21 @@ namespace WarpTools.Commands
 
             string[][] columns = new string[][]
             {
-                ParticleCoordinateX,
-                ParticleCoordinateY,
-                ParticleCoordinateZ,
-                ParticleAngleRot,
-                ParticleAngleTilt,
-                ParticleAnglePsi,
-                TSIdentifier,
-                ParticleMagnification,
-                ParticleDetectorPixelSize,
-                ParticleResolutionEstimate,
-                ParticleImageFilePaths,
-                ParticleCTFFilePaths,
-                ParticlePixelSize,
-                ParticleCTFVoltage,
-                ParticleCTFSphericalAberration,
+                particleCoordinateX,
+                particleCoordinateY,
+                particleCoordinateZ,
+                particleAngleRot,
+                particleAngleTilt,
+                particleAnglePsi,
+                tsIdentifier,
+                particleMagnification,
+                particleDetectorPixelSize,
+                particleResolutionEstimate,
+                particleImageFilePaths,
+                particleCtfFilePaths,
+                particlePixelSize,
+                particleCtfVoltage,
+                particleCtfSphericalAberration,
             };
 
             Star table = new Star(columns, columnNames);
