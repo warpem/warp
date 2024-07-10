@@ -518,8 +518,8 @@ namespace WarpTools.Commands
                 );
             float[] shiftsZ = ParseShifts(
                 InputStar, 
-                shiftColumn: "rlnOriginY", 
-                angstromShiftColumn: "rlnOriginYAngst", 
+                shiftColumn: "rlnOriginZ", 
+                angstromShiftColumn: "rlnOriginZAngst", 
                 pixelSizes: pixelSizes
                 );
             
