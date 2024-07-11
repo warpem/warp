@@ -1723,14 +1723,14 @@
 <h3 id="creating-a-conda-environment-and-installing-warp-into-it">Creating a conda environment and installing Warp into it</h3>
 <p>The following command will create a new environment called <code>warp</code> and install <code>warp</code>and all 
 dependencies into it.</p>
-<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>warp<span class="w"> </span><span class="nv">warp</span><span class="o">=</span><span class="m">2</span>.0.0<span class="w"> </span>-c<span class="w"> </span>warpem<span class="w"> </span>-c<span class="w"> </span>nvidia/label/cuda-11.7.0<span class="w"> </span>-c<span class="w"> </span>pytorch<span class="w"> </span>-c<span class="w"> </span>conda-forge
+<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>warp<span class="w"> </span><span class="nv">warp</span><span class="o">=</span><span class="m">2</span>.0.0<span class="w"> </span>-c<span class="w"> </span>warpem<span class="w"> </span>-c<span class="w"> </span>nvidia/label/cuda-11.8.0<span class="w"> </span>-c<span class="w"> </span>pytorch<span class="w"> </span>-c<span class="w"> </span>conda-forge
 </code></pre></div>
 <p>The environment can then be activated whenever you want to use <em>WarpTools</em></p>
 <div class="highlight"><pre><span></span><code>conda<span class="w"> </span>activate<span class="w"> </span>warp<span class="w"> </span>
 </code></pre></div>
 <h3 id="updating">Updating</h3>
 <p>To update your installation, run the following command</p>
-<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>update<span class="w"> </span>warp<span class="w"> </span>-c<span class="w"> </span>warpem
+<div class="highlight"><pre><span></span><code>conda<span class="w"> </span>update<span class="w"> </span>warp<span class="w"> </span>-c<span class="w"> </span>warpem<span class="w"> </span>-c<span class="w"> </span>nvidia/label/cuda-11.8.0<span class="w"> </span>-c<span class="w"> </span>pytorch<span class="w"> </span>-c<span class="w"> </span>conda-forge
 </code></pre></div>
 <h2 id="windows">Windows</h2>
 <p>We don't currently provide pre-built binaries for <em>WarpTools</em> on Windows.</p>
