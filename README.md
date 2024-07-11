@@ -12,13 +12,13 @@ If you want to use Warp on Windows, tutorials and binaries (currently only for v
 
 If you're installing from scratch and don't have an environment yet, here is the easiest way to get everything inside a new environment called `warp`:
 ```
-conda create -n warp warp -c warpem -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge
+conda create -n warp warp -c warpem -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
 conda activate warp  # Activate the environment whenever you want to use Warp
 ```
 
 If you want to install in an already existing environment:
 ```
-conda install warp -c warpem -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge
+conda install warp -c warpem -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
 ```
 
 If you want to update to the latest version and already have all channels set up in your environment:

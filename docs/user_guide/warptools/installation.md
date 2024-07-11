@@ -14,7 +14,7 @@ The following command will create a new environment called `warp` and install `w
 dependencies into it.
 
 ```sh
-conda create -n warp warp=2.0.0 -c warpem -c nvidia/label/cuda-11.7.0 -c pytorch -c conda-forge
+conda create -n warp warp=2.0.0 -c warpem -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
 ```
 
 The environment can then be activated whenever you want to use *WarpTools*
@@ -28,7 +28,7 @@ conda activate warp
 To update your installation, run the following command
 
 ```sh
-conda update warp -c warpem
+conda update warp -c warpem -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
 ```
 
 ## Windows
