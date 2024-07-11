@@ -13,7 +13,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-  
+
 jobs:
   deploy:
     name: Deploy
@@ -34,15 +34,10 @@ jobs:
           remove-android: 'true'
           remove-haskell: 'true'
           remove-codeql: 'true'
-        
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Release the source on GitHub
-        uses: softprops/action-gh-release@v2
-        with:
-          files: './*'
 
       - name: Setup Mamba
         uses: conda-incubator/setup-miniconda@v3
@@ -50,7 +45,7 @@ jobs:
           auto-update-conda: true
           python-version: "3.10"
           mamba-version: "*"
-          channels: conda-forge, nodefaults 
+          channels: conda-forge, nodefaults
           activate-environment: package-build
 
       - name: Build conda package
@@ -68,3 +63,6 @@ jobs:
         run: |
           conda activate package-build
           anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge)
+
+      - name: Release the source on GitHub
+        uses: softprops/action-gh-release@v2
