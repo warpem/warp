@@ -1188,8 +1188,10 @@ namespace Warp.Sociology
 
         public void CalculateResolutionAndFilter(float fixedResolution = -1, Action<string> progressCallback = null, int gpuID = -1)
         {
-            if (gpuID >= 0)
-                GPU.SetDevice(gpuID);
+            if (gpuID < 0)
+                gpuID = GPU.GetDeviceWithMostMemory();
+            
+            GPU.SetDevice(gpuID);
 
             //_HalfMap1 = Image.FromFile("d_half1.mrc");
             //Image Cropped1 = HalfMap1.AsPadded(new int3(400));
@@ -1630,8 +1632,8 @@ namespace Warp.Sociology
             bool TrainingFromScratch = DenoisedAtResolution <= 0;
 
             if (Denoiser == null)
-                //Denoiser = new NoiseNet3DTorch(new int3(64), new[] { gpuID < 0 ? GPU.GetDeviceWithMostMemory() : gpuID });
-                Denoiser = new NoiseNet3DTorch(new int3(32), new[] { gpuID < 0 ? GPU.GetDeviceWithMostMemory() : gpuID }, depth: 1, progressiveDepth: false, maxWidth: 64, batchSize: 64);
+                //Denoiser = new NoiseNet3DTorch(new int3(64), new[] { gpuID });
+                Denoiser = new NoiseNet3DTorch(new int3(32), new[] { gpuID }, depth: 1, progressiveDepth: false, maxWidth: 64, batchSize: 64);
             if (!TrainingFromScratch)
                 Denoiser.Load(PathNoiseNet);
 
@@ -1659,10 +1661,10 @@ namespace Warp.Sociology
                                                                                                           TrainingFromScratch ? 3000 * 8 : 600 * 8,
                                                                                                           0,
                                                                                                           Denoiser.BatchSize,
-                                                                                                          gpuID < 0 ? GPU.GetDeviceWithMostMemory() : gpuID,
+                                                                                                          gpuID,
                                                                                                           s => progressCallback?.Invoke($"4/5: Training denoising: {s}"));
 
-            GPU.SetDevice(gpuID < 0 ? 0 : gpuID);
+            GPU.SetDevice(gpuID);
 
             Denoiser.Save(PathNoiseNet);
             //Denoiser.Dispose();

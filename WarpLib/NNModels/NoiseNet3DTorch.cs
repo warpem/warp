@@ -561,13 +561,11 @@ namespace Warp
                 }
             }
 
-            Console.WriteLine("done.\n");
-
             #endregion
 
             #region Load and prepare data
 
-            Console.WriteLine("Preparing data:");
+            progressCallback?.Invoke("Preparing data:");
 
             List<Image> Maps1 = new List<Image>();
             List<Image> Maps2 = new List<Image>();
@@ -684,7 +682,7 @@ namespace Warp
                     throw new Exception("Batch size must be at least 1.");
 
                 niterations = niterations * 4 / batchsize / Maps1.Count;
-                Console.WriteLine($"Adjusting the number of iterations to {niterations} to match batch size and number of maps.\n");
+                progressCallback?.Invoke($"Adjusting the number of iterations to {niterations} to match batch size and number of maps.");
             }
 
             int Dim = network.BoxDimensions.X;
