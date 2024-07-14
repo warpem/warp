@@ -4892,7 +4892,7 @@ namespace Warp
             else if (CTF.ZernikeCoeffsEven.Length < 8)
                 CTF.ZernikeCoeffsEven = Helper.Combine(CTF.ZernikeCoeffsEven, new float[8 - CTF.ZernikeCoeffsEven.Length]);
 
-            #region Get particles belonging to this item; if there are none, abort
+            #region Get particles belonging to this item; if there are not enough, abort
 
             string DataHash = GetDataHash();
 
@@ -4984,7 +4984,7 @@ namespace Warp
 
             foreach (var species in allSpecies)
             {
-                if (!SpeciesParticles.ContainsKey(species))
+                if (!SpeciesParticles.ContainsKey(species) || SpeciesParticles[species].Length == 0)
                     continue;
 
                 float Radius = species.DiameterAngstrom / 2;
@@ -5554,7 +5554,7 @@ namespace Warp
                         Dictionary<Species, Image> MovieSpeciesWeights = new Dictionary<Species, Image>();
                         foreach (var species in allSpecies)
                         {
-                            if (!SpeciesParticles.ContainsKey(species))
+                            if (!SpeciesParticles.ContainsKey(species) || SpeciesParticles[species].Length == 0)
                                 continue;
 
                             Image Weights = new Image(IntPtr.Zero, new int3(SpeciesTiltWeights[species].Dims.X, SpeciesTiltWeights[species].Dims.Y, MovieData.Length), true);
@@ -6669,7 +6669,7 @@ namespace Warp
 
                     foreach (var species in allSpecies)
                     {
-                        if (!SpeciesParticles.ContainsKey(species))
+                        if (!SpeciesParticles.ContainsKey(species) || SpeciesParticles[species].Length == 0)
                             continue;
 
                         Particle[] Particles = SpeciesParticles[species];
@@ -6916,7 +6916,7 @@ namespace Warp
 
                     foreach (var species in allSpecies)
                     {
-                        if (!SpeciesParticles.ContainsKey(species))
+                        if (!SpeciesParticles.ContainsKey(species) || SpeciesParticles[species].Length == 0)
                             continue;
 
                         Particle[] Particles = SpeciesParticles[species];
@@ -7197,8 +7197,9 @@ namespace Warp
                     {
                         foreach (var species in allSpecies)
                         {
-                            if (!SpeciesParticles.ContainsKey(species))
+                            if (!SpeciesParticles.ContainsKey(species) || SpeciesParticles[species].Length == 0)
                                 continue;
+
                             Particle[] Particles = SpeciesParticles[species];
                             int NParticles = Particles.Length;
                             if (NParticles == 0)
@@ -8226,7 +8227,7 @@ namespace Warp
 
                     foreach (var species in allSpecies)
                     {
-                        if (!SpeciesParticles.ContainsKey(species))
+                        if (!SpeciesParticles.ContainsKey(species) || SpeciesParticles[species].Length == 0)
                             continue;
 
                         Particle[] Particles = SpeciesParticles[species];
