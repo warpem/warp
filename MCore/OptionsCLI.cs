@@ -93,7 +93,7 @@ namespace MCore
         [Option("ctf_defocus", HelpText = "Refine defocus using a local search")]
         public bool CTFDefocus { get; set; }
 
-        [Option("ctf_defocusexhaustive", HelpText = "Refine defocus using a more exhaustive grid search in the first sub-iteration")]
+        [Option("ctf_defocusexhaustive", HelpText = "Refine defocus using a more exhaustive grid search in the first sub-iteration; only works in combination with ctf_defocus")]
         public bool CTFDefocusExhaustive { get; set; }
 
         [Option("ctf_phase", HelpText = "Refine phase shift (phase plate data only)")]
