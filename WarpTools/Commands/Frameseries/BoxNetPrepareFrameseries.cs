@@ -35,9 +35,6 @@ namespace WarpTools.Commands.Frameseries
         [Option("particles_suffix", HelpText = "If particle positions are available, use this suffix to match the STAR files to micrographs like this: {micrograph name}_{suffix}.star. If left empty, will look for {micrograph name}.star")]
         public string ParticlesSuffix { get; set; }
 
-        [Option("particles_diameter", HelpText = "If particle positions are available, use this approximate particle diameter in Angstrom")]
-        public int? ParticleDiameter { get; set; }
-
         [Option("no_strict_particles", HelpText = "If --use_particles is specified, also use micrographs for which no particle files are available. Can't combine with --no_strict_masks")]
         public bool NoStrictParticles { get; set; }
 
@@ -52,7 +49,7 @@ namespace WarpTools.Commands.Frameseries
         [Option("out_half_averages", HelpText = "If specified, an MRC stack containing the half-averages used to train the denoising part of BoxNet will be saved under this path")]
         public string PathHalfAverages { get; set; }
 
-        [Option("max_mics", Default = 256, HelpText = "The maximum number of micrographs to export as half-averages")]
+        [Option("max_mics", Default = 256, HelpText = "The maximum number of micrographs, sampled randomly from the full set, to export as half-averages")]
         public int MaxMics { get; set; }
 
         #endregion
@@ -94,9 +91,6 @@ namespace WarpTools.Commands.Frameseries
                 {
                     if (!CLI.InputSeries.Any(s => File.Exists(Path.Combine(s.MatchingDir, $"{s.RootName}{CLI.ParticlesSuffix}.star"))))
                         throw new Exception("--use_particles specified, but not a single micrograph has particle positions associated with it");
-
-                    if (!CLI.ParticleDiameter.HasValue || CLI.ParticleDiameter.Value <= 0)
-                        throw new Exception("--particles_diameter must have a positive value if --use_particles is specified");
                 }
             }
 
@@ -114,6 +108,8 @@ namespace WarpTools.Commands.Frameseries
             
             if (!string.IsNullOrEmpty(CLI.PathSegmentations))
             {
+                Console.WriteLine("Preparing examples for picker training:");
+
                 #region Figure out what micrographs to use
 
                 MicsPicking = CLI.InputSeries.ToList();
@@ -146,13 +142,16 @@ namespace WarpTools.Commands.Frameseries
                 int2 Dims8Apx;
                 {
                     float2 DimsMicAng = new float2(new int2(MicHeader.Dimensions)) * MicHeader.PixelSize.X;
-                    Dims8Apx = new int2((DimsMicAng / BoxNetMulti.PixelSize + 1) / 2) * 2;
+                    Dims8Apx = new int2((DimsMicAng / BoxNetMM.PixelSize + 1) / 2) * 2;
                 }
 
                 Image Stack = new Image(new int3(Dims8Apx.X, Dims8Apx.Y, MicsPicking.Count * 3));
 
+                Console.Write($"0/{MicsPicking.Count} processed");
+
                 #region Paint all segmentations
 
+                int NDone = 0;
                 Helper.ForCPUGreedy(0, MicsPicking.Count, 8, null, (imic, threadID) =>
                 {
                     Image MicScaled = Image.FromFile(MicsPicking[imic].AveragePath).AsScaled(Dims8Apx).AndDisposeParent();
@@ -175,10 +174,11 @@ namespace WarpTools.Commands.Frameseries
                         if (File.Exists(PathStar))
                         {
                             float2[] Positions = Star.LoadFloat2(PathStar, "rlnCoordinateX", "rlnCoordinateY");
-                            Positions = Positions.Select(p => p * MicHeader.PixelSize.X / BoxNetMulti.PixelSize).ToArray();
+                            Positions = Positions.Select(p => p * MicHeader.PixelSize.X / BoxNetMM.PixelSize).ToArray();
 
-                            float R = Math.Max(1.5f, 
-                                               CLI.ParticleDiameter.Value / 2f / BoxNetMulti.PixelSize / 4);
+                            //float R = Math.Max(1.5f, 
+                            //                   CLI.ParticleDiameter.Value / 2f / BoxNetMulti.PixelSize / 4);
+                            float R = 2;
                             float R2 = R * R;
 
                             foreach (var pos in Positions)
@@ -212,11 +212,75 @@ namespace WarpTools.Commands.Frameseries
                     for (int i = 0; i < LabelsData.Length; i++)
                         CertaintyData[i] = 1;
                     
+                    lock (this)
+                    {
+                        VirtualConsole.ClearLastLine();
+                        Console.Write($"{++NDone}/{MicsPicking.Count} processed");
+                    }
                 }, null);
+                Console.WriteLine("");
 
                 #endregion
 
+                Console.Write("Saving examples to disk...");
                 Stack.WriteTIFF(CLI.PathSegmentations, 8, typeof(float));
+                Console.WriteLine(" Done.");
+            }
+
+            #endregion
+
+            #region Prepare half-averages
+
+            if (!string.IsNullOrEmpty(CLI.PathHalfAverages))
+            {
+                Console.WriteLine("Preparing examples for denoiser training:");
+
+                List<Movie> MicsDenoising = CLI.InputSeries.ToList();
+
+                if (CLI.MaxMics < MicsDenoising.Count)
+                    MicsDenoising = Helper.RandomSubset(MicsDenoising, CLI.MaxMics, 123).ToList();
+
+                foreach (var mic in MicsDenoising)
+                    if (!File.Exists(mic.AverageOddPath) || !File.Exists(mic.AverageEvenPath))
+                        throw new Exception($"Not all micrographs have a pair of half-average files associated with them: {mic.Path}");
+
+                MapHeader MicHeader = MapHeader.ReadFromFile(MicsDenoising.First().AveragePath);
+                int2 Dims8Apx;
+                {
+                    float2 DimsMicAng = new float2(new int2(MicHeader.Dimensions)) * MicHeader.PixelSize.X;
+                    Dims8Apx = new int2((DimsMicAng / BoxNetMM.PixelSize + 1) / 2) * 2;
+                }
+
+                Image Stack = new Image(new int3(Dims8Apx.X, Dims8Apx.Y, MicsDenoising.Count * 2));
+
+                Console.Write($"0/{MicsDenoising.Count} processed");
+
+                int NDone = 0;
+                Helper.ForCPUGreedy(0, MicsDenoising.Count, 8, null, (imic, threadID) =>
+                {
+                    Image MicOddScaled = Image.FromFile(MicsDenoising[imic].AverageOddPath).AsScaled(Dims8Apx).AndDisposeParent();
+                    if (CLI.NegativeContrast)
+                        MicOddScaled.Multiply(-1f);
+                    MicOddScaled.FreeDevice();
+                    Stack.GetHost(Intent.Write)[imic * 2 + 0] = MicOddScaled.GetHost(Intent.Read)[0];
+
+                    Image MicEvenScaled = Image.FromFile(MicsDenoising[imic].AverageEvenPath).AsScaled(Dims8Apx).AndDisposeParent();
+                    if (CLI.NegativeContrast)
+                        MicEvenScaled.Multiply(-1f);
+                    MicEvenScaled.FreeDevice();
+                    Stack.GetHost(Intent.Write)[imic * 2 + 1] = MicEvenScaled.GetHost(Intent.Read)[0];
+
+                    lock (this)
+                    {
+                        VirtualConsole.ClearLastLine();
+                        Console.Write($"{++NDone}/{MicsDenoising.Count} processed");
+                    }
+                }, null);
+                Console.WriteLine("");
+
+                Console.Write("Saving examples to disk...");
+                Stack.WriteMRC16b(CLI.PathHalfAverages, BoxNetMM.PixelSize, true);
+                Console.WriteLine(" Done.");
             }
 
             #endregion

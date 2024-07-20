@@ -25,16 +25,22 @@ namespace WarpTools.Commands
         [Option("model_out", Required = true, HelpText = "Path to the .pt file where the new model weights will be saved")]
         public string ModelOut { get; set; }
 
-        [Option("examples", Required = true, HelpText = "Path to a folder containing TIFF files with examples prepared with boxnet_examples_frameseries")]
-        public string ExamplesNew { get; set; }
+        [Option("examples_pick", HelpText = "Path to a folder containing TIFF files with particle picking examples prepared with boxnet_examples_frameseries")]
+        public string ExamplesNewPicking { get; set; }
 
-        [Option("examples_general", HelpText = "Path to a folder containing TIFF files with examples used to train a more general model, which will be mixed 1:1 with new examples to reduce overfitting")]
-        public string ExamplesGeneral { get; set; }
+        [Option("examples_general_pick", HelpText = "Path to a folder containing TIFF files with particle picking examples used to train a general model, which will be mixed 1:1 with new examples to reduce overfitting")]
+        public string ExamplesGeneralPicking { get; set; }
+
+        [Option("examples_denoise", HelpText = "Path to a folder containing MRC files with denoising examples prepared with boxnet_examples_frameseries")]
+        public string ExamplesNewDenoising { get; set; }
+
+        [Option("examples_general_denoise", HelpText = "Path to a folder containing MRC files with denoising examples used to train a general model, which will be mixed 1:1 with new examples to reduce overfitting")]
+        public string ExamplesGeneralDenoising { get; set; }
 
         [Option("no_mask", HelpText = "Don't consider mask labels in training; they will be converted to background labels")]
         public bool NoMask { get; set; }
 
-        [Option("patchsize", Default = 512, HelpText = "Size of the BoxNet input window, a multiple of 256; remember to use the same window with boxnet_infer_frameseries")]
+        [Option("patchsize", Default = 512, HelpText = "Size of the BoxNet input window, a multiple of 256; remember to use the same window with fs_boxnet_infer")]
         public int PatchSize { get; set; }
 
         [Option("batchsize", Default = 8, HelpText = "Size of the minibatches used in training; larger batches require more GPU memory; must be divisible by number of devices")]
@@ -68,20 +74,17 @@ namespace WarpTools.Commands
             if (!string.IsNullOrEmpty(CLI.ModelIn) && !File.Exists(CLI.ModelIn))
                 throw new Exception($"--model_in file {CLI.ModelIn} does not exist");
 
-            if (!Directory.Exists(CLI.ExamplesNew))
-                throw new Exception($"--examples folder {CLI.ExamplesNew} does not exist");
+            if (!string.IsNullOrEmpty(CLI.ExamplesNewPicking) && !Directory.Exists(CLI.ExamplesNewPicking))
+                throw new Exception($"--examples_pick folder {CLI.ExamplesNewPicking} does not exist");
 
-            if (!Directory.EnumerateFiles(CLI.ExamplesNew, "*.tif").Any())
-                throw new Exception($"--examples folder {CLI.ExamplesNew} does not contain any .tif files");
+            if (!string.IsNullOrEmpty(CLI.ExamplesGeneralPicking) && !Directory.Exists(CLI.ExamplesGeneralPicking))
+                throw new Exception($"--examples_general_pick folder {CLI.ExamplesGeneralPicking} does not exist");
 
-            if (!string.IsNullOrEmpty(CLI.ExamplesGeneral) && !Directory.Exists(CLI.ExamplesGeneral))
-                throw new Exception($"--examples_general folder {CLI.ExamplesGeneral} does not exist");
+            if (!string.IsNullOrEmpty(CLI.ExamplesNewDenoising) && !Directory.Exists(CLI.ExamplesNewDenoising))
+                throw new Exception($"--examples_denoise folder {CLI.ExamplesNewDenoising} does not exist");
 
-            if (!string.IsNullOrEmpty(CLI.ExamplesGeneral) && !Directory.EnumerateFiles(CLI.ExamplesGeneral, "*.tif").Any())
-                throw new Exception($"--examples_general folder {CLI.ExamplesGeneral} does not contain any .tif files");
-
-            if (CLI.ExamplesNew == CLI.ExamplesGeneral)
-                throw new Exception("--examples and --examples_general must be different");
+            if (!string.IsNullOrEmpty(CLI.ExamplesGeneralDenoising) && !Directory.Exists(CLI.ExamplesGeneralDenoising))
+                throw new Exception($"--examples_general_denoise folder {CLI.ExamplesGeneralDenoising} does not exist");
 
             if (CLI.PatchSize % 256 != 0 || CLI.PatchSize <= 0)
                 throw new Exception("--patchsize must be positive and a multiple of 256");
@@ -89,11 +92,11 @@ namespace WarpTools.Commands
             if (CLI.BatchSize <= 0)
                 throw new Exception("--batchsize must be positive");
 
-            if (CLI.LearningRateStart <= 0.0)
-                throw new Exception("--lr_start must be positive");
+            if (CLI.LearningRateStart < 0.0)
+                throw new Exception("--lr_start can't be negative");
 
-            if (CLI.LearningRateEnd <= 0.0)
-                throw new Exception("--lr_end must be positive");
+            if (CLI.LearningRateEnd < 0.0)
+                throw new Exception("--lr_end can't be negative");
 
             if (CLI.LearningRateStart < CLI.LearningRateEnd)
                 throw new Exception("--lr_start must be greater than or equal to --lr_end");
@@ -116,151 +119,304 @@ namespace WarpTools.Commands
 
             #region Load data
 
-            Console.Write("Loading data...");
-
-            bool UseCorpus = CLI.ExamplesGeneral != null;
+            bool UseCorpusPick = CLI.ExamplesGeneralPicking != null;
+            bool UseCorpusDenoise = CLI.ExamplesGeneralDenoising != null;
 
             int2 DimsLargest = new int2(1);
 
-            List<Image>[] AllMicrographs = { new List<Image>(), new List<Image>() };
-            List<Image>[] AllLabels = { new List<Image>(), new List<Image>() };
-            List<int2>[] AllDims = { new List<int2>(), new List<int2>() };
-            List<float3>[] AllLabelWeights = { new List<float3>(), new List<float3>() };
+            List<string[]> AllPathsPick = new();
+            if (!string.IsNullOrWhiteSpace(CLI.ExamplesNewPicking))
+            {
+                if (Directory.EnumerateFiles(CLI.ExamplesNewPicking, "*.tif").Any())
+                    AllPathsPick.Add(Directory.EnumerateFiles(CLI.ExamplesNewPicking, "*.tif").ToArray());
+                else
+                    Console.Error.WriteLine($"No TIFF files found in {CLI.ExamplesNewPicking}");
+            }
+            if (!string.IsNullOrWhiteSpace(CLI.ExamplesGeneralPicking))
+            {
+                if (Directory.EnumerateFiles(CLI.ExamplesGeneralPicking, "*.tif").Any())
+                    AllPathsPick.Add(Directory.EnumerateFiles(CLI.ExamplesGeneralPicking, "*.tif").ToArray());
+                else
+                    Console.Error.WriteLine($"No TIFF files found in {CLI.ExamplesGeneralPicking}");
+            }
 
-            string[][] AllPaths = UseCorpus
-                                      ? new[]
-                                      {
-                                              Directory.EnumerateFiles(CLI.ExamplesNew, "*.tif").ToArray(),
-                                              Directory.EnumerateFiles(CLI.ExamplesGeneral, "*.tif").ToArray()
-                                      }
-                                      : new[] { Directory.EnumerateFiles(CLI.ExamplesNew, "*.tif").ToArray() };
+            List<string[]> AllPathsDenoise = new();
+            if (!string.IsNullOrWhiteSpace(CLI.ExamplesNewDenoising))
+            {
+                if (Directory.EnumerateFiles(CLI.ExamplesNewDenoising, "*.mrc").Any())
+                    AllPathsDenoise.Add(Directory.EnumerateFiles(CLI.ExamplesNewDenoising, "*.mrc").ToArray());
+                else
+                    Console.Error.WriteLine($"No MRC files found in {CLI.ExamplesNewDenoising}");
+            }
+            if (!string.IsNullOrWhiteSpace(CLI.ExamplesGeneralDenoising))
+            {
+                if (Directory.EnumerateFiles(CLI.ExamplesGeneralDenoising, "*.mrc").Any())
+                    AllPathsDenoise.Add(Directory.EnumerateFiles(CLI.ExamplesGeneralDenoising, "*.mrc").ToArray());
+                else
+                    Console.Error.WriteLine($"No MRC files found in {CLI.ExamplesGeneralDenoising}");
+            }
+
+            List<ulong[]>[] AllMicrographsPick = Helper.ArrayOfFunction(i => new List<ulong[]>(), AllPathsPick.Count);
+            List<Image>[] AllLabelsPick = Helper.ArrayOfFunction(i => new List<Image>(), AllPathsPick.Count);
+            List<int2>[] AllDimsPick = Helper.ArrayOfFunction(i => new List<int2>(), AllPathsPick.Count);
+            float[] LabelWeightsPick = { 1f, 1f, 1f };
+
+            List<int2>[] AllDimsDenoise = Helper.ArrayOfFunction(i => new List<int2>(), Math.Max(AllPathsDenoise.Count, AllPathsPick.Count));
+            List<ulong>[] AllMicrographsOddDenoise = Helper.ArrayOfFunction(i => new List<ulong>(), AllDimsDenoise.Length);
+            List<ulong>[] AllMicrographsEvenDenoise = Helper.ArrayOfFunction(i => new List<ulong>(), AllDimsDenoise.Length);
 
             long[] ClassHist = new long[3];
             Image SoftMask = null;
 
-            for (int icorpus = 0; icorpus < AllPaths.Length; icorpus++)
+            if (AllPathsPick.Any())
             {
-                foreach (var examplePath in AllPaths[icorpus])
+                Random Rng = new Random(123);
+
+                Console.WriteLine("Loading picking examples...");
+                for (int icorpus = 0; icorpus < AllPathsPick.Count; icorpus++)
                 {
-                    Image ExampleImage = Image.FromFile(examplePath);
-                    int N = ExampleImage.Dims.Z / 3;
-
-                    if (ExampleImage.Dims.Z % 3 != 0)
-                        throw new Exception($"Image {examplePath} has {ExampleImage.Dims.Z} layers, which is not a multiple of 3");
-
-                    Image OnlyImages = new Image(Helper.ArrayOfSequence(0, N, 1).Select(i => ExampleImage.GetHost(Intent.Read)[i * 3]).ToArray(), new int3(ExampleImage.Dims.X, ExampleImage.Dims.Y, N));
-                    int2 DimsOri = new int2(OnlyImages.Dims);
-                    OnlyImages = OnlyImages.AsPadded(DimsOri - 2).AndDisposeParent();
-
-                    if (SoftMask == null || SoftMask.Dims != new int3(OnlyImages.Dims.X * 2, OnlyImages.Dims.Y * 2, 1))
+                    foreach (var examplePath in AllPathsPick[icorpus])
                     {
-                        SoftMask?.Dispose();
+                        Image ExampleImage = Image.FromFile(examplePath);
+                        int N = ExampleImage.Dims.Z / 3;
 
-                        SoftMask = new Image(new int3(OnlyImages.Dims.X * 2, OnlyImages.Dims.Y * 2, 1));
-                        SoftMask.Fill(1f);
-                        SoftMask.MaskRectangularly(OnlyImages.Dims.Slice(), Math.Min(OnlyImages.Dims.X, OnlyImages.Dims.Y) / 2f, false);
-                    }
+                        if (ExampleImage.Dims.Z % 3 != 0)
+                            throw new Exception($"Image {examplePath} has {ExampleImage.Dims.Z} layers, which is not a multiple of 3");
 
-                    Image OriginalPadded = OnlyImages.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
-                    OriginalPadded.MultiplySlices(SoftMask);
-                    //OriginalPadded.WriteMRC("d_oripadded.mrc", true);
-                    OriginalPadded.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
-                    //OriginalPadded.WriteMRC("d_oripadded_bp.mrc", true);
+                        Image OnlyImages = new Image(Helper.ArrayOfSequence(0, N, 1).Select(i => ExampleImage.GetHost(Intent.Read)[i * 3]).ToArray(), new int3(ExampleImage.Dims.X, ExampleImage.Dims.Y, N));
+                        int2 DimsOri = new int2(OnlyImages.Dims);
 
-                    OnlyImages = OriginalPadded.AsPadded(DimsOri).AndDisposeParent();
-                    //OnlyImages.Bandpass(2f / 32, 1, false, 2f / 32);
-                    //OnlyImages.WriteMRC("d_ori_nopad_bp.mrc", true);
-                    OnlyImages.Normalize();
-                    //OnlyImages.WriteMRC("d_onlyimages.mrc", true);
-
-                    if (OnlyImages.GetHost(Intent.Read).Any(a => a.All(v => v == 0)))
-                    {
-                        OnlyImages.WriteMRC("d_stackzeros.mrc", true);
-                        Console.WriteLine(examplePath);
-                        throw new Exception("All zeros");
-                    }
-
-                    for (int n = 0; n < N; n++)
-                    {
-                        float[] Mic = OnlyImages.GetHost(Intent.Read)[n];
-
-                        AllMicrographs[icorpus].Add(new Image(Mic, ExampleImage.Dims.Slice()));
-
-                        AllDims[icorpus].Add(new int2(ExampleImage.Dims));
-
-                        float[] Labels = ExampleImage.GetHost(Intent.ReadWrite)[n * 3 + 1];
-                        float[] Uncertains = ExampleImage.GetHost(Intent.Read)[n * 3 + 2];
-                        for (int i = 0; i < Labels.Length; i++)
+                        if (SoftMask == null || SoftMask.Dims != new int3(OnlyImages.Dims.X * 2, OnlyImages.Dims.Y * 2, 1))
                         {
-                            int Label = (int)Labels[i];
-                            if (CLI.NoMask && Label == 2)
-                            {
-                                Label = 0;
-                                Labels[i] = 0;
-                            }
-                            ClassHist[Label]++;
+                            SoftMask?.Dispose();
+
+                            SoftMask = new Image(new int3(OnlyImages.Dims.X * 2, OnlyImages.Dims.Y * 2, 1));
+                            SoftMask.Fill(1f);
+                            SoftMask.MaskRectangularly(OnlyImages.Dims.Slice(), Math.Min(OnlyImages.Dims.X, OnlyImages.Dims.Y) / 2f, false);
                         }
 
-                        AllLabels[icorpus].Add(new Image(Labels, ExampleImage.Dims.Slice()));
+                        float2[] MedianPercentileOffset;
+                        int[] CountsPerPixel = Helper.ArrayOfFunction(i => (int)((20 + Rng.Next(20)) * BoxNetMM.PixelSize * BoxNetMM.PixelSize), N);
+                        float[] PercentileOffset = Helper.ArrayOfFunction(i => CountsPerPixel[i] * (float)(0.02 + Rng.NextDouble() * 0.04), N);
+                        Image FakeOdd = new Image(OnlyImages.Dims);
+                        Image FakeEven = new Image(OnlyImages.Dims);
+                        {
+                            Image ImagesCenter = OnlyImages.AsPadded(DimsOri / 2);
+                            MedianPercentileOffset = ImagesCenter.GetHost(Intent.Read).Select(a => MathHelper.MedianAndPercentileDiff(a, 68)).ToArray();
+                            ImagesCenter.Dispose();
+
+                            OnlyImages.TransformValues((x, y, z, v) => ((v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y * PercentileOffset[z]) + CountsPerPixel[z]);
+
+                            int[] Seeds = Helper.ArrayOfFunction(i => Rng.Next(), N);
+                            Parallel.For(0, N, z =>
+                            {
+                                Random RngZ = new Random(Seeds[z]);
+                                float[] OriData = OnlyImages.GetHost(Intent.Read)[z];
+                                float[] OddData = FakeOdd.GetHost(Intent.ReadWrite)[z];
+                                float[] EvenData = FakeEven.GetHost(Intent.ReadWrite)[z];
+
+                                for (int i = 0; i < OriData.Length; i++)
+                                {
+                                    int Counts = (int)OriData[i];
+                                    int FakeOdd = MathHelper.DrawBinomial(Counts, 0.5f, RngZ);
+                                    int FakeEven = Counts - FakeOdd;
+
+                                    OddData[i] = FakeOdd * 2;
+                                    EvenData[i] = FakeEven * 2;
+                                }
+                            });
+                        }
+
+                        OnlyImages = OnlyImages.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
+                        OnlyImages.MultiplySlices(SoftMask);
+                        OnlyImages.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+
+                        OnlyImages = OnlyImages.AsPadded(DimsOri).AndDisposeParent();
+                        {
+                            Image ImagesCenter = OnlyImages.AsPadded(DimsOri / 2);
+                            MedianPercentileOffset = ImagesCenter.GetHost(Intent.Read).Select(a => MathHelper.MedianAndPercentileDiff(a, 68)).ToArray();
+                            ImagesCenter.Dispose();
+
+                            OnlyImages.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
+                        }
+
+                        {
+                            FakeOdd = FakeOdd.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
+                            FakeOdd.MultiplySlices(SoftMask);
+                            FakeOdd.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+                            FakeOdd = FakeOdd.AsPadded(DimsOri).AndDisposeParent();
+
+                            FakeOdd.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
+                        }
+
+                        {
+                            FakeEven = FakeEven.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
+                            FakeEven.MultiplySlices(SoftMask);
+                            FakeEven.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+                            FakeEven = FakeEven.AsPadded(DimsOri).AndDisposeParent();
+
+                            FakeEven.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
+                        }
+
+                        for (int n = 0; n < N; n++)
+                        {
+                            ulong TextureOdd = 0, TextureEven = 0;
+
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(FakeOdd.GetDeviceSlice(n, Intent.Read), new int2(FakeOdd.Dims), h_Texture, h_Array, false);
+
+                                AllMicrographsOddDenoise[icorpus].Add(h_Texture[0]);
+                                TextureOdd = h_Texture[0];
+                            }
+
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(FakeEven.GetDeviceSlice(n, Intent.Read), new int2(FakeEven.Dims), h_Texture, h_Array, false);
+
+                                AllMicrographsEvenDenoise[icorpus].Add(h_Texture[0]);
+                                TextureEven = h_Texture[0];
+                            }
+
+                            AllDimsDenoise[icorpus].Add(new int2(FakeOdd.Dims));
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(OnlyImages.GetDeviceSlice(n, Intent.Read), new int2(OnlyImages.Dims), h_Texture, h_Array, false);
+
+                                AllMicrographsPick[icorpus].Add([h_Texture[0], TextureOdd, TextureEven]);
+
+                                AllDimsPick[icorpus].Add(new int2(ExampleImage.Dims));
+
+                                float[] Labels = ExampleImage.GetHost(Intent.ReadWrite)[n * 3 + 1];
+                                for (int i = 0; i < Labels.Length; i++)
+                                {
+                                    int Label = (int)Labels[i];
+                                    if (CLI.NoMask && Label == 2)
+                                    {
+                                        Label = 0;
+                                        Labels[i] = 0;
+                                    }
+                                    ClassHist[Label]++;
+                                }
+
+                                AllLabelsPick[icorpus].Add(new Image(Labels, ExampleImage.Dims.Slice()));
+                            }
+                        }
+
+                        ExampleImage.Dispose();
+                        OnlyImages.Dispose();
+                        FakeOdd.Dispose();
+                        FakeEven.Dispose();
+
+                        DimsLargest.X = Math.Max(DimsLargest.X, ExampleImage.Dims.X);
+                        DimsLargest.Y = Math.Max(DimsLargest.Y, ExampleImage.Dims.Y);
+
+                        GPU.CheckGPUExceptions();
+
+                        Console.WriteLine($"Loaded {Helper.PathToNameWithExtension(examplePath)}");
                     }
-
-                    ExampleImage.Dispose();
-                    OnlyImages.Dispose();
-
-                    DimsLargest.X = Math.Max(DimsLargest.X, ExampleImage.Dims.X);
-                    DimsLargest.Y = Math.Max(DimsLargest.Y, ExampleImage.Dims.Y);
-
-                    GPU.CheckGPUExceptions();
                 }
-            }
 
-            for (int i = 0; i < AllPaths.Length; i++)
-            {
-                foreach (var mic in AllMicrographs[i])
-                    mic.GetDevice(Intent.Read);
-                foreach (var mic in AllLabels[i])
-                    mic.GetDevice(Intent.Read);
-            }
+                for (int i = 0; i < AllLabelsPick.Length; i++)
+                    foreach (var mic in AllLabelsPick[i])
+                        mic.GetDevice(Intent.Read);
 
-            SoftMask.Dispose();
+                SoftMask.Dispose();
 
-            {
-                float[] LabelWeights = { 1f, 1f, 1f };
-                if (ClassHist[1] > 0)
                 {
-                    LabelWeights[0] = Math.Min((float)Math.Pow((float)ClassHist[1] / ClassHist[0], 1 / 3.0) * 0.5f, 1);
-                    LabelWeights[2] = 1;//(float)Math.Sqrt((float)ClassHist[1] / ClassHist[2]);
-                    //double Beta = 0.9;
-                    //double HistNorm0 = (double)ClassHist[0] / ClassHist[1];
-                    //double HistNorm2 = (double)ClassHist[2] / ClassHist[1];
+                    if (ClassHist[1] > 0)
+                    {
+                        //LabelWeights[0] = Math.Min((float)Math.Pow((float)ClassHist[1] / ClassHist[0], 1 / 3.0) * 0.5f, 1);
+                        //LabelWeights[2] = 1;//(float)Math.Sqrt((float)ClassHist[1] / ClassHist[2]);
+                        double Beta = 0.9;
+                        double HistNorm0 = (double)ClassHist[0] / ClassHist[1];
+                        double HistNorm2 = (double)ClassHist[2] / ClassHist[1];
 
-                    //LabelWeights[0] = (float)((1 - Beta) / (1 - Math.Pow(Beta, HistNorm0)));
-                    //LabelWeights[1] = 1;
-                    //LabelWeights[2] = (float)(ClassHist[2] == 0 ? 1 : (1 - Beta) / (1 - Math.Pow(Beta, HistNorm2)));
+                        LabelWeightsPick[0] = (float)((1 - Beta) / (1 - Math.Pow(Beta, HistNorm0)));
+                        LabelWeightsPick[1] = 1;
+                        LabelWeightsPick[2] = Math.Min(1, (float)(ClassHist[2] == 0 ? 1 : (1 - Beta) / (1 - Math.Pow(Beta, HistNorm2))));
+                    }
+                    else
+                    {
+                        //LabelWeights[0] = (float)Math.Pow((float)ClassHist[2] / ClassHist[0], 1 / 3.0);
+                        double Beta = 0.9;
+                        double HistNorm0 = (double)ClassHist[0] / ClassHist[1];
+
+                        LabelWeightsPick[0] = (float)((1 - Beta) / (1 - Math.Pow(Beta, HistNorm0)));
+                        LabelWeightsPick[1] = 1;
+                        LabelWeightsPick[2] = 1;
+                    }
                 }
-                else
-                {
-                    //LabelWeights[0] = (float)Math.Pow((float)ClassHist[2] / ClassHist[0], 1 / 3.0);
-                    double Beta = 0.9;
-                    double HistNorm0 = (double)ClassHist[0] / ClassHist[1];
+                Console.WriteLine(" Done");
 
-                    LabelWeights[0] = (float)((1 - Beta) / (1 - Math.Pow(Beta, HistNorm0)));
-                    LabelWeights[1] = 1;
-                    LabelWeights[2] = 1;
-                }
-
-                for (int icorpus = 0; icorpus < AllPaths.Length; icorpus++)
-                    for (int i = 0; i < AllMicrographs[icorpus].Count; i++)
-                        AllLabelWeights[icorpus].Add(new float3(LabelWeights[0], LabelWeights[1], LabelWeights[2]));
+                Console.WriteLine($"{string.Join(", ", AllMicrographsPick.Select(l => l.Count))} examples for picking");
+                Console.WriteLine($"Class histogram: {ClassHist[0]:E1} background, {ClassHist[1]:E1} particle, {ClassHist[2]:E1} mask");
+                Console.WriteLine($"Using class weights: {LabelWeightsPick[0]:F3} background, {LabelWeightsPick[1]:F3} particle, {LabelWeightsPick[2]:F3} mask");
             }
 
-            int NNewExamples = AllMicrographs[0].Count;
-            int NOldExamples = UseCorpus ? AllMicrographs[1].Count : 0;
+            if (AllPathsDenoise.Any())
+            {
+                Console.WriteLine("Loading denoising examples...");
+                for (int icorpus = 0; icorpus < AllPathsDenoise.Count; icorpus++)
+                {
+                    foreach (var examplePath in AllPathsDenoise[icorpus])
+                    {
+                        Image PairsStack = Image.FromFile(examplePath);
+                        int N = PairsStack.Dims.Z / 2;
+                        int2 DimsOri = new int2(PairsStack.Dims);
 
-            Console.WriteLine($" Done");
-            Console.WriteLine($"{NNewExamples} new examples, {NOldExamples} general examples");
-            Console.WriteLine($"Class histogram: {ClassHist[0]:E1} background, {ClassHist[1]:E1} particle, {ClassHist[2]:E1} mask");
-            Console.WriteLine($"Using class weights: {AllLabelWeights[0][0].X:F3} background, {AllLabelWeights[0][0].Y:F3} particle, {AllLabelWeights[0][0].Z:F3} mask");
+                        PairsStack = PairsStack.AsPadded(DimsOri - 2).AndDisposeParent();
+
+                        if (SoftMask == null || SoftMask.Dims != new int3(PairsStack.Dims.X * 2, PairsStack.Dims.Y * 2, 1))
+                        {
+                            SoftMask?.Dispose();
+
+                            SoftMask = new Image(new int3(PairsStack.Dims.X * 2, PairsStack.Dims.Y * 2, 1));
+                            SoftMask.Fill(1f);
+                            SoftMask.MaskRectangularly(PairsStack.Dims.Slice(), Math.Min(PairsStack.Dims.X, PairsStack.Dims.Y) / 2f, false);
+                        }
+
+                        Image OriginalPadded = PairsStack.AsPaddedClamped(new int2(PairsStack.Dims) * 2).AndDisposeParent();
+                        OriginalPadded.MultiplySlices(SoftMask);
+                        OriginalPadded.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+
+                        PairsStack = OriginalPadded.AsPadded(DimsOri).AndDisposeParent();
+                        PairsStack.Normalize();
+
+                        for (int n = 0; n < N; n++)
+                        {
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(PairsStack.GetDeviceSlice(n * 2 + 0, Intent.Read), new int2(PairsStack.Dims), h_Texture, h_Array, false);
+
+                                AllMicrographsOddDenoise[icorpus].Add(h_Texture[0]);
+                            }
+
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(PairsStack.GetDeviceSlice(n * 2 + 1, Intent.Read), new int2(PairsStack.Dims), h_Texture, h_Array, false);
+
+                                AllMicrographsEvenDenoise[icorpus].Add(h_Texture[0]);
+                            }
+
+                            AllDimsDenoise[icorpus].Add(new int2(PairsStack.Dims));
+                        }
+
+                        PairsStack.Dispose();
+                        GPU.CheckGPUExceptions();
+
+                        Console.WriteLine($"Loaded {Helper.PathToNameWithExtension(examplePath)}");
+                    }
+                }
+                Console.WriteLine(" Done");
+
+                Console.WriteLine($"{string.Join(", ", AllMicrographsOddDenoise.Select(l => l.Count))} examples for denoising");
+            }
 
             #endregion
 
@@ -268,7 +424,7 @@ namespace WarpTools.Commands
 
             Console.Write("Loading model...");
 
-            BoxNetMulti NetworkTrain = new BoxNetMulti(new int2(CLI.PatchSize), AllLabelWeights[0][0].ToArray(), CLI.Devices.ToArray(), CLI.BatchSize);
+            BoxNetMM NetworkTrain = new BoxNetMM(new int2(CLI.PatchSize), LabelWeightsPick, CLI.Devices.ToArray(), CLI.BatchSize, BoxNetOptimizer.Adam);
             if (CLI.ModelIn != null)
                 NetworkTrain.Load(CLI.ModelIn);
 
@@ -288,14 +444,26 @@ namespace WarpTools.Commands
             int PlotEveryN = 10;
             int SmoothN = 100;
 
-            Queue<float>[] LastAccuracies = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
-            Queue<float>[] CheckpointAccuracies = { new Queue<float>(), new Queue<float>() };
-            List<float>[] LastBaselines = { new List<float>(), new List<float>() };
+            Queue<float>[] LastLossesPick = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
+            Queue<float>[] CheckpointLossesPick = { new Queue<float>(), new Queue<float>() };
+            Queue<float>[] LastLossesDenoise = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
+            Queue<float>[] CheckpointLossesDenoise = { new Queue<float>(), new Queue<float>() };
+            Queue<float>[] LastLossesFill = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
+            Queue<float>[] CheckpointLossesFill = { new Queue<float>(), new Queue<float>() };
+
+
             GPU.SetDevice(CLI.Devices.First());
 
-            Image[] d_AugmentedData = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
-            Image[] d_AugmentedLabels = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize * 3)), NThreads);
-            IntPtr[] d_AugmentedWeights = Helper.ArrayOfFunction(i => GPU.MallocDevice(DimsAugmented.Elements() * BatchSize), NThreads);
+            Image[] d_AugmentedDataPick = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+            Image[] d_AugmentedLabelsPick = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize * 3)), NThreads);
+            IntPtr[] d_AugmentedWeightsPick = Helper.ArrayOfFunction(i => GPU.MallocDevice(DimsAugmented.Elements() * BatchSize), NThreads);
+
+            Image[] d_AugmentedOddDenoise = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+            Image[] d_AugmentedEvenDenoise = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+            //Image[] d_AugmentedMaskDenoise = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+
+            Image[] d_AugmentedFillSource = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+            Image[] d_AugmentedFillTarget = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
 
             Stopwatch Watch = new Stopwatch();
             Watch.Start();
@@ -303,11 +471,193 @@ namespace WarpTools.Commands
             Random[] RG = Helper.ArrayOfFunction(i => new Random(i), NThreads);
             RandomNormal[] RGN = Helper.ArrayOfFunction(i => new RandomNormal(i), NThreads);
 
-            int NIterations = NNewExamples * CLI.NEpochs * AllMicrographs.Length;
+            int MaxExamples = 0;
+            if (AllMicrographsPick.Any())
+                MaxExamples = Math.Max(MaxExamples, AllMicrographsPick[0].Count);
+            if (AllMicrographsOddDenoise.Any())
+                MaxExamples = Math.Max(MaxExamples, AllMicrographsOddDenoise[0].Count);
+            
             Stopwatch CheckpointWatch = new Stopwatch();
             CheckpointWatch.Start();
             int NCheckpoints = 0;
 
+            Action<int, int, int, bool, Random> MakeExamplesPick = (threadID, icorpus, subBatch, doAugment, rng) =>
+            {
+                for (int ib = 0; ib < BatchSize; ib += subBatch)
+                {
+                    int CurBatch = Math.Min(subBatch, BatchSize - ib);
+
+                    int ExampleID = rng.Next(AllMicrographsPick[icorpus].Count);
+                    int2 Dims = AllDimsPick[icorpus][ExampleID];
+
+                    int2 DimsValid = new int2(Math.Max(0, Dims.X - Border * 4), Math.Max(0, Dims.Y - Border * 4));
+                    int2 DimsBorder = (Dims - DimsValid) / 2;
+
+                    float2[] Translations = doAugment ? Helper.ArrayOfFunction(x => new float2(rng.Next(DimsValid.X) + DimsBorder.X,
+                                                                                    rng.Next(DimsValid.Y) + DimsBorder.Y), CurBatch) :
+                                                        Helper.ArrayOfFunction(x => new float2(DimsValid / 2 + DimsBorder), CurBatch);
+
+                    float[] Rotations = doAugment ? Helper.ArrayOfFunction(i => (float)(rng.NextDouble() * Math.PI * 2), CurBatch) :
+                                                    Helper.ArrayOfFunction(i => 0f, CurBatch);
+                    float3[] Scales = doAugment ? Helper.ArrayOfFunction(i => new float3(0.8f + (float)rng.NextDouble() * 0.4f,
+                                                                                         0.8f + (float)rng.NextDouble() * 0.4f,
+                                                                                         (float)(rng.NextDouble() * Math.PI * 2)), CurBatch) :
+                                                  Helper.ArrayOfFunction(i => new float3(1, 1, 0), CurBatch);
+                    //float StdDev = doAugment ? (float)Math.Abs(RGN[threadID].NextSingle(0, 0.3f)) : 0;
+                    float StdDev = 0;
+                    float OffsetMean = 0;// doAugment ? rng.NextSingle() * 0.4f - 0.2f : 0;
+                    float OffsetScale = 1;// doAugment ? rng.NextSingle() * 0.4f + 0.8f : 1;
+
+                    GPU.BoxNetMMAugmentPicking(AllMicrographsPick[icorpus][ExampleID][doAugment ? rng.Next(3) : 0],
+                                               AllLabelsPick[icorpus][ExampleID].GetDevice(Intent.Read),
+                                               Dims,
+                                               d_AugmentedDataPick[threadID].GetDeviceSlice(ib, Intent.Write),
+                                               d_AugmentedLabelsPick[threadID].GetDeviceSlice(ib * 3, Intent.Write),
+                                               DimsAugmented,
+                                               Helper.ToInterleaved(Translations),
+                                               Rotations,
+                                               Helper.ToInterleaved(Scales),
+                                               OffsetMean,
+                                               OffsetScale,
+                                               StdDev,
+                                               rng.Next(99999),
+                                               false,
+                                               (uint)CurBatch);
+                }
+
+                Image AugmentedDenoised;
+                NetworkTrain.PredictDenoise(d_AugmentedDataPick[threadID], out AugmentedDenoised);
+                GPU.CopyDeviceToDevice(AugmentedDenoised.GetDevice(Intent.Read), 
+                                       d_AugmentedDataPick[threadID].GetDevice(Intent.Write), 
+                                       d_AugmentedDataPick[threadID].ElementsReal);
+
+                if (doAugment)
+                {
+                    d_AugmentedDataPick[threadID].Multiply(rng.NextSingle() * 0.4f + 0.8f);
+                    d_AugmentedDataPick[threadID].Add(rng.NextSingle() * 0.4f - 0.2f);
+                }
+            };
+
+            Action<int, int, int, bool, Random> MakeExamplesDenoise = (threadID, icorpus, subBatch, doAugment, rng) =>
+            {
+                for (int ib = 0; ib < BatchSize; ib += subBatch)
+                {
+                    int CurBatch = Math.Min(subBatch, BatchSize - ib);
+
+                    int ExampleID = rng.Next(AllMicrographsOddDenoise[icorpus].Count);
+                    int2 Dims = AllDimsDenoise[icorpus][ExampleID];
+
+                    int2 DimsValid = new int2(Math.Max(0, Dims.X - Border * 4), Math.Max(0, Dims.Y - Border * 4));
+                    int2 DimsBorder = (Dims - DimsValid) / 2;
+
+                    float2[] Translations = doAugment ? Helper.ArrayOfFunction(x => new float2(rng.Next(DimsValid.X) + DimsBorder.X,
+                                                                                    rng.Next(DimsValid.Y) + DimsBorder.Y), CurBatch) :
+                                                        Helper.ArrayOfFunction(x => new float2(DimsValid / 2 + DimsBorder), CurBatch);
+
+                    float[] Rotations = doAugment ? Helper.ArrayOfFunction(i => (float)(rng.NextDouble() * Math.PI * 2), CurBatch) :
+                                                    Helper.ArrayOfFunction(i => 0f, CurBatch);
+                    float3[] Scales = doAugment ? Helper.ArrayOfFunction(i => new float3(0.8f + (float)rng.NextDouble() * 0.4f,
+                                                                                         0.8f + (float)rng.NextDouble() * 0.4f,
+                                                                                         (float)(rng.NextDouble() * Math.PI * 2)), CurBatch) :
+                                                  Helper.ArrayOfFunction(i => new float3(1, 1, 0), CurBatch);
+                    float StdDev = doAugment ? (float)Math.Abs(RGN[threadID].NextSingle(0, 0.3f)) : 0;
+                    float OffsetMean = doAugment ? rng.NextSingle() * 0.8f - 0.4f : 0;
+                    float OffsetScale = doAugment ? rng.NextSingle() * 0.75f + 0.5f : 1;
+
+                    bool SwapOddEven = rng.Next(2) == 0;
+                    ulong t_Odd = (SwapOddEven ? AllMicrographsOddDenoise : AllMicrographsEvenDenoise)[icorpus][ExampleID];
+                    ulong t_Even = (SwapOddEven ? AllMicrographsEvenDenoise : AllMicrographsOddDenoise)[icorpus][ExampleID];
+
+                    GPU.BoxNetMMAugmentDenoising(t_Odd,
+                                                t_Even,
+                                                Dims,
+                                                d_AugmentedOddDenoise[threadID].GetDeviceSlice(ib, Intent.Write),
+                                                d_AugmentedEvenDenoise[threadID].GetDeviceSlice(ib, Intent.Write),
+                                                DimsAugmented,
+                                                Helper.ToInterleaved(Translations),
+                                                Rotations,
+                                                Helper.ToInterleaved(Scales),
+                                                OffsetMean,
+                                                OffsetScale,
+                                                (uint)CurBatch);
+                }
+
+                GPU.CopyDeviceToDevice(d_AugmentedOddDenoise[threadID].GetDevice(Intent.Read), 
+                                       d_AugmentedFillSource[threadID].GetDevice(Intent.Write), 
+                                       d_AugmentedOddDenoise[threadID].ElementsReal);
+                d_AugmentedFillSource[threadID].Add(d_AugmentedEvenDenoise[threadID]);
+                d_AugmentedFillSource[threadID].Multiply(0.5f);
+
+                NetworkTrain.PredictDenoise(d_AugmentedFillSource[threadID], out Image AugmentedDenoised);
+
+                GPU.CopyDeviceToDevice(AugmentedDenoised.GetDevice(Intent.Read),
+                                       d_AugmentedFillSource[threadID].GetDevice(Intent.Write),
+                                       d_AugmentedFillSource[threadID].ElementsReal);
+
+                GPU.CopyDeviceToDevice(d_AugmentedFillSource[threadID].GetDevice(Intent.Read), 
+                                       d_AugmentedFillTarget[threadID].GetDevice(Intent.Write), 
+                                       d_AugmentedFillSource[threadID].ElementsReal);
+
+                RandomNormal RandN = new RandomNormal(rng.Next());
+
+                for (int z = 0; z < d_AugmentedFillSource[threadID].Dims.Z; z++)
+                {
+                    float[] AugmentedData = d_AugmentedFillSource[threadID].GetHost(Intent.ReadWrite)[z];
+                    int NRects = 50 + rng.Next(200);
+
+                    for (int irect = 0; irect < NRects; irect++)
+                    {
+                        int2 DimsRect = new int2(rng.Next(6) + 6, rng.Next(6) + 6);
+                        int2 DimsCalc = DimsRect * 1;
+                        int2 PosRect = new int2(rng.Next(DimsAugmented.X - DimsCalc.X), rng.Next(DimsAugmented.Y - DimsCalc.Y));
+                        double Sum = 0, Sum2 = 0;
+
+                        for (int y = 0; y < DimsCalc.Y; y++)
+                            for (int x = 0; x < DimsCalc.X; x++)
+                            {
+                                float Val = AugmentedData[(PosRect.Y + y) * DimsAugmented.X + PosRect.X + x];
+                                Sum += Val;
+                                Sum2 += Val * Val;
+                            }
+
+                        float Mean = (float)(Sum / DimsCalc.Elements());
+                        float StdDev = (float)Math.Sqrt(Math.Max(0, Sum2 * DimsCalc.Elements() - Sum * Sum)) / DimsCalc.Elements();
+
+                        for (int y = 0; y < DimsRect.Y; y++)
+                            for (int x = 0; x < DimsRect.X; x++)
+                                AugmentedData[(PosRect.Y + (DimsCalc.Y - DimsRect.Y) / 2 + y) * DimsAugmented.X + PosRect.X + (DimsCalc.X - DimsRect.X) / 2 + x] = Mean;// RandN.NextSingle(Mean, StdDev);
+                    }
+                }
+
+                //int Grid = 4;
+                //for (int z = 0; z < d_AugmentedOddDenoise[threadID].Dims.Z; z++)
+                //{
+                //    float[] OddData = d_AugmentedOddDenoise[threadID].GetHost(Intent.ReadWrite)[z];
+                //    float[] EvenData = d_AugmentedEvenDenoise[threadID].GetHost(Intent.ReadWrite)[z];
+                //    float[] MaskData = d_AugmentedMaskDenoise[threadID].GetHost(Intent.ReadWrite)[z];
+
+                //    int OffsetX = rng.Next(Grid);
+                //    int OffsetY = rng.Next(Grid);
+
+                //    bool PureN2N = true;// rng.Next(10) == 0;
+
+                //    for (int i = 0; i < OddData.Length; i++)
+                //    {
+                //        int X = i % DimsAugmented.X;
+                //        int Y = i / DimsAugmented.X;
+
+                //        float Odd = OddData[i];
+                //        float Even = EvenData[i];
+                //        bool Mask = PureN2N || ((X + OffsetX) % Grid == 0 && (Y + OffsetY) % Grid == 0);
+
+                //        EvenData[i] = Mask ? Even : (Odd + Even) * 0.5f;
+                //        OddData[i] = Mask ? Odd : (Odd + Even) * 0.5f;
+                //        MaskData[i] = Mask ? 1 : 0;
+                //    }
+                //}
+            };
+
+            int NIterations = MaxExamples * CLI.NEpochs;
             int NDone = 0;
             Helper.ForCPUGreedy(0, NIterations, NThreads,
 
@@ -315,79 +665,85 @@ namespace WarpTools.Commands
 
                 (b, threadID) =>
                 {
-                    int icorpus;
-                    lock (Watch)
-                        icorpus = NDone % AllPaths.Length;
-
-                    for (int ib = 0; ib < BatchSize; ib++)
-                    {
-                        int ExampleID = RG[threadID].Next(AllMicrographs[icorpus].Count);
-                        int2 Dims = AllDims[icorpus][ExampleID];
-
-                        int2 DimsValid = new int2(Math.Max(0, Dims.X - Border * 4), Math.Max(0, Dims.Y - Border * 4));
-                        int2 DimsBorder = (Dims - DimsValid) / 2;
-
-                        float2[] Translations = Helper.ArrayOfFunction(x => new float2(RG[threadID].Next(DimsValid.X) + DimsBorder.X,
-                                                                                        RG[threadID].Next(DimsValid.Y) + DimsBorder.Y), 1);
-
-                        float[] Rotations = Helper.ArrayOfFunction(i => (float)(RG[threadID].NextDouble() * Math.PI * 2), 1);
-                        float3[] Scales = Helper.ArrayOfFunction(i => new float3(0.8f + (float)RG[threadID].NextDouble() * 0.4f,
-                                                                                0.8f + (float)RG[threadID].NextDouble() * 0.4f,
-                                                                                (float)(RG[threadID].NextDouble() * Math.PI * 2)), 1);
-                        float StdDev = (float)Math.Abs(RGN[threadID].NextSingle(0, 0.3f));
-                        float OffsetMean = RG[threadID].NextSingle() * 0.8f - 0.4f;
-                        float OffsetScale = RG[threadID].NextSingle() + 0.5f;
-
-                        GPU.BoxNet2Augment(AllMicrographs[icorpus][ExampleID].GetDevice(Intent.Read),
-                                            AllLabels[icorpus][ExampleID].GetDevice(Intent.Read),
-                                            Dims,
-                                            d_AugmentedData[threadID].GetDeviceSlice(ib, Intent.Write),
-                                            d_AugmentedLabels[threadID].GetDeviceSlice(ib * 3, Intent.Write),
-                                            DimsAugmented,
-                                            Helper.ToInterleaved(Translations),
-                                            Rotations,
-                                            Helper.ToInterleaved(Scales),
-                                            OffsetMean,
-                                            OffsetScale,
-                                            StdDev,
-                                            RG[threadID].Next(99999),
-                                            false,
-                                            (uint)1);
-                    }
 
                     float LearningRate = MathHelper.Lerp((float)CLI.LearningRateStart, (float)CLI.LearningRateEnd, (float)NDone / NIterations);
                     LearningRate = MathF.Min(LearningRate, MathHelper.Lerp(0, (float)CLI.LearningRateStart, (float)NDone / 100));   // Warm-up
 
-                    //long[][] ResultLabels = new long[2][];
-                    float[][] ResultProbabilities = new float[2][];
 
-                    float[] Loss;
+                    if (AllMicrographsPick.Any())
+                    {
+                        int icorpus = b % AllMicrographsPick.Length;
+                        float[] Loss;
 
-                    lock (NetworkTrain)
-                        NetworkTrain.TrainPick(d_AugmentedData[threadID],
-                                               d_AugmentedLabels[threadID],
-                                               LearningRate,
-                                               false,
-                                               false,
-                                               out _,
-                                               out Loss);
+                        MakeExamplesPick(threadID, icorpus, 8, true, RG[threadID]);
 
-                    if (float.IsNaN(Loss[0]))
-                        throw new Exception("Something went wrong because loss = NaN");
+                        lock (NetworkTrain)
+                            NetworkTrain.TrainPick(d_AugmentedDataPick[threadID],
+                                                   d_AugmentedLabelsPick[threadID],
+                                                   LearningRate,
+                                                   false,
+                                                   false,
+                                                   out _,
+                                                   out Loss);
+
+                        if (float.IsNaN(Loss[0]))
+                            throw new Exception("Something went wrong with picker training because loss = NaN");
+
+                        lock (Watch) 
+                        { 
+                            LastLossesPick[icorpus].Enqueue(Loss[0]);
+                            if (LastLossesPick[icorpus].Count > SmoothN)
+                                LastLossesPick[icorpus].Dequeue();
+                            CheckpointLossesPick[icorpus].Enqueue(Loss[0]);
+                        }
+                    }
+
+                    if (AllMicrographsOddDenoise.Any())
+                    {
+                        int icorpus = b % AllMicrographsOddDenoise.Length;
+                        float[] LossDenoise;
+                        float[] LossFill;
+
+                        MakeExamplesDenoise(threadID, icorpus, 8, true, RG[threadID]);
+
+                        lock (NetworkTrain)
+                            NetworkTrain.TrainDenoise(d_AugmentedOddDenoise[threadID],
+                                                      d_AugmentedEvenDenoise[threadID],
+                                                      1f,
+                                                      LearningRate,
+                                                      false,
+                                                      out _,
+                                                      out LossDenoise);
+
+                        if (float.IsNaN(LossDenoise[0]))
+                            throw new Exception("Something went wrong with denoiser training because loss = NaN");
+
+                        lock (NetworkTrain)
+                            NetworkTrain.TrainFill(d_AugmentedFillSource[threadID],
+                                                   d_AugmentedFillTarget[threadID],
+                                                   LearningRate,
+                                                   false,
+                                                   false,
+                                                   out _,
+                                                   out LossFill);
+
+                        lock (Watch)
+                        {
+                            LastLossesDenoise[icorpus].Enqueue(LossDenoise[0]);
+                            if (LastLossesDenoise[icorpus].Count > SmoothN)
+                                LastLossesDenoise[icorpus].Dequeue();
+                            CheckpointLossesDenoise[icorpus].Enqueue(LossDenoise[0]);
+
+                            LastLossesFill[icorpus].Enqueue(LossFill[0]);
+                            if (LastLossesFill[icorpus].Count > SmoothN)
+                                LastLossesFill[icorpus].Dequeue();
+                            CheckpointLossesFill[icorpus].Enqueue(LossFill[0]);
+                        }
+                    }
 
                     lock (Watch)
                     {
                         NDone++;
-
-                        //if (!float.IsNaN(AccuracyParticles[0]))
-                        {
-                            LastAccuracies[icorpus].Enqueue(Loss[0]);
-                            if (LastAccuracies[icorpus].Count > SmoothN)
-                                LastAccuracies[icorpus].Dequeue();
-                            CheckpointAccuracies[icorpus].Enqueue(Loss[0]);
-                        }
-                        //if (!float.IsNaN(AccuracyParticles[1]))
-                        //    LastBaselines[icorpus].Add(AccuracyParticles[1]);
 
                         if (NDone % PlotEveryN == 0)
                         {
@@ -400,7 +756,7 @@ namespace WarpTools.Commands
                             {
                                 VirtualConsole.ClearLastLine();
                                 string TimeString = SpanRemaining.ToString((int)SpanRemaining.TotalDays > 0 ? @"dd\.hh\:mm\:ss" : ((int)SpanRemaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss"));
-                                Console.Write($"{NDone}/{NIterations}, loss = {MathHelper.Mean(LastAccuracies[0]):E2}, lr = {LearningRate:E2}, {TimeString} remaining");
+                                Console.Write($"{NDone}/{NIterations}, picking = {MathHelper.Mean(LastLossesPick[0]):E2}, denoising = {MathHelper.Mean(LastLossesDenoise[0]):E2}, filling = {MathHelper.Mean(LastLossesFill[0]):E2}, lr = {LearningRate:E2}, {TimeString} remaining");
                             }
                         }
 
@@ -414,80 +770,79 @@ namespace WarpTools.Commands
 
                             lock (NetworkTrain)
                             {
-                                for (int ib = 0; ib < BatchSize; ib++)
+                                if (AllMicrographsPick.Any())
                                 {
-                                    int ExampleID = RGPrediction.Next(AllMicrographs[icorpus].Count);
-                                    int2 Dims = AllDims[icorpus][ExampleID];
+                                    MakeExamplesPick(threadID, 0, 1, false, new Random(123));
 
-                                    int2 DimsValid = new int2(Math.Max(0, Dims.X - Border * 4), Math.Max(0, Dims.Y - Border * 4));
-                                    int2 DimsBorder = (Dims - DimsValid) / 2;
-
-                                    float2[] Translations = Helper.ArrayOfFunction(x => new float2(RGPrediction.Next(DimsValid.X) + DimsBorder.X,
-                                                                                                   RGPrediction.Next(DimsValid.Y) + DimsBorder.Y), 1);
-
-                                    float[] Rotations = Helper.ArrayOfFunction(i => 0f, 1);
-                                    float3[] Scales = Helper.ArrayOfFunction(i => new float3(1, 1, 0), 1);
-                                    float StdDev = 0;
-                                    float OffsetMean = 0;
-                                    float OffsetScale = 1;
-
-                                    GPU.BoxNet2Augment(AllMicrographs[icorpus][ExampleID].GetDevice(Intent.Read),
-                                                        AllLabels[icorpus][ExampleID].GetDevice(Intent.Read),
-                                                        Dims,
-                                                        d_AugmentedData[threadID].GetDeviceSlice(ib, Intent.Write),
-                                                        d_AugmentedLabels[threadID].GetDeviceSlice(ib * 3, Intent.Write),
-                                                        DimsAugmented,
-                                                        Helper.ToInterleaved(Translations),
-                                                        Rotations,
-                                                        Helper.ToInterleaved(Scales),
-                                                        OffsetMean,
-                                                        OffsetScale,
-                                                        StdDev,
-                                                        RGPrediction.Next(99999),
-                                                        false,
-                                                        (uint)1);
-
-                                    if (d_AugmentedData[threadID].GetHost(Intent.Read)[ib].All(v => v == 0))
+                                    Image Prediction, Probabilities;
+                                    NetworkTrain.PredictPick(d_AugmentedDataPick[threadID], out Prediction, out Probabilities);
+                                    Image Merged = new Image(Prediction.Dims.MultZ(2));
+                                    for (int z = 0; z < Prediction.Dims.Z; z++)
                                     {
-                                        AllMicrographs[icorpus][ExampleID].WriteMRC("d_allzeros.mrc", true);
-                                        Console.WriteLine();
-                                        Console.WriteLine(Dims);
-                                        Console.WriteLine(DimsValid);
-                                        Console.WriteLine(DimsBorder);
-                                        throw new Exception("All zeros");
-                                    }
-                                }
+                                        float[] Labels = Prediction.GetHost(Intent.Read)[z];
+                                        for (int i = 0; i < Labels.Length; i++)
+                                        {
+                                            int Label = (int)Labels[i];
+                                            float Probability = Probabilities.GetHost(Intent.Read)[z * 3 + Label][i];
+                                            if (Label == 1 && Probability < 0.5f)
+                                                Labels[i] = 0;
+                                            if (Label == 2 && Probability < 0.1f)
+                                                Labels[i] = 0;
+                                        }
 
-                                Image Prediction, Probabilities;
-                                NetworkTrain.PredictPick(d_AugmentedData[threadID], out Prediction, out Probabilities);
-                                Image Merged = new Image(Prediction.Dims.MultZ(2));
-                                for (int z = 0; z < Prediction.Dims.Z; z++)
-                                {
-                                    float[] Labels = Prediction.GetHost(Intent.Read)[z];
-                                    for (int i = 0; i < Labels.Length; i++)
-                                    {
-                                        int Label = (int)Labels[i];
-                                        float Probability = Probabilities.GetHost(Intent.Read)[z * 3 + Label][i];
-                                        if (Label == 1 && Probability < 0.5f)
-                                            Labels[i] = 0;
-                                        if (Label == 2 && Probability < 0.1f)
-                                            Labels[i] = 0;
+                                        Merged.GetHost(Intent.Write)[z * 2 + 0] = d_AugmentedDataPick[threadID].GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 2 + 1] = Labels;
                                     }
 
-                                    Merged.GetHost(Intent.Write)[z * 2 + 0] = d_AugmentedData[threadID].GetHost(Intent.Read)[z];
-                                    Merged.GetHost(Intent.Write)[z * 2 + 1] = Labels;
+                                    Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".pick.checkpoint.mrc", true);
+                                    Merged.Dispose();
                                 }
 
-                                Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".checkpoint.mrc", true);
-                                Merged.Dispose();
+                                if (AllMicrographsOddDenoise.Any())
+                                {
+                                    MakeExamplesDenoise(threadID, 0, 1, false, new Random(123));
+                                    d_AugmentedOddDenoise[threadID].Add(d_AugmentedEvenDenoise[threadID]);
+                                    d_AugmentedOddDenoise[threadID].Multiply(0.5f);
+
+                                    Image Prediction;
+                                    NetworkTrain.PredictDenoise(d_AugmentedOddDenoise[threadID], out Prediction);
+                                    Image Merged = new Image(Prediction.Dims.MultZ(2));
+                                    for (int z = 0; z < Prediction.Dims.Z; z++)
+                                    {
+                                        Merged.GetHost(Intent.Write)[z * 2 + 0] = d_AugmentedOddDenoise[threadID].GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 2 + 1] = Prediction.GetHost(Intent.Read)[z];
+                                    }
+
+                                    Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".denoise.checkpoint.mrc", true);
+                                    Merged.Dispose();
+                                }
+
+                                if (AllMicrographsOddDenoise.Any())
+                                {
+                                    Image Prediction;
+                                    NetworkTrain.PredictFill(d_AugmentedFillSource[threadID], out Prediction);
+                                    Image Merged = new Image(Prediction.Dims.MultZ(2));
+                                    for (int z = 0; z < Prediction.Dims.Z; z++)
+                                    {
+                                        Merged.GetHost(Intent.Write)[z * 2 + 0] = d_AugmentedFillSource[threadID].GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 2 + 1] = Prediction.GetHost(Intent.Read)[z];
+                                    }
+
+                                    Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".fill.checkpoint.mrc", true);
+                                    Merged.Dispose();
+                                }
                             }
 
                             Console.WriteLine();
-                            Console.WriteLine($"Average loss since previous checkpoint: {CheckpointAccuracies[0].Mean():E2}");
+                            Console.WriteLine($"Average loss since previous checkpoint: {CheckpointLossesPick[0].Mean():E2} picking, {CheckpointLossesDenoise[0].Mean():E2} denoising, {CheckpointLossesFill[0].Mean():E2} filling");
                             Console.WriteLine($"Saved checkpoint to {CheckpointName}");
 
-                            CheckpointAccuracies[0].Clear();
-                            CheckpointAccuracies[1].Clear();
+                            CheckpointLossesPick[0].Clear();
+                            CheckpointLossesPick[1].Clear();
+                            CheckpointLossesDenoise[0].Clear();
+                            CheckpointLossesDenoise[1].Clear();
+                            CheckpointLossesFill[0].Clear();
+                            CheckpointLossesFill[1].Clear();
                             NCheckpoints++;
                         }
                     }

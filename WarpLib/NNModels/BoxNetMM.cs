@@ -18,7 +18,7 @@ using System.Diagnostics;
 
 namespace Warp
 {
-    public class BoxNetMulti
+    public class BoxNetMM
     {
         public const float PixelSize = 8;
 
@@ -35,7 +35,7 @@ namespace Warp
         public readonly int[] Devices;
         public readonly int NDevices;
 
-        private TorchSharp.NN.BoxNetMulti[] Model;
+        private TorchSharp.NN.BoxNetMM[] Model;
 
         private TorchTensor[] TensorSource;
         private TorchTensor[] TensorTargetPick;
@@ -44,9 +44,14 @@ namespace Warp
 
         private Loss[] LossPick;
         private Loss[] LossDenoise;
-        private Optimizer OptimizerEncoder;
+        private Optimizer OptimizerEncoderPick;
+        private Optimizer OptimizerEncoderFill;
         private Optimizer OptimizerDecoderPick;
-        private Optimizer OptimizerDecoderDenoise;
+        private Optimizer OptimizerDecoderFill;
+
+        private Optimizer OptimizerDenoise;
+
+        private BoxNetOptimizer OptimizerType;
 
         private Image ResultPredictedArgmax;
         private Image ResultPredictedSoftmax;
@@ -57,7 +62,7 @@ namespace Warp
 
         private bool IsDisposed = false;
 
-        public BoxNetMulti(int2 boxDimensions, float[] classWeights, int[] devices, int batchSize = 8)
+        public BoxNetMM(int2 boxDimensions, float[] classWeights, int[] devices, int batchSize = 8, BoxNetOptimizer optimizerType = BoxNetOptimizer.None)
         {
             Devices = devices;
             NDevices = Devices.Length;
@@ -69,7 +74,7 @@ namespace Warp
 
             BoxDimensions = boxDimensions;
 
-            Model = new TorchSharp.NN.BoxNetMulti[NDevices];
+            Model = new TorchSharp.NN.BoxNetMM[NDevices];
             TensorSource = new TorchTensor[NDevices];
             TensorTargetPick = new TorchTensor[NDevices];
             TensorTargetDenoise = new TorchTensor[NDevices];
@@ -85,23 +90,48 @@ namespace Warp
             {
                 int DeviceID = Devices[i];
 
-                Model[i] = BoxNetMulti(3, 1, 1);
+                Model[i] = TorchSharp.NN.Modules.BoxNetMM(1, 1, 1);
                 Model[i].ToCuda(DeviceID);
 
                 TensorSource[i] = Float32Tensor.Zeros(new long[] { DeviceBatch, 1, BoxDimensions.Y, BoxDimensions.X }, DeviceType.CUDA, DeviceID);
-                TensorTargetPick[i] = Float32Tensor.Zeros(new long[] { DeviceBatch, 3, BoxDimensions.Y, BoxDimensions.X }, DeviceType.CUDA, DeviceID);
-                TensorTargetDenoise[i] = Float32Tensor.Zeros(new long[] { DeviceBatch, 1, BoxDimensions.Y, BoxDimensions.X }, DeviceType.CUDA, DeviceID);
 
-                TensorClassWeights[i] = Float32Tensor.Zeros(new long[] { 3 }, DeviceType.CUDA, DeviceID);
-                GPU.CopyHostToDevice(classWeights, TensorClassWeights[i].DataPtr(), 3);
+                if (optimizerType != BoxNetOptimizer.None)
+                {
+                    TensorTargetPick[i] = Float32Tensor.Zeros(new long[] { DeviceBatch, 3, BoxDimensions.Y, BoxDimensions.X }, DeviceType.CUDA, DeviceID);
+                    TensorTargetDenoise[i] = Float32Tensor.Zeros(new long[] { DeviceBatch, 1, BoxDimensions.Y, BoxDimensions.X }, DeviceType.CUDA, DeviceID);
 
-                LossPick[i] = CE(TensorClassWeights[i]);
-                LossDenoise[i] = MSE(Reduction.Mean);
+                    TensorClassWeights[i] = Float32Tensor.Zeros(new long[] { 3 }, DeviceType.CUDA, DeviceID);
+                    GPU.CopyHostToDevice(classWeights, TensorClassWeights[i].DataPtr(), 3);
+
+                    LossPick[i] = CE(TensorClassWeights[i]);
+                    LossDenoise[i] = MSE(Reduction.Mean);
+                }
 
             }//, null);
-            OptimizerEncoder = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("encoder")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
-            OptimizerDecoderPick = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("decoder") || p.name.StartsWith("final_conv")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
-            OptimizerDecoderDenoise = Optimizer.SGD(Model[0].NamedParameters().Where(p => p.name.StartsWith("denoise")).Select(p => p.parameter).ToArray(), 1e-4, 0.9, false, 1e-4);
+
+            OptimizerType = optimizerType;
+
+            TorchTensor[] ParamsEncoder = Model[0].NamedParameters().Where(p => p.name.StartsWith("encoder")).Select(p => p.parameter).ToArray();
+            TorchTensor[] ParamsDecoderPick = Model[0].NamedParameters().Where(p => p.name.StartsWith("decoder") || p.name.StartsWith("final_conv")).Select(p => p.parameter).ToArray();
+            TorchTensor[] ParamsDecoderFill = Model[0].NamedParameters().Where(p => p.name.StartsWith("fill")).Select(p => p.parameter).ToArray();
+            TorchTensor[] ParamsDenoise = Model[0].NamedParameters().Where(p => p.name.StartsWith("denoise")).Select(p => p.parameter).ToArray();
+
+            if (OptimizerType == BoxNetOptimizer.SGD)
+            {
+                OptimizerEncoderPick = Optimizer.SGD(ParamsEncoder, 1e-4, 0.9, false, 1e-4);
+                OptimizerEncoderFill = Optimizer.SGD(ParamsEncoder, 1e-4, 0.9, false, 1e-4);
+                OptimizerDecoderPick = Optimizer.SGD(ParamsDecoderPick, 1e-4, 0.9, false, 1e-4);
+                OptimizerDecoderFill = Optimizer.SGD(ParamsDecoderFill, 1e-4, 0.9, false, 1e-4);
+            }
+            else if (OptimizerType == BoxNetOptimizer.Adam)
+            {
+                OptimizerEncoderPick = Optimizer.Adam(ParamsEncoder, 1e-4, 1e-4);
+                OptimizerEncoderFill = Optimizer.Adam(ParamsEncoder, 1e-4, 1e-4);
+                OptimizerDecoderPick = Optimizer.Adam(ParamsDecoderPick, 1e-4, 1e-4);
+                OptimizerDecoderFill = Optimizer.Adam(ParamsDecoderFill, 1e-4, 1e-4);
+            }
+
+            OptimizerDenoise = Optimizer.Adam(ParamsDenoise, 1e-4, 1e-4);
 
             ResultPredictedArgmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize));
             ResultPredictedSoftmax = new Image(IntPtr.Zero, new int3(BoxDimensions.X, BoxDimensions.Y, BatchSize * 3));
@@ -216,6 +246,29 @@ namespace Warp
             h_predictionDenoised = h_ResultPredictedDenoised;
         }
 
+        public void PredictFill(Image data, out Image predictionFilled)
+        {
+            ScatterData(data, TensorSource);
+            ResultPredictedDenoised.GetDevice(Intent.Write);
+
+            Helper.ForCPU(0, NDevices, NDevices, null, (i, threadID) =>
+            {
+                using (var mode = new InferenceMode(true))
+                {
+                    Model[i].Eval();
+
+                    using (TorchTensor t_Prediction = Model[i].DenoiseForward(TensorSource[i]))
+                    {
+                        GPU.CopyDeviceToDevice(t_Prediction.DataPtr(),
+                                               ResultPredictedDenoised.GetDeviceSlice(i * DeviceBatch, Intent.Write),
+                                               DeviceBatch * BoxDimensions.Elements());
+                    }
+                }
+            }, null);
+
+            predictionFilled = ResultPredictedDenoised;
+        }
+
         public void TrainPick(Image source,
                               Image target,
                               float learningRate,
@@ -228,8 +281,18 @@ namespace Warp
 
             var ResultLoss = new float[1];
 
-            OptimizerEncoder.SetLearningRateSGD(learningRate);
-            OptimizerDecoderPick.SetLearningRateSGD(learningRate);
+            if (OptimizerType == BoxNetOptimizer.SGD)
+            {
+                OptimizerEncoderPick.SetLearningRateSGD(learningRate);
+                OptimizerDecoderPick.SetLearningRateSGD(learningRate);
+            }
+            else if (OptimizerType == BoxNetOptimizer.Adam)
+            {
+                OptimizerEncoderPick.SetLearningRateAdam(learningRate);
+                OptimizerDecoderPick.SetLearningRateAdam(learningRate);
+            }
+            else
+                throw new Exception("Invalid optimizer type for training.");
 
             SyncParams();
             ResultPredictedArgmax.GetDevice(Intent.Write);
@@ -273,7 +336,7 @@ namespace Warp
 
             GatherGrads();
 
-            OptimizerEncoder.Step();
+            OptimizerEncoderPick.Step();
             if (!skipDecoder)
                 OptimizerDecoderPick.Step();
 
@@ -283,8 +346,8 @@ namespace Warp
 
         public void TrainDenoise(Image source,
                                  Image target,
+                                 float consistencyWeight,
                                  float learningRate,
-                                 bool skipDecoder,
                                  bool needOutput,
                                  out Image prediction,
                                  out float[] loss)
@@ -293,8 +356,107 @@ namespace Warp
 
             var ResultLoss = new float[1];
 
-            OptimizerEncoder.SetLearningRateSGD(learningRate);
-            OptimizerDecoderDenoise.SetLearningRateSGD(learningRate);
+            if (OptimizerType == BoxNetOptimizer.SGD)
+            {
+                OptimizerEncoderFill.SetLearningRateSGD(learningRate);
+                OptimizerDecoderFill.SetLearningRateSGD(learningRate);
+            }
+            else if (OptimizerType == BoxNetOptimizer.Adam)
+            {
+                OptimizerEncoderFill.SetLearningRateAdam(learningRate);
+                OptimizerDecoderFill.SetLearningRateAdam(learningRate);
+            }
+            else
+                throw new Exception("Invalid optimizer type for training.");
+
+            OptimizerDenoise.SetLearningRateAdam(learningRate);
+
+            SyncParams();
+            ResultPredictedDenoised.GetDevice(Intent.Write);
+
+            Helper.ForCPU(0, NDevices, NDevices, null, (i, threadID) =>
+            {
+                Model[i].Train();
+                Model[i].ZeroGrad();
+
+                GPU.CopyDeviceToDevice(source.GetDeviceSlice(i * DeviceBatch, Intent.Read),
+                                       TensorSource[i].DataPtr(),
+                                       DeviceBatch * BoxDimensions.Elements());
+                GPU.CopyDeviceToDevice(target.GetDeviceSlice(i * DeviceBatch, Intent.Read),
+                                       TensorTargetDenoise[i].DataPtr(),
+                                       DeviceBatch * BoxDimensions.Elements());
+
+                GPU.CheckGPUExceptions();
+
+                using (TorchTensor PredictionOdd = Model[i].DenoiseForward(TensorSource[i]))
+                using (TorchTensor PredictionOddLoss = LossDenoise[i](PredictionOdd, TensorTargetDenoise[i]))
+                {
+                    if (needOutput)
+                    {
+                        GPU.CopyDeviceToDevice(PredictionOdd.DataPtr(),
+                                               ResultPredictedDenoised.GetDeviceSlice(i * DeviceBatch, Intent.Write),
+                                               DeviceBatch * BoxDimensions.Elements());
+                    }
+
+                    if (consistencyWeight > 0)
+                    {
+                        using (TorchTensor PredictionOddDetached = PredictionOdd.Detach())
+                        using (TorchTensor PredictionEven = Model[i].DenoiseForward(TensorTargetDenoise[i]))
+                        using (TorchTensor ConsistencyLoss = LossDenoise[i](PredictionEven, PredictionOddDetached))
+                        using (TorchTensor ConsistencyWeighted = ConsistencyLoss.Mul(consistencyWeight))
+                        using (TorchTensor OverallLoss = PredictionOddLoss.Add(ConsistencyWeighted))
+                        {
+                            if (i == 0)
+                                GPU.CopyDeviceToHost(OverallLoss.DataPtr(), ResultLoss, 1);
+
+                            OverallLoss.Backward();
+                        }
+                    }
+                    else
+                    {
+                        if (i == 0)
+                            GPU.CopyDeviceToHost(PredictionOddLoss.DataPtr(), ResultLoss, 1);
+
+                        PredictionOddLoss.Backward();
+                    }
+                }
+            }, null);
+
+            GatherGrads();
+
+            //OptimizerEncoderDenoise.Step();
+            //if (!skipDecoder)
+            //    OptimizerDecoderDenoise.Step();
+            OptimizerDenoise.Step();
+
+            prediction = ResultPredictedDenoised;
+            loss = ResultLoss;
+        }
+
+        public void TrainFill(Image source,
+                              Image target,
+                              float learningRate,
+                              bool skipDecoder,
+                              bool needOutput,
+                              out Image prediction,
+                              out float[] loss)
+        {
+            GPU.CheckGPUExceptions();
+
+            var ResultLoss = new float[1];
+
+            if (OptimizerType == BoxNetOptimizer.SGD)
+            {
+                OptimizerEncoderFill.SetLearningRateSGD(learningRate);
+                OptimizerDecoderFill.SetLearningRateSGD(learningRate);
+            }
+            else if (OptimizerType == BoxNetOptimizer.Adam)
+            {
+                OptimizerEncoderFill.SetLearningRateAdam(learningRate);
+                OptimizerDecoderFill.SetLearningRateAdam(learningRate);
+            }
+            else
+                throw new Exception("Invalid optimizer type for training.");
 
             SyncParams();
             ResultPredictedDenoised.GetDevice(Intent.Write);
@@ -314,27 +476,26 @@ namespace Warp
                 GPU.CheckGPUExceptions();
 
                 using (TorchTensor Prediction = Model[i].DenoiseForward(TensorSource[i]))
-                using (TorchTensor PredictionLoss = LossDenoise[i](Prediction, TensorTargetDenoise[i]))
+                using (TorchTensor PredictioLoss = LossDenoise[i](Prediction, TensorTargetDenoise[i]))
+                using (TorchTensor LossScaled = PredictioLoss.Mul(10))
                 {
                     if (needOutput)
-                    {
                         GPU.CopyDeviceToDevice(Prediction.DataPtr(),
                                                ResultPredictedDenoised.GetDeviceSlice(i * DeviceBatch, Intent.Write),
                                                DeviceBatch * BoxDimensions.Elements());
-                    }
 
                     if (i == 0)
-                        GPU.CopyDeviceToHost(PredictionLoss.DataPtr(), ResultLoss, 1);
+                        GPU.CopyDeviceToHost(LossScaled.DataPtr(), ResultLoss, 1);
 
-                    PredictionLoss.Backward();
+                    LossScaled.Backward();
                 }
             }, null);
 
             GatherGrads();
 
-            OptimizerEncoder.Step();
+            OptimizerEncoderFill.Step();
             if (!skipDecoder)
-                OptimizerDecoderDenoise.Step();
+                OptimizerDecoderFill.Step();
 
             prediction = ResultPredictedDenoised;
             loss = ResultLoss;
@@ -353,7 +514,7 @@ namespace Warp
                 Model[i].Load(path, DeviceType.CUDA, Devices[i]);
         }
 
-        ~BoxNetMulti()
+        ~BoxNetMM()
         {
             Dispose();
         }
@@ -373,18 +534,25 @@ namespace Warp
                     for (int i = 0; i < NDevices; i++)
                     {
                         TensorSource[i].Dispose();
-                        TensorTargetPick[i].Dispose();
-                        TensorTargetDenoise[i].Dispose();
-                        TensorClassWeights[i].Dispose();
+                        TensorTargetPick[i]?.Dispose();
+                        TensorTargetDenoise[i]?.Dispose();
+                        TensorClassWeights[i]?.Dispose();
 
                         Model[i].Dispose();
                     }
 
-                    OptimizerEncoder.Dispose();
-                    OptimizerDecoderPick.Dispose();
-                    OptimizerDecoderDenoise.Dispose();
+                    OptimizerEncoderPick?.Dispose();
+                    OptimizerDecoderPick?.Dispose();
+                    OptimizerDecoderFill?.Dispose();
                 }
             }
         }
+    }
+
+    public enum BoxNetOptimizer
+    {
+        None = 0,
+        SGD = 1,
+        Adam = 2
     }
 }

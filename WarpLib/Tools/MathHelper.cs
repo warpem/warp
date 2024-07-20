@@ -224,6 +224,15 @@ namespace Warp.Tools
             return new float2((float)Median, (float)Math.Sqrt(SqSum / data.Count()));
         }
 
+        public static float2 MedianAndPercentileDiff(IEnumerable<float> data, decimal percentile)
+        {
+            float Median = data.Median();
+            var Diff = data.Select(v => MathF.Abs(v - Median));
+            float PercentileDiff = Percentile(Diff, percentile);
+
+            return new float2(Median, PercentileDiff);
+        }
+
         public static bool NearlyEqual(float a, float b, int tolerance_significant_digits = 6)
         {
             // Special cases
@@ -820,12 +829,17 @@ namespace Warp.Tools
             return value - (int)value;
         }
 
-        public static float Median(IEnumerable<float> data)
+        public static T Percentile<T>(IEnumerable<T> data, decimal percentile)
         {
-            List<float> Sorted = new List<float>(data);
+            List<T> Sorted = new List<T>(data);
             Sorted.Sort();
 
-            return Sorted[Sorted.Count / 2];
+            return Sorted[(int)((Sorted.Count - 1) * (percentile / 100M))];
+        }
+
+        public static T Median<T>(IEnumerable<T> data)
+        {
+            return Percentile(data, 50);
         }
 
         public static float[] WithinNStd(float[] data, float nstd)
@@ -833,9 +847,7 @@ namespace Warp.Tools
             float Mean = MathHelper.Mean(data);
             float Std = StdDev(data) * nstd;
 
-            List<float> Result = data.Where(t => Math.Abs(t - Mean) <= Std).ToList();
-
-            return Result.ToArray();
+            return data.Where(t => Math.Abs(t - Mean) <= Std).ToArray();
         }
 
         public static float[] WithinNStdFromMedian(float[] data, float nstd)
@@ -1414,6 +1426,17 @@ namespace Warp.Tools
             }
 
             return null; // Intersection is outside of the rays
+        }
+
+        public static int DrawBinomial(int numberOfTrials, float successProbability, Random rng)
+        {
+            int Successes = 0;
+
+            for (int i = 0; i < numberOfTrials; i++)
+                if (rng.NextSingle() < successProbability)
+                    Successes++;
+
+            return Successes;
         }
     }
 

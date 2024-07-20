@@ -321,16 +321,7 @@
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(CudaToolkitLibDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(CUDA_PATH)\bin\cudart64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufft64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufftw64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublas64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublasLt64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
-copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
+      <Command>copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\zlib.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\Lerc.dll" "$(OutDir)"
@@ -379,16 +370,7 @@ copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
       </Version>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(CUDA_PATH)\bin\cudart64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufft64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufftw64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublas64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublasLt64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
-copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
+      <Command>copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\zlib.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\Lerc.dll" "$(OutDir)"

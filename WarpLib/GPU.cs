@@ -135,6 +135,37 @@ namespace Warp
                                                  bool channelsfirst,
                                                  uint batch);
 
+        [DllImport("NativeAcceleration", EntryPoint = "BoxNetMMAugmentPicking")]
+        public static extern void BoxNetMMAugmentPicking(ulong t_inputmic,
+                                                         IntPtr d_inputlabel,
+                                                         int2 dimsinput,
+                                                         IntPtr d_outputmic,
+                                                         IntPtr d_outputlabel,
+                                                         int2 dimsoutput,
+                                                         float[] h_offsets,
+                                                         float[] h_rotations,
+                                                         float[] h_scales,
+                                                         float offsetmean,
+                                                         float offsetscale,
+                                                         float noisestddev,
+                                                         int seed,
+                                                         bool channelsfirst,
+                                                         uint batch);
+
+        [DllImport("NativeAcceleration", EntryPoint = "BoxNetMMAugmentDenoising")]
+        public static extern void BoxNetMMAugmentDenoising(ulong t_inputodd,
+                                                           ulong t_inputeven,
+                                                           int2 dimsinput,
+                                                           IntPtr d_outputodd,
+                                                           IntPtr d_outputeven,
+                                                           int2 dimsoutput,
+                                                           float[] h_offsets,
+                                                           float[] h_rotations,
+                                                           float[] h_scales,
+                                                           float offsetmean,
+                                                           float offsetscale,
+                                                           uint batch);
+
         // C2DNet.cu:
         [DllImport("NativeAcceleration", EntryPoint = "C2DNetAlign")]
         public static extern void C2DNetAlign(IntPtr d_refs,
@@ -968,6 +999,9 @@ namespace Warp
 
         [DllImport("NativeAcceleration", EntryPoint = "PrefilterForCubic")]
         public static extern void PrefilterForCubic(IntPtr d_data, int3 dims);
+
+        [DllImport("NativeAcceleration", EntryPoint = "CreateTexture2D")]
+        public static extern void CreateTexture2D(IntPtr d_data, int2 dims, ulong[] h_textureid, ulong[] h_arrayid, bool linearfiltering);
 
         [DllImport("NativeAcceleration", EntryPoint = "CreateTexture3D")]
         public static extern void CreateTexture3D(IntPtr d_data, int3 dims, ulong[] h_textureid, ulong[] h_arrayid, bool linearfiltering);

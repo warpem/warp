@@ -194,6 +194,35 @@ extern "C" __declspec(dllexport) void __stdcall BoxNet2Augment(float* d_inputmic
                                                                 bool channelsfirst,
                                                                 uint batch);
 
+extern "C" __declspec(dllexport) void __stdcall BoxNetMMAugmentPicking(unsigned long long t_inputmic,
+																		float* d_inputlabel,
+																		int2 dimsinput,
+																		float* d_outputmic,
+																		float* d_outputlabel,
+																		int2 dimsoutput,
+																		float2* h_offsets,
+																		float* h_rotations,
+																		float3* h_scales,
+																		float offsetmean,
+																		float offsetscale,
+																		float noisestddev,
+																		int seed,
+																		bool channelsfirst,
+																		uint batch);
+
+extern "C" __declspec(dllexport) void __stdcall BoxNetMMAugmentDenoising(unsigned long long  t_inputodd,
+																		unsigned long long  t_inputeven,
+																		int2 dimsinput,
+																		float* d_outputodd,
+																		float* d_outputeven,
+																		int2 dimsoutput,
+																		float2* h_offsets,
+																		float* h_rotations,
+																		float3* h_scales,
+																		float offsetmean,
+																		float offsetscale,
+																		uint batch);
+
 // C2DNet.cu:
 extern "C" __declspec(dllexport) void C2DNetAlign(float2 * d_refs,
                                                 int dimprojector,
@@ -873,6 +902,7 @@ extern "C" __declspec(dllexport) void DistanceMap(float* d_input, float* d_outpu
 extern "C" __declspec(dllexport) void DistanceMapExact(float* d_input, float* d_output, int3 dims, int maxdistance);
 
 extern "C" __declspec(dllexport) void PrefilterForCubic(float* d_data, int3 dims);
+extern "C" __declspec(dllexport) void CreateTexture2D(float* d_data, int2 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering);
 extern "C" __declspec(dllexport) void CreateTexture3D(float* d_data, int3 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering);
 extern "C" __declspec(dllexport) void CreateTexture3DComplex(float2* d_data, int3 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering);
 extern "C" __declspec(dllexport) void DestroyTexture(unsigned long long textureid, unsigned long long arrayid);

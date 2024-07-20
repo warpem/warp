@@ -15,9 +15,10 @@ EXPORT_API(Tensor)   THSNN_UNet3D_forward(const NNModule module, const Tensor in
 EXPORT_API(NNModule) THSNN_UNet2D_ctor(const int64_t depth_block, const int64_t width_block, const int64_t input_channels, const int64_t final_channels, const int64_t final_kernel, const bool dochannelattn, const bool dospatialattn, NNAnyModule* outAsAnyModule);
 EXPORT_API(Tensor)   THSNN_UNet2D_forward(const NNModule module, const Tensor input);
 
-EXPORT_API(NNModule) THSNN_BoxNetMulti_ctor(const int64_t depth_block, const int64_t width_block, const int64_t input_channels, NNAnyModule* outAsAnyModule);
-EXPORT_API(Tensor)   THSNN_BoxNetMulti_pick_forward(const NNModule module, const Tensor input);
-EXPORT_API(Tensor)   THSNN_BoxNetMulti_denoise_forward(const NNModule module, const Tensor input);
+EXPORT_API(NNModule) THSNN_BoxNetMM_ctor(const int64_t depth_block, const int64_t width_block, const int64_t input_channels, NNAnyModule* outAsAnyModule);
+EXPORT_API(Tensor)   THSNN_BoxNetMM_pick_forward(const NNModule module, const Tensor input);
+EXPORT_API(Tensor)   THSNN_BoxNetMM_fill_forward(const NNModule module, const Tensor input);
+EXPORT_API(Tensor)   THSNN_BoxNetMM_denoise_forward(const NNModule module, const Tensor input);
 
 EXPORT_API(NNModule) THSNN_ParticleWGANGenerator_ctor(int64_t boxsize, int64_t codelength, NNAnyModule* outAsAnyModule);
 EXPORT_API(Tensor)   THSNN_ParticleWGANGenerator_forward_particle(const NNModule module, const Tensor code, const bool transform, const double sigmashift);

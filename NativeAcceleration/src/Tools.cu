@@ -715,6 +715,11 @@ __declspec(dllexport) void PrefilterForCubic(float* d_data, int3 dims)
 		d_CubicBSplinePrefilter2D(d_data, toInt2(dims));
 }
 
+__declspec(dllexport) void CreateTexture2D(float* d_data, int2 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering)
+{
+	d_BindTextureToArray(d_data, ((cudaArray_t*)h_arrayid)[0], ((cudaTex*)h_textureid)[0], dims, linearfiltering ? cudaFilterModeLinear : cudaFilterModePoint, false);
+}
+
 __declspec(dllexport) void CreateTexture3D(float* d_data, int3 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering)
 {
 	d_BindTextureTo3DArray(d_data, ((cudaArray_t*)h_arrayid)[0], ((cudaTex*)h_textureid)[0], dims, linearfiltering ? cudaFilterModeLinear : cudaFilterModePoint, false);
