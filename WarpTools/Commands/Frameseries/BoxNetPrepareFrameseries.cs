@@ -251,24 +251,119 @@ namespace WarpTools.Commands.Frameseries
                     Dims8Apx = new int2((DimsMicAng / BoxNetMM.PixelSize + 1) / 2) * 2;
                 }
 
-                Image Stack = new Image(new int3(Dims8Apx.X, Dims8Apx.Y, MicsDenoising.Count * 2));
+                Image Stack = new Image(new int3(Dims8Apx.X, Dims8Apx.Y, MicsDenoising.Count * 3));
+                float2[] CTFCoords = CTF.GetCTFCoords(Dims8Apx, Dims8Apx).GetHostComplexCopy()[0];
 
                 Console.Write($"0/{MicsDenoising.Count} processed");
 
                 int NDone = 0;
-                Helper.ForCPUGreedy(0, MicsDenoising.Count, 8, null, (imic, threadID) =>
+                Helper.ForCPUGreedy(0, MicsDenoising.Count, 1, null, (imic, threadID) =>
                 {
-                    Image MicOddScaled = Image.FromFile(MicsDenoising[imic].AverageOddPath).AsScaled(Dims8Apx).AndDisposeParent();
+                    Image MicOdd = Image.FromFile(MicsDenoising[imic].AverageOddPath);
+                    Image MicOddScaled = MicOdd.AsScaled(Dims8Apx);
                     if (CLI.NegativeContrast)
                         MicOddScaled.Multiply(-1f);
+                    Stack.GetHost(Intent.Write)[imic * 3 + 0] = MicOddScaled.GetHost(Intent.Read)[0];
                     MicOddScaled.FreeDevice();
-                    Stack.GetHost(Intent.Write)[imic * 2 + 0] = MicOddScaled.GetHost(Intent.Read)[0];
 
-                    Image MicEvenScaled = Image.FromFile(MicsDenoising[imic].AverageEvenPath).AsScaled(Dims8Apx).AndDisposeParent();
+                    Image MicEven = Image.FromFile(MicsDenoising[imic].AverageEvenPath);
+                    Image MicEvenScaled = MicEven.AsScaled(Dims8Apx);
                     if (CLI.NegativeContrast)
                         MicEvenScaled.Multiply(-1f);
+                    Stack.GetHost(Intent.Write)[imic * 3 + 1] = MicEvenScaled.GetHost(Intent.Read)[0];
                     MicEvenScaled.FreeDevice();
-                    Stack.GetHost(Intent.Write)[imic * 2 + 1] = MicEvenScaled.GetHost(Intent.Read)[0];
+
+                    CTF CTF8Apx = MicsDenoising[imic].CTF.GetCopy();
+                    CTF8Apx.PixelSize = (decimal)BoxNetMM.PixelSize;
+                    float[] CTF2D = CTF8Apx.Get2D(CTFCoords, false, true, true);
+
+                    #region Calculate FRC
+
+                    Image OddFT = MicOdd.AsFFT().AndDisposeParent();
+                    Image EvenFT = MicEven.AsFFT().AndDisposeParent();
+
+                    float2[] OddFTData = OddFT.GetHostComplexCopy()[0];
+                    float2[] EvenFTData = EvenFT.GetHostComplexCopy()[0];
+                    OddFT.Dispose();
+                    EvenFT.Dispose();
+
+                    double[] Nums = new double[128];
+                    double[] Denoms1 = new double[128];
+                    double[] Denoms2 = new double[128];
+
+                    Helper.ForEachElementFT(new int2(MicOdd.Dims), (x, y, xx, yy) =>
+                    {
+                        float XNorm = (float)xx / MicOdd.Dims.X * 2;
+                        float YNorm = (float)yy / MicOdd.Dims.Y * 2;
+                        float R = MathF.Sqrt(XNorm * XNorm + YNorm * YNorm);
+                        if (R >= 1)
+                            return;
+
+                        float2 OddVal = OddFTData[y * (MicOdd.Dims.X / 2 + 1) + x];
+                        float2 EvenVal = EvenFTData[y * (MicOdd.Dims.X / 2 + 1) + x];
+
+                        R *= Nums.Length;
+                        int ID = (int)R;
+                        float W1 = R - ID;
+                        float W0 = 1f - W1;
+
+                        float Nom = OddVal.X * EvenVal.X + OddVal.Y * EvenVal.Y;
+                        float Denom1 = OddVal.X * OddVal.X + OddVal.Y * OddVal.Y;
+                        float Denom2 = EvenVal.X * EvenVal.X + EvenVal.Y * EvenVal.Y;
+
+                        if (W0 > 0)
+                        {
+                            Nums[ID] += W0 * Nom;
+                            Denoms1[ID] += W0 * Denom1;
+                            Denoms2[ID] += W0 * Denom2;
+                        }
+
+                        if (ID < Nums.Length - 1 && W1 > 0)
+                        {
+                            Nums[ID + 1] += W1 * Nom;
+                            Denoms1[ID + 1] += W1 * Denom1;
+                            Denoms2[ID + 1] += W1 * Denom2;
+                        }
+                    });
+
+                    float[] FRC = new float[Nums.Length];
+                    for (int i = 0; i < Nums.Length; i++)
+                        FRC[i] = (float)(Nums[i] / Math.Sqrt(Denoms1[i] * Denoms2[i]));
+
+                    // Convert FRC to SNR
+                    float[] SNR = FRC.Select(f => Math.Abs(f) / (1f - Math.Min(0.999f, Math.Abs(f)))).ToArray();
+
+                    #endregion
+
+                    #region Place CTF and FRC side by side in the 3rd layer
+
+                    float[] SpectralData = Stack.GetHost(Intent.Write)[imic * 3 + 2];
+
+                    for (int y = 0; y < Dims8Apx.Y; y++)
+                        for (int x = 0; x < Dims8Apx.X / 2; x++)
+                            SpectralData[y * Dims8Apx.X + x] = CTF2D[y * (Dims8Apx.X / 2 + 1) + x];
+
+                    Helper.ForEachElementFT(Dims8Apx, (x, y, xx, yy) =>
+                    {
+                        if (x >= Dims8Apx.X / 2)
+                            return;
+
+                        float XNorm = (float)xx / Dims8Apx.X * 2;
+                        float YNorm = (float)yy / Dims8Apx.Y * 2;
+                        float R = MathF.Sqrt(XNorm * XNorm + YNorm * YNorm) * (MicHeader.PixelSize.X / BoxNetMM.PixelSize) * FRC.Length;
+
+                        int ID = (int)R;
+                        float W1 = R - ID;
+                        float W0 = 1f - W1;
+
+                        float Val = 0;
+                        Val += W0 * FRC[Math.Min(FRC.Length - 1, ID)];
+                        Val += W1 * FRC[Math.Min(FRC.Length - 1, ID + 1)];
+
+                        SpectralData[y * Dims8Apx.X + x + Dims8Apx.X / 2] = Val;
+                    });
+
+                    #endregion
 
                     lock (this)
                     {

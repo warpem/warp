@@ -147,7 +147,6 @@ namespace Warp
                                                          float[] h_scales,
                                                          float offsetmean,
                                                          float offsetscale,
-                                                         float noisestddev,
                                                          int seed,
                                                          bool channelsfirst,
                                                          uint batch);
@@ -155,9 +154,13 @@ namespace Warp
         [DllImport("NativeAcceleration", EntryPoint = "BoxNetMMAugmentDenoising")]
         public static extern void BoxNetMMAugmentDenoising(ulong t_inputodd,
                                                            ulong t_inputeven,
+                                                           ulong t_inputodddeconv,
+                                                           ulong t_inputevendeconv,
                                                            int2 dimsinput,
                                                            IntPtr d_outputodd,
                                                            IntPtr d_outputeven,
+                                                           IntPtr d_outputodddeconv,
+                                                           IntPtr d_outputevendeconv,
                                                            int2 dimsoutput,
                                                            float[] h_offsets,
                                                            float[] h_rotations,
@@ -606,6 +609,9 @@ namespace Warp
 
         [DllImport("NativeAcceleration", EntryPoint = "PadClamped")]
         public static extern void PadClamped(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
+
+        [DllImport("NativeAcceleration", EntryPoint = "PadClampedSoft")]
+        public static extern void PadClampedSoft(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, int softdist, uint batch);
 
         [DllImport("NativeAcceleration", EntryPoint = "PadFT")]
         public static extern void PadFT(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);

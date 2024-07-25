@@ -205,16 +205,19 @@ extern "C" __declspec(dllexport) void __stdcall BoxNetMMAugmentPicking(unsigned 
 																		float3* h_scales,
 																		float offsetmean,
 																		float offsetscale,
-																		float noisestddev,
 																		int seed,
 																		bool channelsfirst,
 																		uint batch);
 
 extern "C" __declspec(dllexport) void __stdcall BoxNetMMAugmentDenoising(unsigned long long  t_inputodd,
 																		unsigned long long  t_inputeven,
+																		unsigned long long  t_inputodddeconv,
+																		unsigned long long  t_inputevendeconv,
 																		int2 dimsinput,
 																		float* d_outputodd,
 																		float* d_outputeven,
+																		float* d_outputodddeconv,
+																		float* d_outputevendeconv,
 																		int2 dimsoutput,
 																		float2* h_offsets,
 																		float* h_rotations,
@@ -693,6 +696,8 @@ extern "C" __declspec(dllexport) void IFFT(float2* d_input, float* d_output, int
 extern "C" __declspec(dllexport) void Pad(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
 extern "C" __declspec(dllexport) void PadClamped(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
+
+extern "C" __declspec(dllexport) void PadClampedSoft(float* d_input, float* d_output, int3 olddims, int3 newdims, int softdist, uint batch);
 
 extern "C" __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch);
 

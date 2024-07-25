@@ -52,14 +52,20 @@ namespace WarpTools.Commands
         [Option("lr_end", Default = 1e-5, HelpText = "Learning rate at training end, with linear interpolation in-between")]
         public double LearningRateEnd { get; set; }
 
+        [Option("lr_denoise", HelpText = "Optionally, specify a different, constant learning rate for the denoiser")]
+        public double? LearningRateDenoise { get; set; }
+
         [Option("epochs", Default = 100, HelpText = "Number of training epochs")]
         public int NEpochs { get; set; }
 
         [Option("checkpoints", Default = 0, HelpText = "Save checkpoints every N minutes; set to 0 to disable")]
         public int Checkpoints { get; set; }
 
-        [Option("devices", HelpText = "Space-separated list of GPU IDs to be used for training")]
-        public IEnumerable<int> Devices { get; set; }
+        [Option("device_data", HelpText = "GPU ID for storing raw data and preparing examples")]
+        public int DeviceData { get; set; }
+
+        [Option("devices_model", HelpText = "Space-separated list of GPU IDs to be used for training")]
+        public IEnumerable<int> DevicesModel { get; set; }
     }
 
     class BoxNetTrainFrameseries : BaseCommand
@@ -98,24 +104,30 @@ namespace WarpTools.Commands
             if (CLI.LearningRateEnd < 0.0)
                 throw new Exception("--lr_end can't be negative");
 
+            if (CLI.LearningRateDenoise != null && CLI.LearningRateDenoise < 0.0)
+                throw new Exception("--lr_denoise can't be negative");
+
             if (CLI.LearningRateStart < CLI.LearningRateEnd)
                 throw new Exception("--lr_start must be greater than or equal to --lr_end");
 
             if (CLI.NEpochs <= 0)
                 throw new Exception("--epochs must be positive");
 
-            if (CLI.Devices == null || !CLI.Devices.Any())
-                CLI.Devices = new[] { 0 };
+            if (CLI.DevicesModel == null || !CLI.DevicesModel.Any())
+                CLI.DevicesModel = new[] { 0 };
 
-            if (CLI.Devices.Any(d => d < 0 || d >= GPU.GetDeviceCount()))
+            if (CLI.DeviceData < 0 || CLI.DeviceData >= GPU.GetDeviceCount())
+                throw new Exception($"--device_data must be a GPU ID between 0 and {GPU.GetDeviceCount() - 1} (inclusive)");
+
+            if (CLI.DevicesModel.Any(d => d < 0 || d >= GPU.GetDeviceCount()))
                 throw new Exception($"--devices must be a list of GPU IDs between 0 and {GPU.GetDeviceCount() - 1} (inclusive)");
 
-            if (CLI.BatchSize % CLI.Devices.Count() != 0)
-                throw new Exception($"--batchsize must be divisible by the number of devices ({CLI.Devices.Count()})");
+            if (CLI.BatchSize % CLI.DevicesModel.Count() != 0)
+                throw new Exception($"--batchsize must be divisible by the number of devices ({CLI.DevicesModel.Count()})");
 
             #endregion
 
-            GPU.SetDevice(CLI.Devices.First());
+            GPU.SetDevice(CLI.DeviceData);
 
             #region Load data
 
@@ -161,9 +173,8 @@ namespace WarpTools.Commands
             List<int2>[] AllDimsPick = Helper.ArrayOfFunction(i => new List<int2>(), AllPathsPick.Count);
             float[] LabelWeightsPick = { 1f, 1f, 1f };
 
-            List<int2>[] AllDimsDenoise = Helper.ArrayOfFunction(i => new List<int2>(), Math.Max(AllPathsDenoise.Count, AllPathsPick.Count));
-            List<ulong>[] AllMicrographsOddDenoise = Helper.ArrayOfFunction(i => new List<ulong>(), AllDimsDenoise.Length);
-            List<ulong>[] AllMicrographsEvenDenoise = Helper.ArrayOfFunction(i => new List<ulong>(), AllDimsDenoise.Length);
+            List<ExampleDenoise>[] ExamplesDenoise = Helper.ArrayOfFunction(i => new List<ExampleDenoise>(), Math.Max(AllPathsDenoise.Count, AllPathsPick.Count));
+            List<ExampleDeconv>[] ExamplesDeconv = Helper.ArrayOfFunction(i => new List<ExampleDeconv>(), Math.Max(AllPathsDenoise.Count, AllPathsPick.Count));
 
             long[] ClassHist = new long[3];
             Image SoftMask = null;
@@ -227,13 +238,13 @@ namespace WarpTools.Commands
                             });
                         }
 
-                        OnlyImages = OnlyImages.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
+                        OnlyImages = OnlyImages.AsPaddedClampedSoft(new int2(OnlyImages.Dims) * 2, 8).AndDisposeParent();
                         OnlyImages.MultiplySlices(SoftMask);
-                        OnlyImages.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+                        OnlyImages.Bandpass(2f * 8f / 1000f, 1, false, 2f * 8f / 1000f);
 
                         OnlyImages = OnlyImages.AsPadded(DimsOri).AndDisposeParent();
                         {
-                            Image ImagesCenter = OnlyImages.AsPadded(DimsOri / 2);
+                            Image ImagesCenter = OnlyImages.AsPadded((DimsOri + 2) / 4 * 2);
                             MedianPercentileOffset = ImagesCenter.GetHost(Intent.Read).Select(a => MathHelper.MedianAndPercentileDiff(a, 68)).ToArray();
                             ImagesCenter.Dispose();
 
@@ -241,18 +252,18 @@ namespace WarpTools.Commands
                         }
 
                         {
-                            FakeOdd = FakeOdd.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
+                            FakeOdd = FakeOdd.AsPaddedClampedSoft(new int2(OnlyImages.Dims) * 2, 8).AndDisposeParent();
                             FakeOdd.MultiplySlices(SoftMask);
-                            FakeOdd.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+                            FakeOdd.Bandpass(2f * 8f / 1000f, 1, false, 2f * 8f / 1000f);
                             FakeOdd = FakeOdd.AsPadded(DimsOri).AndDisposeParent();
 
                             FakeOdd.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
                         }
 
                         {
-                            FakeEven = FakeEven.AsPaddedClamped(new int2(OnlyImages.Dims) * 2).AndDisposeParent();
+                            FakeEven = FakeEven.AsPaddedClampedSoft(new int2(OnlyImages.Dims) * 2, 8).AndDisposeParent();
                             FakeEven.MultiplySlices(SoftMask);
-                            FakeEven.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+                            FakeEven.Bandpass(2f * 8f / 1000f, 1, false, 2f * 8f / 1000f);
                             FakeEven = FakeEven.AsPadded(DimsOri).AndDisposeParent();
 
                             FakeEven.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
@@ -267,7 +278,7 @@ namespace WarpTools.Commands
                                 ulong[] h_Texture = new ulong[1];
                                 GPU.CreateTexture2D(FakeOdd.GetDeviceSlice(n, Intent.Read), new int2(FakeOdd.Dims), h_Texture, h_Array, false);
 
-                                AllMicrographsOddDenoise[icorpus].Add(h_Texture[0]);
+                                //AllMicrographsOddDenoise[icorpus].Add(h_Texture[0]);
                                 TextureOdd = h_Texture[0];
                             }
 
@@ -276,11 +287,15 @@ namespace WarpTools.Commands
                                 ulong[] h_Texture = new ulong[1];
                                 GPU.CreateTexture2D(FakeEven.GetDeviceSlice(n, Intent.Read), new int2(FakeEven.Dims), h_Texture, h_Array, false);
 
-                                AllMicrographsEvenDenoise[icorpus].Add(h_Texture[0]);
+                                //AllMicrographsEvenDenoise[icorpus].Add(h_Texture[0]);
                                 TextureEven = h_Texture[0];
                             }
 
-                            AllDimsDenoise[icorpus].Add(new int2(FakeOdd.Dims));
+                            ExamplesDenoise[icorpus].Add(new ExampleDenoise(TextureOdd, 
+                                                                            TextureEven, 
+                                                                            new int2(ExampleImage.Dims)));
+
+                            //AllDimsDenoise[icorpus].Add(new int2(FakeOdd.Dims));
                             {
                                 ulong[] h_Array = new ulong[1];
                                 ulong[] h_Texture = new ulong[1];
@@ -362,52 +377,216 @@ namespace WarpTools.Commands
                 Console.WriteLine("Loading denoising examples...");
                 for (int icorpus = 0; icorpus < AllPathsDenoise.Count; icorpus++)
                 {
-                    foreach (var examplePath in AllPathsDenoise[icorpus])
+                    foreach (var examplePath in AllPathsDenoise[icorpus].Skip(0))
                     {
-                        Image PairsStack = Image.FromFile(examplePath);
-                        int N = PairsStack.Dims.Z / 2;
-                        int2 DimsOri = new int2(PairsStack.Dims);
+                        Image TriplesStack = Image.FromFile(examplePath);
+                        int N = TriplesStack.Dims.Z / 3;
+                        int2 DimsOri = new int2(TriplesStack.Dims);
 
-                        PairsStack = PairsStack.AsPadded(DimsOri - 2).AndDisposeParent();
+                        Image Odds = new Image(Helper.ArrayOfSequence(0, N, 1).Select(i => TriplesStack.GetHost(Intent.Read)[i * 3]).ToArray(), 
+                                               new int3(TriplesStack.Dims.X, TriplesStack.Dims.Y, N));
+                        Image Evens = new Image(Helper.ArrayOfSequence(0, N, 1).Select(i => TriplesStack.GetHost(Intent.Read)[i * 3 + 1]).ToArray(),
+                                                new int3(TriplesStack.Dims.X, TriplesStack.Dims.Y, N));
+                        Image Spectrals = new Image(Helper.ArrayOfSequence(0, N, 1).Select(i => TriplesStack.GetHost(Intent.Read)[i * 3 + 2]).ToArray(),
+                                                    new int3(TriplesStack.Dims.X, TriplesStack.Dims.Y, N));
 
-                        if (SoftMask == null || SoftMask.Dims != new int3(PairsStack.Dims.X * 2, PairsStack.Dims.Y * 2, 1))
+                        float2[] MedianPercentileOffset;
+                        {
+                            Image CombinedCenter = Odds.GetCopyGPU();
+                            CombinedCenter.Add(Evens);
+                            CombinedCenter.Multiply(0.5f);
+                            CombinedCenter = CombinedCenter.AsPadded(new int2(Odds.Dims + 2) / 4 * 2).AndDisposeParent();
+                            MedianPercentileOffset = CombinedCenter.GetHost(Intent.Read).Select(a => MathHelper.MedianAndPercentileDiff(a, 68)).ToArray();
+                            CombinedCenter.Dispose();
+                        }
+
+                        #region Calculate Wiener filter
+
+                        Image CTFsScaled;
+                        {
+                            Image CTFs = new Image(Spectrals.Dims, true, false);
+                            for (int z = 0; z < Spectrals.Dims.Z; z++)
+                            {
+                                float[] SpectralsData = Spectrals.GetHost(Intent.Read)[z];
+                                float[] CTFsData = CTFs.GetHost(Intent.ReadWrite)[z];
+
+                                for (int y = 0; y < Spectrals.Dims.Y; y++)
+                                    for (int x = 0; x < Spectrals.Dims.X / 2 + 1; x++)
+                                        CTFsData[y * (CTFs.Dims.X / 2 + 1) + x] = SpectralsData[y * Spectrals.Dims.X + Math.Min(Spectrals.Dims.X / 2 - 1, x)];
+                            }
+
+                            CTFsScaled = CTFs.AsComplex().AndDisposeParent()
+                                             .AsIFFT().AndDisposeParent()
+                                             .AsPadded(new int2(CTFs.Dims) * 2, true).AndDisposeParent()
+                                             .AsFFT().AndDisposeParent()
+                                             .AsReal().AndDisposeParent();
+                            CTFsScaled.Multiply(1f / Odds.ElementsSliceReal);
+                        }
+
+                        for (int z = 0; z < CTFsScaled.Dims.Z; z++)
+                        {
+                            float[] CTFsData = CTFsScaled.GetHost(Intent.ReadWrite)[z];
+
+                            for (int i = 0; i < CTFsData.Length; i++)
+                            {
+                                float CTF = CTFsData[i];
+
+                                CTFsData[i] = i == 0 ? 1 : CTF / (CTF * CTF + 0.01f);
+                                //CTFsData[i] = CTF / (CTF * CTF + Math.Max(0.02f, 1 / Math.Max(1e-6f, SNR)));
+                            }
+                        }
+
+                        Directory.CreateDirectory("debug");
+                        CTFsScaled.WriteMRC16b($"debug/{Helper.PathToName(examplePath)}_wiener.mrc");
+
+                        #endregion
+
+                        if (SoftMask == null || SoftMask.Dims != new int3(Odds.Dims.X * 2, Odds.Dims.Y * 2, 1))
                         {
                             SoftMask?.Dispose();
 
-                            SoftMask = new Image(new int3(PairsStack.Dims.X * 2, PairsStack.Dims.Y * 2, 1));
+                            SoftMask = new Image(new int3(Odds.Dims.X * 2, Odds.Dims.Y * 2, 1));
                             SoftMask.Fill(1f);
-                            SoftMask.MaskRectangularly(PairsStack.Dims.Slice(), Math.Min(PairsStack.Dims.X, PairsStack.Dims.Y) / 2f, false);
+                            SoftMask.MaskRectangularly(Odds.Dims.Slice(), Math.Min(Odds.Dims.X, Odds.Dims.Y) / 2f, false);
                         }
 
-                        Image OriginalPadded = PairsStack.AsPaddedClamped(new int2(PairsStack.Dims) * 2).AndDisposeParent();
-                        OriginalPadded.MultiplySlices(SoftMask);
-                        OriginalPadded.Bandpass(2f * 8f / 500f, 1, false, 2f * 8f / 500f);
+                        #region Normalize and high-pass filter
+                        {
+                            Odds.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
 
-                        PairsStack = OriginalPadded.AsPadded(DimsOri).AndDisposeParent();
-                        PairsStack.Normalize();
+                            Image OddsPadded = Odds.AsPaddedClampedSoft(new int2(Odds.Dims) * 2, 8).AndDisposeParent();
+                            OddsPadded.MultiplySlices(SoftMask);
+                            OddsPadded.Bandpass(2f * 8f / 1000f, 2, false, 2f * 8f / 1000f);
+                            Odds = OddsPadded.AsPadded(DimsOri).AndDisposeParent();
+                        }
+                        {
+                            Evens.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
+
+                            Image EvensPadded = Evens.AsPaddedClampedSoft(new int2(Odds.Dims) * 2, 8).AndDisposeParent();
+                            EvensPadded.MultiplySlices(SoftMask);
+                            EvensPadded.Bandpass(2f * 8f / 1000f, 2, false, 2f * 8f / 1000f);
+                            Evens = EvensPadded.AsPadded(DimsOri);
+                        }
+                        #endregion
+
+                        #region Re-normalize after filtering
+                        {
+                            Image CombinedCenter = Odds.GetCopyGPU();
+                            CombinedCenter.Add(Evens);
+                            CombinedCenter.Multiply(0.5f);
+                            CombinedCenter = CombinedCenter.AsPadded(new int2(Odds.Dims + 2) / 4 * 2).AndDisposeParent();
+                            MedianPercentileOffset = CombinedCenter.GetHost(Intent.Read).Select(a => MathHelper.MedianAndPercentileDiff(a, 68)).ToArray();
+                            CombinedCenter.Dispose();
+
+                            Odds.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
+                            Evens.TransformValues((x, y, z, v) => (v - MedianPercentileOffset[z].X) / MedianPercentileOffset[z].Y);
+                        }
+                        #endregion
+
+                        #region Deconvolve odd and even
+
+                        Image OddsDeconv, EvensDeconv;
+                        {
+                            Image OddsPadded = Odds.AsPaddedClampedSoft(new int2(Odds.Dims) * 2, 8);
+                            OddsPadded.MultiplySlices(SoftMask);
+
+                            Image OddsPaddedFT = OddsPadded.AsFFT().AndDisposeParent();
+                            OddsPaddedFT.Multiply(CTFsScaled);
+                            OddsPadded = OddsPaddedFT.AsIFFT(false, 0, true).AndDisposeParent();
+
+                            OddsDeconv = OddsPadded.AsPadded(DimsOri).AndDisposeParent();
+                        }
+                        {
+                            Image EvensPadded = Evens.AsPaddedClampedSoft(new int2(Odds.Dims) * 2, 8);
+                            EvensPadded.MultiplySlices(SoftMask);
+                            EvensPadded.Bandpass(2f * 8f / 1000f, 2, false, 2f * 8f / 1000f);
+                            Evens = EvensPadded.AsPadded(DimsOri);
+
+                            Image EvensPaddedFT = EvensPadded.AsFFT().AndDisposeParent();
+                            EvensPaddedFT.Multiply(CTFsScaled);
+                            EvensPadded = EvensPaddedFT.AsIFFT(false, 0, true).AndDisposeParent();
+
+                            EvensDeconv = EvensPadded.AsPadded(DimsOri).AndDisposeParent();
+                        }
+
+                        CTFsScaled.Dispose();
+
+                        #endregion
+
+                        #region Re-normalize after deconv
+                        {
+                            Image CombinedCenter = OddsDeconv.GetCopyGPU();
+                            CombinedCenter.Add(EvensDeconv);
+                            CombinedCenter.Multiply(0.5f);
+                            CombinedCenter = CombinedCenter.AsPadded(new int2(Odds.Dims + 2) / 4 * 2).AndDisposeParent();
+                            MedianPercentileOffset = CombinedCenter.GetHost(Intent.Read).Select(a => MathHelper.MedianAndPercentileDiff(a, 68)).ToArray();
+                            CombinedCenter.Dispose();
+
+                            OddsDeconv.TransformValues((x, y, z, v) => v / MedianPercentileOffset[z].Y);
+                            EvensDeconv.TransformValues((x, y, z, v) => v / MedianPercentileOffset[z].Y);
+                        }
+                        #endregion
+
+                        #region Convert to textures
+
 
                         for (int n = 0; n < N; n++)
                         {
+                            ExampleDeconv Example = new();
+                            Example.Dims = new int2(Odds.Dims);
+
                             {
                                 ulong[] h_Array = new ulong[1];
                                 ulong[] h_Texture = new ulong[1];
-                                GPU.CreateTexture2D(PairsStack.GetDeviceSlice(n * 2 + 0, Intent.Read), new int2(PairsStack.Dims), h_Texture, h_Array, false);
+                                GPU.CreateTexture2D(Odds.GetDeviceSlice(n, Intent.Read), new int2(Odds.Dims), h_Texture, h_Array, false);
 
-                                AllMicrographsOddDenoise[icorpus].Add(h_Texture[0]);
+                                Example.t_Odd = h_Texture[0];
                             }
 
                             {
                                 ulong[] h_Array = new ulong[1];
                                 ulong[] h_Texture = new ulong[1];
-                                GPU.CreateTexture2D(PairsStack.GetDeviceSlice(n * 2 + 1, Intent.Read), new int2(PairsStack.Dims), h_Texture, h_Array, false);
+                                GPU.CreateTexture2D(Evens.GetDeviceSlice(n, Intent.Read), new int2(Evens.Dims), h_Texture, h_Array, false);
 
-                                AllMicrographsEvenDenoise[icorpus].Add(h_Texture[0]);
+                                Example.t_Even = h_Texture[0];
                             }
 
-                            AllDimsDenoise[icorpus].Add(new int2(PairsStack.Dims));
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(OddsDeconv.GetDeviceSlice(n, Intent.Read), new int2(Odds.Dims), h_Texture, h_Array, false);
+
+                                Example.t_OddDeconv = h_Texture[0];
+                            }
+
+                            {
+                                ulong[] h_Array = new ulong[1];
+                                ulong[] h_Texture = new ulong[1];
+                                GPU.CreateTexture2D(EvensDeconv.GetDeviceSlice(n, Intent.Read), new int2(Evens.Dims), h_Texture, h_Array, false);
+
+                                Example.t_EvenDeconv = h_Texture[0];
+                            }
+
+                            ExamplesDeconv[icorpus].Add(Example);
                         }
 
-                        PairsStack.Dispose();
+                        #endregion
+
+                        if (true)
+                        {
+                            Directory.CreateDirectory("debug");
+                            Odds.WriteMRC16b($"debug/{Helper.PathToName(examplePath)}_odd.mrc");
+                            Evens.WriteMRC16b($"debug/{Helper.PathToName(examplePath)}_even.mrc");
+                            OddsDeconv.WriteMRC16b($"debug/{Helper.PathToName(examplePath)}_odd_deconv.mrc");
+                            EvensDeconv.WriteMRC16b($"debug/{Helper.PathToName(examplePath)}_even_deconv.mrc");
+                        }
+
+                        OddsDeconv.Dispose();
+                        EvensDeconv.Dispose();
+                        Odds.Dispose();
+                        Evens.Dispose();
+                        TriplesStack.Dispose();
+                        Spectrals.Dispose();
                         GPU.CheckGPUExceptions();
 
                         Console.WriteLine($"Loaded {Helper.PathToNameWithExtension(examplePath)}");
@@ -415,7 +594,7 @@ namespace WarpTools.Commands
                 }
                 Console.WriteLine(" Done");
 
-                Console.WriteLine($"{string.Join(", ", AllMicrographsOddDenoise.Select(l => l.Count))} examples for denoising");
+                Console.WriteLine($"{string.Join(", ", ExamplesDeconv.Select(l => l.Count))} examples for denoising");
             }
 
             #endregion
@@ -424,7 +603,7 @@ namespace WarpTools.Commands
 
             Console.Write("Loading model...");
 
-            BoxNetMM NetworkTrain = new BoxNetMM(new int2(CLI.PatchSize), LabelWeightsPick, CLI.Devices.ToArray(), CLI.BatchSize, BoxNetOptimizer.Adam);
+            BoxNetMM NetworkTrain = new BoxNetMM(new int2(CLI.PatchSize), LabelWeightsPick, CLI.DevicesModel.ToArray(), CLI.BatchSize, BoxNetOptimizer.Adam);
             if (CLI.ModelIn != null)
                 NetworkTrain.Load(CLI.ModelIn);
 
@@ -451,8 +630,7 @@ namespace WarpTools.Commands
             Queue<float>[] LastLossesFill = { new Queue<float>(SmoothN), new Queue<float>(SmoothN) };
             Queue<float>[] CheckpointLossesFill = { new Queue<float>(), new Queue<float>() };
 
-
-            GPU.SetDevice(CLI.Devices.First());
+            GPU.SetDevice(CLI.DeviceData);
 
             Image[] d_AugmentedDataPick = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
             Image[] d_AugmentedLabelsPick = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize * 3)), NThreads);
@@ -460,6 +638,8 @@ namespace WarpTools.Commands
 
             Image[] d_AugmentedOddDenoise = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
             Image[] d_AugmentedEvenDenoise = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+            Image[] d_AugmentedOddDenoiseDeconv = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
+            Image[] d_AugmentedEvenDenoiseDeconv = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
             //Image[] d_AugmentedMaskDenoise = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
 
             Image[] d_AugmentedFillSource = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(DimsAugmented.X, DimsAugmented.Y, BatchSize)), NThreads);
@@ -474,8 +654,8 @@ namespace WarpTools.Commands
             int MaxExamples = 0;
             if (AllMicrographsPick.Any())
                 MaxExamples = Math.Max(MaxExamples, AllMicrographsPick[0].Count);
-            if (AllMicrographsOddDenoise.Any())
-                MaxExamples = Math.Max(MaxExamples, AllMicrographsOddDenoise[0].Count);
+            if (ExamplesDeconv.Any())
+                MaxExamples = Math.Max(MaxExamples, ExamplesDeconv[0].Count);
             
             Stopwatch CheckpointWatch = new Stopwatch();
             CheckpointWatch.Start();
@@ -503,8 +683,6 @@ namespace WarpTools.Commands
                                                                                          0.8f + (float)rng.NextDouble() * 0.4f,
                                                                                          (float)(rng.NextDouble() * Math.PI * 2)), CurBatch) :
                                                   Helper.ArrayOfFunction(i => new float3(1, 1, 0), CurBatch);
-                    //float StdDev = doAugment ? (float)Math.Abs(RGN[threadID].NextSingle(0, 0.3f)) : 0;
-                    float StdDev = 0;
                     float OffsetMean = 0;// doAugment ? rng.NextSingle() * 0.4f - 0.2f : 0;
                     float OffsetScale = 1;// doAugment ? rng.NextSingle() * 0.4f + 0.8f : 1;
 
@@ -519,33 +697,34 @@ namespace WarpTools.Commands
                                                Helper.ToInterleaved(Scales),
                                                OffsetMean,
                                                OffsetScale,
-                                               StdDev,
                                                rng.Next(99999),
                                                false,
                                                (uint)CurBatch);
                 }
 
                 Image AugmentedDenoised;
-                NetworkTrain.PredictDenoise(d_AugmentedDataPick[threadID], out AugmentedDenoised);
+                NetworkTrain.PredictDenoiseDeconv(d_AugmentedDataPick[threadID], out AugmentedDenoised);
                 GPU.CopyDeviceToDevice(AugmentedDenoised.GetDevice(Intent.Read), 
                                        d_AugmentedDataPick[threadID].GetDevice(Intent.Write), 
                                        d_AugmentedDataPick[threadID].ElementsReal);
 
                 if (doAugment)
                 {
-                    d_AugmentedDataPick[threadID].Multiply(rng.NextSingle() * 0.4f + 0.8f);
+                    d_AugmentedDataPick[threadID].Multiply(Helper.ArrayOfFunction(i => rng.NextSingle() * 0.4f + 0.8f, d_AugmentedDataPick[threadID].Dims.Z));
                     d_AugmentedDataPick[threadID].Add(rng.NextSingle() * 0.4f - 0.2f);
                 }
             };
 
-            Action<int, int, int, bool, Random> MakeExamplesDenoise = (threadID, icorpus, subBatch, doAugment, rng) =>
+            Action<int, int, int, bool, bool, Random> MakeExamplesDenoise = (threadID, icorpus, subBatch, useDeconv, doAugment, rng) =>
             {
                 for (int ib = 0; ib < BatchSize; ib += subBatch)
                 {
                     int CurBatch = Math.Min(subBatch, BatchSize - ib);
 
-                    int ExampleID = rng.Next(AllMicrographsOddDenoise[icorpus].Count);
-                    int2 Dims = AllDimsDenoise[icorpus][ExampleID];
+                    int ExampleID = rng.Next(useDeconv ? ExamplesDeconv[icorpus].Count : 
+                                                         ExamplesDenoise[icorpus].Count);
+                    int2 Dims = useDeconv ? ExamplesDeconv[icorpus][ExampleID].Dims :
+                                            ExamplesDenoise[icorpus][ExampleID].Dims;
 
                     int2 DimsValid = new int2(Math.Max(0, Dims.X - Border * 4), Math.Max(0, Dims.Y - Border * 4));
                     int2 DimsBorder = (Dims - DimsValid) / 2;
@@ -561,18 +740,35 @@ namespace WarpTools.Commands
                                                                                          (float)(rng.NextDouble() * Math.PI * 2)), CurBatch) :
                                                   Helper.ArrayOfFunction(i => new float3(1, 1, 0), CurBatch);
                     float StdDev = doAugment ? (float)Math.Abs(RGN[threadID].NextSingle(0, 0.3f)) : 0;
-                    float OffsetMean = doAugment ? rng.NextSingle() * 0.8f - 0.4f : 0;
-                    float OffsetScale = doAugment ? rng.NextSingle() * 0.75f + 0.5f : 1;
+                    float OffsetMean = doAugment ? rng.NextSingle() * 0.1f - 0.2f : 0;
+                    float OffsetScale = doAugment ? rng.NextSingle() * 0.2f + 0.9f : 1;
 
                     bool SwapOddEven = rng.Next(2) == 0;
-                    ulong t_Odd = (SwapOddEven ? AllMicrographsOddDenoise : AllMicrographsEvenDenoise)[icorpus][ExampleID];
-                    ulong t_Even = (SwapOddEven ? AllMicrographsEvenDenoise : AllMicrographsOddDenoise)[icorpus][ExampleID];
+                    ulong t_Odd, t_Even, t_OddDeconv, t_EvenDeconv;
+                    if (useDeconv)
+                    {
+                        t_Odd = SwapOddEven ? ExamplesDeconv[icorpus][ExampleID].t_Even : ExamplesDeconv[icorpus][ExampleID].t_Odd;
+                        t_Even = SwapOddEven ? ExamplesDeconv[icorpus][ExampleID].t_Odd : ExamplesDeconv[icorpus][ExampleID].t_Even;
+                        t_OddDeconv = SwapOddEven ? ExamplesDeconv[icorpus][ExampleID].t_EvenDeconv : ExamplesDeconv[icorpus][ExampleID].t_OddDeconv;
+                        t_EvenDeconv = SwapOddEven ? ExamplesDeconv[icorpus][ExampleID].t_OddDeconv : ExamplesDeconv[icorpus][ExampleID].t_EvenDeconv;
+                    }
+                    else
+                    {
+                        t_Odd = SwapOddEven ? ExamplesDenoise[icorpus][ExampleID].t_Even : ExamplesDenoise[icorpus][ExampleID].t_Odd;
+                        t_Even = SwapOddEven ? ExamplesDenoise[icorpus][ExampleID].t_Odd : ExamplesDenoise[icorpus][ExampleID].t_Even;
+                        t_OddDeconv = SwapOddEven ? ExamplesDenoise[icorpus][ExampleID].t_Even : ExamplesDenoise[icorpus][ExampleID].t_Odd;
+                        t_EvenDeconv = SwapOddEven ? ExamplesDenoise[icorpus][ExampleID].t_Odd : ExamplesDenoise[icorpus][ExampleID].t_Even;
+                    }
 
                     GPU.BoxNetMMAugmentDenoising(t_Odd,
                                                 t_Even,
+                                                t_OddDeconv,
+                                                t_EvenDeconv,
                                                 Dims,
                                                 d_AugmentedOddDenoise[threadID].GetDeviceSlice(ib, Intent.Write),
                                                 d_AugmentedEvenDenoise[threadID].GetDeviceSlice(ib, Intent.Write),
+                                                d_AugmentedOddDenoiseDeconv[threadID].GetDeviceSlice(ib, Intent.Write),
+                                                d_AugmentedEvenDenoiseDeconv[threadID].GetDeviceSlice(ib, Intent.Write),
                                                 DimsAugmented,
                                                 Helper.ToInterleaved(Translations),
                                                 Rotations,
@@ -588,7 +784,7 @@ namespace WarpTools.Commands
                 d_AugmentedFillSource[threadID].Add(d_AugmentedEvenDenoise[threadID]);
                 d_AugmentedFillSource[threadID].Multiply(0.5f);
 
-                NetworkTrain.PredictDenoise(d_AugmentedFillSource[threadID], out Image AugmentedDenoised);
+                NetworkTrain.PredictDenoiseDeconv(d_AugmentedFillSource[threadID], out Image AugmentedDenoised);
 
                 GPU.CopyDeviceToDevice(AugmentedDenoised.GetDevice(Intent.Read),
                                        d_AugmentedFillSource[threadID].GetDevice(Intent.Write),
@@ -603,7 +799,7 @@ namespace WarpTools.Commands
                 for (int z = 0; z < d_AugmentedFillSource[threadID].Dims.Z; z++)
                 {
                     float[] AugmentedData = d_AugmentedFillSource[threadID].GetHost(Intent.ReadWrite)[z];
-                    int NRects = 50 + rng.Next(200);
+                    int NRects = 20 + rng.Next(80);
 
                     for (int irect = 0; irect < NRects; irect++)
                     {
@@ -625,7 +821,7 @@ namespace WarpTools.Commands
 
                         for (int y = 0; y < DimsRect.Y; y++)
                             for (int x = 0; x < DimsRect.X; x++)
-                                AugmentedData[(PosRect.Y + (DimsCalc.Y - DimsRect.Y) / 2 + y) * DimsAugmented.X + PosRect.X + (DimsCalc.X - DimsRect.X) / 2 + x] = Mean;// RandN.NextSingle(Mean, StdDev);
+                                AugmentedData[(PosRect.Y + (DimsCalc.Y - DimsRect.Y) / 2 + y) * DimsAugmented.X + PosRect.X + (DimsCalc.X - DimsRect.X) / 2 + x] = 0;// RandN.NextSingle(Mean, StdDev);
                     }
                 }
 
@@ -661,7 +857,7 @@ namespace WarpTools.Commands
             int NDone = 0;
             Helper.ForCPUGreedy(0, NIterations, NThreads,
 
-                threadID => GPU.SetDevice(CLI.Devices.First()),
+                threadID => GPU.SetDevice(CLI.DeviceData),
 
                 (b, threadID) =>
                 {
@@ -669,8 +865,11 @@ namespace WarpTools.Commands
                     float LearningRate = MathHelper.Lerp((float)CLI.LearningRateStart, (float)CLI.LearningRateEnd, (float)NDone / NIterations);
                     LearningRate = MathF.Min(LearningRate, MathHelper.Lerp(0, (float)CLI.LearningRateStart, (float)NDone / 100));   // Warm-up
 
+                    float LearningRateDenoise = CLI.LearningRateDenoise == null ? LearningRate : (float)CLI.LearningRateDenoise.Value;
+                    LearningRateDenoise = MathF.Min(LearningRateDenoise, MathHelper.Lerp(0, (float)CLI.LearningRateDenoise.Value, (float)NDone / 100));   // Warm-up
 
-                    if (AllMicrographsPick.Any())
+
+                    if (AllMicrographsPick.Any() && LearningRate > 0)
                     {
                         int icorpus = b % AllMicrographsPick.Length;
                         float[] Loss;
@@ -698,46 +897,61 @@ namespace WarpTools.Commands
                         }
                     }
 
-                    if (AllMicrographsOddDenoise.Any())
+                    if (ExamplesDeconv.Any())
                     {
-                        int icorpus = b % AllMicrographsOddDenoise.Length;
+                        int icorpus = b % ExamplesDeconv.Length;
+                        bool UseDeconv = ExamplesDeconv[icorpus].Any() && RG[threadID].Next(2) == 0;
+
                         float[] LossDenoise;
                         float[] LossFill;
 
-                        MakeExamplesDenoise(threadID, icorpus, 8, true, RG[threadID]);
+                        MakeExamplesDenoise(threadID, icorpus, 8, UseDeconv, true, RG[threadID]);
 
-                        lock (NetworkTrain)
-                            NetworkTrain.TrainDenoise(d_AugmentedOddDenoise[threadID],
-                                                      d_AugmentedEvenDenoise[threadID],
-                                                      1f,
-                                                      LearningRate,
-                                                      false,
-                                                      out _,
-                                                      out LossDenoise);
-
-                        if (float.IsNaN(LossDenoise[0]))
-                            throw new Exception("Something went wrong with denoiser training because loss = NaN");
-
-                        lock (NetworkTrain)
-                            NetworkTrain.TrainFill(d_AugmentedFillSource[threadID],
-                                                   d_AugmentedFillTarget[threadID],
-                                                   LearningRate,
-                                                   false,
-                                                   false,
-                                                   out _,
-                                                   out LossFill);
-
-                        lock (Watch)
+                        if (LearningRateDenoise > 0)
                         {
-                            LastLossesDenoise[icorpus].Enqueue(LossDenoise[0]);
-                            if (LastLossesDenoise[icorpus].Count > SmoothN)
-                                LastLossesDenoise[icorpus].Dequeue();
-                            CheckpointLossesDenoise[icorpus].Enqueue(LossDenoise[0]);
+                            lock (NetworkTrain)
+                                NetworkTrain.TrainDenoise(d_AugmentedOddDenoise[threadID],
+                                                          d_AugmentedEvenDenoise[threadID],
+                                                          d_AugmentedEvenDenoiseDeconv[threadID],
+                                                          LearningRateDenoise,
+                                                          false,
+                                                          out _,
+                                                          out _,
+                                                          out LossDenoise);
 
-                            LastLossesFill[icorpus].Enqueue(LossFill[0]);
-                            if (LastLossesFill[icorpus].Count > SmoothN)
-                                LastLossesFill[icorpus].Dequeue();
-                            CheckpointLossesFill[icorpus].Enqueue(LossFill[0]);
+                            if (float.IsNaN(LossDenoise[0]))
+                                throw new Exception("Something went wrong with denoiser training because loss = NaN");
+
+                            lock (Watch)
+                            {
+                                LastLossesDenoise[icorpus].Enqueue(LossDenoise[0]);
+                                if (LastLossesDenoise[icorpus].Count > SmoothN)
+                                    LastLossesDenoise[icorpus].Dequeue();
+                                CheckpointLossesDenoise[icorpus].Enqueue(LossDenoise[0]);
+                            }
+                        }
+
+                        if (LearningRate > 0)
+                        {
+                            lock (NetworkTrain)
+                                NetworkTrain.TrainFill(d_AugmentedFillSource[threadID],
+                                                       d_AugmentedFillTarget[threadID],
+                                                       LearningRate,
+                                                       false,
+                                                       false,
+                                                       out _,
+                                                       out LossFill);
+
+                            if (float.IsNaN(LossFill[0]))
+                                throw new Exception("Something went wrong with filler training because loss = NaN");
+
+                            lock (Watch)
+                            {
+                                LastLossesFill[icorpus].Enqueue(LossFill[0]);
+                                if (LastLossesFill[icorpus].Count > SmoothN)
+                                    LastLossesFill[icorpus].Dequeue();
+                                CheckpointLossesFill[icorpus].Enqueue(LossFill[0]);
+                            }
                         }
                     }
 
@@ -798,26 +1012,28 @@ namespace WarpTools.Commands
                                     Merged.Dispose();
                                 }
 
-                                if (AllMicrographsOddDenoise.Any())
+                                if (ExamplesDenoise[0].Any())
                                 {
-                                    MakeExamplesDenoise(threadID, 0, 1, false, new Random(123));
+                                    MakeExamplesDenoise(threadID, 0, 1, false, false, new Random(123));
                                     d_AugmentedOddDenoise[threadID].Add(d_AugmentedEvenDenoise[threadID]);
                                     d_AugmentedOddDenoise[threadID].Multiply(0.5f);
 
-                                    Image Prediction;
-                                    NetworkTrain.PredictDenoise(d_AugmentedOddDenoise[threadID], out Prediction);
-                                    Image Merged = new Image(Prediction.Dims.MultZ(2));
-                                    for (int z = 0; z < Prediction.Dims.Z; z++)
+                                    Image PredictionDenoise, PredictionDeconv;
+                                    NetworkTrain.PredictDenoise(d_AugmentedOddDenoise[threadID], out PredictionDenoise);
+                                    NetworkTrain.PredictDenoiseDeconv(d_AugmentedOddDenoise[threadID], out PredictionDeconv);
+                                    Image Merged = new Image(PredictionDenoise.Dims.MultZ(3));
+                                    for (int z = 0; z < PredictionDenoise.Dims.Z; z++)
                                     {
-                                        Merged.GetHost(Intent.Write)[z * 2 + 0] = d_AugmentedOddDenoise[threadID].GetHost(Intent.Read)[z];
-                                        Merged.GetHost(Intent.Write)[z * 2 + 1] = Prediction.GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 3 + 0] = d_AugmentedOddDenoise[threadID].GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 3 + 1] = PredictionDenoise.GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 3 + 2] = PredictionDeconv.GetHost(Intent.Read)[z];
                                     }
 
                                     Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".denoise.checkpoint.mrc", true);
                                     Merged.Dispose();
                                 }
 
-                                if (AllMicrographsOddDenoise.Any())
+                                if (ExamplesDenoise.Any())
                                 {
                                     Image Prediction;
                                     NetworkTrain.PredictFill(d_AugmentedFillSource[threadID], out Prediction);
@@ -829,6 +1045,27 @@ namespace WarpTools.Commands
                                     }
 
                                     Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".fill.checkpoint.mrc", true);
+                                    Merged.Dispose();
+                                }
+
+                                if (ExamplesDeconv[0].Any())
+                                {
+                                    MakeExamplesDenoise(threadID, 0, 1, true, false, new Random(123));
+                                    d_AugmentedOddDenoise[threadID].Add(d_AugmentedEvenDenoise[threadID]);
+                                    d_AugmentedOddDenoise[threadID].Multiply(0.5f);
+
+                                    Image PredictionDenoise, PredictionDeconv;
+                                    NetworkTrain.PredictDenoise(d_AugmentedOddDenoise[threadID], out PredictionDenoise);
+                                    NetworkTrain.PredictDenoiseDeconv(d_AugmentedOddDenoise[threadID], out PredictionDeconv);
+                                    Image Merged = new Image(PredictionDenoise.Dims.MultZ(3));
+                                    for (int z = 0; z < PredictionDenoise.Dims.Z; z++)
+                                    {
+                                        Merged.GetHost(Intent.Write)[z * 3 + 0] = d_AugmentedOddDenoise[threadID].GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 3 + 1] = PredictionDenoise.GetHost(Intent.Read)[z];
+                                        Merged.GetHost(Intent.Write)[z * 3 + 2] = PredictionDeconv.GetHost(Intent.Read)[z];
+                                    }
+
+                                    Merged.WriteMRC(CLI.ModelOut + $".{NCheckpoints:D3}" + ".deconv.checkpoint.mrc", true);
                                     Merged.Dispose();
                                 }
                             }
@@ -858,6 +1095,38 @@ namespace WarpTools.Commands
             NetworkTrain.Save(CLI.ModelOut);
 
             Console.WriteLine(" Done");
+        }
+    }
+
+    struct ExampleDenoise
+    {
+        public ulong t_Odd;
+        public ulong t_Even;
+        public int2 Dims;
+
+        public ExampleDenoise(ulong t_odd, ulong t_even, int2 dims)
+        {
+            t_Odd = t_odd;
+            t_Even = t_even;
+            Dims = dims;
+        }
+    }
+
+    struct ExampleDeconv
+    {
+        public ulong t_Odd;
+        public ulong t_Even;
+        public ulong t_OddDeconv;
+        public ulong t_EvenDeconv;
+        public int2 Dims;
+
+        public ExampleDeconv(ulong t_odd, ulong t_even, ulong t_odd_deconv, ulong t_even_deconv, int2 dims)
+        {
+            t_Odd = t_odd;
+            t_Even = t_even;
+            t_OddDeconv = t_odd_deconv;
+            t_EvenDeconv = t_even_deconv;
+            Dims = dims;
         }
     }
 }

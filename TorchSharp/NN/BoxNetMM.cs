@@ -21,6 +21,9 @@ namespace TorchSharp.NN
         [DllImport("LibTorchSharp")]
         private static extern IntPtr THSNN_BoxNetMM_denoise_forward(Module.HType module, IntPtr tensor);
 
+        [DllImport("LibTorchSharp")]
+        private static extern IntPtr THSNN_BoxNetMM_deconv_forward(Module.HType module, IntPtr tensor);
+
         public TorchTensor PickForward(TorchTensor tensor)
         {
             var res = THSNN_BoxNetMM_pick_forward(handle, tensor.Handle);
@@ -38,6 +41,13 @@ namespace TorchSharp.NN
         public TorchTensor DenoiseForward(TorchTensor tensor)
         {
             var res = THSNN_BoxNetMM_denoise_forward(handle, tensor.Handle);
+            if (res == IntPtr.Zero) { Torch.CheckForErrors(); }
+            return new TorchTensor(res);
+        }
+
+        public TorchTensor DeconvForward(TorchTensor tensor)
+        {
+            var res = THSNN_BoxNetMM_deconv_forward(handle, tensor.Handle);
             if (res == IntPtr.Zero) { Torch.CheckForErrors(); }
             return new TorchTensor(res);
         }

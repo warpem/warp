@@ -66,14 +66,14 @@ struct BoxNetMMResidualBlock : MultiGPUModule
         x = conv1->forward(x);
         if (_donorm)
             x = bn1->forward(x);
-        x = torch::leaky_relu(x, 0.2);
+        x = torch::silu(x);
 
         x = conv2->forward(x);
         if (_donorm)
             x = bn2->forward(x);
 
         x += residual;
-        x = torch::leaky_relu(x, 0.2);
+        x = torch::silu(x);
 
         return x;
     }
@@ -85,7 +85,9 @@ struct BoxNetMMImpl : MultiGPUModule
     int64_t _width_block;
     int64_t _input_channels;
 
-    torch::nn::Conv2d convprefilter{ nullptr };
+    torch::nn::Conv2d shared_convprefilter{ nullptr };
+	torch::nn::Conv2d denoise_convprefilter{ nullptr };
+	torch::nn::Conv2d deconv_convprefilter{ nullptr };
 
     torch::nn::Sequential encoder1{ nullptr };
     torch::nn::Sequential encoder2{ nullptr };
@@ -122,6 +124,20 @@ struct BoxNetMMImpl : MultiGPUModule
 	torch::nn::Sequential denoise_decoder1{ nullptr };
 	torch::nn::Sequential denoise_decoder0{ nullptr };
 
+	torch::nn::Sequential deconv_encoder1{ nullptr };
+	torch::nn::Sequential deconv_encoder2{ nullptr };
+	torch::nn::Sequential deconv_encoder3{ nullptr };
+	torch::nn::Sequential deconv_encoder4{ nullptr };
+	torch::nn::Sequential deconv_encoder5{ nullptr };
+	torch::nn::Sequential deconv_encoder6{ nullptr };
+
+	torch::nn::Sequential deconv_decoder5{ nullptr };
+	torch::nn::Sequential deconv_decoder4{ nullptr };
+	torch::nn::Sequential deconv_decoder3{ nullptr };
+	torch::nn::Sequential deconv_decoder2{ nullptr };
+	torch::nn::Sequential deconv_decoder1{ nullptr };
+	torch::nn::Sequential deconv_decoder0{ nullptr };
+
     torch::nn::Upsample upsampler6{ nullptr };
     torch::nn::Upsample upsampler5{ nullptr };
     torch::nn::Upsample upsampler4{ nullptr };
@@ -132,6 +148,7 @@ struct BoxNetMMImpl : MultiGPUModule
     torch::nn::Sequential pick_final_conv;
 	torch::nn::Sequential fill_final_conv;
 	torch::nn::Sequential denoise_final_conv;
+	torch::nn::Sequential deconv_final_conv;
 
 	BoxNetMMImpl(int64_t depth_block, int64_t width_block, int64_t input_channels)
     {
@@ -139,21 +156,21 @@ struct BoxNetMMImpl : MultiGPUModule
         _width_block = width_block;
         _input_channels = input_channels;
 
-        convprefilter = register_module("convprefilter", torch::nn::Conv2d(BoxNetMM_conv_options2d(_input_channels, 32 * _width_block, 5, 1, 2)));
+        shared_convprefilter = register_module("shared_convprefilter", torch::nn::Conv2d(BoxNetMM_conv_options2d(_input_channels, 32 * _width_block, 5, 1, 2)));
 
-        encoder1 = register_module("encoder1", make_encoder(32 * _width_block, 32 * _width_block, _depth_block, true));
-        encoder2 = register_module("encoder2", make_encoder(32 * _width_block, 64 * _width_block, _depth_block, true));
-        encoder3 = register_module("encoder3", make_encoder(64 * _width_block, 128 * _width_block, _depth_block, true));
-        encoder4 = register_module("encoder4", make_encoder(128 * _width_block, 256 * _width_block, _depth_block, true));
-        encoder5 = register_module("encoder5", make_encoder(256 * _width_block, 512 * _width_block, _depth_block, true));
-        encoder6 = register_module("encoder6", make_encoder(512 * _width_block, 1024 * _width_block, _depth_block, true));
+        encoder1 = register_module("shared_encoder1", make_encoder(32 * _width_block, 32 * _width_block, _depth_block, true));
+        encoder2 = register_module("shared_encoder2", make_encoder(32 * _width_block, 64 * _width_block, _depth_block, true));
+        encoder3 = register_module("shared_encoder3", make_encoder(64 * _width_block, 128 * _width_block, _depth_block, true));
+        encoder4 = register_module("shared_encoder4", make_encoder(128 * _width_block, 256 * _width_block, _depth_block, true));
+        encoder5 = register_module("shared_encoder5", make_encoder(256 * _width_block, 512 * _width_block, _depth_block, true));
+        encoder6 = register_module("shared_encoder6", make_encoder(512 * _width_block, 1024 * _width_block, _depth_block, true));
 
-        pick_decoder5 = register_module("decoder5", make_decoder(1536 * _width_block, 512 * _width_block, _depth_block, true));
-        pick_decoder4 = register_module("decoder4", make_decoder(768 * _width_block, 256 * _width_block, _depth_block, true));
-        pick_decoder3 = register_module("decoder3", make_decoder(384 * _width_block, 128 * _width_block, _depth_block, true));
-        pick_decoder2 = register_module("decoder2", make_decoder(192 * _width_block, 64 * _width_block, _depth_block, true));
-        pick_decoder1 = register_module("decoder1", make_decoder(96 * _width_block, 32 * _width_block, _depth_block, true));
-        pick_decoder0 = register_module("decoder0", make_decoder(64 * _width_block, 32 * _width_block, _depth_block, false));
+        pick_decoder5 = register_module("pick_decoder5", make_decoder(1536 * _width_block, 512 * _width_block, _depth_block, true));
+        pick_decoder4 = register_module("pick_decoder4", make_decoder(768 * _width_block, 256 * _width_block, _depth_block, true));
+        pick_decoder3 = register_module("pick_decoder3", make_decoder(384 * _width_block, 128 * _width_block, _depth_block, true));
+        pick_decoder2 = register_module("pick_decoder2", make_decoder(192 * _width_block, 64 * _width_block, _depth_block, true));
+        pick_decoder1 = register_module("pick_decoder1", make_decoder(96 * _width_block, 32 * _width_block, _depth_block, true));
+        pick_decoder0 = register_module("pick_decoder0", make_decoder(64 * _width_block, 32 * _width_block, _depth_block, false));
 
 		fill_decoder5 = register_module("fill_decoder5", make_decoder(1536 * _width_block, 512 * _width_block, _depth_block, true));
 		fill_decoder4 = register_module("fill_decoder4", make_decoder(768 * _width_block, 256 * _width_block, _depth_block, true));
@@ -161,6 +178,8 @@ struct BoxNetMMImpl : MultiGPUModule
 		fill_decoder2 = register_module("fill_decoder2", make_decoder(192 * _width_block, 64 * _width_block, _depth_block, true));
 		fill_decoder1 = register_module("fill_decoder1", make_decoder(96 * _width_block, 32 * _width_block, _depth_block, true));
 		fill_decoder0 = register_module("fill_decoder0", make_decoder(64 * _width_block, 32 * _width_block, _depth_block, false));
+
+		denoise_convprefilter = register_module("denoise_convprefilter", torch::nn::Conv2d(BoxNetMM_conv_options2d(_input_channels, 32 * _width_block, 5, 1, 2)));
 
 		denoise_encoder1 = register_module("denoise_encoder1", make_encoder(32, 32, 1, true));
 		denoise_encoder2 = register_module("denoise_encoder2", make_encoder(32, 64, 1, true));
@@ -176,6 +195,22 @@ struct BoxNetMMImpl : MultiGPUModule
 		denoise_decoder1 = register_module("denoise_decoder1", make_decoder(96, 32, 1, true));
 		denoise_decoder0 = register_module("denoise_decoder0", make_decoder(64, 32, 1, false));
 
+		deconv_convprefilter = register_module("deconv_convprefilter", torch::nn::Conv2d(BoxNetMM_conv_options2d(_input_channels, 32 * _width_block, 5, 1, 2)));
+
+		deconv_encoder1 = register_module("deconv_encoder1", make_encoder(32, 32, 1, true));
+		deconv_encoder2 = register_module("deconv_encoder2", make_encoder(32, 64, 1, true));
+		deconv_encoder3 = register_module("deconv_encoder3", make_encoder(64, 128, 1, true));
+		deconv_encoder4 = register_module("deconv_encoder4", make_encoder(128, 256, 1, true));
+		deconv_encoder5 = register_module("deconv_encoder5", make_encoder(256, 256, 1, true));
+		deconv_encoder6 = register_module("deconv_encoder6", make_encoder(256, 256, 1, true));
+
+		deconv_decoder5 = register_module("deconv_decoder5", make_decoder(512, 256, 1, true));
+		deconv_decoder4 = register_module("deconv_decoder4", make_decoder(512, 256, 1, true));
+		deconv_decoder3 = register_module("deconv_decoder3", make_decoder(384, 128, 1, true));
+		deconv_decoder2 = register_module("deconv_decoder2", make_decoder(192, 64, 1, true));
+		deconv_decoder1 = register_module("deconv_decoder1", make_decoder(96, 32, 1, true));
+		deconv_decoder0 = register_module("deconv_decoder0", make_decoder(64, 32, 1, false));
+
         upsampler6 = register_module("upsampler6", torch::nn::Upsample(torch::nn::UpsampleOptions().scale_factor(std::vector<double>({ 2, 2 })).mode(torch::kBilinear).align_corners(true)));
         upsampler5 = register_module("upsampler5", torch::nn::Upsample(torch::nn::UpsampleOptions().scale_factor(std::vector<double>({ 2, 2 })).mode(torch::kBilinear).align_corners(true)));
         upsampler4 = register_module("upsampler4", torch::nn::Upsample(torch::nn::UpsampleOptions().scale_factor(std::vector<double>({ 2, 2 })).mode(torch::kBilinear).align_corners(true)));
@@ -187,7 +222,7 @@ struct BoxNetMMImpl : MultiGPUModule
         for (int i = 0; i < depth_block; i++)
             pick_final_conv->push_back(BoxNetMMResidualBlock(32 * _width_block, false));
         pick_final_conv->push_back(torch::nn::Conv2d(BoxNetMM_conv_options2d(32 * _width_block, 3, 1, 1, 0)));
-        register_module("final_conv", pick_final_conv);
+        register_module("pick_final_conv", pick_final_conv);
 
 		fill_final_conv = torch::nn::Sequential();
 		for (int i = 0; i < depth_block; i++)
@@ -199,6 +234,11 @@ struct BoxNetMMImpl : MultiGPUModule
 		denoise_final_conv->push_back(BoxNetMMResidualBlock(32, false));
 		denoise_final_conv->push_back(torch::nn::Conv2d(BoxNetMM_conv_options2d(32, 1, 1, 1, 0)));
 		register_module("denoise_final_conv", denoise_final_conv);
+
+		deconv_final_conv = torch::nn::Sequential();
+		deconv_final_conv->push_back(BoxNetMMResidualBlock(32, false));
+		deconv_final_conv->push_back(torch::nn::Conv2d(BoxNetMM_conv_options2d(32, 1, 1, 1, 0)));
+		register_module("deconv_final_conv", deconv_final_conv);
 
         // Initializing weights
         /*for (auto m : this->modules(false))
@@ -220,7 +260,7 @@ struct BoxNetMMImpl : MultiGPUModule
 
     torch::Tensor pick_forward(torch::Tensor input)
     {
-        at::Tensor prefilter = convprefilter->forward(input);								//   32.256
+        at::Tensor prefilter = shared_convprefilter->forward(input);						//   32.256
 
         torch::Tensor enc1 = encoder1->forward(prefilter);									//   32.256 ->   32.128
         torch::Tensor enc2 = encoder2->forward(enc1);										//   32.128 ->   64. 64
@@ -228,6 +268,12 @@ struct BoxNetMMImpl : MultiGPUModule
         torch::Tensor enc4 = encoder4->forward(enc3);										//  128. 32 ->  256. 16
         torch::Tensor enc5 = encoder5->forward(enc4);										//  256. 16 ->  512.  8
         torch::Tensor enc6 = encoder6->forward(enc5);										//  512.  8 -> 1024.  4
+
+		/*if (this->is_training())
+		{
+			enc6 = torch::nn::functional::dropout2d(enc6, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+			enc5 = torch::nn::functional::dropout2d(enc5, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+		}*/
 
         torch::Tensor up6 = upsampler6->forward(enc6);										// 1024.  4 -> 1024.  8
         torch::Tensor dec5 = pick_decoder5->forward(torch::cat({ up6, enc5 }, 1));			// 1536.  8 ->  512.  8
@@ -254,7 +300,7 @@ struct BoxNetMMImpl : MultiGPUModule
 
 	torch::Tensor fill_forward(torch::Tensor input)
 	{
-		at::Tensor prefilter = convprefilter->forward(input);								//   32.256
+		at::Tensor prefilter = shared_convprefilter->forward(input);						//   32.256
 
 		torch::Tensor enc1 = encoder1->forward(prefilter);									//   32.256 ->   32.128
 		torch::Tensor enc2 = encoder2->forward(enc1);										//   32.128 ->   64. 64
@@ -262,6 +308,12 @@ struct BoxNetMMImpl : MultiGPUModule
 		torch::Tensor enc4 = encoder4->forward(enc3);										//  128. 32 ->  256. 16
 		torch::Tensor enc5 = encoder5->forward(enc4);										//  256. 16 ->  512.  8
 		torch::Tensor enc6 = encoder6->forward(enc5);										//  512.  8 -> 1024.  4
+
+		/*if (this->is_training())
+		{
+			enc6 = torch::nn::functional::dropout2d(enc6, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+			enc5 = torch::nn::functional::dropout2d(enc5, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+		}*/
 
 		torch::Tensor up6 = upsampler6->forward(enc6);										// 1024.  4 -> 1024.  8
 		torch::Tensor dec5 = fill_decoder5->forward(torch::cat({ up6, enc5 }, 1));			// 1536.  8 ->  512.  8
@@ -279,9 +331,9 @@ struct BoxNetMMImpl : MultiGPUModule
 		torch::Tensor dec1 = fill_decoder1->forward(torch::cat({ up2, enc1 }, 1));			//   96.128 ->   32.128
 
 		torch::Tensor up1 = upsampler1->forward(dec1);										//   32.128 ->   32.256
-		torch::Tensor dec0 = fill_decoder0->forward(torch::cat({ up1, prefilter }, 1));		//   33.256 ->   16.256
+		torch::Tensor dec0 = fill_decoder0->forward(torch::cat({ up1, prefilter }, 1));		//   64.256 ->   16.256
 
-		torch::Tensor result = fill_final_conv->forward(dec0);
+		torch::Tensor result = fill_final_conv->forward(dec0) + input;
 
 		return result;
 	}
@@ -289,7 +341,7 @@ struct BoxNetMMImpl : MultiGPUModule
 	torch::Tensor denoise_forward(torch::Tensor input)
 	{
 		//x.print();
-		at::Tensor prefilter = convprefilter->forward(input);								//   32.256
+		at::Tensor prefilter = denoise_convprefilter->forward(input);						//   32.256
 		//prefilter.print();
 
 		torch::Tensor enc1 = denoise_encoder1->forward(prefilter);                          //   32.256 ->   32.128
@@ -298,6 +350,12 @@ struct BoxNetMMImpl : MultiGPUModule
 		torch::Tensor enc4 = denoise_encoder4->forward(enc3);                               //  128. 32 ->  256. 16
 		torch::Tensor enc5 = denoise_encoder5->forward(enc4);                               //  256. 16 ->  256.  8
 		torch::Tensor enc6 = denoise_encoder6->forward(enc5);                               //  256.  8 ->  256.  4
+
+		/*if (this->is_training())
+		{
+			enc6 = torch::nn::functional::dropout2d(enc6, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+			enc5 = torch::nn::functional::dropout2d(enc5, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+		}*/
 
 		torch::Tensor up6 = upsampler6->forward(enc6);										//  256.  4 ->  256.  8
 		torch::Tensor dec5 = denoise_decoder5->forward(torch::cat({ up6, enc5 }, 1));       //  512.  8 ->  256.  8
@@ -317,7 +375,49 @@ struct BoxNetMMImpl : MultiGPUModule
 		torch::Tensor up1 = upsampler1->forward(dec1);										//   32.128 ->   32.256
 		torch::Tensor dec0 = denoise_decoder0->forward(torch::cat({ up1, prefilter }, 1));  //   33.256 ->   16.256
 
-		torch::Tensor result = denoise_final_conv->forward(dec0);
+		torch::Tensor result = denoise_final_conv->forward(dec0) + input;
+
+		return result;
+	}
+
+	torch::Tensor deconv_forward(torch::Tensor input)
+	{
+		//x.print();
+		at::Tensor prefilter = deconv_convprefilter->forward(input);						//   32.256
+		//prefilter.print();
+
+		torch::Tensor enc1 = deconv_encoder1->forward(prefilter);                          //   32.256 ->   32.128
+		torch::Tensor enc2 = deconv_encoder2->forward(enc1);                               //   32.128 ->   64. 64
+		torch::Tensor enc3 = deconv_encoder3->forward(enc2);                               //   64. 64 ->  128. 32
+		torch::Tensor enc4 = deconv_encoder4->forward(enc3);                               //  128. 32 ->  256. 16
+		torch::Tensor enc5 = deconv_encoder5->forward(enc4);                               //  256. 16 ->  256.  8
+		torch::Tensor enc6 = deconv_encoder6->forward(enc5);                               //  256.  8 ->  256.  4
+
+		/*if (this->is_training())
+		{
+			enc6 = torch::nn::functional::dropout2d(enc6, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+			enc5 = torch::nn::functional::dropout2d(enc5, torch::nn::functional::Dropout2dFuncOptions().p(0.1));
+		}*/
+
+		torch::Tensor up6 = upsampler6->forward(enc6);										//  256.  4 ->  256.  8
+		torch::Tensor dec5 = deconv_decoder5->forward(torch::cat({ up6, enc5 }, 1));       //  512.  8 ->  256.  8
+
+		torch::Tensor up5 = upsampler5->forward(dec5);										//  256.  8 ->  256. 16
+		torch::Tensor dec4 = deconv_decoder4->forward(torch::cat({ up5, enc4 }, 1));       //  512. 16 ->  256. 16
+
+		torch::Tensor up4 = upsampler4->forward(dec4);										//  256. 16 ->  256. 32
+		torch::Tensor dec3 = deconv_decoder3->forward(torch::cat({ up4, enc3 }, 1));       //  384. 32 ->  128. 32
+
+		torch::Tensor up3 = upsampler3->forward(dec3);										//  128. 32 ->  128. 64
+		torch::Tensor dec2 = deconv_decoder2->forward(torch::cat({ up3, enc2 }, 1));       //  192. 64 ->   64. 64
+
+		torch::Tensor up2 = upsampler2->forward(dec2);										//   64. 64 ->   64.128
+		torch::Tensor dec1 = deconv_decoder1->forward(torch::cat({ up2, enc1 }, 1));       //   96.128 ->   32.128
+
+		torch::Tensor up1 = upsampler1->forward(dec1);										//   32.128 ->   32.256
+		torch::Tensor dec0 = deconv_decoder0->forward(torch::cat({ up1, prefilter }, 1));  //   33.256 ->   16.256
+
+		torch::Tensor result = deconv_final_conv->forward(dec0) + input;
 
 		return result;
 	}
@@ -330,8 +430,8 @@ private:
 
         layers->push_back(torch::nn::Conv2d(BoxNetMM_conv_options2d(inchannels, outchannels, 1, 1, 0)));
 
-        for (int64_t i = 0; i < blocks; i++)
-            layers->push_back(BoxNetMMResidualBlock(outchannels, donorm));
+		for (int64_t i = 0; i < blocks; i++)
+			layers->push_back(BoxNetMMResidualBlock(outchannels, donorm));
 
         layers->push_back(torch::nn::Conv2d(BoxNetMM_conv_options2d(outchannels, outchannels, 2, 2, 0)));
 
@@ -389,4 +489,9 @@ Tensor THSNN_BoxNetMM_fill_forward(const NNModule module, const Tensor input)
 Tensor THSNN_BoxNetMM_denoise_forward(const NNModule module, const Tensor input)
 {
 	CATCH_TENSOR((*module)->as<BoxNetMMImpl>()->denoise_forward(*input));
+}
+
+Tensor THSNN_BoxNetMM_deconv_forward(const NNModule module, const Tensor input)
+{
+	CATCH_TENSOR((*module)->as<BoxNetMMImpl>()->deconv_forward(*input));
 }

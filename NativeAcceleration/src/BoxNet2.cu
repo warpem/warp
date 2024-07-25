@@ -18,7 +18,6 @@ __global__ void BoxNet2AugmentKernel(cudaTex t_imagemic,
 
 __global__ void BoxNetMMAugmentPickingKernel(cudaTex t_imagemic,
 											float* d_inputlabel,
-											float* d_noise,
 											int2 dimsinput,
 											float* d_outputmic,
 											float* d_outputlabel,
@@ -31,9 +30,13 @@ __global__ void BoxNetMMAugmentPickingKernel(cudaTex t_imagemic,
 
 __global__ void BoxNetMMAugmentDenoisingKernel(cudaTex t_inputodd,
 											cudaTex t_inputeven,
+											cudaTex t_inputodddeconv,
+											cudaTex t_inputevendeconv,
 											int2 dimsinput,
 											float* d_outputodd,
 											float* d_outputeven,
+											float* d_outputodddeconv,
+											float* d_outputevendeconv,
 											uint dimoutput,
 											float2* d_offsets,
 											glm::mat2* d_transforms,
@@ -217,7 +220,6 @@ void BoxNetMMAugmentPicking(cudaTex t_inputmic,
 							float3* h_scales,
 							float offsetmean,
 							float offsetscale,
-							float noisestddev,
 							int seed,
 							bool channelsfirst,
 							uint batch)
@@ -229,14 +231,11 @@ void BoxNetMMAugmentPicking(cudaTex t_inputmic,
 	glm::mat2* d_transforms = (glm::mat2*)CudaMallocFromHostArray(h_transforms, batch * sizeof(glm::mat2));
 	free(h_transforms);
 
-	float* d_noise = CudaMallocRandomFilled(Elements2(dimsinput), 0, noisestddev, seed);
-
 	float2* d_offsets = (float2*)CudaMallocFromHostArray(h_offsets, batch * sizeof(float2));
 
 	dim3 grid = dim3(tmin(32768, (Elements2(dimsoutput) + 127) / 128), batch, 1);
 	BoxNetMMAugmentPickingKernel << <grid, 128 >> > (t_inputmic,
 													d_inputlabel,
-													d_noise,
 													dimsinput,
 													d_outputmic,
 													d_outputlabel,
@@ -247,19 +246,12 @@ void BoxNetMMAugmentPicking(cudaTex t_inputmic,
 													offsetscale,
 													channelsfirst);
 
-	cudaFree(d_noise);
 	cudaFree(d_offsets);
 	cudaFree(d_transforms);
-
-	//d_AddVector(d_outputmic, d_noise, d_outputmic, Elements2(dimsoutput) * batch);
-
-
-	//d_NormMonolithic(d_outputmic, d_outputmic, Elements2(dimsoutput), T_NORM_MEAN01STD, batch);
 }
 
 __global__ void BoxNetMMAugmentPickingKernel(cudaTex t_inputmic,
 											float* d_inputlabel,
-											float* d_noise,
 											int2 dimsinput,
 											float* d_outputmic,
 											float* d_outputlabel,
@@ -302,9 +294,6 @@ __global__ void BoxNetMMAugmentPickingKernel(cudaTex t_inputmic,
 			label = make_float3(labelcompressed == 0 ? 1 : 0,
 								labelcompressed == 1 ? 1 : 0,
 								labelcompressed == 2 ? 1 : 0);
-
-			float noise = d_noise[tmin((int)(pos.y + 0.5f), dimsinput.y - 1) * dimsinput.x + tmin((int)(pos.x + 0.5f), dimsinput.x - 1)];
-			val += noise;
 		}
 
 		d_outputmic[id] = val * offsetscale + offsetmean;
@@ -326,9 +315,13 @@ __global__ void BoxNetMMAugmentPickingKernel(cudaTex t_inputmic,
 
 void BoxNetMMAugmentDenoising(cudaTex t_inputodd,
 							cudaTex t_inputeven,
+							cudaTex t_inputodddeconv,
+							cudaTex t_inputevendeconv,
 							int2 dimsinput,
 							float* d_outputodd,
 							float* d_outputeven,
+							float* d_outputodddeconv,
+							float* d_outputevendeconv,
 							int2 dimsoutput,
 							float2* h_offsets,
 							float* h_rotations,
@@ -349,9 +342,13 @@ void BoxNetMMAugmentDenoising(cudaTex t_inputodd,
 	dim3 grid = dim3(tmin(32768, (Elements2(dimsoutput) + 127) / 128), batch, 1);
 	BoxNetMMAugmentDenoisingKernel << <grid, 128 >> > (t_inputodd,
 														t_inputeven,
+														t_inputodddeconv,
+														t_inputevendeconv,
 														dimsinput,
 														d_outputodd,
 														d_outputeven,
+														d_outputodddeconv,
+														d_outputevendeconv,
 														dimsoutput.x,
 														d_offsets,
 														d_transforms,
@@ -364,9 +361,13 @@ void BoxNetMMAugmentDenoising(cudaTex t_inputodd,
 
 __global__ void BoxNetMMAugmentDenoisingKernel(cudaTex t_inputodd,
 											cudaTex t_inputeven,
+											cudaTex t_inputodddeconv,
+											cudaTex t_inputevendeconv,
 											int2 dimsinput,
 											float* d_outputodd,
 											float* d_outputeven,
+											float* d_outputodddeconv,
+											float* d_outputevendeconv,
 											uint dimoutput,
 											float2* d_offsets,
 											glm::mat2* d_transforms,
@@ -375,6 +376,8 @@ __global__ void BoxNetMMAugmentDenoisingKernel(cudaTex t_inputodd,
 {
 	d_outputodd += dimoutput * dimoutput * blockIdx.y;
 	d_outputeven += dimoutput * dimoutput * blockIdx.y;
+	d_outputodddeconv += dimoutput * dimoutput * blockIdx.y;
+	d_outputevendeconv += dimoutput * dimoutput * blockIdx.y;
 
 	int outputcenter = dimoutput / 2;
 
@@ -396,16 +399,20 @@ __global__ void BoxNetMMAugmentDenoisingKernel(cudaTex t_inputodd,
 
 		float valodd = 0;
 		float valeven = 0;
-		float samples = 0;
-		float3 label = make_float3(1, 0, 0);
+		float valodddeconv = 0;
+		float valevendeconv = 0;
 
 		if (pos.x > 0 && pos.y > 0 && pos.x < dimsinput.x - 1 && pos.y < dimsinput.y - 1)
 		{
 			valodd = cubicTex2DSimple<float>(t_inputodd, pos.x + 0.5f, pos.y + 0.5f);
 			valeven = cubicTex2DSimple<float>(t_inputeven, pos.x + 0.5f, pos.y + 0.5f);
+			valodddeconv = cubicTex2DSimple<float>(t_inputodddeconv, pos.x + 0.5f, pos.y + 0.5f);
+			valevendeconv = cubicTex2DSimple<float>(t_inputevendeconv, pos.x + 0.5f, pos.y + 0.5f);
 		}
 
 		d_outputodd[id] = valodd * offsetscale + offsetmean;
 		d_outputeven[id] = valeven * offsetscale + offsetmean;
+		d_outputodddeconv[id] = valodddeconv * offsetscale + offsetmean;
+		d_outputevendeconv[id] = valevendeconv * offsetscale + offsetmean;
 	}
 }

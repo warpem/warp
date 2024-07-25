@@ -812,6 +812,8 @@ namespace gtom
 	*/
 	template <class T> void d_Pad(T* d_input, T* d_output, int3 inputdims, int3 outputdims, T_PAD_MODE mode, T value, int batch = 1);
 
+	template <class T> void d_PadClampSoft(T* d_input, T* d_output, int3 inputdims, int3 outputdims, int softdist, int batch = 1);
+
 	//Polynomials.cu:
 
 	/**
