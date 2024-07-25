@@ -912,7 +912,7 @@ namespace WarpTools.Commands
                             lock (NetworkTrain)
                                 NetworkTrain.TrainDenoise(d_AugmentedOddDenoise[threadID],
                                                           d_AugmentedEvenDenoise[threadID],
-                                                          d_AugmentedEvenDenoiseDeconv[threadID],
+                                                          UseDeconv ? d_AugmentedEvenDenoiseDeconv[threadID] : null,
                                                           LearningRateDenoise,
                                                           false,
                                                           out _,
