@@ -63,7 +63,7 @@ namespace WarpTools.Commands
                 throw new Exception("--patch_size must be a positive number");
             
             if (!Helper.ExeutableIsOnPath("batchruntomo"))
-                throw new Exception("IMOD program batchruntomo not found in directories on PATH");
+                throw new Exception("IMOD program batchruntomo not found on PATH");
 
             #endregion
 

@@ -78,7 +78,7 @@ namespace WarpTools.Commands
             bool RefiningAxis = CLI.AxisIterations > 0;
 
             if (!Helper.ExeutableIsOnPath(CLI.Executable))
-                throw new Exception($"Executable {CLI.Executable} not found in directories from PATH");
+                throw new Exception($"Executable '{CLI.Executable}' not found on PATH");
 
             #endregion
 
