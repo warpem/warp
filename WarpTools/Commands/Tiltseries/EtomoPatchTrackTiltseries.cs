@@ -61,6 +61,9 @@ namespace WarpTools.Commands
 
             if (CLI.PatchSizeAngstroms <= 0)
                 throw new Exception("--patch_size must be a positive number");
+            
+            if (!Helper.ExeutableIsOnPath("batchruntomo"))
+                throw new Exception("IMOD program batchruntomo not found on PATH");
 
             #endregion
 
