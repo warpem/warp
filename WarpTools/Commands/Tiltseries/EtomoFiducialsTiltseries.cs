@@ -62,6 +62,9 @@ namespace WarpTools.Commands
             if (CLI.MinFOV > 1)
                 throw new Exception("--min_fov can't be higher than 1");
 
+            if (!Helper.ExeutableIsOnPath("batchruntomo"))
+                throw new Exception("IMOD program batchruntomo not found in directories on PATH");
+
             #endregion
 
             #region Create processing options

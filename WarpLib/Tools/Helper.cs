@@ -1188,6 +1188,13 @@ namespace Warp.Tools
 
             return Indices.ToArray();
         }
+
+        public static bool ExeutableIsOnPath(string executable)
+        {
+            string path = Environment.GetEnvironmentVariable("PATH");
+            string[] directories = path.Split(Path.PathSeparator);
+            return directories.Any(dir => File.Exists(Path.Combine(dir, executable)));
+        }
     }
 
     public delegate void GPUTaskIterator<in T>(T item, int deviceID);
