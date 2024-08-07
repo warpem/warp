@@ -29,6 +29,9 @@ namespace WarpTools.Commands
         [Option("output_processing", HelpText = "Specifies an alternative directory to save processing results. Overrides the processing directory in the .settings file.")]
         public string OutputProcessing { get; set; }
 
+        [Option("input_norawdata", HelpText = "Ignore the existence of raw data and look for XML metadata in the processing directory instead.")]
+        public bool InputNoRawData { get; set; }
+
         public OptionsWarp Options { get; set; }
 
         public Movie[] InputSeries { get; set; }
@@ -87,8 +90,8 @@ namespace WarpTools.Commands
                 Console.WriteLine($"No alternative input specified, will use input parameters from {Helper.PathToNameWithExtension(SettingsPath)}");
                 Console.WriteLine($"File search will be relative to {SettingsDataDirectory}");
 
-                string[] InputFiles = Directory.EnumerateFiles(SettingsDataDirectory,
-                                                               Options.Import.Extension,
+                string[] InputFiles = Directory.EnumerateFiles(InputNoRawData ? InputProcessing : SettingsDataDirectory,
+                                                               InputNoRawData ? "*.xml" : Options.Import.Extension,
                                                                Options.Import.DoRecursiveSearch ? SearchOption.AllDirectories :
                                                                                                   SearchOption.TopDirectoryOnly).ToArray();
 
@@ -162,7 +165,7 @@ namespace WarpTools.Commands
 
                 bool IsTomo = Path.GetExtension(FilePath).ToLower() == ".tomostar";
                 string DataDir = null;
-                
+
                 if (Path.GetFullPath(Path.GetDirectoryName(FilePath)) != Path.GetFullPath(InputProcessing))
                     DataDir = Path.GetDirectoryName(FilePath);
 
