@@ -350,6 +350,7 @@ copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
       </AdditionalCompilerOptions>
       <FastMath>true</FastMath>
       <InterleaveSourceInPTX>true</InterleaveSourceInPTX>
+      <AdditionalOptions>--allow-unsupported-compiler %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

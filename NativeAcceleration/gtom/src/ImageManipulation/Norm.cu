@@ -269,7 +269,7 @@ namespace gtom
 			}
 
 			s_mean = sum1 / (double)elements;
-			s_stddev = sqrt(((double)elements * sum2 - (sum1 * sum1))) / (double)elements;
+			s_stddev = sqrt(tmax(0, ((double)elements * sum2 - (sum1 * sum1)))) / (double)elements;
 		}
 		__syncthreads();
 
@@ -318,7 +318,7 @@ namespace gtom
 			}
 
 			s_mean = sum1 / samples;
-			s_stddev = sqrt((samples * sum2 - (sum1 * sum1))) / samples;
+			s_stddev = sqrt(tmax(0, samples * sum2 - (sum1 * sum1))) / samples;
 		}
 		__syncthreads();
 

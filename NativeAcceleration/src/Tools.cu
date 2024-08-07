@@ -387,6 +387,16 @@ __declspec(dllexport) void FourierBandpass(float2* d_inputft, int3 dims, float n
 	d_FourierBandpassNonCubic(d_inputft, dims, nyquistlow, nyquisthigh, nyquistsoftedge, batch);
 }
 
+__declspec(dllexport) void BandpassGauss(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, float sigma, uint batch)
+{
+	d_BandpassNonCubicGauss(d_input, d_output, dims, nyquistlow, nyquisthigh, sigma, batch);
+}
+
+__declspec(dllexport) void FourierBandpassGauss(float2* d_inputft, int3 dims, float nyquistlow, float nyquisthigh, float sigma, uint batch)
+{
+	d_FourierBandpassNonCubicGauss(d_inputft, dims, nyquistlow, nyquisthigh, sigma, batch);
+}
+
 __declspec(dllexport) void BandpassButter(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, int order, uint batch)
 {
 	d_BandpassNonCubicButter(d_input, d_output, dims, nyquistlow, nyquisthigh, order, batch);

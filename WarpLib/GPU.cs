@@ -190,21 +190,6 @@ namespace Warp
                                                     IntPtr d_bestangle,
                                                     float[] h_progressfraction);
 
-        [DllImport("NativeAcceleration", EntryPoint = "CorrelateSubTomosDiff2")]
-        public static extern void CorrelateSubTomosDiff2(ulong t_projectordataRe,
-                                                         ulong t_projectordataIm,
-                                                         float projectoroversample,
-                                                         int3 dimsprojector,
-                                                         IntPtr d_experimentalft,
-                                                         IntPtr d_ctf,
-                                                         int3 dimsvolume,
-                                                         uint nvolumes,
-                                                         int3 dimsrelevant,
-                                                         float[] h_angles,
-                                                         uint nangles,
-                                                         IntPtr d_bestcorrelation,
-                                                         IntPtr d_bestangle);
-
         [DllImport("NativeAcceleration", EntryPoint = "LocalPeaks")]
         public static extern IntPtr LocalPeaks(IntPtr d_input, int[] h_peaksnum, int3 dims, int localextent, float threshold);
 
@@ -834,6 +819,12 @@ namespace Warp
 
         [DllImport("NativeAcceleration", EntryPoint = "FourierBandpass")]
         public static extern void FourierBandpass(IntPtr d_inputft, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch);
+
+        [DllImport("NativeAcceleration", EntryPoint = "BandpassGauss")]
+        public static extern void BandpassGauss(IntPtr d_input, IntPtr d_output, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsigma, uint batch);
+
+        [DllImport("NativeAcceleration", EntryPoint = "FourierBandpassGauss")]
+        public static extern void FourierBandpassGauss(IntPtr d_inputft, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsigma, uint batch);
 
         [DllImport("NativeAcceleration", EntryPoint = "BandpassButter")]
         public static extern void BandpassButter(IntPtr d_input, IntPtr d_output, int3 dims, float nyquistlow, float nyquisthigh, int order, uint batch);

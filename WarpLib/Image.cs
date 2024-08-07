@@ -1917,6 +1917,19 @@ namespace Warp
             return New;
         }
 
+        public Image AsScaledCTF(int3 newDims)
+        {
+            Image CTFComplex = this.AsComplex();
+            Image PSF = CTFComplex.AsIFFT(true).AndDisposeParent();
+            PSF = PSF.AsPadded(newDims, true).AndDisposeParent();
+
+            Image ScaledCTF = PSF.AsFFT(true).AndDisposeParent().AsReal().AndDisposeParent();
+            ScaledCTF.Multiply(1f / newDims.Elements());
+
+            ScaledCTF.Parent = this;
+            return ScaledCTF;
+        }
+
         public Image AsShiftedVolume(float3 shift)
         {
             Image Result;
@@ -2156,7 +2169,7 @@ namespace Warp
 
         public Image AsSpectrumFlattened(bool isVolume = true, float nyquistLowpass = 1f, int spectrumLength = -1, bool isTiltSeries = false)
         {
-            Image FT = isVolume ? AsFFT(true) : AsFFT(false);
+            Image FT = AsFFT(isVolume);
             Image FTAmp = FT.AsAmplitudes();
 
             int SpectrumLength = Math.Min(Dims.X, Dims.Z > 1 ? Math.Min(Dims.Y, Dims.Z) : Dims.Y) / 2;
@@ -2279,7 +2292,7 @@ namespace Warp
             Image FT = IsFT ? this : AsFFT(isVolume);
             Image FTAmp = (IsFT && !IsComplex) ? this : FT.AsAmplitudes();
             FTAmp.FreeDevice();
-            if (!IsFT)
+            if (FT != this)
                 FT.Dispose();
 
             int SpectrumLength = Math.Min(Dims.X, Dims.Z > 1 ? Math.Min(Dims.Y, Dims.Z) : Dims.Y) / 2;
@@ -2337,6 +2350,9 @@ namespace Warp
 
             for (int i = 0; i < Spectrum.Length; i++)
                 Spectrum[i] = Spectrum[i] / Math.Max(1e-5f, Samples[i]);
+
+            if (FTAmp != this)
+                FTAmp.Dispose();
 
             return Spectrum;
         }
@@ -3548,6 +3564,21 @@ namespace Warp
             }
         }
 
+        public void BandpassGauss(float nyquistLow, float nyquistHigh, bool isVolume, float nyquistsigma, int batch = 1)
+        {
+            if (IsHalf)
+                throw new Exception("Bandpass only works on fp32 data");
+            if (!isVolume && batch != 1)
+                throw new Exception("Batch can only be manually specified for volumetric data; for 2D it is the number of slices");
+
+            if (IsComplex && IsFT)
+                GPU.FourierBandpassGauss(GetDevice(Intent.Read), isVolume ? Dims : Dims.Slice(), nyquistLow, nyquistHigh, nyquistsigma, isVolume ? (uint)1 : (uint)Dims.Z);
+            else if (!IsComplex && !IsFT)
+                GPU.BandpassGauss(GetDevice(Intent.Read), GetDevice(Intent.Write), isVolume ? Dims : Dims.Slice(), nyquistLow, nyquistHigh, nyquistsigma, isVolume ? 1 : (uint)Dims.Z);
+            else
+                throw new Exception("Bandpass needs either real-space data in non-FFTW format, or Fourier-space data in FFTW format");
+        }
+
         public void BandpassButter(float nyquistLow, float nyquistHigh, bool isVolume, int order = 8, int batch = 1)
         {
             if (IsHalf)
@@ -3650,6 +3681,43 @@ namespace Warp
                           GetDevice(Intent.Write),
                           (uint)(isVolume ? ElementsReal : ElementsSliceReal),
                           (uint)(isVolume ? 1 : Dims.Z));
+        }
+
+        public void Normalize(Image mask, bool isVolume = false)
+        {
+            if (IsHalf || IsComplex)
+                throw new Exception("Wrong format, only real-valued input supported.");
+
+            GPU.NormalizeMasked(GetDevice(Intent.Read),
+                                GetDevice(Intent.Write),
+                                mask.GetDevice(Intent.Read),
+                                (uint)(isVolume ? ElementsReal : ElementsSliceReal),
+                                (uint)(isVolume ? 1 : Dims.Z));
+        }
+
+        public void NormalizeWithinMask(Image mask, bool subtractMean)
+        {
+            float[][] ThisData = GetHost(Intent.ReadWrite);
+            float[][] MaskData = mask.GetHost(Intent.Read);
+
+            List<float> UnderMask = new();
+            for (int z = 0; z < ThisData.Length; z++)
+                for (int i = 0; i < ThisData[z].Length; i++)
+                    if (MaskData[z][i] > 0)
+                        UnderMask.Add(ThisData[z][i]);
+
+            float2 MeanStd = MathHelper.MeanAndStd(UnderMask);
+
+            if (MeanStd.Y > 0)
+                for (int z = 0; z < ThisData.Length; z++)
+                    for (int i = 0; i < ThisData[z].Length; i++)
+                        if (MaskData[z][i] > 0)
+                        {
+                            if (subtractMean)
+                                ThisData[z][i] = (ThisData[z][i] - MeanStd.X) / MeanStd.Y;
+                            else
+                                ThisData[z][i] = (ThisData[z][i] - MeanStd.X) / MeanStd.Y + MeanStd.X;
+                        }
         }
 
         public void Symmetrize(string sym)

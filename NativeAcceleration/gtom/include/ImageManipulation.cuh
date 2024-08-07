@@ -19,6 +19,8 @@ namespace gtom
 	void d_Bandpass(tcomplex* d_inputft, tcomplex* d_outputft, int3 dims, tfloat low, tfloat high, tfloat smooth, tfloat* d_mask = NULL, int batch = 1);
 	void d_BandpassNonCubic(tfloat* d_input, tfloat* d_output, int3 dims, tfloat nyquistlow, tfloat nyquisthigh, tfloat nyquistsoftedge, uint batch = 1);
 	void d_FourierBandpassNonCubic(tcomplex* d_inputft, int3 dims, tfloat nyquistlow, tfloat nyquisthigh, tfloat nyquistsoftedge, uint batch = 1);
+	void d_BandpassNonCubicGauss(tfloat* d_input, tfloat* d_output, int3 dims, tfloat nyquistlow, tfloat nyquisthigh, tfloat sigma, uint batch = 1);
+	void d_FourierBandpassNonCubicGauss(tcomplex* d_inputft, int3 dims, tfloat nyquistlow, tfloat nyquisthigh, tfloat sigma, uint batch = 1);
 	void d_BandpassNonCubicButter(tfloat* d_input, tfloat* d_output, int3 dims, tfloat nyquistlow, tfloat nyquisthigh, int order, uint batch = 1);
 	void d_FourierBandpassNonCubicButter(tcomplex* d_inputft, int3 dims, tfloat nyquistlow, tfloat nyquisthigh, int order, uint batch = 1);
 

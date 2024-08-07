@@ -43,6 +43,9 @@ namespace WarpTools.Commands
         [Option("subdivisions", Default = 3, HelpText = "Number of subdivisions defining the angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on")]
         public int HealpixOrder { get; set; }
 
+        [Option("tilt_range", HelpText = "Limit the range of angles between the reference's Z axis and the tomogram's XY plane to plus/minus this value, in °; useful for matching filaments lying flat in the XY plane")]
+        public double? TiltRange { get; set; }
+
         [Option("batch_angles", Default = 32, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; higher than 32 probably won't lead to speed-ups")]
         public int BatchAngles { get; set; }
 
@@ -55,8 +58,14 @@ namespace WarpTools.Commands
         [Option("dont_normalize", HelpText = "Don't set score distribution to median = 0, stddev = 1")]
         public bool DontNormalizeScores { get; set; }
 
-        [Option("dont_whiten", HelpText = "Don't perform spectral whitening; this can help when the alignments are poor by up-weighting lower frequencies")]
-        public bool DontWhiten { get; set; }
+        [Option("whiten", HelpText = "Perform spectral whitening to give higher-resolution information more weight; this can help when the alignments are already good and you need more selective matching")]
+        public bool Whiten { get; set; }
+
+        [Option("lowpass", Default = 1.0, HelpText = "Gaussian low-pass filter to be applied to template and tomogram, in fractions of Nyquist; 1.0 = no low-pass, <1.0 = low-pass")]
+        public double Lowpass { get; set; }
+
+        [Option("lowpass_sigma", Default = 0.1, HelpText = "Sigma (i.e. fall-off) of the Gaussian low-pass filter, in fractions of Nyquist; larger value = slower fall-off")]
+        public double LowpassSigma { get; set; }
 
         [Option("reuse_results", HelpText = "Reuse correlation volumes from a previous run if available, only extract peak positions")]
         public bool ReuseResults { get; set; }
@@ -113,6 +122,9 @@ namespace WarpTools.Commands
             if (CLI.HealpixOrder < 0)
                 throw new Exception("--subdivisions can't be negative");
 
+            if (CLI.TiltRange != null && (CLI.TiltRange.Value > 90 || CLI.TiltRange.Value < 0))
+                throw new Exception("--tilt_range must be between 0 and 90");
+
             if (CLI.BatchAngles < 1)
                 throw new Exception("--batch_angles must be positive");
 
@@ -130,6 +142,12 @@ namespace WarpTools.Commands
 
             if (CLI.SubVolumeSize < 64)
                 throw new Exception("--subvolume_size can't be lower than 64");
+
+            if (CLI.Lowpass < 0 || CLI.Lowpass > 1)
+                throw new Exception("--lowpass must be between 0 and 1");
+
+            if (CLI.LowpassSigma < 0)
+                throw new Exception("--lowpass_sigma can't be negative");
 
 
             #endregion
@@ -150,14 +168,17 @@ namespace WarpTools.Commands
             Options.Tasks.TomoMatchNResults = CLI.PeakNumber;
 
             Options.Tasks.ReuseCorrVolumes = CLI.ReuseResults;
-            Options.Tasks.TomoMatchWhitenSpectrum = !CLI.DontWhiten;
+            Options.Tasks.TomoMatchWhitenSpectrum = CLI.Whiten;
 
             var OptionsMatch = Options.GetProcessingTomoFullMatch();
 
+            OptionsMatch.TiltRange = (decimal)CLI.TiltRange.Value;
             OptionsMatch.SubVolumeSize = CLI.SubVolumeSize;
             OptionsMatch.Supersample = 1;
             OptionsMatch.KeepOnlyFullVoxels = true;
             OptionsMatch.NormalizeScores = !CLI.DontNormalizeScores;
+            OptionsMatch.Lowpass = (decimal)CLI.Lowpass;
+            OptionsMatch.LowpassSigma = (decimal)CLI.LowpassSigma;
 
             #endregion
 
@@ -229,7 +250,14 @@ namespace WarpTools.Commands
 
             {
                 var HealpixAngles = Helper.GetHealpixAngles(OptionsMatch.HealpixOrder, OptionsMatch.Symmetry);
+                if (CLI.TiltRange >= 0)
+                {
+                    float Limit = MathF.Sin((float)CLI.TiltRange * Helper.ToRad);
+                    HealpixAngles = HealpixAngles.Where(a => MathF.Abs(Matrix3.Euler(a).C3.Z) <= Limit).ToArray();
+                }
                 Console.WriteLine($"Using {HealpixAngles.Length} orientations for matching");
+                if (HealpixAngles.Length == 0)
+                    throw new Exception("Can't match with 0 orientations, please increase --tilt_range");
             }
 
             WorkerWrapper[] Workers = CLI.GetWorkers();

@@ -44,20 +44,6 @@ extern "C" __declspec(dllexport) void CorrelateSubTomos(unsigned long long t_pro
                                                         int* d_bestangle,
                                                         float* h_progressfraction);
 
-extern "C" __declspec(dllexport) void CorrelateSubTomosDiff2(unsigned long long t_projectordataRe,
-                                                            unsigned long long t_projectordataIm,
-                                                            float projectoroversample,
-                                                            int3 dimsprojector,
-                                                            float2* d_experimentalft,
-                                                            float* d_ctf,
-                                                            int3 dimsvolume,
-                                                            uint nvolumes,
-                                                            int3 dimsrelevant,
-                                                            float3* h_angles,
-                                                            uint nangles,
-                                                            float* d_bestcorrelation,
-                                                            int* d_bestangle);
-
 extern "C" __declspec(dllexport) int* LocalPeaks(float* d_input, int* h_peaksnum, int3 dims, int localextent, float threshold);
 extern "C" __declspec(dllexport) void SubpixelMax(float* d_input, float* d_output, int3 dims, int subpixsteps);
 
@@ -762,6 +748,10 @@ extern "C" __declspec(dllexport) void ProjectBackwardShifted(float2* d_volumeft,
 extern "C" __declspec(dllexport) void Bandpass(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch);
 
 extern "C" __declspec(dllexport) void FourierBandpass(float2* d_input, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch);
+
+extern "C" __declspec(dllexport) void BandpassGauss(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, float sigma, uint batch);
+
+extern "C" __declspec(dllexport) void FourierBandpassGauss(float2* d_input, int3 dims, float nyquistlow, float nyquisthigh, float sigma, uint batch);
 
 extern "C" __declspec(dllexport) void BandpassButter(float* d_input, float* d_output, int3 dims, float nyquistlow, float nyquisthigh, int order, uint batch);
 

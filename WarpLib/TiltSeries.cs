@@ -2007,27 +2007,56 @@ namespace Warp
             string NameWithRes = RootName + $"_{options.BinnedPixelSizeMean:F2}Apx";
 
             float3[] HealpixAngles = Helper.GetHealpixAngles(options.HealpixOrder, options.Symmetry).Select(a => a * Helper.ToRad).ToArray();
+            if (options.TiltRange >= 0)
+            {
+                float Limit = MathF.Sin((float)options.TiltRange * Helper.ToRad);
+                HealpixAngles = HealpixAngles.Where(a => MathF.Abs(Matrix3.Euler(a).C3.Z) <= Limit).ToArray();
+            }
+            progressCallback?.Invoke(new int3(1), 0, $"Using {HealpixAngles.Length} orientations for matching");
+
             LoadMovieSizes();
 
-            Image CorrImage = null;
+            Image CorrImage = null, ZScoresImage;
             float[][] CorrData;
             float[][] AngleData;
 
             #region Dimensions
 
             int SizeSub = options.SubVolumeSize;
-            int SizeSubPadded = SizeSub * 2;
             int SizeParticle = (int)(options.TemplateDiameter / options.BinnedPixelSizeMean);
             int PeakDistance = (int)(options.PeakDistance / options.BinnedPixelSizeMean);
-            int SizeUseful = Math.Min(SizeSub / 2, SizeSub - SizeParticle * 2);// Math.Min(SizeSub - SizeParticle, SizeSub / 2);
-            if (SizeUseful < 2)
-                throw new DimensionMismatchException("Particle diameter is bigger than the box.");
-
-            VolumeDimensionsPhysical = options.DimensionsPhysical;
 
             int3 DimsVolumeCropped = new int3((int)Math.Round(options.DimensionsPhysical.X / (float)options.BinnedPixelSizeMean / 2) * 2,
                                                 (int)Math.Round(options.DimensionsPhysical.Y / (float)options.BinnedPixelSizeMean / 2) * 2,
                                                 (int)Math.Round(options.DimensionsPhysical.Z / (float)options.BinnedPixelSizeMean / 2) * 2);
+
+            VolumeDimensionsPhysical = options.DimensionsPhysical;
+
+            // Find optimal box size for matching
+            {
+                int BestSizeSub = 0;
+                long BestVoxels = long.MaxValue;
+
+                for (int testSizeSub = (SizeParticle * 2 + 31) / 32 * 32; testSizeSub < 256; testSizeSub += 32)
+                {
+                    int TestSizeUseful = Math.Max(1, testSizeSub - SizeParticle * 2);
+                    int3 TestGrid = (DimsVolumeCropped - SizeParticle + TestSizeUseful - 1) / TestSizeUseful;
+                    long TestVoxels = TestGrid.Elements() * testSizeSub * testSizeSub * testSizeSub;
+
+                    if (TestVoxels < BestVoxels)
+                    {
+                        BestVoxels = TestVoxels;
+                        BestSizeSub = testSizeSub;
+                    }
+                }
+
+                SizeSub = BestSizeSub;
+
+                progressCallback?.Invoke(new int3(1), 0, $"Using {BestSizeSub} sub-volumes for matching, resulting in {((float)BestVoxels / DimsVolumeCropped.Elements() * 100 - 100):F0} % overhead");
+            }
+
+            int SizeSubPadded = SizeSub * 2;
+            int SizeUseful = SizeSub - SizeParticle * 2;// Math.Min(SizeSub / 2, SizeSub - SizeParticle * 2);// Math.Min(SizeSub - SizeParticle, SizeSub / 2);
 
             int3 Grid = (DimsVolumeCropped - SizeParticle + SizeUseful - 1) / SizeUseful;
             List<float3> GridCoords = new List<float3>();
@@ -2037,6 +2066,8 @@ namespace Warp
                         GridCoords.Add(new float3(x * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
                                                     y * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
                                                     z * SizeUseful + SizeUseful / 2 + SizeParticle / 2));
+
+            progressCallback?.Invoke(Grid, (int)Grid.Elements(), $"Using {Grid} sub-volumes");
 
             #endregion
 
@@ -2057,40 +2088,105 @@ namespace Warp
 
                 TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
 
-                //if (GPU.GetDevice() == 1)
+                float[] SpectrumWhitening = new float[128];
+
+                if (options.WhitenSpectrum)
                 {
-                    Image TomoStd = new Image(TomoRec.Dims);
-                    Image TomoMean = new Image(TomoRec.Dims);
+                    Image CTFZero;
+                    {
+                        Projector Reconstructor = new Projector(new int3(256), 1);
+                        Image OnesComplex = new Image(IntPtr.Zero, new int3(256, 256, 1), true, true);
+                        OnesComplex.Fill(new float2(1, 0));
+                        Image Ones = OnesComplex.AsReal();
+                        Reconstructor.BackProject(OnesComplex,
+                                                  Ones,
+                                                  GetAnglesInOneTilt([VolumeDimensionsPhysical * 0.5f], [new float3(0)], IndicesSortedDose[0]),
+                                                  Matrix2.Identity());
+                        OnesComplex.Dispose();
+                        Ones.Dispose();
+                        Reconstructor.Weights.Fill(1);
+                        CTFZero = Reconstructor.Reconstruct(true, "C1", -1, -1, -1, 0);
+                        Reconstructor.Dispose();
 
-                    GPU.LocalStd(TomoRec.GetDevice(Intent.Read),
-                                 TomoRec.Dims,
-                                 SizeParticle / 2,
-                                 TomoStd.GetDevice(Intent.Write),
-                                 TomoMean.GetDevice(Intent.Write),
-                                 0,
-                                 0);
+                        CTFZero = CTFZero.AsScaledCTF(TomoRec.Dims).AndDisposeParent();
+                    }
 
-                    //TomoStd.WriteMRC("d_tomostd.mrc", true);
-                    //TomoMean.WriteMRC("d_tomomean.mrc", true);
+                    Image TomoAmps = TomoRec.GetCopyGPU();
+                    TomoAmps.MaskRectangularly(TomoAmps.Dims - 64, 32, true);
+                    TomoAmps = TomoAmps.AsFFT(true).AndDisposeParent().AsAmplitudes().AndDisposeParent();
 
-                    TomoRec.Subtract(TomoMean);
+                    int NBins = 128;// Math.Max(SizeSub / 2, TomoRec.Dims.Max() / 2);
+                    double[] Sums = new double[NBins];
+                    double[] Samples = new double[NBins];
 
-                    float[] AllStd = TomoStd.GetHostContinuousCopy();
-                    float Median = AllStd.Median();
-                    TomoStd.Max(Median);
-                    TomoRec.Divide(TomoStd);
+                    float[][] TomoData = TomoAmps.GetHost(Intent.Read);
+                    float[][] CTFData = CTFZero.GetHost(Intent.Read);
+                    Helper.ForEachElementFT(TomoAmps.Dims, (x, y, z, xx, yy, zz) =>
+                    {
+                        float CTF = MathF.Abs(CTFData[z][y * (CTFZero.Dims.X / 2 + 1) + x]);
+                        if (CTF < 1e-2f)
+                            return;
 
-                    //TomoRec.WriteMRC("d_tomorec.mrc", true);
+                        float xnorm = (float)xx / TomoAmps.Dims.X * 2;
+                        float ynorm = (float)yy / TomoAmps.Dims.Y * 2;
+                        float znorm = (float)zz / TomoAmps.Dims.Z * 2;
+                        float R = MathF.Sqrt(xnorm * xnorm + ynorm * ynorm + znorm * znorm);
+                        if (R >= 1)
+                            return;
 
-                    TomoStd.Dispose();
-                    TomoMean.Dispose();
+                        R *= Sums.Length;
+                        int ID = (int)R;
+                        float W1 = R - ID;
+                        float W0 = 1f - W1;
+
+                        float Val = TomoData[z][y * (TomoAmps.Dims.X / 2 + 1) + x];
+                        Val *= Val;
+
+                        if (W0 > 0)
+                        {
+                            Sums[ID] += W0 * Val * CTF;
+                            Samples[ID] += W0 * CTF;
+                        }
+
+                        if (ID < Sums.Length - 1 && W1 > 0)
+                        {
+                            Sums[ID + 1] += W1 * Val * CTF;
+                            Samples[ID + 1] += W1 * CTF;
+                        }
+                    });
+
+                    TomoAmps.Dispose();
+                    CTFZero.Dispose();
+
+                    for (int i = 0; i < Sums.Length; i++)
+                        Sums[i] = Math.Sqrt(Sums[i] / Math.Max(1e-6, Samples[i]));
+
+                    Sums[Sums.Length - 1] = Sums[Sums.Length - 3];
+                    Sums[Sums.Length - 2] = Sums[Sums.Length - 3];
+
+                    SpectrumWhitening = Sums.Select(v => 1 / MathF.Max(1e-10f, (float)v)).ToArray();
+                    float Max = MathF.Max(1e-10f, SpectrumWhitening.Max());
+                    SpectrumWhitening = SpectrumWhitening.Select(v => v / Max).ToArray();
+
+                    TomoRec = TomoRec.AsSpectrumMultiplied(true, SpectrumWhitening).AndDisposeParent();
+                    //TomoRec.WriteMRC("d_tomorec_whitened.mrc", true);
                 }
+
+                if (options.Lowpass < 0.999M)
+                {
+                    TomoRec.BandpassGauss(0, (float)options.Lowpass, true, (float)options.LowpassSigma);
+                    //TomoRec.WriteMRC("d_tomorec_lowpass.mrc", true);
+                }
+                TomoRec.Bandpass(2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 1.5f, 2, true, 2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
+                //TomoRec.WriteMRC("d_tomorec_highpass.mrc", true);
 
                 #region Scale and pad/crop the template to the right size, create projector
 
                 progressCallback?.Invoke(Grid, 0, "Preparing template...");
 
-                Projector ProjectorReference;
+                Projector ProjectorReference, ProjectorMask, ProjectorRandom;
+                Image TemplateMask;
+                int TemplateMaskSum = 0;
                 {
                     int SizeBinned = (int)Math.Round(template.Dims.X * (options.TemplatePixel / options.BinnedPixelSizeMean) / 2) * 2;
 
@@ -2105,18 +2201,106 @@ namespace Warp
                                    false,
                                    1);
 
-                    Image TemplatePadded = TemplateScaled.AsPadded(new int3(SizeSub));
-                    TemplateScaled.Dispose();
+                    float TemplateMax = TemplateScaled.GetHost(Intent.Read).Select(a => a.Max()).Max();
+                    TemplateMask = TemplateScaled.GetCopyGPU();
+                    TemplateMask.Binarize(TemplateMax * 0.2f);
+                    TemplateMask = TemplateMask.AsDilatedMask(1, true).AndDisposeParent();
+                    //TemplateMask.WriteMRC("d_templatemask.mrc", true);
+
+                    TemplateScaled.Multiply(TemplateMask);
+                    TemplateScaled.NormalizeWithinMask(TemplateMask, false);
+                    //TemplateScaled.WriteMRC("d_template_norm.mrc", true);
+
+                    #region Make phase-randomized template
+
+                    if (false)
+                    {
+                        Random Rng = new Random(123);
+                        RandomNormal RngN = new RandomNormal(123);
+                        Image TemplateRandomFT = TemplateScaled.AsFFT(true);
+                        TemplateRandomFT.TransformComplexValues(v =>
+                        {
+                            float Amp = v.Length() / TemplateRandomFT.Dims.Elements();
+                            float Phase = Rng.NextSingle() * MathF.PI * 2;
+                            return new float2(Amp * MathF.Cos(Phase), Amp * MathF.Sin(Phase));
+                        });
+                        TemplateRandomFT.Bandpass(0, 1, true, 0.01f);
+                        //GPU.SymmetrizeFT(TemplateRandomFT.GetDevice(Intent.ReadWrite), TemplateRandomFT.Dims, options.Symmetry);
+                        Image TemplateRandom = TemplateRandomFT.AsIFFT(true).AndDisposeParent();
+                        TemplateRandom.TransformValues(v => RngN.NextSingle(0, 1));
+                        TemplateRandomFT = TemplateRandom.AsFFT(true).AndDisposeParent();
+                        GPU.SymmetrizeFT(TemplateRandomFT.GetDevice(Intent.ReadWrite), TemplateRandomFT.Dims, options.Symmetry);
+                        TemplateRandom = TemplateRandomFT.AsIFFT(true).AndDisposeParent();
+                        TemplateRandom.Multiply(TemplateMask);
+                        TemplateRandom.WriteMRC("d_templaterandom.mrc", true);
+
+                        {
+                            Image TemplateAmps = TemplateScaled.AsFFT(true).AsAmplitudes().AndDisposeParent();
+                            Image RandomAmps = TemplateRandom.AsFFT(true).AsAmplitudes().AndDisposeParent();
+                            RandomAmps.Max(1e-16f);
+                            Image RandomPhases = TemplateRandom.AsFFT(true);
+                            RandomPhases.Divide(RandomAmps);
+                            RandomAmps.Dispose();
+
+                            RandomPhases.Multiply(TemplateAmps);
+                            TemplateAmps.Dispose();
+
+                            TemplateRandom = RandomPhases.AsIFFT(true).AndDisposeParent();
+                            TemplateRandom.Multiply(TemplateMask);
+                        }
+
+                        TemplateRandom.NormalizeWithinMask(TemplateMask, true);
+                        //TemplateRandom.WriteMRC("d_templaterandom_norm.mrc", true);
+
+                        Image TemplateRandomPadded = TemplateRandom.AsPadded(new int3(SizeSub)).AndDisposeParent();
+
+                        if (options.WhitenSpectrum)
+                            TemplateRandomPadded = TemplateRandomPadded.AsSpectrumMultiplied(true, SpectrumWhitening).AndDisposeParent();
+
+                        TemplateRandomPadded.Bandpass(2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 1.5f, 
+                                                      2, true, 
+                                                      2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
+                    }
+
+                    #endregion
+
+                    Image TemplatePadded = TemplateScaled.AsPadded(new int3(SizeSub)).AndDisposeParent();
+                    //TemplatePadded.WriteMRC("d_template.mrc", true);
+
+                    Image TemplateMaskPadded = TemplateMask.AsPadded(new int3(SizeSub));
+
+                    TemplateMaskSum = (int)TemplateMask.GetHost(Intent.Read).Select(a => a.Sum()).Sum();
+                    TemplateMask.Multiply(1f / TemplateMaskSum);
 
                     if (options.WhitenSpectrum)
                     {
-                        TemplatePadded = TemplatePadded.AsSpectrumFlattened(true, 0.99f).AndDisposeParent();
-                        //TemplatePadded.WriteMRC("d_template.mrc", true);
+                        TemplatePadded = TemplatePadded.AsSpectrumMultiplied(true, SpectrumWhitening).AndDisposeParent();
+                        //TemplatePadded.WriteMRC("d_template_whitened.mrc", true);
                     }
+
+                    if (options.Lowpass < 0.999M)
+                        TemplatePadded.BandpassGauss(0, (float)options.Lowpass, true, (float)options.LowpassSigma);
+
+                    TemplatePadded.Bandpass(2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 1.5f, 2, true, 2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
+                    //TemplatePadded.WriteMRC("d_template_highpass.mrc", true);
+
+                    //TemplateRandomPadded = TemplateRandomPadded.AsSpectrumMultiplied(true, Sinc2).AndDisposeParent();
+                    //TemplateRandomPadded.WriteMRC("d_templaterandom_filtered.mrc");
+
+                    //new Star(TemplatePadded.AsAmplitudes1D(true, 1, 64), "wrpAmplitudes").Save("d_template_amplitudes.star");
+                    //new Star(TemplateRandomPadded.AsAmplitudes1D(true, 1, 64), "wrpAmplitudes").Save("d_templaterandom_amplitudes.star");
 
                     ProjectorReference = new Projector(TemplatePadded, 2, true, 3);
                     TemplatePadded.Dispose();
-                    //ProjectorReference.PutTexturesOnDevice();
+                    ProjectorReference.PutTexturesOnDevice();
+
+                    //ProjectorMask = new Projector(TemplateMaskPadded, 2, true, 3);
+                    //TemplateMaskPadded.Dispose();
+                    //ProjectorMask.PutTexturesOnDevice();
+
+                    //ProjectorRandom = new Projector(TemplateRandomPadded, 2, true, 3);
+                    //TemplateRandomPadded.Dispose();
+                    //ProjectorRandom.PutTexturesOnDevice();
                 }
 
                 #endregion
@@ -2128,10 +2312,11 @@ namespace Warp
 
                 //if (options.WhitenSpectrum)
                 //{
-                //    progressCallback?.Invoke(Grid, 0, "Whitening spectral noise...");
+                //    progressCallback?.Invoke(Grid, 0, "Whitening tomogram spectrum...");
 
+                //    TomoRec.WriteMRC("d_tomorec.mrc", true);
                 //    TomoRec = TomoRec.AsSpectrumFlattened(true, 0.99f).AndDisposeParent();
-                //    //TomoRec.WriteMRC("d_tomorec.mrc", true);
+                //    TomoRec.WriteMRC("d_tomorec_whitened.mrc", true);
                 //}
 
                 float[][] TomoRecData = TomoRec.GetHost(Intent.Read);
@@ -2149,9 +2334,6 @@ namespace Warp
                 float[] ProgressFraction = new float[1];
                 for (int b = 0; b < GridCoords.Count; b += BatchSize)
                 {
-                    Timer ProgressTimer = new Timer((a) =>
-                        progressCallback?.Invoke(Grid, b + ProgressFraction[0] * BatchSize, "Matching..."), null, 1000, 1000);
-
                     int CurBatch = Math.Min(BatchSize, GridCoords.Count - b);
 
                     Image Subtomos = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch), true, true);
@@ -2162,7 +2344,7 @@ namespace Warp
                     {
                         Image CTFs = GetCTFsForOneParticle(options, GridCoords[b], CTFCoords, null, true, false, false);
                         //CTFs.Fill(1);
-                        Image CTFsAbs = CTFs.GetCopyGPU();
+                        Image CTFsAbs = GetCTFsForOneParticle(options, GridCoords[b], CTFCoords, null, false, false, false);
                         CTFsAbs.Abs();
 
                         // CTF has to be converted to complex numbers with imag = 0, and weighted by itself
@@ -2171,6 +2353,8 @@ namespace Warp
                         CTFsComplex.Fill(new float2(1, 0));
                         CTFsComplex.Multiply(CTFs);
                         CTFsComplex.Multiply(CTFs);
+                        //if (b == 0)
+                        //    CTFsComplex.AsAmplitudes().WriteMRC("d_ctfs.mrc", true);
 
                         // Back-project and reconstruct
                         Projector ProjCTF = new Projector(new int3(SizeSubPadded), 1);
@@ -2218,15 +2402,20 @@ namespace Warp
                         for (int z = 0; z < SizeSub; z++)
                         {
                             SubtomoData[z] = new float[SizeSub * SizeSub];
-                            int zz = (ZStart + z + TomoRec.Dims.Z) % TomoRec.Dims.Z;
+                            int zz = ZStart + z;
 
                             for (int y = 0; y < SizeSub; y++)
                             {
-                                int yy = (YStart + y + TomoRec.Dims.Y) % TomoRec.Dims.Y;
+                                int yy = YStart + y;
                                 for (int x = 0; x < SizeSub; x++)
                                 {
-                                    int xx = (XStart + x + TomoRec.Dims.X) % TomoRec.Dims.X;
-                                    SubtomoData[z][y * SizeSub + x] = TomoRecData[zz][yy * TomoRec.Dims.X + xx];
+                                    int xx = XStart + x;
+                                    if (xx >= 0 && xx < TomoRec.Dims.X && 
+                                        yy >= 0 && yy < TomoRec.Dims.Y && 
+                                        zz >= 0 && zz < TomoRec.Dims.Z)
+                                        SubtomoData[z][y * SizeSub + x] = TomoRecData[zz][yy * TomoRec.Dims.X + xx];
+                                    else
+                                        SubtomoData[z][y * SizeSub + x] = 0;
                                 }
                             }
                         }
@@ -2242,10 +2431,17 @@ namespace Warp
 
                         Subtomo.Dispose();
                     }
+                    //Subtomos.Multiply(1f / (SizeSub * SizeSub * SizeSub));
 
                     #endregion
 
                     #region Perform correlation
+
+                    //if (b == 0)
+                    //    SubtomoCTF.WriteMRC16b("d_ctf.mrc", true);
+
+                    Timer ProgressTimer = new Timer((a) =>
+                        progressCallback?.Invoke(Grid, b + ProgressFraction[0] * CurBatch, "Matching..."), null, 1000, 1000);
 
                     Image BestCorrelation = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
                     Image BestAngle = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
@@ -2266,6 +2462,34 @@ namespace Warp
                                           BestAngle.GetDevice(Intent.Write),
                                           ProgressFraction);
 
+
+                    //Image BestCorrelationRandom = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
+                    //Image BestAngleRandom = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
+
+                    //GPU.CorrelateSubTomos(ProjectorRandom.t_DataRe,
+                    //                      ProjectorRandom.t_DataIm,
+                    //                      ProjectorMask.t_DataRe,
+                    //                      ProjectorMask.t_DataIm,
+                    //                      ProjectorRandom.Oversampling,
+                    //                      ProjectorRandom.Data.Dims,
+                    //                      Subtomos.GetDevice(Intent.Read),
+                    //                      SubtomoCTF.GetDevice(Intent.Read),
+                    //                      new int3(SizeSub),
+                    //                      (uint)CurBatch,
+                    //                      Helper.ToInterleaved(HealpixAngles),
+                    //                      (uint)HealpixAngles.Length,
+                    //                      (uint)options.BatchAngles,
+                    //                      SizeParticle / 2,
+                    //                      BestCorrelationRandom.GetDevice(Intent.Write),
+                    //                      BestAngleRandom.GetDevice(Intent.Write),
+                    //                      IntPtr.Zero,
+                    //                      ProgressFraction);
+
+                    //BestCorrelation.WriteMRC($"d_bestcorr_{b:D2}.mrc", true);
+                    //BestCorrelationRandom.WriteMRC($"d_bestcorr_random_{b:D2}.mrc", true);
+
+                    //BestCorrelation.Subtract(BestCorrelationRandom);
+
                     #endregion
 
                     #region Put correlation values and best angle IDs back into the large volume
@@ -2281,7 +2505,7 @@ namespace Warp
                         float[] SubCorr = CroppedCorrelation.GetHostContinuousCopy();
                         float[] SubAngle = CroppedAngle.GetHostContinuousCopy();
                         int3 Origin = new int3(GridCoords[b + st]) - SizeUseful / 2;
-                        float Norm = 1f / (SizeSub * SizeSub * SizeSub * SizeSub);
+                        float Norm = 1f;// / (SizeSub * SizeSub * SizeSub * SizeSub);
                         for (int z = 0; z < SizeUseful; z++)
                         {
                             int zVol = Origin.Z + z;
@@ -2317,6 +2541,8 @@ namespace Warp
 
                     BestCorrelation.Dispose();
                     BestAngle.Dispose();
+                    //BestCorrelationRandom.Dispose();
+                    //BestAngleRandom.Dispose();
 
                     ProgressTimer.Dispose();
                     if (progressCallback != null)
@@ -2325,14 +2551,35 @@ namespace Warp
 
                 #region Postflight
 
-
-
                 GPU.DestroyFFTPlan(PlanForw);
                 GPU.DestroyFFTPlan(PlanBack);
                 GPU.DestroyFFTPlan(PlanForwCTF);
 
                 CTFCoords.Dispose();
                 ProjectorReference.Dispose();
+                //ProjectorRandom.Dispose();
+                //ProjectorMask.Dispose();
+
+                if (true)
+                {
+
+                    Image LocalStd = new Image(IntPtr.Zero, TomoRec.Dims);
+                    GPU.LocalStd(TomoRec.GetDevice(Intent.Read),
+                                 TomoRec.Dims,
+                                 SizeParticle / 2,
+                                 LocalStd.GetDevice(Intent.Write),
+                                 IntPtr.Zero,
+                                 0,
+                                 0);
+                    //LocalStd.WriteMRC("d_localstd.mrc", true);
+
+                    float[][] LocalStdData = LocalStd.GetHost(Intent.Read);
+                    for (int s = 0; s < CorrData.Length; s++)
+                        for (int i = 0; i < CorrData[s].Length; i++)
+                            CorrData[s][i] /= MathF.Max(1e-10f, LocalStdData[s][i]);
+
+                    LocalStd.Dispose();
+                }
 
                 // Normalize by background std
                 if (options.NormalizeScores)
@@ -2470,9 +2717,11 @@ namespace Warp
             }
 
             #endregion
-            
+
             #region Write out images for quickly assessing different thresholds for picking
-            
+
+            progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Preparing visualizations...");
+
             int TemplateThicknessPixels = (int)((float)options.TemplateDiameter / TomoRec.PixelSize);
             
             // extract projection over central slices of tomogram
@@ -2559,9 +2808,12 @@ namespace Warp
             }
 
             TomogramSlice.Dispose();
-            TomoRec.Dispose();
-            
+
+            progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Done...");
+
             #endregion
+
+            TomoRec.Dispose();
 
             #region Write peak positions and angles into table
 
@@ -10390,10 +10642,11 @@ namespace Warp
             if (TiltMoviePaths.Length != NTilts)
                 throw new Exception("A valid path is needed for each tilt.");
 
-            Movie First = new Movie(IOPath.Combine(DataOrProcessingDirectoryName, TiltMoviePaths[0]));
-            MapHeader Header = MapHeader.ReadFromFile(First.AveragePath);
+            //Movie First = new Movie(IOPath.Combine(DataOrProcessingDirectoryName, TiltMoviePaths[0]));
+            //MapHeader Header = MapHeader.ReadFromFile(First.AveragePath);
 
-            ImageDimensionsPhysical = new float2(Header.Dimensions.X, Header.Dimensions.Y) * Header.PixelSize.X;
+            //ImageDimensionsPhysical = new float2(Header.Dimensions.X, Header.Dimensions.Y) * Header.PixelSize.X;
+            ImageDimensionsPhysical = new float2(4096f) * 1.18f;
         }
 
         static Image[] _RawMaskBuffers = null;
@@ -11478,10 +11731,19 @@ namespace Warp
         public bool WhitenSpectrum { get; set; }
 
         [WarpSerializable]
+        public decimal Lowpass { get; set; }
+
+        [WarpSerializable]
+        public decimal LowpassSigma { get; set; }
+
+        [WarpSerializable]
         public string Symmetry { get; set; }
 
         [WarpSerializable]
         public int HealpixOrder { get; set; }
+
+        [WarpSerializable]
+        public decimal TiltRange { get; set; }
 
         [WarpSerializable]
         public int BatchAngles { get; set; }

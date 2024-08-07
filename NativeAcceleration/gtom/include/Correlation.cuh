@@ -110,20 +110,6 @@ namespace gtom
 							float* d_bestangle,
 							float* h_progressfraction = NULL);
 
-	void d_PickSubTomogramsDiff2(cudaTex t_projectordataRe,
-								cudaTex t_projectordataIm,
-								tfloat projectoroversample,
-								int3 dimsprojector,
-								tcomplex* d_experimentalft,
-								tfloat* d_ctf,
-								int3 dimsvolume,
-								uint nvolumes,
-								int3 dimsrelevant,
-								tfloat3* h_angles,
-								uint nangles,
-								tfloat* d_bestdiff2,
-								float* d_bestangle);
-
 	//Picker.cu:
 
 	struct Peak

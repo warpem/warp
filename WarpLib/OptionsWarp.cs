@@ -618,6 +618,7 @@ namespace Warp
                 SubVolumeSize = 192,
                 Symmetry = Tasks.TomoMatchSymmetry,
                 HealpixOrder = (int)Tasks.TomoMatchHealpixOrder,
+                TiltRange = -1,
                 BatchAngles = Tasks.TomoMatchBatchAngles,
 
                 Supersample = 1,
@@ -627,7 +628,9 @@ namespace Warp
 
                 ReuseCorrVolumes = Tasks.ReuseCorrVolumes,
 
-                WhitenSpectrum = Tasks.TomoMatchWhitenSpectrum
+                WhitenSpectrum = Tasks.TomoMatchWhitenSpectrum,
+                Lowpass = 1.0M,
+                LowpassSigma = 0M
             });
 
             Result.BinTimes = BinTimes;
