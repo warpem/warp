@@ -172,7 +172,7 @@ namespace WarpTools.Commands
 
             var OptionsMatch = Options.GetProcessingTomoFullMatch();
 
-            OptionsMatch.TiltRange = (decimal)CLI.TiltRange.Value;
+            OptionsMatch.TiltRange = CLI.TiltRange != null ? (decimal)CLI.TiltRange.Value : -1;
             OptionsMatch.SubVolumeSize = CLI.SubVolumeSize;
             OptionsMatch.Supersample = 1;
             OptionsMatch.KeepOnlyFullVoxels = true;

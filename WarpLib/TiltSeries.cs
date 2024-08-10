@@ -10642,11 +10642,10 @@ namespace Warp
             if (TiltMoviePaths.Length != NTilts)
                 throw new Exception("A valid path is needed for each tilt.");
 
-            //Movie First = new Movie(IOPath.Combine(DataOrProcessingDirectoryName, TiltMoviePaths[0]));
-            //MapHeader Header = MapHeader.ReadFromFile(First.AveragePath);
+            Movie First = new Movie(IOPath.Combine(DataOrProcessingDirectoryName, TiltMoviePaths[0]));
+            MapHeader Header = MapHeader.ReadFromFile(First.AveragePath);
 
-            //ImageDimensionsPhysical = new float2(Header.Dimensions.X, Header.Dimensions.Y) * Header.PixelSize.X;
-            ImageDimensionsPhysical = new float2(4096f) * 1.18f;
+            ImageDimensionsPhysical = new float2(Header.Dimensions.X, Header.Dimensions.Y) * Header.PixelSize.X;
         }
 
         static Image[] _RawMaskBuffers = null;
