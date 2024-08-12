@@ -716,7 +716,7 @@ namespace Noise2Map
                     Map1.MaskSpherically(Map1.Dims.X - 32, 16, true);
 
                 string SavePath1 = Path.Combine(WorkingDirectory, "denoised", NamesForDenoising[imap] + (Options.DenoiseSeparately ? "_1" : "") + ".mrc");
-                Map1.WriteMRC(SavePath1, true);
+                Map1.WriteMRC16b(SavePath1, true);
                 Map1.Dispose();
 
                 Console.WriteLine("Done. Saved to " + SavePath1);
@@ -738,7 +738,7 @@ namespace Noise2Map
                         Map2.MaskSpherically(Map2.Dims.X - 32, 16, true);
 
                     string SavePath2 = Path.Combine(WorkingDirectory, "denoised",  NamesForDenoising[imap] + "_2" + ".mrc");
-                    Map2.WriteMRC(SavePath2, true);
+                    Map2.WriteMRC16b(SavePath2, true);
                     Map2.Dispose();
 
                     Console.WriteLine("Done. Saved to " + SavePath2);
