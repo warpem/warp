@@ -258,4 +258,18 @@ namespace Warp.Tools
             IH,
             InH
     }
+
+    public class HelicalSymmetry
+    {
+        public int Units;
+        public float Twist;
+        public float Rise;
+
+        public HelicalSymmetry(int units, float twist, float rise)
+        {
+            Units = units;
+            Twist = twist;
+            Rise = rise;
+        }
+    }
 }

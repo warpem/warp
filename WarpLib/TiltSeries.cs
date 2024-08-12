@@ -1280,7 +1280,7 @@ namespace Warp
                         XfPaths[idx] = IOPath.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
                     }
 
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                 {
                     Console.WriteLine("Possible XF file paths:");
                     foreach (string path in XfPaths)
@@ -1290,7 +1290,7 @@ namespace Warp
                 try
                 {
                     XfPath = XfPaths.First(s => File.Exists(s));
-                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    if (Helper.IsDebug)
                         Console.WriteLine($"\nImporting 2D transforms from {XfPath}");
                 }
                 catch { }
@@ -1352,7 +1352,7 @@ namespace Warp
                         TltPaths[idx] = IOPath.GetFullPath(IOPath.Combine(ResultsDir, Directories[i], FileNames[j]));
                     }
 
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                 {
                     Console.WriteLine("Possible TLT file paths:");
                     foreach (string path in TltPaths)
@@ -1362,7 +1362,7 @@ namespace Warp
                 try
                 {
                     TltPath = TltPaths.First(s => File.Exists(s));
-                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    if (Helper.IsDebug)
                         Console.WriteLine($"\nImporting tilt angles from {TltPath}");
                 }
                 catch { }
@@ -1530,7 +1530,7 @@ namespace Warp
                 CTFsComplex.Dispose();
                 ProjCTFWeights.Dispose();
 
-                Image PSF = ProjCTF.Reconstruct(false, "C1", -1, -1, -1, 0).AsPadded(new int3(SizeReconstruction)).AndDisposeParent();
+                Image PSF = ProjCTF.Reconstruct(false, "C1", null, -1, -1, -1, 0).AsPadded(new int3(SizeReconstruction)).AndDisposeParent();
                 PSF.WriteMRC("d_psf.mrc", true);
                 //Console.WriteLine(PSF.GetHost(Intent.Read).SelectMany(v => v).Select(v => MathF.Min(0, v)).Sum());
                 PSF.RemapToFT(true);
@@ -1755,7 +1755,7 @@ namespace Warp
                     Reconstructor.Data.Multiply(Multiplicity);
                     //Reconstructor.Weights.Fill(1);
 
-                    Reconstructor.Reconstruct(Reconstruction.GetDevice(Intent.Write), false, "C1", PlanForwRec, PlanBackRec, PlanCTFBack, 0);
+                    Reconstructor.Reconstruct(Reconstruction.GetDevice(Intent.Write), false, "C1", null, PlanForwRec, PlanBackRec, PlanCTFBack, 0);
                     //Reconstruction.WriteMRC("d_reconstruction.mrc", true);
 
                     GPU.Pad(Reconstruction.GetDevice(Intent.Read),
@@ -2105,7 +2105,7 @@ namespace Warp
                         OnesComplex.Dispose();
                         Ones.Dispose();
                         Reconstructor.Weights.Fill(1);
-                        CTFZero = Reconstructor.Reconstruct(true, "C1", -1, -1, -1, 0);
+                        CTFZero = Reconstructor.Reconstruct(true, "C1", null, -1, -1, -1, 0);
                         Reconstructor.Dispose();
 
                         CTFZero = CTFZero.AsScaledCTF(TomoRec.Dims).AndDisposeParent();
@@ -2373,7 +2373,7 @@ namespace Warp
                         CTFsComplex.Dispose();
                         ProjCTFWeights.Dispose();
 
-                        Image PSF = ProjCTF.Reconstruct(false, "C1", -1, -1, -1, 0);
+                        Image PSF = ProjCTF.Reconstruct(false, "C1", null, -1, -1, -1, 0);
                         //PSF.WriteMRC("d_psf.mrc", true);
                         PSF.RemapToFT(true);
                         ProjCTF.Dispose();
@@ -3035,7 +3035,7 @@ namespace Warp
                         Projectors[threadID].Data.Multiply(Correctors[threadID].Weights);
                         Projectors[threadID].Weights.Max(0.01f); 
 
-                        Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", PlanForw[threadID], PlanBack[threadID], PlanForwCTF[threadID], 0);
+                        Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", null, PlanForw[threadID], PlanBack[threadID], PlanForwCTF[threadID], 0);
 
                         GPU.Pad(Subtomo[threadID].GetDevice(Intent.Read),
                                 SubtomoCropped[threadID].GetDevice(Intent.Write),
@@ -3115,7 +3115,7 @@ namespace Warp
                             Projectors[threadID].Data.Multiply(Correctors[threadID].Weights);
                             Projectors[threadID].Weights.Max(0.01f);
 
-                            Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", PlanForw[threadID], PlanBack[threadID], PlanForwCTF[threadID], 0);
+                            Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", null, PlanForw[threadID], PlanBack[threadID], PlanForwCTF[threadID], 0);
 
                             GPU.Pad(Subtomo[threadID].GetDevice(Intent.Read),
                                     SubtomoCropped[threadID].GetDevice(Intent.Write),
@@ -3220,7 +3220,7 @@ namespace Warp
 
                 Reconstructor.Weights.Max(0.02f);
 
-                Image CTF3D = Reconstructor.Reconstruct(true, "C1", 0, 0, 0, 0);
+                Image CTF3D = Reconstructor.Reconstruct(true, "C1", null, 0, 0, 0, 0);
                 Reconstructor.Dispose();
 
                 CTF3D.WriteMRC16b(IOPath.Combine(ReconstructionCTFDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
@@ -3579,7 +3579,7 @@ namespace Warp
                     if (options.UseCPU)
                         Projectors[threadID].ReconstructCPU(Subtomo[threadID], CPUBuffer[threadID], false, "C1");
                     else
-                        Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", PlanForwRec[threadID], PlanBackRec[threadID], PlanForwRec[threadID], 0);
+                        Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", null, PlanForwRec[threadID], PlanBackRec[threadID], PlanForwRec[threadID], 0);
                     Timing.Finish("ReconstructSubtomo");
 
                     GPU.Pad(Subtomo[threadID].GetDevice(Intent.Read),
@@ -3617,7 +3617,7 @@ namespace Warp
                     if (options.UseCPU)
                         Projectors[threadID].ReconstructCPU(Subtomo[threadID], CPUBuffer[threadID], false, "C1");
                     else
-                        Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", PlanForwRec[threadID], PlanBackRec[threadID], PlanForwRec[threadID], 0);
+                        Projectors[threadID].Reconstruct(Subtomo[threadID].GetDevice(Intent.Write), false, "C1", null, PlanForwRec[threadID], PlanBackRec[threadID], PlanForwRec[threadID], 0);
                     Timing.Finish("ReconstructCTF");
 
                     Timing.Start("3DCTFCrop");
@@ -4036,7 +4036,7 @@ namespace Warp
                 Projector Reconstructor = new Projector(new int3(DimFull), 2);
                 Reconstructor.BackProject(StackWeightedFT, StackCTFWeighted, CurrentAngles, Matrix2.Identity());
                 Reconstructor.Weights.Max(1);
-                Image VolFull = Reconstructor.Reconstruct(false, "C1", -1, -1, -1, 0);
+                Image VolFull = Reconstructor.Reconstruct(false, "C1", null, -1, -1, -1, 0);
                 //VolFull.MaskSpherically(VolFull.Dims.X - 32, 16, true);
                 VolFull.WriteMRC("d_volfull.mrc", true);
 
@@ -4047,7 +4047,7 @@ namespace Warp
 
                 Reconstructor.BackProject(StackWeightedFT, StackCTFWeighted, CurrentAngles, Matrix2.Identity());
                 Reconstructor.Weights.Max(1);
-                Image PSF = Reconstructor.Reconstruct(false, "C1", -1, -1, -1, 0);
+                Image PSF = Reconstructor.Reconstruct(false, "C1", null, -1, -1, -1, 0);
                 PSF.WriteMRC("d_psf.mrc", true);
 
                 Reconstructor.Dispose();
@@ -4863,12 +4863,12 @@ namespace Warp
                     //Reconstructor.Weights.Max(1);
                     //Sampler.Weights.Max(1);
 
-                    Image Reconstruction = Reconstructor.Reconstruct(false, "C1", -1, -1, -1, 0).AsPadded(new int3(SizeReconstruction)).AndDisposeParent();
+                    Image Reconstruction = Reconstructor.Reconstruct(false, "C1", null, -1, -1, -1, 0).AsPadded(new int3(SizeReconstruction)).AndDisposeParent();
                     Reconstructor.Dispose();
                     Reconstruction.MaskRectangularly(new int3(SizeReconstruction - 32, SizeReconstruction - 32, SizeReconstruction / 4), 16, true);
                     Reconstruction.WriteMRC("d_rec.mrc", true);
 
-                    Image Samples = Sampler.Reconstruct(false, "C1", -1, -1, -1, 0).AsPadded(new int3(SizeReconstruction)).AndDisposeParent();
+                    Image Samples = Sampler.Reconstruct(false, "C1", null, -1, -1, -1, 0).AsPadded(new int3(SizeReconstruction)).AndDisposeParent();
                     Sampler.Dispose();
                     Samples.MaskSpherically(SizeReconstruction - 32, 16, true);
                     Samples.MaskRectangularly(new int3(SizeReconstruction - 32, SizeReconstruction - 32, SizeReconstruction / 4), 16, true);
@@ -10341,57 +10341,6 @@ namespace Warp
             }
 
             return Result;
-        }
-
-        public void GetSubtomoForOneParticle(TomoProcessingOptionsBase options, Movie[] tiltMovies, Image[] tiltData, float3 coords, float3 angles, Image ctfCoords, out Image subtomo, out Image subtomoCTF, int planForw = 0, int planBack = 0, int planForwCTF = 0, int planForwImages = 0)
-        {
-            int Size = ctfCoords.Dims.X;
-            float3[] ImageAngles = GetAngleInAllTilts(coords);
-
-            Image ImagesFT = null;//GetSubtomoImages(tiltStack, Size * downsample, coords, true);
-            Image ImagesFTCropped = ImagesFT.AsPadded(new int2(Size, Size));
-            ImagesFT.Dispose();
-
-            Image CTFs = GetCTFsForOneParticle(options, coords, ctfCoords, null, true, false, false);
-            //Image CTFWeights = GetSubtomoCTFs(coords, ctfCoords, true, true);
-
-            ImagesFTCropped.Multiply(CTFs);    // Weight and phase-flip image FTs by CTF, which still has its sign here
-            //ImagesFT.Multiply(CTFWeights);
-            CTFs.Abs();                 // CTF has to be positive from here on since image FT phases are now flipped
-
-            // CTF has to be converted to complex numbers with imag = 0, and weighted by itself
-            float2[] CTFsComplexData = new float2[CTFs.ElementsComplex];
-            float[] CTFsContinuousData = CTFs.GetHostContinuousCopy();
-            for (int i = 0; i < CTFsComplexData.Length; i++)
-                CTFsComplexData[i] = new float2(CTFsContinuousData[i] * CTFsContinuousData[i], 0);
-
-            Image CTFsComplex = new Image(CTFsComplexData, CTFs.Dims, true);
-
-            Projector ProjSubtomo = new Projector(new int3(Size, Size, Size), 2);
-            lock (GPU.Sync)
-                ProjSubtomo.BackProject(ImagesFTCropped, CTFs, ImageAngles, MagnificationCorrection);
-            subtomo = ProjSubtomo.Reconstruct(false, "C1", planForw, planBack, planForwCTF);
-            ProjSubtomo.Dispose();
-
-            GPU.NormParticles(subtomo.GetDevice(Intent.Read),
-                              subtomo.GetDevice(Intent.Write),
-                              subtomo.Dims,
-                              (uint)(123 / CTF.PixelSize),     // FIX THE PARTICLE RADIUS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                              false,
-                              1);
-            //subtomo = new Image(new int3(1, 1, 1));
-
-            Projector ProjCTF = new Projector(new int3(Size, Size, Size), 2);
-            lock (GPU.Sync)
-                ProjCTF.BackProject(CTFsComplex, CTFs, ImageAngles, MagnificationCorrection);
-            subtomoCTF = ProjCTF.Reconstruct(true, "C1", planForw, planBack, planForwCTF);
-            ProjCTF.Dispose();
-            //subtomoCTF = new Image(new int3(1, 1, 1));
-
-            ImagesFTCropped.Dispose();
-            CTFs.Dispose();
-            //CTFWeights.Dispose();
-            CTFsComplex.Dispose();
         }
 
         static Image[] _RawDataBuffers = null;

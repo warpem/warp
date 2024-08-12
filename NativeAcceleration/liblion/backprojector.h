@@ -269,6 +269,10 @@ namespace relion
 		void symmetrise(MultidimArray<Complex > &mydata,
 			MultidimArray<DOUBLE> &myweight, int my_rmax2);
 
+		/* Applies a helical symmetry with the specified twist and rise parameters
+		 */
+		void applyHelicalSymmetry(MultidimArray<Complex >& my_data, MultidimArray<DOUBLE>& my_weight, int nr_helical_asu, DOUBLE helical_twist, DOUBLE helical_rise, int my_rmax2);
+
 		/* Convolute in Fourier-space with the blob by multiplication in real-space
 		  * Note the convlution is done on the complex array inside the transformer object!!
 		  */

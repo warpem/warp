@@ -139,19 +139,15 @@ namespace WarpTools.Commands
                 : inputStar.GetColumn("rlnTomoName");
             Dictionary<string, List<int>> tiltSeriesIdToParticleIndices = GroupParticles(tiltSeriesIDs);
             
-            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
-            {
+            if (Helper.IsDebug)
                 foreach (var kvp in tiltSeriesIdToParticleIndices)
-                {
                     Console.WriteLine($"TS: {kvp.Key}   Particles: {kvp.Value.Count}");
-                }
-            }
             
             float3[] xyz = GetCoordinates(inputStar);
             float3[] rotTiltPsi = GetEulerAngles(inputStar); // degrees
             bool inputHasEulerAngles = rotTiltPsi.All(v => !v.EqualsZero());
             
-            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            if (Helper.IsDebug)
                 Console.WriteLine($"input has euler angles?: {inputHasEulerAngles}");
             Console.WriteLine($"Found {xyz.Count()} particles in {tiltSeriesIdToParticleIndices.Count()} tilt series");
 
@@ -177,7 +173,7 @@ namespace WarpTools.Commands
             IterateOverItems(Workers, cli, (worker, tiltSeries) =>
             {
                 TiltSeries TiltSeries = (TiltSeries)tiltSeries;
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                     Console.WriteLine($"Processing {tiltSeries.Name}");
 
                 // Validate presence of CTF info and particles for this TS, early exit if not found
@@ -198,7 +194,7 @@ namespace WarpTools.Commands
                 float3[] tsParticleXyzAngstroms = new float3[tsParticleIdx.Count];
                 float3[] tsParticleRotTiltPsi = new float3[tsParticleIdx.Count];
                 
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                     Console.WriteLine($"{tsParticleIdx.Count} particles for {TiltSeries.Name}");
 
                 for (int i = 0; i < tsParticleIdx.Count; i++)
@@ -235,7 +231,7 @@ namespace WarpTools.Commands
                 Star TiltSeriesTable = null;
                 if (OutputImageDimensionality == 3)
                 {
-                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    if (Helper.IsDebug)
                         Console.WriteLine($"Sending export options to worker for {TiltSeries.Name}");
                     worker.TomoExportParticleSubtomos(
                         path: tiltSeries.Path,
@@ -243,7 +239,7 @@ namespace WarpTools.Commands
                         coordinates: tsParticleXYZAngstromsReplicated,
                         angles: TSParticleRotTiltPsiReplicated
                     );
-                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    if (Helper.IsDebug)
                         Console.WriteLine($"Constructing output table for {TiltSeries.Name}");
                     TiltSeriesTable = ConstructSubvolumeOutputTable(
                         tiltSeries: TiltSeries,
@@ -267,7 +263,7 @@ namespace WarpTools.Commands
                             string TempTiltSeriesParticleStarPath = Path.Combine(
                                 TiltSeries.ParticleSeriesDir, TiltSeries.RootName + "_temp.star"
                             );
-                            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                            if (Helper.IsDebug)
                                 Console.WriteLine($"Sending export options to worker for {TiltSeries.Name}");
                             worker.TomoExportParticleSeries(
                                 path: tiltSeries.Path,
@@ -279,7 +275,7 @@ namespace WarpTools.Commands
                             );
 
                             // generate necessary metadata for particles.star
-                            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                            if (Helper.IsDebug)
                                 Console.WriteLine($"\nConstructing output table for {TiltSeries.Name}");
                             Star ParticleTable = Construct2DParticleTable(
                                 tempParticleStarPath: TempTiltSeriesParticleStarPath, opticsGroup: currentOpticsGroup
@@ -343,7 +339,7 @@ namespace WarpTools.Commands
             // does it look like a 3.0+ style file? if not, just grab the table
             if (!Star.IsMultiTable(path) || !Star.ContainsTable(path, "optics"))
             {
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                     Console.WriteLine($"file is not a multitable or does not contain an optics table, parsing as single table...");
                 return new Star(path);
             }
@@ -425,7 +421,7 @@ namespace WarpTools.Commands
 
         private void ValidateInputStar(Star star)
         {
-            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            if (Helper.IsDebug)
             {
                 string[] columnNames = star.GetColumnNames();
                 Console.WriteLine("columns in table...");
@@ -491,11 +487,11 @@ namespace WarpTools.Commands
             // parse shifts
             bool inputHasPixelSize = InputStar.HasColumn("rlnPixelSize") ||
                              InputStar.HasColumn("rlnImagePixelSize");
-            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            if (Helper.IsDebug)
                 Console.WriteLine($"input has pixel size?: {inputHasPixelSize}");
             
             float[] pixelSizes = inputHasPixelSize ? ParsePixelSizes(InputStar) : null;
-            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            if (Helper.IsDebug)
             {
                 if (pixelSizes == null)
                     Console.WriteLine($"pixel sizes: {pixelSizes}");
@@ -556,7 +552,7 @@ namespace WarpTools.Commands
         {
             if (star.HasColumn(shiftColumn))
             {
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                     Console.WriteLine($"got shifts from {shiftColumn}");
                 return ParseFloatColumn(star, shiftColumn);
             }
@@ -565,13 +561,13 @@ namespace WarpTools.Commands
             {
                 if (pixelSizes == null)
                     throw new Exception("shifts in angstroms found without pixel sizes...");
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                     Console.WriteLine($"got shifts from {angstromShiftColumn}");
                 return ParseFloatColumn(star, angstromShiftColumn)
                     .Zip(pixelSizes, (shift, pixelSize) => shift / pixelSize)
                     .ToArray();
             }
-            if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+            if (Helper.IsDebug)
                 Console.WriteLine($"no shifts found in table");
             return new float[star.RowCount];  // all zeros
         }
@@ -587,7 +583,7 @@ namespace WarpTools.Commands
             {
                 if (!star.HasColumn(colName))
                 {
-                    if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                    if (Helper.IsDebug)
                         Console.WriteLine($"no euler angles found for {star.RowCount}");
                     return new float3[star.RowCount]; 
                 }

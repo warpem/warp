@@ -70,7 +70,7 @@ namespace Warp
                 }
                 PipeName = Path.Combine(PipeDirectory, PipeName);
                 
-                if (Environment.GetEnvironmentVariable("WARP_DEBUG") != null)
+                if (Helper.IsDebug)
                     StartInfo = new ProcessStartInfo()
                     {
                         FileName = "bash",

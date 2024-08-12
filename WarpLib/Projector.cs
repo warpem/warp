@@ -241,7 +241,7 @@ namespace Warp
                                        (uint)angles.Length);
         }
 
-        public Image Reconstruct(bool isctf, string symmetry = "C1", int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 10, bool useHostMemory = false)
+        public Image Reconstruct(bool isctf, string symmetry = "C1", HelicalSymmetry helical = null, int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 0, bool useHostMemory = false)
         {
             if (useHostMemory)
             {
@@ -256,6 +256,9 @@ namespace Warp
                                             useHostMemory ? Data.GetHostPinned(Intent.ReadWrite) : Data.GetDevice(Intent.ReadWrite),
                                             useHostMemory ? Weights.GetHostPinned(Intent.ReadWrite) : Weights.GetDevice(Intent.ReadWrite),
                                             symmetry,
+                                            helical != null ? helical.Units : 1,
+                                            helical != null ? helical.Twist : 0,
+                                            helical != null ? helical.Rise : 0,
                                             isctf,
                                             useHostMemory ? Reconstruction.GetHostPinned(Intent.Write) : Reconstruction.GetDevice(Intent.Write),
                                             planForw,
@@ -267,7 +270,7 @@ namespace Warp
             return Reconstruction;
         }
 
-        public void Reconstruct(IntPtr d_reconstruction, bool isctf, string symmetry = "C1", int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 10)
+        public void Reconstruct(IntPtr d_reconstruction, bool isctf, string symmetry = "C1", HelicalSymmetry helical = null, int planForw = -1, int planBack = -1, int planForwCTF = -1, int griddingiterations = 0)
         {
             GPU.BackprojectorReconstructGPU(Dims,
                                             DimsOversampled,
@@ -275,6 +278,9 @@ namespace Warp
                                             Data.GetDevice(Intent.Read),
                                             Weights.GetDevice(Intent.Read),
                                             symmetry,
+                                            helical != null ? helical.Units : 1,
+                                            helical != null ? helical.Twist : 0,
+                                            helical != null ? helical.Rise : 0,
                                             isctf,
                                             d_reconstruction,
                                             planForw,

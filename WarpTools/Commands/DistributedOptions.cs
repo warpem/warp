@@ -54,8 +54,8 @@ namespace WarpTools.Commands
                     {
                         if (NewWorkers.Count < MaxWorkers)
                         {
-                            WorkerWrapper NewWorker = new WorkerWrapper(id, 
-                                                                        Environment.GetEnvironmentVariable("WARP_DEBUG") == null, 
+                            WorkerWrapper NewWorker = new WorkerWrapper(id,
+                                                                        !Helper.IsDebug, 
                                                                         attachDebugger: attachDebugger);
                             NewWorkers.Add(NewWorker);
                         }

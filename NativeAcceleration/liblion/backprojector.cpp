@@ -1370,6 +1370,170 @@ namespace relion
 
 	}
 
+	void BackProjector::applyHelicalSymmetry(MultidimArray<Complex >& my_data, MultidimArray<DOUBLE>& my_weight, int nr_helical_asu, DOUBLE helical_twist, DOUBLE helical_rise, int my_rmax2)
+	{
+		if ((nr_helical_asu < 2) || (ref_dim != 3))
+			return;
+
+		int rmax2 = my_rmax2;
+
+		Matrix2D<DOUBLE> R(4, 4); // A matrix from the list
+		MultidimArray<DOUBLE> sum_weight;
+		MultidimArray<Complex > sum_data;
+
+		// First symmetry operator (not stored in SL) is the identity matrix
+		sum_weight = my_weight;
+		sum_data = my_data;
+		int h_min = -nr_helical_asu / 2;
+		int h_max = -h_min + nr_helical_asu % 2;
+		for (int hh = h_min; hh < h_max; hh++)
+		{
+			if (hh != 0) // h==0 is done before the for loop (where sum_data = data)
+			{
+				DOUBLE rot_ang = hh * (-helical_twist);
+				rotation3DMatrix(rot_ang, 'Z', R);
+				R.setSmallValuesToZero(); // TODO: invert rotation matrix?
+
+				// Loop over all points in the output (i.e. rotated, or summed) array
+#pragma omp parallel for
+				for (long int k = STARTINGZ(sum_weight); k <= FINISHINGZ(sum_weight); k++)
+				{
+					DOUBLE x, y, z, fx, fy, fz, xp, yp, zp, r2;
+					bool is_neg_x;
+					int x0, x1, y0, y1, z0, z1;
+					Complex d000, d001, d010, d011, d100, d101, d110, d111;
+					Complex dx00, dx01, dx10, dx11, dxy0, dxy1, ddd;
+					DOUBLE dd000, dd001, dd010, dd011, dd100, dd101, dd110, dd111;
+					DOUBLE ddx00, ddx01, ddx10, ddx11, ddxy0, ddxy1;
+
+					for (long int i = STARTINGY(sum_weight); i <= FINISHINGY(sum_weight); i++)
+						for (long int j = STARTINGX(sum_weight); j <= FINISHINGX(sum_weight); j++)
+						{
+							x = (DOUBLE)j; // STARTINGX(sum_weight) is zero!
+							y = (DOUBLE)i;
+							z = (DOUBLE)k;
+							r2 = x * x + y * y + z * z;
+							if (r2 <= rmax2)
+							{
+								// coords_output(x,y) = A * coords_input (xp,yp)
+								xp = x * R(0, 0) + y * R(0, 1) + z * R(0, 2);
+								yp = x * R(1, 0) + y * R(1, 1) + z * R(1, 2);
+								zp = x * R(2, 0) + y * R(2, 1) + z * R(2, 2);
+
+								// Only asymmetric half is stored
+								if (xp < 0)
+								{
+									// Get complex conjugated hermitian symmetry pair
+									xp = -xp;
+									yp = -yp;
+									zp = -zp;
+									is_neg_x = true;
+								}
+								else
+								{
+									is_neg_x = false;
+								}
+
+								// Trilinear interpolation (with physical coords)
+								// Subtract STARTINGY and STARTINGZ to accelerate access to data (STARTINGX=0)
+								// In that way use DIRECT_A3D_ELEM, rather than A3D_ELEM
+								x0 = FLOOR(xp);
+								fx = xp - x0;
+								x1 = x0 + 1;
+
+								y0 = FLOOR(yp);
+								fy = yp - y0;
+								y0 -= STARTINGY(my_data);
+								y1 = y0 + 1;
+
+								z0 = FLOOR(zp);
+								fz = zp - z0;
+								z0 -= STARTINGZ(my_data);
+								z1 = z0 + 1;
+
+#ifdef CHECK_SIZE
+								if (x0 < 0 || y0 < 0 || z0 < 0 ||
+									x1 < 0 || y1 < 0 || z1 < 0 ||
+									x0 >= XSIZE(my_data) || y0 >= YSIZE(my_data) || z0 >= ZSIZE(my_data) ||
+									x1 >= XSIZE(my_data) || y1 >= YSIZE(my_data) || z1 >= ZSIZE(my_data))
+								{
+									std::cerr << " x0= " << x0 << " y0= " << y0 << " z0= " << z0 << std::endl;
+									std::cerr << " x1= " << x1 << " y1= " << y1 << " z1= " << z1 << std::endl;
+									my_data.printShape();
+									REPORT_ERROR("BackProjector::applyPointGroupSymmetry: checksize!!!");
+								}
+#endif
+								// First interpolate (complex) data
+								d000 = DIRECT_A3D_ELEM(my_data, z0, y0, x0);
+								d001 = DIRECT_A3D_ELEM(my_data, z0, y0, x1);
+								d010 = DIRECT_A3D_ELEM(my_data, z0, y1, x0);
+								d011 = DIRECT_A3D_ELEM(my_data, z0, y1, x1);
+								d100 = DIRECT_A3D_ELEM(my_data, z1, y0, x0);
+								d101 = DIRECT_A3D_ELEM(my_data, z1, y0, x1);
+								d110 = DIRECT_A3D_ELEM(my_data, z1, y1, x0);
+								d111 = DIRECT_A3D_ELEM(my_data, z1, y1, x1);
+
+								dx00 = LIN_INTERP(fx, d000, d001);
+								dx01 = LIN_INTERP(fx, d100, d101);
+								dx10 = LIN_INTERP(fx, d010, d011);
+								dx11 = LIN_INTERP(fx, d110, d111);
+								dxy0 = LIN_INTERP(fy, dx00, dx10);
+								dxy1 = LIN_INTERP(fy, dx01, dx11);
+
+								// Take complex conjugated for half with negative x
+								ddd = LIN_INTERP(fz, dxy0, dxy1);
+
+								if (is_neg_x)
+									ddd = conj(ddd);
+
+								// Also apply a phase shift for helical translation along Z
+								if (ABS(helical_rise) > 0.)
+								{
+									DOUBLE zshift = hh * helical_rise;
+									zshift /= -ori_size * (DOUBLE)padding_factor;
+									DOUBLE dotp = 2 * PI * (z * zshift);
+									DOUBLE a = cos(dotp);
+									DOUBLE b = sin(dotp);
+									DOUBLE c = ddd.real;
+									DOUBLE d = ddd.imag;
+									DOUBLE ac = a * c;
+									DOUBLE bd = b * d;
+									DOUBLE ab_cd = (a + b) * (c + d);
+									ddd = Complex(ac - bd, ab_cd - ac - bd);
+								}
+								// Accumulated sum of the data term
+								A3D_ELEM(sum_data, k, i, j) += ddd;
+
+								// Then interpolate (real) weight
+								dd000 = DIRECT_A3D_ELEM(my_weight, z0, y0, x0);
+								dd001 = DIRECT_A3D_ELEM(my_weight, z0, y0, x1);
+								dd010 = DIRECT_A3D_ELEM(my_weight, z0, y1, x0);
+								dd011 = DIRECT_A3D_ELEM(my_weight, z0, y1, x1);
+								dd100 = DIRECT_A3D_ELEM(my_weight, z1, y0, x0);
+								dd101 = DIRECT_A3D_ELEM(my_weight, z1, y0, x1);
+								dd110 = DIRECT_A3D_ELEM(my_weight, z1, y1, x0);
+								dd111 = DIRECT_A3D_ELEM(my_weight, z1, y1, x1);
+
+								ddx00 = LIN_INTERP(fx, dd000, dd001);
+								ddx01 = LIN_INTERP(fx, dd100, dd101);
+								ddx10 = LIN_INTERP(fx, dd010, dd011);
+								ddx11 = LIN_INTERP(fx, dd110, dd111);
+								ddxy0 = LIN_INTERP(fy, ddx00, ddx10);
+								ddxy1 = LIN_INTERP(fy, ddx01, ddx11);
+
+								A3D_ELEM(sum_weight, k, i, j) += LIN_INTERP(fz, ddxy0, ddxy1);
+
+							} // end if r2 <= rmax2
+						} // end loop over all elements of sum_weight
+				}
+			} // end if hh!=0
+		} // end loop over hh
+
+		my_data = sum_data;
+		my_weight = sum_weight;
+	}
+
+
 	void BackProjector::windowToOridimRealSpace(FourierTransformer &transformer, MultidimArray<Complex > &Fin, MultidimArray<DOUBLE> &Mout, int nr_threads)
 	{
 

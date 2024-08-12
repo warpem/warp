@@ -179,6 +179,38 @@ namespace Warp.Sociology
             set { if (value != _Symmetry) { _Symmetry = value; OnPropertyChanged(); } }
         }
 
+        private int _HelicalUnits = 1;
+        [WarpSerializable]
+        public int HelicalUnits
+        {
+            get { return _HelicalUnits; }
+            set { if (value != _HelicalUnits) { _HelicalUnits = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _HelicalTwist = 0;
+        [WarpSerializable]
+        public decimal HelicalTwist
+        {
+            get { return _HelicalTwist; }
+            set { if (value != _HelicalTwist) { _HelicalTwist = value; OnPropertyChanged(); } }
+        }
+
+        private decimal _HelicalRise = 0;
+        [WarpSerializable]
+        public decimal HelicalRise
+        {
+            get { return _HelicalRise; }
+            set { if (value != _HelicalRise) { _HelicalRise = value; OnPropertyChanged(); } }
+        }
+
+        private int _HelicalHeight = 0;
+        [WarpSerializable]
+        public int HelicalHeight
+        {
+            get { return _HelicalHeight; }
+            set { if (value != _HelicalHeight) { _HelicalHeight = value; OnPropertyChanged(); } }
+        }
+
         private bool _DoEwald = false;
         [WarpSerializable]
         public bool DoEwald
@@ -2087,27 +2119,37 @@ namespace Warp.Sociology
 
             SaveParticles();
 
+            HelicalSymmetry Helical = null;
+            if (HelicalUnits > 1)
+                Helical = new HelicalSymmetry(HelicalUnits, (float)HelicalTwist, (float)(HelicalRise / PixelSize));
+
             Console.WriteLine("Reconstructing half-map 1...");
-            HalfMap1 = HalfMap1Reconstruction[0].Reconstruct(false, Symmetry, -1, -1, -1, 0, true);
+            HalfMap1 = HalfMap1Reconstruction[0].Reconstruct(false, Symmetry, Helical, -1, -1, -1, 0, true);
             //HalfMap1Reconstruction[0].Data.AsReal().WriteMRC($"d_half1_re_{Name}.mrc");
             //HalfMap1Reconstruction[0].Weights.WriteMRC($"d_half1_weights_{Name}.mrc");
             HalfMap1Reconstruction[0].Dispose();
             HalfMap1Reconstruction[0] = null;
             HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 2) / (HalfMap1.Dims.X / 2), true);
             HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
+            if (Helical != null)
+                HalfMap1.MaskRectangularly(new int3(HalfMap1.Dims.X, HalfMap1.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
             HalfMap1.FreeDevice();
-            //HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
+            if (Helper.IsDebug)
+                HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
 
             Console.WriteLine("Reconstructing half-map 2...");
-            HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry, -1, -1, -1, 0, true);
+            HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry, Helical, -1, -1, -1, 0, true);
             //HalfMap2Reconstruction[0].Data.AsReal().WriteMRC($"d_half2_re_{Name}.mrc");
             //HalfMap2Reconstruction[0].Weights.WriteMRC($"d_half2_weights_{Name}.mrc");
             HalfMap2Reconstruction[0].Dispose();
             HalfMap2Reconstruction[0] = null;
             HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 2) / (HalfMap2.Dims.X / 2), true);
             HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
+            if (Helical != null)
+                HalfMap2.MaskRectangularly(new int3(HalfMap2.Dims.X, HalfMap2.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
             HalfMap1.FreeDevice();
-            //HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
+            if (Helper.IsDebug)
+                HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
 
             Console.WriteLine("Finalizing map...");
             CalculateResolutionAndFilter(-1, s => Console.WriteLine(s), gpuID);

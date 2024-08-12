@@ -23,6 +23,8 @@ namespace Warp.Tools
         public static float ToRad = (float)Math.PI / 180.0f;
         public static float ToDeg = 180.0f / (float)Math.PI;
 
+        public static bool IsDebug => Environment.GetEnvironmentVariable("WARP_DEBUG") != null;
+
         public static void Swap<T>(ref T lhs, ref T rhs)
         {
             T temp;

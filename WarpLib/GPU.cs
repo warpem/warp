@@ -812,7 +812,22 @@ namespace Warp
         public static extern void ProjectBackwardShifted(IntPtr d_volumeft, IntPtr d_volumeweights, int3 dimsvolume, IntPtr d_projft, IntPtr d_projweights, int2 dimsproj, int rmax, float[] h_angles, float[] h_shifts, float[] h_globalweights, float supersample, uint batch);
 
         [DllImport("NativeAcceleration", EntryPoint = "BackprojectorReconstructGPU")]
-        public static extern void BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, IntPtr d_dataft, IntPtr d_weights, string c_symmetry, bool do_reconstruct_ctf, IntPtr d_result, int pre_planforw = -1, int pre_planback = -1, int pre_planforwctf = -1, int griddingiterations = 10, int nvolumes = 1);
+        public static extern void BackprojectorReconstructGPU(int3 dimsori, 
+                                                              int3 dimspadded, 
+                                                              int oversampling, 
+                                                              IntPtr d_dataft, 
+                                                              IntPtr d_weights, 
+                                                              string c_symmetry, 
+                                                              int helix_units, 
+                                                              float helix_twist, 
+                                                              float helix_rise, 
+                                                              bool do_reconstruct_ctf, 
+                                                              IntPtr d_result, 
+                                                              int pre_planforw = -1, 
+                                                              int pre_planback = -1, 
+                                                              int pre_planforwctf = -1, 
+                                                              int griddingiterations = 10, 
+                                                              int nvolumes = 1);
 
         [DllImport("NativeAcceleration", EntryPoint = "Bandpass")]
         public static extern void Bandpass(IntPtr d_input, IntPtr d_output, int3 dims, float nyquistlow, float nyquisthigh, float nyquistsoftedge, uint batch);

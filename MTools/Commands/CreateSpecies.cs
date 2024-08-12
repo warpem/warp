@@ -26,6 +26,18 @@ namespace MTools.Commands
         [Option('s', "sym", Default = "C1", HelpText = "Point symmetry, e.g. C1, D7, O.")]
         public string Symmetry { get; set; }
 
+        [Option("helical_units", Default = 1, HelpText = "Number of helical asymmetric units (only relevant for helical symmetry).")]
+        public int HelicalUnits { get; set; }
+
+        [Option("helical_twist", HelpText = "Helical twist in degrees, positive = right-handed (only relevant for helical symmetry).")]
+        public double HelicalTwist { get; set; }
+
+        [Option("helical_rise", HelpText = "Helical rise in Angstrom (only relevant for helical symmetry).")]
+        public double HelicalRise { get; set; }
+
+        [Option("helical_height", HelpText = "Height of the helical segment along the Z axis in Angstrom (only relevant for helical symmetry).")]
+        public int HelicalHeight { get; set; }
+
         [Option('t', "temporal_samples", Default = 1, HelpText = "Number of temporal samples in each particle pose's trajectory.")]
         public int TemporalSamples { get; set; }
 
@@ -100,6 +112,45 @@ namespace MTools.Commands
             {
                 Console.Error.WriteLine($"Unknown point symmetry: {Options.Symmetry}");
                 return;
+            }
+
+            if (new[] { Options.HelicalUnits > 1,
+                        Options.HelicalRise != 0,
+                        Options.HelicalTwist != 0,
+                        Options.HelicalHeight != 0 }.Any())
+            {
+                if (Options.HelicalUnits <= 1)
+                {
+                    Console.Error.WriteLine($"Helical symmetry requires at least 2 asymmetric units, specified {Options.HelicalUnits}.");
+                    return;
+                }
+
+                if (Options.HelicalRise <= 0)
+                {
+                    Console.Error.WriteLine($"Helical rise must be positive, specified {Options.HelicalRise}.");
+                    return;
+                }
+
+                if (Options.HelicalTwist == 0)
+                {
+                    Console.Error.WriteLine($"Helical twist must be non-zero, specified {Options.HelicalTwist}.");
+                    return;
+                }
+
+                if (Options.HelicalHeight <= 0)
+                {
+                    Console.Error.WriteLine($"Helical height must be positive, specified {Options.HelicalHeight}.");
+                    return;
+                }
+
+                double MinHeight = Options.HelicalRise * (Options.HelicalUnits - 1);
+                if (Options.HelicalHeight < MinHeight)
+                {
+                    Console.Error.WriteLine($"Helical height must be at least {MinHeight:F2} A (but probably a bit more), specified {Options.HelicalHeight} A.");
+                    return;
+                }
+
+                Console.WriteLine($"Will use helical symmetry: {Options.HelicalUnits} units, {Options.HelicalRise:F4} A rise, {Options.HelicalTwist:F4} deg twist, {Options.HelicalHeight} A height.");
             }
 
             if (Options.TemporalSamples < 1)
@@ -242,6 +293,10 @@ namespace MTools.Commands
                 Name = Options.Name,
                 PixelSize = (decimal)Options.AngPixResample,
                 Symmetry = Options.Symmetry,
+                HelicalUnits = Options.HelicalUnits,
+                HelicalTwist = (decimal)Options.HelicalTwist,
+                HelicalRise = (decimal)Options.HelicalRise,
+                HelicalHeight = Options.HelicalHeight,
                 DiameterAngstrom = Options.Diameter,
                 TemporalResolutionMovement = Options.TemporalSamples,
                 TemporalResolutionRotation = Options.TemporalSamples

@@ -87,11 +87,26 @@ __declspec(dllexport) void __stdcall BackprojectorReconstruct(int3 dimsori, int 
     }
 }
 
-__declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, int3 dimspadded, int oversampling, float2* d_dataft, float* d_weights, char* c_symmetry, bool do_reconstruct_ctf, float* d_result, cufftHandle pre_planforw, cufftHandle pre_planback, cufftHandle pre_planforwctf, int griddingiterations, int nvolumes)
+__declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, 
+																int3 dimspadded, 
+																int oversampling, 
+																float2* d_dataft, 
+																float* d_weights, 
+																char* c_symmetry, 
+																int helix_units, 
+																float helix_twist, 
+																float helix_rise, 
+																bool do_reconstruct_ctf, 
+																float* d_result, 
+																cufftHandle pre_planforw, 
+																cufftHandle pre_planback, 
+																cufftHandle pre_planforwctf, 
+																int griddingiterations, 
+																int nvolumes)
 {
 	relion::FileName fn_symmetry(c_symmetry);
 
-	if (fn_symmetry.compare("C1") != 0 && fn_symmetry.compare("c1") != 0)
+	if ((fn_symmetry.compare("C1") != 0 && fn_symmetry.compare("c1") != 0) || (helix_units > 1 && helix_twist != 0 && helix_rise != 0))
 	{
 		relion::BackProjector backprojector(dimsori.x, 3, fn_symmetry, TRILINEAR, oversampling, 10, 0, 1.9, 15, 2);
 		backprojector.initZeros(dimsori.x);
@@ -106,9 +121,14 @@ __declspec(dllexport) void __stdcall BackprojectorReconstructGPU(int3 dimsori, i
 
 		//backprojector.enforceHermitianSymmetry(proj_data, proj_weights);
 
-		backprojector.symmetrise(proj_data,
-									proj_weights,
-									backprojector.r_max * backprojector.r_max * oversampling * oversampling);
+		if (helix_units > 1 && helix_twist != 0 && helix_rise != 0)
+			backprojector.applyHelicalSymmetry(proj_data, proj_weights, helix_units, helix_twist, helix_rise,
+											   backprojector.r_max * backprojector.r_max * oversampling * oversampling);
+
+		if (fn_symmetry.compare("C1") != 0 && fn_symmetry.compare("c1") != 0)
+			backprojector.symmetrise(proj_data,
+										proj_weights,
+										backprojector.r_max * backprojector.r_max * oversampling * oversampling);
 
 		cudaMemcpy(d_dataft, proj_data.data, Elements(projectordims) * sizeof(float2), cudaMemcpyHostToDevice);
 		cudaMemcpy(d_weights, proj_weights.data, Elements(projectordims) * sizeof(float), cudaMemcpyHostToDevice);
