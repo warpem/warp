@@ -45,7 +45,7 @@ namespace WarpTools.Commands
         [Option("dont_normalize", HelpText = "Don't normalize the tilt images")]
         public bool NoNormalize { get; set; }
 
-        [Option("dont_mask", HelpText = "Don't apply a mask to each tilt image if available; masked areas will be filled with Gaussian noise")]
+        [Option("dont_mask", HelpText = "Don't apply a mask to each tilt image if available; otherwise, masked areas will be filled with Gaussian noise")]
         public bool NoMask { get; set; }
 
         [Option("dont_overwrite", HelpText = "Don't overwrite existing tomograms in output directory")]
