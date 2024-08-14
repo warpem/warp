@@ -2037,7 +2037,7 @@ namespace Warp
                 int BestSizeSub = 0;
                 long BestVoxels = long.MaxValue;
 
-                for (int testSizeSub = (SizeParticle * 2 + 31) / 32 * 32; testSizeSub < 256; testSizeSub += 32)
+                for (int testSizeSub = (SizeParticle * 2 + 31) / 32 * 32; testSizeSub <= options.SubVolumeSize; testSizeSub += 32)
                 {
                     int TestSizeUseful = Math.Max(1, testSizeSub - SizeParticle * 2);
                     int3 TestGrid = (DimsVolumeCropped - SizeParticle + TestSizeUseful - 1) / TestSizeUseful;
