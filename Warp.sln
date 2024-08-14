@@ -73,6 +73,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MTools", "MTools\MTools.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Snippets", "Snippets\Snippets.csproj", "{9858EBFC-4DCC-4FB9-A7B6-97D7E4F6BB30}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cube", "Cube\Cube.csproj", "{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -237,6 +239,14 @@ Global
 		{9858EBFC-4DCC-4FB9-A7B6-97D7E4F6BB30}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9858EBFC-4DCC-4FB9-A7B6-97D7E4F6BB30}.Release|x64.ActiveCfg = Release|Any CPU
 		{9858EBFC-4DCC-4FB9-A7B6-97D7E4F6BB30}.Release|x64.Build.0 = Release|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Debug|x64.Build.0 = Debug|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Release|x64.ActiveCfg = Release|Any CPU
+		{D580E8AD-7A8D-4AC4-849C-D86BE88CDFC2}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

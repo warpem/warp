@@ -1,0 +1,172 @@
+﻿<m:MetroWindow x:Class="Cube.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:m="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:s="clr-namespace:Sparta;assembly=WarpControls"
+        xmlns:local="clr-namespace:Cube"
+        mc:Ignorable="d"
+        Closing="MainWindow_OnClosing"
+               PreviewKeyDown="MainWindow_OnPreviewKeyDown"
+        Title="Cube" Height="1100" Width="1000" BorderThickness="0.5" BorderBrush="{DynamicResource AccentColorBrush}">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Steel.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Color x:Key="HighlightDarkColor">#FFFFFFFF</Color>
+            <Color x:Key="HighlightLightColor">#FFFFFFFF</Color>
+            <Color x:Key="AccentDarkColor">#FFFFFFFF</Color>
+            <Color x:Key="AccentColor">#FF666666</Color>
+            <Color x:Key="AccentColor2">#FFFFFFFF</Color>
+            <Color x:Key="AccentColor3">#FFFFFFFF</Color>
+            <Color x:Key="AccentColor4">#FF000000</Color>
+            <Color x:Key="LinkColor">CornflowerBlue</Color>
+            <SolidColorBrush x:Key="BrandingBrush" Color="{DynamicResource LinkColor}" />
+            <SolidColorBrush x:Key="AccentColorBrush" Color="{DynamicResource AccentColor}" />
+            <Style TargetType="s:ValueSlider">
+                <Setter Property="Foreground" Value="Black" />
+            </Style>
+            <Style x:Key="HyperlinkLikeButton" TargetType="Button">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Foreground" Value="#0066cc" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="true">
+                        <Setter Property="Foreground" Value="#3399ff" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <ControlTemplate.Resources>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Setter Property="TextDecorations" Value="Underline" />
+                                        </Style>
+                                    </ControlTemplate.Resources>
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Name="MainGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60" />
+            <RowDefinition />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20*" />
+                <ColumnDefinition Width="25*" />
+                <ColumnDefinition Width="18*" />
+                <ColumnDefinition Width="15*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <Button Name="ButtonTomogramPath" Grid.Row="0" Style="{StaticResource HyperlinkLikeButton}" Click="ButtonTomogramPath_OnClick">
+                <TextBlock Name="ButtonTomogramPathText" TextTrimming="CharacterEllipsis">Select tomogram...</TextBlock>
+            </Button>
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                <!--<s:ValueSlider Value="{Binding InputLowpass, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Low-pass to {0} Å, " MinValue="1" MaxValue="9999" StepSize="1" />-->
+                <s:ValueSlider Value="{Binding InputAverageSlices, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Average over {0} sclices" MinValue="1" MaxValue="1000" StepSize="1" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                <s:ValueSlider Value="{Binding DisplayIntensityMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Display intensity between {0} " MinValue="-10" MaxValue="-0.01" StepSize="0.01" />
+                <s:ValueSlider Value="{Binding DisplayIntensityMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="and {0} σ" MinValue="0.01" MaxValue="10" StepSize="0.01" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+                <s:FormattedTextBlock Value="{Binding NParticles}" TextFormat="{}{0} particles, " />
+                <s:ValueSlider Value="{Binding BoxSize, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0} px box" MinValue="2" MaxValue="256" StepSize="2" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal">
+                <s:ValueSlider Name="SliderParticleScoreMin" Value="{Binding ParticleScoreMin, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Limit scores to {0}" MinValue="0.0" MaxValue="10" StepSize="0.01" />
+                <s:ValueSlider Name="SliderParticleScoreMax" Value="{Binding ParticleScoreMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="–{0}" MinValue="0.0" MaxValue="10" StepSize="0.01" />
+            </StackPanel>
+            
+            <Button Name="ButtonPointsImport" Grid.Row="0" Grid.Column="3" Content="Import Coordinates" Style="{StaticResource HyperlinkLikeButton}" HorizontalAlignment="Left" Click="ButtonPointsImport_OnClick" />
+            <Button Name="ButtonPointsExport" Grid.Row="1" Grid.Column="3" Content="Export Coordinates" Style="{StaticResource HyperlinkLikeButton}" HorizontalAlignment="Left" Click="ButtonPointsExport_OnClick" />
+        </Grid>
+
+        <Grid Name="GridDisplay"  Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Name="MainGridRow0" MinHeight="50" Height="3*" />
+                <RowDefinition Name="MainGridRow1" MinHeight="50" Height="1*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Name="MainGridColumn0" MinWidth="50" Width="1*" />
+                <ColumnDefinition Name="MainGridColumn1" MinWidth="50" Width="3*" />
+            </Grid.ColumnDefinitions>
+            <GridSplitter Grid.Row="0" Grid.Column="1" ResizeBehavior="PreviousAndCurrent" ResizeDirection="Columns" Width="3" Height="Auto" HorizontalAlignment="Left" VerticalAlignment="Stretch" />
+            <GridSplitter Grid.Row="0" Grid.Column="1" ResizeBehavior="CurrentAndNext" ResizeDirection="Rows" Width="Auto" Height="3" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" />
+
+            <Canvas Name="CanvasZY" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True" Margin="2">
+                <Image Name="ImageZY" Cursor="None" MouseWheel="ImageZY_OnMouseWheel" MouseDown="Image_OnMouseDown" MouseUp="Image_OnMouseUp" MouseLeave="Image_OnMouseLeave" MouseMove="ImageZY_OnMouseMove" MouseEnter="ImageZY_OnMouseEnter" />
+                <Canvas Name="CanvasOverlayZY">
+                    <Line Name="CrosshairZYZ" StrokeThickness="1" Stroke="Orange" Opacity="0.3" IsHitTestVisible="False" />
+                    <Line Name="CrosshairZYY" StrokeThickness="1" Stroke="Orange" Opacity="0.3" IsHitTestVisible="False" />
+                </Canvas>
+                <Canvas Name="CanvasParticlesZY" />
+                <s:ValueSlider Canvas.Top="0" Canvas.Left="0" Name="SliderPlaneX" TextFormat="X = {0}" Value="{Binding PlaneX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="0" StepSize="1" Background="White" Padding="4,0,4,2" />
+            </Canvas>
+            <Canvas Name="CanvasXY" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True" SizeChanged="CanvasXY_OnSizeChanged" Margin="2">
+                <Image Name="ImageXY" Cursor="None" MouseWheel="ImageXY_OnMouseWheel" MouseDown="Image_OnMouseDown" MouseUp="Image_OnMouseUp" MouseLeave="Image_OnMouseLeave" MouseMove="ImageXY_OnMouseMove" MouseEnter="ImageXY_OnMouseEnter" />
+                <Canvas Name="CanvasOverlayXY">
+                    <Line Name="CrosshairXYX" StrokeThickness="1" Stroke="Orange" Opacity="0.3" IsHitTestVisible="False" />
+                    <Line Name="CrosshairXYY" StrokeThickness="1" Stroke="Orange" Opacity="0.3" IsHitTestVisible="False" />
+                </Canvas>
+                <Canvas Name="CanvasParticlesXY" />
+                <s:ValueSlider Canvas.Top="0" Canvas.Left="0" Name="SliderPlaneZ" TextFormat="Z = {0}" Value="{Binding PlaneZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="0" StepSize="1" Background="White" Padding="4,0,4,2" />
+            </Canvas>
+            <Canvas Name="CanvasXZ" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ClipToBounds="True" Margin="2">
+                <Image Name="ImageXZ" Cursor="None" MouseWheel="ImageXZ_OnMouseWheel" MouseDown="Image_OnMouseDown" MouseUp="Image_OnMouseUp" MouseLeave="Image_OnMouseLeave" MouseMove="ImageXZ_OnMouseMove" MouseEnter="ImageXZ_OnMouseEnter" />
+                <Canvas Name="CanvasOverlayXZ">
+                    <Line Name="CrosshairXZX" StrokeThickness="1" Stroke="Orange" Opacity="0.3" IsHitTestVisible="False" />
+                    <Line Name="CrosshairXZZ" StrokeThickness="1" Stroke="Orange" Opacity="0.3" IsHitTestVisible="False" />
+                </Canvas>
+                <Canvas Name="CanvasParticlesXZ" />
+                <s:ValueSlider Canvas.Top="0" Canvas.Left="0" Name="SliderPlaneY" TextFormat="Y = {0}" Value="{Binding PlaneY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="0" StepSize="1" Background="White" Padding="4,0,4,2" />
+            </Canvas>
+
+            <Grid Grid.Row="1" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Name="ParticleGridRow0" />
+                    <RowDefinition Name="ParticleGridRow1" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Name="ParticleGridColumn0" />
+                    <ColumnDefinition Name="ParticleGridColumn1" />
+                </Grid.ColumnDefinitions>
+
+                <Image Name="ImageParticleZY" Grid.Row="0" Grid.Column="0" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <s:ValueSlider Grid.Row="0" Grid.Column="0" Name="SliderParticleX" TextFormat="X = {0}" Value="{Binding ParticlePlaneX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="0" StepSize="1" Background="White" Margin="2" Padding="4,0,4,2" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                <Image Name="ImageParticleXY" Grid.Row="0" Grid.Column="1" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <s:ValueSlider Grid.Row="0" Grid.Column="1" Name="SliderParticleZ" TextFormat="Z = {0}" Value="{Binding ParticlePlaneZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="0" StepSize="1" Background="White" Margin="2" Padding="4,0,4,2" HorizontalAlignment="Left" VerticalAlignment="Top" />
+                <Image Name="ImageParticleXZ" Grid.Row="1" Grid.Column="1" Margin="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <s:ValueSlider Grid.Row="1" Grid.Column="1" Name="SliderParticleY" TextFormat="Y = {0}" Value="{Binding ParticlePlaneY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" MinValue="0" StepSize="1" Background="White" Margin="2" Padding="4,0,4,2" HorizontalAlignment="Left" VerticalAlignment="Top" />
+
+            </Grid>
+        </Grid>
+        <Grid Name="GridProcessingOverlay" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="White" Opacity="0.6" Visibility="Hidden">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <m:ProgressRing/>
+                <TextBlock Name="TextProcessingMessage" FontSize="20" Margin="0,30" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</m:MetroWindow>
