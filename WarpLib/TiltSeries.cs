@@ -3886,7 +3886,7 @@ namespace Warp
 
 
                 float3 Position0 = positions[p * NTilts + NTilts / 2] / (float)options.BinnedPixelSizeMean;
-                float3 Angle0 = angles[p * NTilts + NTilts / 2] * Helper.ToDeg;
+                float3 Angle0 = angles[p * NTilts + NTilts / 2];
 
                 string SeriesPath = IOPath.Combine(ParticleSeriesDir, $"{RootName}{options.Suffix}_{options.BinnedPixelSizeMean:F2}A_{(p + 1):D6}.mrcs");
                 string SeriesPathRelative = Helper.MakePathRelativeTo(SeriesPath, tablePath);
