@@ -117,7 +117,7 @@ namespace MTools.Commands
             if (new[] { Options.HelicalUnits > 1,
                         Options.HelicalRise != 0,
                         Options.HelicalTwist != 0,
-                        Options.HelicalHeight != 0 }.Any())
+                        Options.HelicalHeight != 0 }.Any(v => v))
             {
                 if (Options.HelicalUnits <= 1)
                 {
