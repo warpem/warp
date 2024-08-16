@@ -21,8 +21,17 @@ namespace MTools.Commands
         [Option("expand_from", HelpText = "Symmetry to use for the expansion if it is different from the one specified in the species (e.g. expand only one sub-symmetry of a higher symmetry).")]
         public string ExpandFrom { get; set; }
 
-        [Option("expand_to", Default = "C1", HelpText = "Remaining symmetry that will be set as the species' symmetry (when using --expand_from to expand only part of the symmetry).")]
+        [Option("expand_to", HelpText = "Remaining symmetry that will be set as the species' symmetry, e.g. C1 (when using --expand_from to expand only part of the symmetry).")]
         public string ExpandTo { get; set; }
+
+        [Option("helical_units", Default = 1, HelpText = "Number of asymmetric subunits in the helical symmetry to expand")]
+        public int HelicalUnits { get; set; }
+
+        [Option("helical_twist", HelpText = "Twist of the helical symmetry to expand, in degrees")]
+        public double HelicalTwist { get; set; }
+
+        [Option("helical_rise", HelpText = "Rise of the helical symmetry to expand, in Angstrom")]
+        public double HelicalRise { get; set; }
     }
 
     class ExpandSymmetry : BaseCommand
@@ -57,57 +66,128 @@ namespace MTools.Commands
 
             #region Symmetry argument validation
 
-            if (string.IsNullOrEmpty(Options.ExpandFrom))
+            if (Options.HelicalUnits < 1)
             {
-                Options.ExpandFrom = Species.Symmetry;
-                Console.WriteLine($"--expand_from not specified, using symmetry specified in species.");
+                Console.Error.WriteLine("--helical_units must be at least 1.");
+                return;
             }
 
-            try
+            bool DoingPointGroup = !string.IsNullOrWhiteSpace(Options.ExpandTo);
+            bool DoingHelical = Options.HelicalUnits > 1;
+
+            if (DoingPointGroup == DoingHelical)
             {
-                Symmetry S = new Symmetry(Options.ExpandTo);
-            }
-            catch
-            {
-                Console.Error.WriteLine($"Unknown final symmetry: {Options.ExpandTo}");
+                Console.Error.WriteLine("Exactly one of --expand_to and --helical_units must be specified.");
                 return;
+            }
+
+            if (DoingPointGroup)
+            {
+                if (string.IsNullOrEmpty(Options.ExpandFrom))
+                {
+                    Options.ExpandFrom = Species.Symmetry;
+                    Console.WriteLine($"--expand_from not specified, using symmetry specified in species.");
+                }
+
+                try
+                {
+                    Symmetry S = new Symmetry(Options.ExpandTo);
+                }
+                catch
+                {
+                    Console.Error.WriteLine($"Unknown final symmetry: {Options.ExpandTo}");
+                    return;
+                }
+            }
+            else
+            {
+                if (Options.HelicalRise <= 0)
+                {
+                    Console.Error.WriteLine("--helical_rise must be positive.");
+                    return;
+                }
             }
 
             #endregion
 
             #region Get symmetry transforms and perform expansion
 
-            Symmetry Sym = new Symmetry(Options.ExpandFrom);
-            Matrix3[] SymMats = Sym.GetRotationMatrices();
+            Particle[] ParticlesFinal = null;
 
-            var ParticlesOld = Species.Particles;
-
-            List<Particle> ExpandedParticles = new List<Particle>();
-            Matrix3[] Angles = new Matrix3[ParticlesOld[0].Angles.Length];
-
-            foreach (var p in ParticlesOld)
+            if (DoingPointGroup)
             {
-                for (int i = 0; i < Angles.Length; i++)
-                    Angles[i] = Matrix3.Euler(p.Angles[i] * Helper.ToRad);
+                Symmetry Sym = new Symmetry(Options.ExpandFrom);
+                Matrix3[] SymMats = Sym.GetRotationMatrices();
 
-                foreach (var m in SymMats)
+                var ParticlesOld = Species.Particles;
+
+                List<Particle> ExpandedParticles = new List<Particle>();
+                Matrix3[] Angles = new Matrix3[ParticlesOld[0].Angles.Length];
+
+                foreach (var p in ParticlesOld)
                 {
-                    float3[] AnglesNew = Angles.Select(a => Matrix3.EulerFromMatrix(a * m) * Helper.ToDeg).ToArray();
-                    Particle RotatedParticle = p.GetCopy();
-                    RotatedParticle.Angles = AnglesNew;
+                    for (int i = 0; i < Angles.Length; i++)
+                        Angles[i] = Matrix3.Euler(p.Angles[i] * Helper.ToRad);
 
-                    ExpandedParticles.Add(RotatedParticle);
+                    foreach (var m in SymMats)
+                    {
+                        float3[] AnglesNew = Angles.Select(a => Matrix3.EulerFromMatrix(a * m) * Helper.ToDeg).ToArray();
+                        Particle RotatedParticle = p.GetCopy();
+                        RotatedParticle.Angles = AnglesNew;
+
+                        ExpandedParticles.Add(RotatedParticle);
+                    }
                 }
-            }
 
-            var ParticlesFinal = ExpandedParticles.ToArray();
+                ParticlesFinal = ExpandedParticles.ToArray();
+
+                Species.Symmetry = Options.ExpandTo;
+            }
+            else
+            {
+                Species.ResampleParticleTemporalResolution(1, 1);
+                Console.WriteLine("Temporal trajectory resolution will be reset to 1");
+
+                Matrix3[] SymMats = new Matrix3[Options.HelicalUnits];
+                float3[] SymOffsets = new float3[Options.HelicalUnits];
+
+                for (int i = 0; i < Options.HelicalUnits; i++)
+                {
+                    float Angle = -(float)Options.HelicalTwist * (i - Options.HelicalUnits / 2);
+                    SymMats[i] = Matrix3.Euler(new float3(0, 0, Angle) * Helper.ToRad);
+
+                    SymOffsets[i] = new float3(0, 0, (float)Options.HelicalRise * i);
+                }
+
+                var ParticlesOld = Species.Particles;
+
+                List<Particle> ExpandedParticles = new();
+
+                foreach (var p in ParticlesOld)
+                {
+                    for (int i = 0; i < Options.HelicalUnits; i++)
+                    {
+                        Matrix3 R = Matrix3.Euler(p.Angles[0] * Helper.ToRad) * SymMats[i];
+
+                        float3 Pose = Matrix3.EulerFromMatrix(R) * Helper.ToDeg;
+                        float3 RotatedShift = R * SymOffsets[i];
+
+                        Particle RotatedParticle = p.GetCopy();
+                        RotatedParticle.Angles = [Pose];
+                        RotatedParticle.Coordinates = [RotatedParticle.Coordinates[0] + RotatedShift];
+
+                        ExpandedParticles.Add(RotatedParticle);
+                    }
+                }
+
+                ParticlesFinal = ExpandedParticles.ToArray();
+            }
 
             #endregion
 
             #region Set expanded particles and commit results
 
             Species.ReplaceParticles(ParticlesFinal);
-            Species.Symmetry = Options.ExpandTo;
 
             Console.Write("Calculating particle statistics and committing results... ");
 
