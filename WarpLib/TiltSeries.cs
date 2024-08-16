@@ -2016,9 +2016,9 @@ namespace Warp
 
             LoadMovieSizes();
 
-            Image CorrImage = null, ZScoresImage;
+            Image CorrVolume = null, AngleIDVolume = null;
             float[][] CorrData;
-            float[][] AngleData;
+            float[][] AngleIDData;
 
             #region Dimensions
 
@@ -2026,7 +2026,7 @@ namespace Warp
             int SizeParticle = (int)(options.TemplateDiameter / options.BinnedPixelSizeMean);
             int PeakDistance = (int)(options.PeakDistance / options.BinnedPixelSizeMean);
 
-            int3 DimsVolumeCropped = new int3((int)Math.Round(options.DimensionsPhysical.X / (float)options.BinnedPixelSizeMean / 2) * 2,
+            int3 DimsVolumeScaled = new int3((int)Math.Round(options.DimensionsPhysical.X / (float)options.BinnedPixelSizeMean / 2) * 2,
                                                 (int)Math.Round(options.DimensionsPhysical.Y / (float)options.BinnedPixelSizeMean / 2) * 2,
                                                 (int)Math.Round(options.DimensionsPhysical.Z / (float)options.BinnedPixelSizeMean / 2) * 2);
 
@@ -2040,7 +2040,7 @@ namespace Warp
                 for (int testSizeSub = (SizeParticle * 2 + 31) / 32 * 32; testSizeSub <= options.SubVolumeSize; testSizeSub += 32)
                 {
                     int TestSizeUseful = Math.Max(1, testSizeSub - SizeParticle * 2);
-                    int3 TestGrid = (DimsVolumeCropped - SizeParticle + TestSizeUseful - 1) / TestSizeUseful;
+                    int3 TestGrid = (DimsVolumeScaled - SizeParticle + TestSizeUseful - 1) / TestSizeUseful;
                     long TestVoxels = TestGrid.Elements() * testSizeSub * testSizeSub * testSizeSub;
 
                     if (TestVoxels < BestVoxels)
@@ -2052,13 +2052,13 @@ namespace Warp
 
                 SizeSub = BestSizeSub;
 
-                progressCallback?.Invoke(new int3(1), 0, $"Using {BestSizeSub} sub-volumes for matching, resulting in {((float)BestVoxels / DimsVolumeCropped.Elements() * 100 - 100):F0} % overhead");
+                progressCallback?.Invoke(new int3(1), 0, $"Using {BestSizeSub} sub-volumes for matching, resulting in {((float)BestVoxels / DimsVolumeScaled.Elements() * 100 - 100):F0} % overhead");
             }
 
             int SizeSubPadded = SizeSub * 2;
             int SizeUseful = SizeSub - SizeParticle * 2;// Math.Min(SizeSub / 2, SizeSub - SizeParticle * 2);// Math.Min(SizeSub - SizeParticle, SizeSub / 2);
 
-            int3 Grid = (DimsVolumeCropped - SizeParticle + SizeUseful - 1) / SizeUseful;
+            int3 Grid = (DimsVolumeScaled - SizeParticle + SizeUseful - 1) / SizeUseful;
             List<float3> GridCoords = new List<float3>();
             for (int z = 0; z < Grid.Z; z++)
                 for (int x = 0; x < Grid.X; x++)
@@ -2074,19 +2074,24 @@ namespace Warp
             #region Get correlation and angles either by calculating them from scratch, or by loading precalculated volumes
 
             string CorrVolumePath = IOPath.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_corr.mrc");
-
-            Image TomoRec = null;
-            CorrData = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
-            AngleData = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
+            string AngleIDVolumePath = IOPath.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_angleid.tif");
 
             if (!File.Exists(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc")))
                 throw new FileNotFoundException("A reconstruction at the desired resolution was not found.");
+
+            Image TomoRec = null;
 
             if (!File.Exists(CorrVolumePath) || !options.ReuseCorrVolumes)
             {
                 progressCallback?.Invoke(Grid, 0, "Loading...");
 
                 TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
+
+                CorrVolume = new Image(DimsVolumeScaled);
+                CorrData = CorrVolume.GetHost(Intent.ReadWrite);
+
+                AngleIDVolume = new Image(DimsVolumeScaled);
+                AngleIDData = AngleIDVolume.GetHost(Intent.ReadWrite);
 
                 float[] SpectrumWhitening = new float[128];
 
@@ -2307,8 +2312,8 @@ namespace Warp
 
                 #region Preflight
 
-                if (TomoRec.Dims != DimsVolumeCropped)
-                    throw new DimensionMismatchException($"Tomogram dimensions ({TomoRec.Dims}) don't match expectation ({DimsVolumeCropped})");
+                if (TomoRec.Dims != DimsVolumeScaled)
+                    throw new DimensionMismatchException($"Tomogram dimensions ({TomoRec.Dims}) don't match expectation ({DimsVolumeScaled})");
 
                 //if (options.WhitenSpectrum)
                 //{
@@ -2327,6 +2332,8 @@ namespace Warp
                 Image CTFCoords = CTF.GetCTFCoords(SizeSubPadded, SizeSubPadded);
 
                 #endregion
+
+                #region Match
 
                 progressCallback?.Invoke(Grid, 0, "Matching...");
 
@@ -2509,23 +2516,23 @@ namespace Warp
                         for (int z = 0; z < SizeUseful; z++)
                         {
                             int zVol = Origin.Z + z;
-                            if (zVol >= DimsVolumeCropped.Z - SizeParticle / 2)
+                            if (zVol >= DimsVolumeScaled.Z - SizeParticle / 2)
                                 continue;
 
                             for (int y = 0; y < SizeUseful; y++)
                             {
                                 int yVol = Origin.Y + y;
-                                if (yVol >= DimsVolumeCropped.Y - SizeParticle / 2)
+                                if (yVol >= DimsVolumeScaled.Y - SizeParticle / 2)
                                     continue;
 
                                 for (int x = 0; x < SizeUseful; x++)
                                 {
                                     int xVol = Origin.X + x;
-                                    if (xVol >= DimsVolumeCropped.X - SizeParticle / 2)
+                                    if (xVol >= DimsVolumeScaled.X - SizeParticle / 2)
                                         continue;
 
-                                    CorrData[zVol][yVol * DimsVolumeCropped.X + xVol] = SubCorr[(z * SizeUseful + y) * SizeUseful + x] * Norm;
-                                    AngleData[zVol][yVol * DimsVolumeCropped.X + xVol] = SubAngle[(z * SizeUseful + y) * SizeUseful + x];
+                                    CorrData[zVol][yVol * DimsVolumeScaled.X + xVol] = SubCorr[(z * SizeUseful + y) * SizeUseful + x] * Norm;
+                                    AngleIDData[zVol][yVol * DimsVolumeScaled.X + xVol] = SubAngle[(z * SizeUseful + y) * SizeUseful + x];
                                 }
                             }
                         }
@@ -2549,6 +2556,8 @@ namespace Warp
                         IsCanceled = progressCallback(Grid, b + CurBatch, "Matching...");
                 }
 
+                #endregion
+
                 #region Postflight
 
                 GPU.DestroyFFTPlan(PlanForw);
@@ -2560,9 +2569,10 @@ namespace Warp
                 //ProjectorRandom.Dispose();
                 //ProjectorMask.Dispose();
 
+                #region Normalize by local standard deviation of TomoRec
+
                 if (true)
                 {
-
                     Image LocalStd = new Image(IntPtr.Zero, TomoRec.Dims);
                     GPU.LocalStd(TomoRec.GetDevice(Intent.Read),
                                  TomoRec.Dims,
@@ -2571,47 +2581,38 @@ namespace Warp
                                  IntPtr.Zero,
                                  0,
                                  0);
+
+                    Image Center = LocalStd.AsPadded(LocalStd.Dims / 2);
+                    float Median = Center.GetHostContinuousCopy().Median();
+                    Center.Dispose();
+
+                    LocalStd.Max(MathF.Max(1e-10f, Median));
+
                     //LocalStd.WriteMRC("d_localstd.mrc", true);
 
-                    float[][] LocalStdData = LocalStd.GetHost(Intent.Read);
-                    for (int s = 0; s < CorrData.Length; s++)
-                        for (int i = 0; i < CorrData[s].Length; i++)
-                            CorrData[s][i] /= MathF.Max(1e-10f, LocalStdData[s][i]);
+                    CorrVolume.Divide(LocalStd);
 
                     LocalStd.Dispose();
                 }
 
-                // Normalize by background std
+                #endregion
+
+                #region Normalize by background correlation std
+
                 if (options.NormalizeScores)
                 { 
-                    Image Center = new Image(CorrData, DimsVolumeCropped);
-                    Center = Center.AsPadded(Center.Dims / 2).AndDisposeParent();
-                    float2 MedianAndStd = MathHelper.MedianAndStd(Center.GetHostContinuousCopy());
+                    Image Center = CorrVolume.AsPadded(CorrVolume.Dims / 2);
+                    Center.Abs();
+                    float[] Sorted = Center.GetHostContinuousCopy().OrderBy(v => v).ToArray();
+                    float Percentile = Sorted[(int)(Sorted.Length * 0.68f)];
                     Center.Dispose();
 
-                    for (int s = 0; s < CorrData.Length; s++)
-                        for (int i = 0; i < CorrData[s].Length; i++)
-                            if (CorrData[s][i] != 0)
-                                CorrData[s][i] = (CorrData[s][i] - MedianAndStd.X) / MedianAndStd.Y;
+                    CorrVolume.Multiply(1f / MathF.Max(1e-20f, Percentile));
                 }
 
-                if (options.Supersample > 1)
-                {
-                    progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Looking for sub-pixel peaks...");
+                #endregion
 
-                    Image NormalSampled = new Image(CorrData, DimsVolumeCropped);
-                    Image SuperSampled = new Image(NormalSampled.GetDevice(Intent.Read), NormalSampled.Dims);
-
-                    GPU.SubpixelMax(NormalSampled.GetDevice(Intent.Read),
-                                    SuperSampled.GetDevice(Intent.Write),
-                                    NormalSampled.Dims,
-                                    options.Supersample);
-
-                    CorrData = SuperSampled.GetHost(Intent.Read);
-
-                    NormalSampled.Dispose();
-                    SuperSampled.Dispose();
-                }
+                #region Zero out correlation values not fully covered by desired number of tilts
 
                 if (options.KeepOnlyFullVoxels)
                 {
@@ -2621,7 +2622,7 @@ namespace Warp
                     float Margin = (float)options.TemplateDiameter;
 
                     int Undersample = 4;
-                    int3 DimsUndersampled = (DimsVolumeCropped + Undersample - 1) / Undersample;
+                    int3 DimsUndersampled = (DimsVolumeScaled + Undersample - 1) / Undersample;
 
                     float3[] ImagePositions = new float3[DimsUndersampled.ElementsSlice() * NTilts];
                     float3[] VolumePositions = new float3[DimsUndersampled.ElementsSlice()];
@@ -2662,26 +2663,32 @@ namespace Warp
                         }
                     }
 
-                    for (int z = 0; z < DimsVolumeCropped.Z; z++)
+                    CorrData = CorrVolume.GetHost(Intent.ReadWrite);
+                    AngleIDData = AngleIDVolume.GetHost(Intent.ReadWrite);
+
+                    for (int z = 0; z < DimsVolumeScaled.Z; z++)
                     {
                         int zz = z / Undersample;
-                        for (int y = 0; y < DimsVolumeCropped.Y; y++)
+                        for (int y = 0; y < DimsVolumeScaled.Y; y++)
                         {
                             int yy = y / Undersample;
-                            for (int x = 0; x < DimsVolumeCropped.X; x++)
+                            for (int x = 0; x < DimsVolumeScaled.X; x++)
                             {
                                 int xx = x / Undersample;
-                                CorrData[z][y * DimsVolumeCropped.X + x] *= OccupancyMask[zz][yy * DimsUndersampled.X + xx];
+                                CorrData[z][y * DimsVolumeScaled.X + x] *= OccupancyMask[zz][yy * DimsUndersampled.X + xx];
+                                AngleIDData[z][y * DimsVolumeScaled.X + x] *= OccupancyMask[zz][yy * DimsUndersampled.X + xx];
                             }
                         }
                     }
                 }
 
+                #endregion
+
                 progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Saving global scores...");
 
                 // Store correlation values and angle IDs for re-use later
-                CorrImage = new Image(CorrData, DimsVolumeCropped);
-                CorrImage.WriteMRC16b(CorrVolumePath, (float)options.BinnedPixelSizeMean, true);
+                CorrVolume.WriteMRC16b(CorrVolumePath, (float)options.BinnedPixelSizeMean, true);
+                AngleIDVolume.WriteTIFF(AngleIDVolumePath, (float)options.BinnedPixelSizeMean, typeof(float));
 
                 #endregion
             }
@@ -2690,8 +2697,18 @@ namespace Warp
                 progressCallback?.Invoke(Grid, 0, "Loading...");
 
                 TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
-                CorrImage = Image.FromFile(CorrVolumePath);
-                CorrData = CorrImage.GetHost(Intent.Read);
+
+                if (!File.Exists(CorrVolumePath))
+                    throw new FileNotFoundException("Pre-existing correlation volume not found.");
+
+                if (!File.Exists(AngleIDVolumePath))
+                    throw new FileNotFoundException("Pre-existing angle ID volume not found.");
+
+                CorrVolume = Image.FromFile(CorrVolumePath);
+                CorrData = CorrVolume.GetHost(Intent.Read);
+
+                AngleIDVolume = Image.FromFile(AngleIDVolumePath);
+                AngleIDData = AngleIDVolume.GetHost(Intent.Read);
             }
 
             //CorrImage?.Dispose();
@@ -2704,12 +2721,12 @@ namespace Warp
 
             int3[] InitialPeaks = new int3[0];
             {
-                float Max = CorrImage.GetHostContinuousCopy().Max();
+                float Max = CorrVolume.GetHostContinuousCopy().Max();
 
                 for (float s = Max * 0.9f; s > Max * 0.1f; s -= Max * 0.05f)
                 {
                     float Threshold = s;
-                    InitialPeaks = CorrImage.GetLocalPeaks(PeakDistance, Threshold);
+                    InitialPeaks = CorrVolume.GetLocalPeaks(PeakDistance, Threshold);
 
                     if (InitialPeaks.Length >= options.NResults)
                         break;
@@ -2756,7 +2773,7 @@ namespace Warp
                 for (int i = 0; i < InitialPeaks.Count(); i++)
                 {
                     float3 Position = new float3(InitialPeaks[i]);
-                    AllPeakScores[i] = CorrData[InitialPeaks[i].Z][InitialPeaks[i].Y * DimsVolumeCropped.X + InitialPeaks[i].X];
+                    AllPeakScores[i] = CorrData[InitialPeaks[i].Z][InitialPeaks[i].Y * DimsVolumeScaled.X + InitialPeaks[i].X];
                 }
 
                 var filteredPositions = InitialPeaks.Zip(AllPeakScores, (position, score) => new { Position = position, Score = score })
@@ -2837,9 +2854,9 @@ namespace Warp
                     //float3 Angle = RefinedAngles[n] * Helper.ToDeg;
 
                     float3 Position = new float3(InitialPeaks[n]);
-                    float Score = CorrData[(int)Position.Z][(int)Position.Y * DimsVolumeCropped.X + (int)Position.X];
-                    float3 Angle = HealpixAngles[(int)AngleData[(int)Position.Z][(int)Position.Y * DimsVolumeCropped.X + (int)Position.X]] * Helper.ToDeg;
-                    Position /= new float3(DimsVolumeCropped);
+                    float Score = CorrData[(int)Position.Z][(int)Position.Y * DimsVolumeScaled.X + (int)Position.X];
+                    float3 Angle = HealpixAngles[(int)(AngleIDData[(int)Position.Z][(int)Position.Y * DimsVolumeScaled.X + (int)Position.X] + 0.5f)] * Helper.ToDeg;
+                    Position /= new float3(DimsVolumeScaled);
 
                     TableOut.AddRow(new string[]
                     {
@@ -2855,7 +2872,7 @@ namespace Warp
                 }
             }
 
-            CorrImage?.Dispose();
+            CorrVolume?.Dispose();
 
             TableOut.Save(IOPath.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + ".star"));
 
