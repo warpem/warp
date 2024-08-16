@@ -258,6 +258,17 @@ namespace Warp
         public static extern void BenchmarkBLASFT(IntPtr cublas, IntPtr d_input, IntPtr d_sincos, IntPtr d_output, int elements, int batch, int repeats);
 
 
+        // Helical.cu:
+        [DllImport("NativeAcceleration", EntryPoint = "HelicalSymmetrize")]
+        public static extern void HelicalSymmetrize(ulong tcpf_volume,
+                                                    IntPtr d_output,
+                                                    int3 dims,
+                                                    float twist,
+                                                    float rise,
+                                                    float maxz,
+                                                    float maxr);
+
+
         // ParticleMultiBody.cu:
 
         [DllImport("NativeAcceleration", EntryPoint = "ParticleMultibodyGetDiff")]

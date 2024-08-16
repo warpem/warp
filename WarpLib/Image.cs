@@ -2951,6 +2951,27 @@ namespace Warp
             return Slice;
         }
 
+        public Image AsHelicalSymmetrized(float twist, float rise, float maxz, float maxr)
+        {
+            Image Result = new Image(IntPtr.Zero, Dims);
+
+            Image Prefiltered = this.GetCopyGPU();
+            GPU.PrefilterForCubic(Prefiltered.GetDevice(Intent.ReadWrite), Dims);
+
+            ulong[] Texture = new ulong[1];
+            ulong[] Array = new ulong[1];
+            GPU.CreateTexture3D(Prefiltered.GetDevice(Intent.Read), Dims, Texture, Array, true);
+            Prefiltered.Dispose();
+
+            GPU.HelicalSymmetrize(Texture[0], Result.GetDevice(Intent.Write), Dims, twist, rise, maxz, maxr);
+
+            GPU.DestroyTexture(Texture[0], Array[0]);
+
+            Result.Parent = this;
+            Result.PixelSize = PixelSize;
+            return Result;
+        }
+
         #endregion
 
         #region In-place

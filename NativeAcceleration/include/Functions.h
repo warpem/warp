@@ -259,6 +259,15 @@ extern "C" __declspec(dllexport) void __stdcall ConicalFSC(float2* volume1ft,
 															float particlefraction, 
 															float* result);
 
+// Helical.cu:
+extern "C" __declspec(dllexport) void __stdcall HelicalSymmetrize(unsigned long long tcpf_volume,
+																  float* d_output,
+																  int3 dims,
+																  float twist,
+																  float rise,
+																  float maxz,
+																  float maxr);
+
 // Memory.cpp:
 
 extern "C" __declspec(dllexport) float* __stdcall MallocDevice(long long elements);

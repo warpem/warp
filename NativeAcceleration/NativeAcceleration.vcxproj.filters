@@ -355,6 +355,9 @@
     <CudaCompile Include="src\DFT.cu">
       <Filter>GPU</Filter>
     </CudaCompile>
+    <CudaCompile Include="src\Helical.cu">
+      <Filter>GPU</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src/Device.cpp">

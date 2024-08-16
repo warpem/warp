@@ -1383,7 +1383,7 @@ namespace relion
 
 		// First symmetry operator (not stored in SL) is the identity matrix
 		sum_weight = my_weight;
-		sum_data = my_data;
+		//sum_data = my_data;
 		int h_min = -nr_helical_asu / 2;
 		int h_max = -h_min + nr_helical_asu % 2;
 		for (int hh = h_min; hh < h_max; hh++)
@@ -1463,46 +1463,46 @@ namespace relion
 									REPORT_ERROR("BackProjector::applyPointGroupSymmetry: checksize!!!");
 								}
 #endif
-								// First interpolate (complex) data
-								d000 = DIRECT_A3D_ELEM(my_data, z0, y0, x0);
-								d001 = DIRECT_A3D_ELEM(my_data, z0, y0, x1);
-								d010 = DIRECT_A3D_ELEM(my_data, z0, y1, x0);
-								d011 = DIRECT_A3D_ELEM(my_data, z0, y1, x1);
-								d100 = DIRECT_A3D_ELEM(my_data, z1, y0, x0);
-								d101 = DIRECT_A3D_ELEM(my_data, z1, y0, x1);
-								d110 = DIRECT_A3D_ELEM(my_data, z1, y1, x0);
-								d111 = DIRECT_A3D_ELEM(my_data, z1, y1, x1);
+								//// First interpolate (complex) data
+								//d000 = DIRECT_A3D_ELEM(my_data, z0, y0, x0);
+								//d001 = DIRECT_A3D_ELEM(my_data, z0, y0, x1);
+								//d010 = DIRECT_A3D_ELEM(my_data, z0, y1, x0);
+								//d011 = DIRECT_A3D_ELEM(my_data, z0, y1, x1);
+								//d100 = DIRECT_A3D_ELEM(my_data, z1, y0, x0);
+								//d101 = DIRECT_A3D_ELEM(my_data, z1, y0, x1);
+								//d110 = DIRECT_A3D_ELEM(my_data, z1, y1, x0);
+								//d111 = DIRECT_A3D_ELEM(my_data, z1, y1, x1);
 
-								dx00 = LIN_INTERP(fx, d000, d001);
-								dx01 = LIN_INTERP(fx, d100, d101);
-								dx10 = LIN_INTERP(fx, d010, d011);
-								dx11 = LIN_INTERP(fx, d110, d111);
-								dxy0 = LIN_INTERP(fy, dx00, dx10);
-								dxy1 = LIN_INTERP(fy, dx01, dx11);
+								//dx00 = LIN_INTERP(fx, d000, d001);
+								//dx01 = LIN_INTERP(fx, d100, d101);
+								//dx10 = LIN_INTERP(fx, d010, d011);
+								//dx11 = LIN_INTERP(fx, d110, d111);
+								//dxy0 = LIN_INTERP(fy, dx00, dx10);
+								//dxy1 = LIN_INTERP(fy, dx01, dx11);
 
-								// Take complex conjugated for half with negative x
-								ddd = LIN_INTERP(fz, dxy0, dxy1);
+								//// Take complex conjugated for half with negative x
+								//ddd = LIN_INTERP(fz, dxy0, dxy1);
 
-								if (is_neg_x)
-									ddd = conj(ddd);
+								//if (is_neg_x)
+								//	ddd = conj(ddd);
 
-								// Also apply a phase shift for helical translation along Z
-								if (ABS(helical_rise) > 0.)
-								{
-									DOUBLE zshift = hh * helical_rise;
-									zshift /= -ori_size * (DOUBLE)padding_factor;
-									DOUBLE dotp = 2 * PI * (z * zshift);
-									DOUBLE a = cos(dotp);
-									DOUBLE b = sin(dotp);
-									DOUBLE c = ddd.real;
-									DOUBLE d = ddd.imag;
-									DOUBLE ac = a * c;
-									DOUBLE bd = b * d;
-									DOUBLE ab_cd = (a + b) * (c + d);
-									ddd = Complex(ac - bd, ab_cd - ac - bd);
-								}
-								// Accumulated sum of the data term
-								A3D_ELEM(sum_data, k, i, j) += ddd;
+								//// Also apply a phase shift for helical translation along Z
+								//if (ABS(helical_rise) > 0.)
+								//{
+								//	DOUBLE zshift = hh * helical_rise;
+								//	zshift /= -ori_size * (DOUBLE)padding_factor;
+								//	DOUBLE dotp = 2 * PI * (z * zshift);
+								//	DOUBLE a = cos(dotp);
+								//	DOUBLE b = sin(dotp);
+								//	DOUBLE c = ddd.real;
+								//	DOUBLE d = ddd.imag;
+								//	DOUBLE ac = a * c;
+								//	DOUBLE bd = b * d;
+								//	DOUBLE ab_cd = (a + b) * (c + d);
+								//	ddd = Complex(ac - bd, ab_cd - ac - bd);
+								//}
+								//// Accumulated sum of the data term
+								//A3D_ELEM(sum_data, k, i, j) += ddd;
 
 								// Then interpolate (real) weight
 								dd000 = DIRECT_A3D_ELEM(my_weight, z0, y0, x0);
@@ -1529,7 +1529,7 @@ namespace relion
 			} // end if hh!=0
 		} // end loop over hh
 
-		my_data = sum_data;
+		//my_data = sum_data;
 		my_weight = sum_weight;
 	}
 

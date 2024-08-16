@@ -2130,9 +2130,11 @@ namespace Warp.Sociology
             HalfMap1Reconstruction[0].Dispose();
             HalfMap1Reconstruction[0] = null;
             HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 2) / (HalfMap1.Dims.X / 2), true);
-            HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
             if (Helical != null)
-                HalfMap1.MaskRectangularly(new int3(HalfMap1.Dims.X, HalfMap1.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
+                HalfMap1 = HalfMap1.AsHelicalSymmetrized(Helical.Twist, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap1.Dims.X / 2).AndDisposeParent();
+            HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
+            //if (Helical != null)
+            //    HalfMap1.MaskRectangularly(new int3(HalfMap1.Dims.X, HalfMap1.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
             HalfMap1.FreeDevice();
             if (Helper.IsDebug)
                 HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
@@ -2144,9 +2146,11 @@ namespace Warp.Sociology
             HalfMap2Reconstruction[0].Dispose();
             HalfMap2Reconstruction[0] = null;
             HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 2) / (HalfMap2.Dims.X / 2), true);
-            HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
             if (Helical != null)
-                HalfMap2.MaskRectangularly(new int3(HalfMap2.Dims.X, HalfMap2.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
+                HalfMap2 = HalfMap2.AsHelicalSymmetrized(Helical.Twist, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap2.Dims.X / 2).AndDisposeParent();
+            HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
+            //if (Helical != null)
+            //    HalfMap2.MaskRectangularly(new int3(HalfMap2.Dims.X, HalfMap2.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
             HalfMap1.FreeDevice();
             if (Helper.IsDebug)
                 HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);

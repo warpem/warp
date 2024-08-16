@@ -243,6 +243,7 @@
     <CudaCompile Include="src/RealspaceProjection.cu" />
     <CudaCompile Include="src/Raycast.cu" />
     <CudaCompile Include="src\DFT.cu" />
+    <CudaCompile Include="src\Helical.cu" />
     <CudaCompile Include="src\Motion.cu" />
     <CudaCompile Include="src/MPARefine.cu" />
     <CudaCompile Include="src/Tools.cu" />
