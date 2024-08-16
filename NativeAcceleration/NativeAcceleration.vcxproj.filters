@@ -280,15 +280,6 @@
     <CudaCompile Include="gtom\src\Reconstruction\RecFourier.cu">
       <Filter>GTOM\src\Reconstruction</Filter>
     </CudaCompile>
-    <CudaCompile Include="gtom\src\Reconstruction\RecFourierAdd.cu">
-      <Filter>GTOM\src\Reconstruction</Filter>
-    </CudaCompile>
-    <CudaCompile Include="gtom\src\Reconstruction\RecSIRT.cu">
-      <Filter>GTOM\src\Reconstruction</Filter>
-    </CudaCompile>
-    <CudaCompile Include="gtom\src\Reconstruction\RecWBP.cu">
-      <Filter>GTOM\src\Reconstruction</Filter>
-    </CudaCompile>
     <CudaCompile Include="gtom\src\Relion\Backproject.cu">
       <Filter>GTOM\src\Relion</Filter>
     </CudaCompile>

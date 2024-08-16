@@ -20,80 +20,8 @@ namespace gtom
 	template<class T> __global__ void DecenterKernel(T* d_input, T* d_output, int3 newdims, int3 olddims);
 	__global__ void Iteration1Kernel(tcomplex* d_convft, tfloat* d_Fweight, tfloat* d_Fnewweight, uint elements);
 	__global__ void Iteration2Kernel(tcomplex* d_convft, tfloat* d_Fnewweight, uint elements);
-	__global__ void UpdateWeightKernel(tcomplex* d_conv, tfloat* d_weight, tfloat* d_newweight, uint n);
 	__global__ void CorrectGriddingKernel(tfloat* d_volume, int dim, int oripadded);
 
-
-	//////////////////////////////////////////////////////
-	//Performs 3D reconstruction using Fourier inversion//
-	//////////////////////////////////////////////////////
-
-	void d_ReconstructFourier(tcomplex* d_imagesft, tfloat* d_imagespsf, tcomplex* d_volumeft, tfloat* d_volumepsf, int3 dims, tfloat3* h_angles, tfloat2* h_shifts, int nimages, bool performgridding, bool everythingcentered)
-	{
-		int3 dimsimage = toInt3(dims.x, dims.y, 1);
-
-		if (!everythingcentered)	// d_imageft needs to be centered for reconstruction
-			d_RemapHalfFFT2Half(d_imagesft, d_imagesft, dimsimage, nimages);
-
-		d_ValueFill(d_volumeft, ElementsFFT(dims), make_cuComplex(0, 0));
-		d_ValueFill(d_volumepsf, ElementsFFT(dims), (tfloat)0);
-
-		d_ReconstructFourierAdd(d_volumeft, d_volumepsf, dims, d_imagesft, d_imagespsf, h_angles, h_shifts, nimages);
-
-		tfloat* d_weights;
-		cudaMalloc((void**)&d_weights, ElementsFFT(dims) * sizeof(tfloat));
-		cudaMemcpy(d_weights, d_volumepsf, ElementsFFT(dims) * sizeof(tfloat), cudaMemcpyDeviceToDevice);
-
-		d_MinOp(d_volumepsf, (tfloat)1, d_volumepsf, ElementsFFT(dims));
-		d_MaxOp(d_weights, (tfloat)1, d_weights, ElementsFFT(dims));
-		d_Inv(d_weights, d_weights, ElementsFFT(dims));
-		d_ComplexMultiplyByVector(d_volumeft, d_weights, d_volumeft, ElementsFFT(dims));
-
-		if (!everythingcentered)	// Volume and PSF come centered from d_ReconstructFourierAdd
-		{
-			d_RemapHalf2HalfFFT(d_volumeft, d_volumeft, dims);
-			d_RemapHalf2HalfFFT(d_volumepsf, d_volumepsf, dims);
-		}
-
-		cudaFree(d_weights);
-
-		if (!everythingcentered)
-			d_RemapHalf2HalfFFT(d_imagesft, d_imagesft, dimsimage, nimages);
-	}
-
-	void d_ReconstructFourierPrecise(tfloat* d_images, tfloat* d_imagespsf, tfloat* d_volume, tfloat* d_volumepsf, int3 dims, tfloat3* h_angles, tfloat2* h_shifts, int nimages, bool dogridding)
-	{
-		/*tcomplex* d_volumeft = (tcomplex*)CudaMallocValueFilled(ElementsFFT(dims) * 2, (tfloat)0);
-
-		d_ReconstructFourierPreciseAdd(d_volumeft, d_volumepsf, dims, d_images, d_imagespsf, h_angles, h_shifts, nimages, T_INTERP_SINC, false, !dogridding);
-
-		if (dogridding)
-		{
-			tfloat* d_newweight = CudaMallocValueFilled(Elements(dims), (tfloat)1);
-			int TpB = tmin(192, NextMultipleOf(ElementsFFT(dims), 32));
-			dim3 grid = dim3((ElementsFFT(dims) + TpB - 1) / TpB);
-			SoftMaskKernel << <grid, TpB >> > (d_newweight, dims.x, dims.x / 2 + 1, ElementsFFT(dims));
-
-			d_ReconstructionFourierCorrection(d_volumepsf, d_newweight, dims, 2);
-			d_WriteMRC(d_newweight, toInt3FFT(dims), "d_newweight.mrc");
-
-			d_ComplexMultiplyByVector(d_volumeft, d_newweight, d_volumeft, ElementsFFT(dims));
-			cudaFree(d_newweight);
-		}
-
-		d_IFFTC2R(d_volumeft, d_volume, 3, dims);
-		d_RemapFullFFT2Full(d_volume, d_volume, dims);
-		d_RemapHalfFFT2Half(d_volumepsf, d_volumepsf, dims);
-
-		if (dogridding)
-		{
-			dim3 TpB = dim3(8, 8, 8);
-			dim3 grid = dim3((dims.x + 7) / 8, (dims.x + 7) / 8, (dims.x + 7) / 8);
-			CorrectGriddingKernel << <grid, TpB >> > (d_volume, dims.x);
-		}
-
-		cudaFree(d_volumeft);*/
-	}
 
 	void d_ReconstructGridding(tcomplex* d_dataft, tfloat* d_weight, tfloat* d_reconstructed, int3 dimsori, int3 dimspadded, int paddingfactor, cufftHandle pre_planforw, cufftHandle pre_planback, int iterations, double blobradius, int bloborder, double blobalpha)
 	{
