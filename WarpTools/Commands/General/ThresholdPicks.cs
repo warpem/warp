@@ -70,6 +70,7 @@ namespace WarpTools.Commands
 
             var TablesIn = new Dictionary<Movie, Star>();
             int ParticlesIn = 0;
+            int ParticlesOut = 0;
             var AverageScores = new Dictionary<Movie, float>();
 
             int NDone = 0;
@@ -116,6 +117,8 @@ namespace WarpTools.Commands
                     Rows = Rows.Take(CLI.NTopPicks.Value);
                 }
 
+                ParticlesOut += Rows.Count();
+
                 TableIn = TableIn.CreateSubset(Rows);
                 TablesIn.Add(item, TableIn);
 
@@ -127,6 +130,8 @@ namespace WarpTools.Commands
                 Console.Write($"{++NDone}/{CLI.InputSeries.Length} parsed");
             }
             Console.WriteLine("");
+            Console.WriteLine($"{ParticlesIn} particles found");
+            Console.WriteLine($"{ParticlesOut} particles left after thresholding");
 
             if (CLI.NTopPicks.HasValue)
             {
