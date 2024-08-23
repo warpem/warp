@@ -501,7 +501,7 @@ namespace WarpWorker
                                     $"comparam.xcorr.tiltxcorr.ExcludeCentralPeak = 1\n" +
                                     $"runtime.Fiducials.any.trackingMethod = 0\n" +
                                     $"runtime.Fiducials.any.seedingMethod = 1\n" +
-                                    $"comparam.autofidseed.autofidseed.TargetNumberOfBeads = 50\n" +
+                                    $"comparam.autofidseed.autofidseed.TargetNumberOfBeads = {Options.TargetNBeads}\n" +
                                     $"comparam.align.tiltalign.MagOption = 0\n" +
                                     $"comparam.align.tiltalign.TiltOption = 0\n" +
                                     $"comparam.align.tiltalign.RotOption = {RotOption}\n" +
