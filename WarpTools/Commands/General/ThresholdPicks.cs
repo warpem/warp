@@ -130,7 +130,8 @@ namespace WarpTools.Commands
                 Console.Write($"{++NDone}/{CLI.InputSeries.Length} parsed");
             }
             Console.WriteLine("");
-            Console.WriteLine($"{ParticlesOut} / {ParticlesIn} particles kept after thresholding");
+            Console.WriteLine($"{ParticlesIn} particles found");
+            Console.WriteLine($"{ParticlesOut} particles left after thresholding");
 
             if (CLI.NTopPicks.HasValue)
             {
