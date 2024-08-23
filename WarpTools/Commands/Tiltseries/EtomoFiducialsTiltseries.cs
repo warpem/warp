@@ -65,6 +65,9 @@ namespace WarpTools.Commands
             if (!Helper.ExeutableIsOnPath("batchruntomo"))
                 throw new Exception("IMOD program batchruntomo not found on PATH");
 
+            if (!CLI.FiducialSizeNanometers.HasValue)
+                throw new Exception("--fiducial_size must be passed at the CLI");
+
             #endregion
 
             #region Create processing options
