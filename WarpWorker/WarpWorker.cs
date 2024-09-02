@@ -458,7 +458,7 @@ namespace WarpWorker
                     {
                         Console.WriteLine($"Calculating projection parameters from patch tracking results in {T.TiltStackDir}");
                         string SubMfgExecutable = IsWindows ? "submfg.cmd" : "submfg";
-                        Console.WriteLine($"running '{SubMfgExecutable} align.com'");
+                        Console.WriteLine($"Running '{SubMfgExecutable} align.com'");
                         Process TiltAlign = new Process
                         {
                             StartInfo =
@@ -527,7 +527,7 @@ namespace WarpWorker
                     // we execute batchruntomo even if not doing fiducial tracking to create com file for alignment
                     bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     string BatchRunTomoExecutable = IsWindows ? "batchruntomo.cmd" : "batchruntomo";
-                    Console.WriteLine($"running '{BatchRunTomoExecutable} {Arguments}'");
+                    Console.WriteLine($"Running '{BatchRunTomoExecutable} {Arguments}'");
                     Process BatchRunTomo = new Process 
                     {
                         StartInfo =
@@ -557,7 +557,7 @@ namespace WarpWorker
                     {
                         Console.WriteLine($"Calculating projection parameters from fiducial tracking results in {T.TiltStackDir}");
                         string SubMfgExecutable = IsWindows ? "submfg.cmd" : "submfg";
-                        Console.WriteLine($"running '{SubMfgExecutable} align.com'");
+                        Console.WriteLine($"Running '{SubMfgExecutable} align.com'");
                         Process TiltAlign = new Process
                         {
                             StartInfo =
