@@ -1367,7 +1367,7 @@ namespace Warp
                 }
                 catch { }
                 if (TltPath == null)
-                    throw new Exception($"Could not find {RootName}.xf");
+                    throw new Exception($"Could not find {RootName}.tlt");
 
                 string[] Lines = File.ReadAllLines(TltPath).Where(l => !string.IsNullOrEmpty(l)).ToArray();
 
