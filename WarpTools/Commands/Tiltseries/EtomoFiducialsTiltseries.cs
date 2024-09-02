@@ -37,6 +37,9 @@ namespace WarpTools.Commands
         
         [Option("fiducial_size", HelpText = "size of gold fiducials in nanometers")]
         public double? FiducialSizeNanometers { get; set; }
+        
+        [Option("n_beads_target", Default = 50, HelpText = "target number of beads to find in IMOD")]
+        public double TargetNBeads { get; set; }
 
         [Option("delete_intermediate", HelpText = "Delete tilt series stacks generated for ETomo")]
         public bool DeleteIntermediate { get; set; }
@@ -88,6 +91,7 @@ namespace WarpTools.Commands
                     new ProcessingOptionsTomoEtomoFiducials());
             OptionsEtomo.TiltStackAngPix = (decimal)CLI.AngPix;
             OptionsEtomo.FiducialSizeNanometers = (decimal)CLI.FiducialSizeNanometers;
+            OptionsEtomo.TargetNBeads = (decimal)CLI.TargetNBeads;
 
             #endregion
 

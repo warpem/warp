@@ -11584,6 +11584,9 @@ namespace Warp
         
         [WarpSerializable]
         public decimal TiltStackAngPix { get; set; }
+        
+        [WarpSerializable]
+        public decimal TargetNBeads { get; set; }
     }
 
 
