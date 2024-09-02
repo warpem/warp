@@ -6,7 +6,7 @@ We distribute *WarpTools* as part of a conda package for *Warp*.
 
 ### Installing Conda
 
-If you're new to the *conda* package manager we recommend installing `mambaforge`. 
+If you're new to the *conda* package manager we recommend installing [`mambaforge`](https://conda-forge.org/miniforge/). 
 
 ### Creating a conda environment and installing Warp into it
 
