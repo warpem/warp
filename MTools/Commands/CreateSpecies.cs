@@ -4,6 +4,7 @@ using Warp.Sociology;
 using Warp.Tools;
 using System.IO;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using Warp;
 using System.Globalization;
@@ -201,6 +202,11 @@ namespace MTools.Commands
             {
                 Options.AngPix = Half1.PixelSize;
                 Console.WriteLine($"--angpix not specified, using {Options.AngPix:F4} A/px from half-map.");
+            }
+
+            if (Options.AngPix != Half1.PixelSize)
+            {
+                Console.WriteLine($"WARNING: Pixel size in half maps ({Half1.PixelSize}) does not match --angpix ({Options.AngPix})");
             }
             if (Options.AngPixResample == null)
                 Options.AngPixResample = Options.AngPix;
