@@ -2944,7 +2944,7 @@ namespace Warp
             {
                 for (int idata = 0; idata < TiltDataPreprocess.Length; idata++)
                 {
-                    EraseDirt(TiltDataPreprocess[idata][z], TiltMasks[z]);
+                    EraseDirt(TiltDataPreprocess[idata][z], TiltMasks[z], noiseScale: 1.0f);
                     if (idata == TiltDataPreprocess.Length - 1)
                         TiltMasks[z]?.FreeDevice();
 
@@ -10705,7 +10705,7 @@ namespace Warp
 
         static int[][] DirtErasureLabelsBuffer = new int[GPU.GetDeviceCount()][];
         static Image[] DirtErasureMaskBuffer = new Image[GPU.GetDeviceCount()];
-        public static void EraseDirt(Image tiltImage, Image tiltMask, float noiseScale = 1.0f)
+        public static void EraseDirt(Image tiltImage, Image tiltMask, float noiseScale = 0.1f)
         {
             if (tiltMask == null)
                 return;
