@@ -657,6 +657,23 @@ namespace Warp
                     }
                 header.MinValue = Min;
                 header.MaxValue = Max;
+                
+                // check that min/max fall within range for fp16 and warn if not
+                Type dataType = header.GetValueType();
+                float typeMinValue = float.MinValue;
+                float typeMaxValue = float.MaxValue;
+                
+                if (dataType == typeof(Half))
+                {
+                    typeMinValue = (float)Half.MinValue;
+                    typeMaxValue = (float)Half.MaxValue;
+                }
+
+                if (header.MinValue < typeMinValue || header.MaxValue > typeMaxValue)
+                {
+                    Console.WriteLine($"WARNING: data being written to {path} contains values are outside range for {dataType}");
+                    Console.WriteLine("This is usually due to hot pixels, consider running ccderaser from IMOD on your data...");
+                }
             }
 
             //Console.WriteLine("Stats: " + Watch.Elapsed.TotalMilliseconds);
