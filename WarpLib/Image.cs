@@ -671,8 +671,8 @@ namespace Warp
 
                 if (header.MinValue < typeMinValue || header.MaxValue > typeMaxValue)
                 {
-                    Console.WriteLine($"WARNING: data being written to {path} contains values are outside range for {dataType}");
-                    Console.WriteLine("This is usually due to hot pixels, consider running ccderaser from IMOD on your data...");
+                    Console.WriteLine($"WARNING: data being written to {path} contains values are outside range for {dataType}, switching to float32");
+                    header.SetValueType(typeof(float));
                 }
             }
 
