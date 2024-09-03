@@ -2944,7 +2944,7 @@ namespace Warp
             {
                 for (int idata = 0; idata < TiltDataPreprocess.Length; idata++)
                 {
-                    EraseDirt(TiltDataPreprocess[idata][z], TiltMasks[z]);
+                    EraseDirt(TiltDataPreprocess[idata][z], TiltMasks[z], noiseScale: 1.0f);
                     if (idata == TiltDataPreprocess.Length - 1)
                         TiltMasks[z]?.FreeDevice();
 
@@ -10705,7 +10705,7 @@ namespace Warp
 
         static int[][] DirtErasureLabelsBuffer = new int[GPU.GetDeviceCount()][];
         static Image[] DirtErasureMaskBuffer = new Image[GPU.GetDeviceCount()];
-        public static void EraseDirt(Image tiltImage, Image tiltMask)
+        public static void EraseDirt(Image tiltImage, Image tiltMask, float noiseScale = 0.1f)
         {
             if (tiltMask == null)
                 return;
@@ -10753,12 +10753,14 @@ namespace Warp
 
                 float[] NeighborhoodIntensities = Helper.IndexedSubset(ImageData, component.NeighborhoodIndices);
                 float2 MeanStd = MathHelper.MeanAndStd(NeighborhoodIntensities);
+                float ComponentMean = MeanStd.X;
+                float ComponentStd = MeanStd.Y; 
 
                 foreach (int id in component.ComponentIndices)
-                    ImageData[id] = RandN.NextSingle(MeanStd.X, MeanStd.Y * 0.1f);
+                    ImageData[id] = RandN.NextSingle(ComponentMean, ComponentStd * noiseScale);
 
                 foreach (int id in component.NeighborhoodIndices)
-                    ImageData[id] = MathHelper.Lerp(ImageData[id], RandN.NextSingle(MeanStd.X, MeanStd.Y * 0.1f), MaskSmoothData[id]);
+                    ImageData[id] = MathHelper.Lerp(ImageData[id], RandN.NextSingle(ComponentMean, ComponentStd * noiseScale), MaskSmoothData[id]);
             }
         }
 
