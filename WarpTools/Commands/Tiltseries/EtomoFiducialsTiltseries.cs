@@ -15,18 +15,13 @@ namespace WarpTools.Commands
     [CommandRunner(typeof(EtomoFiducialsTiltseries))]
     class EtomoFiducialsTiltseriesOptions : DistributedOptions
     {
-        [Option("angpix",
-            HelpText =
-                "Rescale tilt images to this pixel size; normally 10–15 for cryo data; leave out to keep the original pixel size")]
+        [Option("angpix", HelpText = "Rescale tilt images to this pixel size; normally 10–15 for cryo data; leave out to keep the original pixel size")]
         public double? AngPix { get; set; }
 
-        [Option("mask",
-            HelpText = "Apply mask to each image if available; masked areas will be filled with Gaussian noise")]
+        [Option("mask", HelpText = "Apply mask to each image if available; masked areas will be filled with Gaussian noise")]
         public bool ApplyMask { get; set; }
 
-        [Option("min_fov", Default = 0.0,
-            HelpText =
-                "Disable tilts that contain less than this fraction of the tomogram's field of view due to excessive shifts")]
+        [Option("min_fov", Default = 0.0, HelpText = "Disable tilts that contain less than this fraction of the tomogram's field of view due to excessive shifts")]
         public double MinFOV { get; set; }
 
         [Option("initial_axis", HelpText = "Override initial tilt axis angle with this value")]
@@ -35,8 +30,8 @@ namespace WarpTools.Commands
         [Option("do_axis_search", HelpText = "Fit a new tilt axis angle for the whole dataset")]
         public bool DoAxisAngleSearch { get; set; }
         
-        [Option("fiducial_size", HelpText = "size of gold fiducials in nanometers")]
-        public double? FiducialSizeNanometers { get; set; }
+        [Option("fiducial_size", Required = true, HelpText = "size of gold fiducials in nanometers")]
+        public double FiducialSizeNanometers { get; set; }
         
         [Option("n_beads_target", Default = 50, HelpText = "target number of beads to find in IMOD")]
         public double TargetNBeads { get; set; }
@@ -68,27 +63,19 @@ namespace WarpTools.Commands
             if (!Helper.ExeutableIsOnPath("batchruntomo"))
                 throw new Exception("IMOD program batchruntomo not found on PATH");
 
-            if (!CLI.FiducialSizeNanometers.HasValue)
-                throw new Exception("--fiducial_size must be passed at the CLI");
-
             #endregion
 
             #region Create processing options
 
-            var OptionsStack =
-                (ProcessingOptionsTomoStack)Options.FillTomoProcessingBase(new ProcessingOptionsTomoStack());
+            var OptionsStack = (ProcessingOptionsTomoStack)Options.FillTomoProcessingBase(new ProcessingOptionsTomoStack());
             OptionsStack.ApplyMask = CLI.ApplyMask;
             OptionsStack.BinTimes = (decimal)Math.Log(CLI.AngPix.Value / (double)Options.Import.PixelSize, 2.0);
 
-            var OptionsImport =
-                (ProcessingOptionsTomoImportAlignments)Options.FillTomoProcessingBase(
-                    new ProcessingOptionsTomoImportAlignments());
+            var OptionsImport = (ProcessingOptionsTomoImportAlignments)Options.FillTomoProcessingBase(new ProcessingOptionsTomoImportAlignments());
             OptionsImport.MinFOV = (decimal)CLI.MinFOV;
             OptionsImport.BinTimes = OptionsStack.BinTimes;
 
-            var OptionsEtomo =
-                (ProcessingOptionsTomoEtomoFiducials)Options.FillTomoProcessingBase(
-                    new ProcessingOptionsTomoEtomoFiducials());
+            var OptionsEtomo = (ProcessingOptionsTomoEtomoFiducials)Options.FillTomoProcessingBase(new ProcessingOptionsTomoEtomoFiducials());
             OptionsEtomo.TiltStackAngPix = (decimal)CLI.AngPix;
             OptionsEtomo.FiducialSizeNanometers = (decimal)CLI.FiducialSizeNanometers;
             OptionsEtomo.TargetNBeads = (decimal)CLI.TargetNBeads;
