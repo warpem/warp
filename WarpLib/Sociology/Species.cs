@@ -2131,7 +2131,10 @@ namespace Warp.Sociology
             HalfMap1Reconstruction[0] = null;
             HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 2) / (HalfMap1.Dims.X / 2), true);
             if (Helical != null)
-                HalfMap1 = HalfMap1.AsHelicalSymmetrized(Helical.Twist, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap1.Dims.X / 2).AndDisposeParent();
+            {
+                HalfMap1 = HalfMap1.AsHelicalSymmetrized(Helical.Twist * Helper.ToRad, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap1.Dims.X / 2).AndDisposeParent();
+                HalfMap1.Multiply(Helical.Units);
+            }
             HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
             //if (Helical != null)
             //    HalfMap1.MaskRectangularly(new int3(HalfMap1.Dims.X, HalfMap1.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
@@ -2147,7 +2150,10 @@ namespace Warp.Sociology
             HalfMap2Reconstruction[0] = null;
             HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 2) / (HalfMap2.Dims.X / 2), true);
             if (Helical != null)
-                HalfMap2 = HalfMap2.AsHelicalSymmetrized(Helical.Twist, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap2.Dims.X / 2).AndDisposeParent();
+            {
+                HalfMap2 = HalfMap2.AsHelicalSymmetrized(Helical.Twist * Helper.ToRad, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap2.Dims.X / 2).AndDisposeParent();
+                HalfMap2.Multiply(Helical.Units);
+            }
             HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
             //if (Helical != null)
             //    HalfMap2.MaskRectangularly(new int3(HalfMap2.Dims.X, HalfMap2.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
