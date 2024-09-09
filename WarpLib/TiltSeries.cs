@@ -2638,7 +2638,8 @@ namespace Warp
                     float HeightNoMargin = ImageDimensionsPhysical.Y - BinnedAngPix - Margin;
                     
                     // Define threshold for valid tilts (80%)
-                    int minValidTilts = (int)(NTilts * 0.8f);
+                    int NUsedTilts = UseTilt.Sum(b => b ? 1 : 0);
+                    int minValidTilts = (int)(NUsedTilts * 0.8f);
                     
                     for ( int z = 0; z < DimsUndersampled.Z; z++)
                     {
@@ -2657,9 +2658,11 @@ namespace Warp
                                 int i = p * NTilts + t;
 
                                 if (UseTilt[t] &&
-                                    (ImagePositions[i].X < Margin || ImagePositions[i].Y < Margin ||
-                                    ImagePositions[i].X > WidthNoMargin ||
-                                    ImagePositions[i].Y > HeightNoMargin))
+                                    (ImagePositions[i].X >= Margin || 
+                                     ImagePositions[i].Y >= Margin ||
+                                     ImagePositions[i].X <= WidthNoMargin ||
+                                     ImagePositions[i].Y <= HeightNoMargin)
+                                    )
                                 {
                                     validTiltCount++;
                                 }
