@@ -2636,7 +2636,10 @@ namespace Warp
 
                     float WidthNoMargin = ImageDimensionsPhysical.X - BinnedAngPix - Margin;
                     float HeightNoMargin = ImageDimensionsPhysical.Y - BinnedAngPix - Margin;
-
+                    
+                    // Define threshold for valid tilts (80%)
+                    int minValidTilts = (int)(NTilts * 0.8f);
+                    
                     for ( int z = 0; z < DimsUndersampled.Z; z++)
                     {
                         float ZCoord = (z + 0.5f) * Undersample * BinnedAngPix;
@@ -2647,6 +2650,8 @@ namespace Warp
 
                         for (int p = 0; p < VolumePositions.Length; p++)
                         {
+                            int validTiltCount = 0;
+                            
                             for (int t = 0; t < NTilts; t++)
                             {
                                 int i = p * NTilts + t;
@@ -2656,9 +2661,13 @@ namespace Warp
                                     ImagePositions[i].X > WidthNoMargin ||
                                     ImagePositions[i].Y > HeightNoMargin))
                                 {
-                                    OccupancyMask[z][p] = 0;
-                                    break;
+                                    validTiltCount++;
                                 }
+                            }
+
+                            if (validTiltCount < minValidTilts)
+                            {
+                                OccupancyMask[z][p] = 0;
                             }
                         }
                     }
