@@ -103,6 +103,9 @@ Showing all available options for command ts_stack:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
@@ -195,6 +198,9 @@ Showing all available options for command ts_aretomo:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
@@ -240,6 +246,8 @@ Showing all available options for command ts_etomo_fiducials:
 
 --fiducial_size           size of gold fiducials in nanometers
 
+--n_beads_target          Default: 50. target number of beads to find in IMOD
+
 --delete_intermediate     Delete tilt series stacks generated for ETomo
 
 
@@ -270,6 +278,9 @@ Showing all available options for command ts_etomo_fiducials:
 --output_processing       Specifies an alternative directory to save processing 
                           results. Overrides the processing directory in the .se
                           ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 -----------------------Advanced remote work distribution------------------------
@@ -348,12 +359,130 @@ Showing all available options for command ts_etomo_patches:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
 --workers                 List of remote workers to be used instead of locally s
                           pawned processes. Formatted as hostname:port, separate
                           d by spaces
+
+
+```
+
+
+## ts_import_alignments
+
+```
+WarpTools - a collection of tools for EM data pre-processing
+Version 2.0.0
+
+Showing all available options for command ts_import_alignments:
+
+------------------------------Data import settings------------------------------
+
+--settings                REQUIRED Path to Warp's .settings file, typically loca
+                          ted in the processing folder. Default file name is 'pr
+                          evious.settings'.
+
+
+--------------------------------------------------------------------------------
+
+--alignments              REQUIRED Path to a folder containing one sub-folder pe
+                          r tilt series with alignment results from IMOD or AreT
+                          omo
+
+--alignment_angpix        REQUIRED Pixel size (in Angstrom) of the images used t
+                          o create the alignments (used to convert the alignment
+                           shifts from pixels to Angstrom)
+
+--min_fov                 Default: 0. Disable tilts that contain less than this 
+                          fraction of the tomogram's field of view due to excess
+                          ive shifts
+
+
+----------------------Advanced data import & flow options-----------------------
+
+--input_data              Overrides the list of input files specified in the .se
+                          ttings file. Accepts a space-separated list of files, 
+                          wildcard patterns, or .txt files with one file name pe
+                          r line.
+
+--input_data_recursive    Enables recursive search for files matching the wildca
+                          rd pattern specified in --input_data. Only applicable 
+                          when processing and directories are separate. All file
+                           names must be unique.
+
+--input_processing        Specifies an alternative directory containing pre-proc
+                          essed results. Overrides the processing directory in t
+                          he .settings file.
+
+--output_processing       Specifies an alternative directory to save processing 
+                          results. Overrides the processing directory in the .se
+                          ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
+
+```
+
+
+## ts_defocus_hand
+
+```
+WarpTools - a collection of tools for EM data pre-processing
+Version 2.0.0
+
+Showing all available options for command ts_defocus_hand:
+
+------------------------------Data import settings------------------------------
+
+--settings                REQUIRED Path to Warp's .settings file, typically loca
+                          ted in the processing folder. Default file name is 'pr
+                          evious.settings'.
+
+
+--------------------------------------------------------------------------------
+
+--check                   Only check the defocus handedness, but don't set anyth
+                          ing
+
+--set_auto                Check the defocus handedness and set the determined va
+                          lue for all tilt series
+
+--set_flip                Set handedness to 'flip' for all tilt series
+
+--set_noflip              Set handedness to 'no flip' for all tilt series
+
+--set_switch              Switch whatever handedness value each tilt series has 
+                          to the opposite value
+
+
+----------------------Advanced data import & flow options-----------------------
+
+--input_data              Overrides the list of input files specified in the .se
+                          ttings file. Accepts a space-separated list of files, 
+                          wildcard patterns, or .txt files with one file name pe
+                          r line.
+
+--input_data_recursive    Enables recursive search for files matching the wildca
+                          rd pattern specified in --input_data. Only applicable 
+                          when processing and directories are separate. All file
+                           names must be unique.
+
+--input_processing        Specifies an alternative directory containing pre-proc
+                          essed results. Overrides the processing directory in t
+                          he .settings file.
+
+--output_processing       Specifies an alternative directory to save processing 
+                          results. Overrides the processing directory in the .se
+                          ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 ```
@@ -435,6 +564,9 @@ Showing all available options for command ts_ctf:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
@@ -496,8 +628,9 @@ Showing all available options for command ts_reconstruct:
 
 --dont_normalize          Don't normalize the tilt images
 
---dont_mask               Don't apply a mask to each tilt image if available; ma
-                          sked areas will be filled with Gaussian noise
+--dont_mask               Don't apply a mask to each tilt image if available; ot
+                          herwise, masked areas will be filled with Gaussian noi
+                          se
 
 --dont_overwrite          Don't overwrite existing tomograms in output directory
 
@@ -536,6 +669,9 @@ Showing all available options for command ts_reconstruct:
 --output_processing       Specifies an alternative directory to save processing 
                           results. Overrides the processing directory in the .se
                           ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 -----------------------Advanced remote work distribution------------------------
@@ -587,6 +723,11 @@ Showing all available options for command ts_template_match:
                           r search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and s
                           o on
 
+--tilt_range              Limit the range of angles between the reference's Z ax
+                          is and the tomogram's XY plane to plus/minus this valu
+                          e, in °; useful for matching filaments lying flat in t
+                          he XY plane
+
 --batch_angles            Default: 32. How many orientations to evaluate at once
                           ; memory consumption scales linearly with this; higher
                            than 32 probably won't lead to speed-ups
@@ -599,9 +740,18 @@ Showing all available options for command ts_template_match:
 
 --dont_normalize          Don't set score distribution to median = 0, stddev = 1
 
---dont_whiten             Don't perform spectral whitening; this can help when t
-                          he alignments are poor by up-weighting lower frequenci
-                          es
+--whiten                  Perform spectral whitening to give higher-resolution i
+                          nformation more weight; this can help when the alignme
+                          nts are already good and you need more selective match
+                          ing
+
+--lowpass                 Default: 1. Gaussian low-pass filter to be applied to 
+                          template and tomogram, in fractions of Nyquist; 1.0 = 
+                          no low-pass, <1.0 = low-pass
+
+--lowpass_sigma           Default: 0.1. Sigma (i.e. fall-off) of the Gaussian lo
+                          w-pass filter, in fractions of Nyquist; larger value =
+                           slower fall-off
 
 --reuse_results           Reuse correlation volumes from a previous run if avail
                           able, only extract peak positions
@@ -642,6 +792,9 @@ Showing all available options for command ts_template_match:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
@@ -653,55 +806,116 @@ Showing all available options for command ts_template_match:
 ```
 
 
-## ts_import_alignments
+## ts_export_particles
 
 ```
 WarpTools - a collection of tools for EM data pre-processing
 Version 2.0.0
 
-Showing all available options for command ts_import_alignments:
+Showing all available options for command ts_export_particles:
 
 ------------------------------Data import settings------------------------------
 
---settings                REQUIRED Path to Warp's .settings file, typically loca
-                          ted in the processing folder. Default file name is 'pr
-                          evious.settings'.
+--settings                 REQUIRED Path to Warp's .settings file, typically loc
+                           ated in the processing folder. Default file name is '
+                           previous.settings'.
 
 
---------------------------------------------------------------------------------
+----------------------STAR files with particle coordinates----------------------
 
---alignments              REQUIRED Path to a folder containing one sub-folder pe
-                          r tilt series with alignment results from IMOD or AreT
-                          omo
+--input_star               Single STAR file containing particle poses to be expo
+                           rted
 
---alignment_angpix        REQUIRED Pixel size (in Angstrom) of the images used t
-                          o create the alignments (used to convert the alignment
-                           shifts from pixels to Angstrom)
+--input_directory          Directory containing multiple STAR files each with pa
+                           rticle poses to be exported
 
---min_fov                 Default: 0. Disable tilts that contain less than this 
-                          fraction of the tomogram's field of view due to excess
-                          ive shifts
+--input_pattern            Default: *.star. Wildcard pattern to search for from 
+                           the input directory
+
+
+-------------------------------Coordinate scaling-------------------------------
+
+--coords_angpix            Pixel size for particles coordinates in input star fi
+                           le(s)
+
+--normalized_coords        Are coordinates normalised to the range [0, 1] (e.g. 
+                           from Warp's template matching)
+
+
+-------------------------------------Output-------------------------------------
+
+--output_star              REQUIRED STAR file for exported particles
+
+--output_angpix            REQUIRED Pixel size at which to export particles
+
+--box                      REQUIRED Output has this many pixels/voxels on each s
+                           ide
+
+--diameter                 REQUIRED Particle diameter in angstroms
+
+--relative_output_paths    Make paths in output STAR file relative to the locati
+                           on of the STAR file. They will be relative to the wor
+                           king directory otherwise.
+
+
+-------------------Export type (REQUIRED, mutually exclusive)-------------------
+
+--2d                       Output particles as 2d image series centered on the p
+                           article (particle series)
+
+--3d                       Output particles as 3d images (subtomograms)
+
+
+---------------------------------Expert options---------------------------------
+
+--dont_normalize_input     Don't normalize the entire field of view in input 2D 
+                           images after high-pass filtering
+
+--dont_normalize_3d        Don't normalize output particle volumes (only works w
+                           ith --3d)
+
+--n_tilts                  Number of tilt images to include in the output, image
+                           s with the lowest overall exposure will be included f
+                           irst
+
+
+-------------------------------Work distribution--------------------------------
+
+--device_list              Space-separated list of GPU IDs to use for processing
+                           . Default: all GPUs in the system
+
+--perdevice                Default: 1. Number of processes per GPU
 
 
 ----------------------Advanced data import & flow options-----------------------
 
---input_data              Overrides the list of input files specified in the .se
-                          ttings file. Accepts a space-separated list of files, 
-                          wildcard patterns, or .txt files with one file name pe
-                          r line.
+--input_data               Overrides the list of input files specified in the .s
+                           ettings file. Accepts a space-separated list of files
+                           , wildcard patterns, or .txt files with one file name
+                            per line.
 
---input_data_recursive    Enables recursive search for files matching the wildca
-                          rd pattern specified in --input_data. Only applicable 
-                          when processing and directories are separate. All file
-                           names must be unique.
+--input_data_recursive     Enables recursive search for files matching the wildc
+                           ard pattern specified in --input_data. Only applicabl
+                           e when processing and directories are separate. All f
+                           ile names must be unique.
 
---input_processing        Specifies an alternative directory containing pre-proc
-                          essed results. Overrides the processing directory in t
-                          he .settings file.
+--input_processing         Specifies an alternative directory containing pre-pro
+                           cessed results. Overrides the processing directory in
+                            the .settings file.
 
---output_processing       Specifies an alternative directory to save processing 
-                          results. Overrides the processing directory in the .se
-                          ttings file.
+--output_processing        Specifies an alternative directory to save processing
+                            results. Overrides the processing directory in the .
+                           settings file.
+
+--input_norawdata          Ignore the existence of raw data and look for XML met
+                           adata in the processing directory instead.
+
+
+-----------------------Advanced remote work distribution------------------------
+
+--workers                  List of remote workers to be used instead of locally 
+                           spawned processes. Formatted as hostname:port, separa
+                           ted by spaces
 
 
 ```
@@ -759,6 +973,9 @@ Showing all available options for command ts_eval_model:
 --output_processing       Specifies an alternative directory to save processing 
                           results. Overrides the processing directory in the .se
                           ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 ```

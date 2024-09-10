@@ -106,6 +106,9 @@ Showing all available options for command move_data:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 ```
 
@@ -192,6 +195,9 @@ Showing all available options for command filter_quality:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 ```
 
@@ -241,6 +247,9 @@ Showing all available options for command change_selection:
 --output_processing       Specifies an alternative directory to save processing 
                           results. Overrides the processing directory in the .se
                           ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 ```
@@ -303,6 +312,9 @@ Showing all available options for command threshold_picks:
 --output_processing       Specifies an alternative directory to save processing 
                           results. Overrides the processing directory in the .se
                           ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 ```
