@@ -101,6 +101,9 @@ Showing all available options for command fs_motion_and_ctf:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
@@ -181,6 +184,9 @@ Showing all available options for command fs_motion:
                           results. Overrides the processing directory in the .se
                           ttings file.
 
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
 
 -----------------------Advanced remote work distribution------------------------
 
@@ -192,96 +198,180 @@ Showing all available options for command fs_motion:
 ```
 
 
-## fs_ctffs_boxnet_infer
+## fs_ctf
 
 ```
 WarpTools - a collection of tools for EM data pre-processing
 Version 2.0.0
 
-Unknown command, showing all available commands:
+Showing all available options for command fs_ctf:
 
-------------------------------------General-------------------------------------
+------------------------------Data import settings------------------------------
 
-change_selection         Change the manual selection status (selected | deselect
-                         ed | null) for every item
-
-create_settings          Create data import settings
-
-filter_quality           Filter frame/tilt series by various quality metrics, or
-                          just print out histograms
-
-move_data                Changes the location of raw data in XML metadata; use i
-                         t when the raw data moves, or you switch between Window
-                         s and Linux
-
-threshold_picks          Apply a score threshold to particles picked through tem
-                         plate-matching from tilt or frame series
+--settings                REQUIRED Path to Warp's .settings file, typically loca
+                          ted in the processing folder. Default file name is 'pr
+                          evious.settings'.
 
 
-----------------------------------Frame series----------------------------------
+--------------------------------------------------------------------------------
 
-fs_motion_and_ctf        Estimate motion in frame series, produce aligned averag
-                         es, estimate CTF – all in one go!
+--window                  Default: 512. Patch size for CTF estimation in binned 
+                          pixels
 
-fs_motion                Estimate motion in frame series, produce aligned averag
-                         es
+--range_min               Default: 30. Minimum resolution in Angstrom to conside
+                          r in fit
 
-fs_boxnet_infer          Run a trained BoxNet model on frameseries averages, pro
-                         ducing particle positions and masks
+--range_max               Default: 4. Maximum resolution in Angstrom to consider
+                           in fit
 
-fs_boxnet_train          (Re)train a BoxNet model on image/label pairs, producin
-                         g a new model
+--defocus_min             Default: 0.5. Minimum defocus value in um to explore d
+                          uring fitting
 
-fs_ctf                   Estimate CTF parameters in frame series
+--defocus_max             Default: 5. Maximum defocus value in um to explore dur
+                          ing fitting
 
-fs_export_micrographs    Create aligned averages or half-averages from frame ser
-                         ies with previously estimated motion
+--voltage                 Default: 300. Acceleration voltage of the microscope i
+                          n kV
 
-fs_export_particles      Extract particles from tilt series
+--cs                      Default: 2.7. Spherical aberration of the microscope i
+                          n mm
+
+--amplitude               Default: 0.07. Amplitude contrast of the sample, usual
+                          ly 0.07-0.10 for cryo
+
+--fit_phase               Fit the phase shift of a phase plate
+
+--use_sum                 Use the movie average spectrum instead of the average 
+                          of individual frames' spectra. Can help in the absence
+                           of an energy filter, or when signal is low.
+
+--grid                    Resolution of the defocus model grid in X, Y, and temp
+                          oral dimensions, separated by 'x': e.g. 5x5x40; empty 
+                          = auto; Z > 1 is purely experimental
 
 
---------------------------------------Help--------------------------------------
+-------------------------------Work distribution--------------------------------
 
-helpgpt                  Get help from ChatGPT; requires an OpenAI API key store
-                         d in ~/openai.key
+--device_list             Space-separated list of GPU IDs to use for processing.
+                           Default: all GPUs in the system
+
+--perdevice               Default: 1. Number of processes per GPU
 
 
-----------------------------------Tilt series-----------------------------------
+----------------------Advanced data import & flow options-----------------------
 
-ts_aretomo               Create tilt series stacks and run AreTomo2 to obtain ti
-                         lt series alignments
+--input_data              Overrides the list of input files specified in the .se
+                          ttings file. Accepts a space-separated list of files, 
+                          wildcard patterns, or .txt files with one file name pe
+                          r line.
 
-ts_ctf                   Estimate CTF parameters in frame series
+--input_data_recursive    Enables recursive search for files matching the wildca
+                          rd pattern specified in --input_data. Only applicable 
+                          when processing and directories are separate. All file
+                           names must be unique.
 
-ts_defocus_hand          Check and/or set defocus handedness for all tilt series
+--input_processing        Specifies an alternative directory containing pre-proc
+                          essed results. Overrides the processing directory in t
+                          he .settings file.
 
-ts_etomo_fiducials       Create tilt series stacks and run Etomo fiducial tracki
-                         ng to obtain tilt series alignments
+--output_processing       Specifies an alternative directory to save processing 
+                          results. Overrides the processing directory in the .se
+                          ttings file.
 
-ts_etomo_patches         Create tilt series stacks and run Etomo patch tracking 
-                         to obtain tilt series alignments
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
-ts_eval_model            Map 3D positions to sets of 2D image coordinates consid
-                         ering a tilt series' deformation model
 
-ts_export_particles      Export particles as 3D volumes or 2D image series.
+-----------------------Advanced remote work distribution------------------------
 
-ts_import_alignments     Import tilt series alignments from IMOD or AreTomo
+--workers                 List of remote workers to be used instead of locally s
+                          pawned processes. Formatted as hostname:port, separate
+                          d by spaces
 
-ts_import                Create .tomostar files based on a combination of MDOC f
-                         iles, aligned frame series, and optional tilt series al
-                         ignments from IMOD or AreTomo
 
-ts_reconstruct           Reconstruct tomograms for various tasks and, optionally
-                         , half-tomograms for denoiser training
+```
 
-ts_stack                 Create tilt series stacks, i.e. put all of a series' ti
-                         lt images in one .st file, to be used with IMOD, AreTom
-                         o etc.
 
-ts_template_match        Match previously reconstructed tomograms against a 3D t
-                         emplate, producing a list of the highest-scoring matche
-                         s
+## fs_boxnet_infer
+
+```
+WarpTools - a collection of tools for EM data pre-processing
+Version 2.0.0
+
+Showing all available options for command fs_boxnet_infer:
+
+------------------------------Data import settings------------------------------
+
+--settings                REQUIRED Path to Warp's .settings file, typically loca
+                          ted in the processing folder. Default file name is 'pr
+                          evious.settings'.
+
+
+--------------------------------------------------------------------------------
+
+--model                   REQUIRED Path to the .pt file containing the model wei
+                          ghts
+
+--perprocess              Default: 4. Number of threads per process; the model i
+                          s loaded only once per process and oversubscription ca
+                          n save memory
+
+--diameter                Default: 100. Approximate particle diameter in Angstro
+                          m
+
+--threshold               Default: 0.5. Picking score threshold, between 0.0 and
+                           1.0
+
+--distance                Default: 0. Minimum distance in Angstrom to maintain b
+                          etween picked positions and masked pixels
+
+--negative                Expect negative stain-like contrast (mass = bright)
+
+--suffix_star             Override the suffix added to the particle STAR file; l
+                          eave empty to use model name
+
+--patchsize               Default: 512. Size of the BoxNet input window that the
+                           model was trained with, a multiple of 256; the defaul
+                          t for models shipped with Warp is 512
+
+
+-------------------------------Work distribution--------------------------------
+
+--device_list             Space-separated list of GPU IDs to use for processing.
+                           Default: all GPUs in the system
+
+--perdevice               Default: 1. Number of processes per GPU
+
+
+----------------------Advanced data import & flow options-----------------------
+
+--input_data              Overrides the list of input files specified in the .se
+                          ttings file. Accepts a space-separated list of files, 
+                          wildcard patterns, or .txt files with one file name pe
+                          r line.
+
+--input_data_recursive    Enables recursive search for files matching the wildca
+                          rd pattern specified in --input_data. Only applicable 
+                          when processing and directories are separate. All file
+                           names must be unique.
+
+--input_processing        Specifies an alternative directory containing pre-proc
+                          essed results. Overrides the processing directory in t
+                          he .settings file.
+
+--output_processing       Specifies an alternative directory to save processing 
+                          results. Overrides the processing directory in the .se
+                          ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
+
+
+-----------------------Advanced remote work distribution------------------------
+
+--workers                 List of remote workers to be used instead of locally s
+                          pawned processes. Formatted as hostname:port, separate
+                          d by spaces
 
 
 ```
@@ -392,6 +482,9 @@ Showing all available options for command fs_export_micrographs:
 --output_processing       Specifies an alternative directory to save processing 
                           results. Overrides the processing directory in the .se
                           ttings file.
+
+--input_norawdata         Ignore the existence of raw data and look for XML meta
+                          data in the processing directory instead.
 
 
 -----------------------Advanced remote work distribution------------------------
@@ -515,6 +608,9 @@ Showing all available options for command fs_export_particles:
 --output_processing        Specifies an alternative directory to save processing
                             results. Overrides the processing directory in the .
                            settings file.
+
+--input_norawdata          Ignore the existence of raw data and look for XML met
+                           adata in the processing directory instead.
 
 
 -----------------------Advanced remote work distribution------------------------

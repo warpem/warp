@@ -17,7 +17,8 @@ def generate_docs(command, subcommands, output_file):
             f.write("```\n")
             f.write(help_text)
             f.write("```\n\n\n")
-        
+        return
+    
     for subcommand in subcommands:
         result = subprocess.run([f'{command}', f'{subcommand}', '--help'], capture_output=True, text=True)
         help_text = result.stdout
