@@ -32,7 +32,7 @@ cli_programs_general = [
 cli_programs_frameseries = [
     "fs_motion_and_ctf",
     "fs_motion",
-    "fs_ctf"
+    "fs_ctf",
     "fs_boxnet_infer",
     "fs_boxnet_train",
     "fs_export_micrographs",
