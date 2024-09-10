@@ -623,7 +623,7 @@ namespace Warp
 
                 Supersample = 1,
 
-                KeepOnlyFullVoxels = true,
+                MaxMissingTilts = 2,
                 NResults = (int)Tasks.TomoMatchNResults,
 
                 ReuseCorrVolumes = Tasks.ReuseCorrVolumes,

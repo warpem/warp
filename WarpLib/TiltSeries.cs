@@ -2614,7 +2614,7 @@ namespace Warp
 
                 #region Zero out correlation values not fully covered by desired number of tilts
 
-                if (options.KeepOnlyFullVoxels)
+                if (options.MaxMissingTilts >= 0)
                 {
                     progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Trimming...");
 
@@ -2647,6 +2647,8 @@ namespace Warp
 
                         for (int p = 0; p < VolumePositions.Length; p++)
                         {
+                            int Missing = 0;
+
                             for (int t = 0; t < NTilts; t++)
                             {
                                 int i = p * NTilts + t;
@@ -2656,8 +2658,13 @@ namespace Warp
                                     ImagePositions[i].X > WidthNoMargin ||
                                     ImagePositions[i].Y > HeightNoMargin))
                                 {
-                                    OccupancyMask[z][p] = 0;
-                                    break;
+                                    Missing++;
+
+                                    if (Missing > options.MaxMissingTilts)
+                                    {
+                                        OccupancyMask[z][p] = 0;
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -11695,7 +11702,7 @@ namespace Warp
         public decimal TemplateFraction { get; set; }
 
         [WarpSerializable]
-        public bool KeepOnlyFullVoxels { get; set; }
+        public int MaxMissingTilts { get; set; }
 
         [WarpSerializable]
         public bool WhitenSpectrum { get; set; }

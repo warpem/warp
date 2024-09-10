@@ -67,6 +67,9 @@ namespace WarpTools.Commands
         [Option("lowpass_sigma", Default = 0.1, HelpText = "Sigma (i.e. fall-off) of the Gaussian low-pass filter, in fractions of Nyquist; larger value = slower fall-off")]
         public double LowpassSigma { get; set; }
 
+        [Option("max_missing_tilts", Default = 2, HelpText = "Dismiss positions not covered by at least this many tilts; set to -1 to disable position culling")]
+        public int MaxMissingTilts { get; set; }
+
         [Option("reuse_results", HelpText = "Reuse correlation volumes from a previous run if available, only extract peak positions")]
         public bool ReuseResults { get; set; }
 
@@ -175,7 +178,7 @@ namespace WarpTools.Commands
             OptionsMatch.TiltRange = CLI.TiltRange != null ? (decimal)CLI.TiltRange.Value : -1;
             OptionsMatch.SubVolumeSize = CLI.SubVolumeSize;
             OptionsMatch.Supersample = 1;
-            OptionsMatch.KeepOnlyFullVoxels = true;
+            OptionsMatch.MaxMissingTilts = CLI.MaxMissingTilts;
             OptionsMatch.NormalizeScores = !CLI.DontNormalizeScores;
             OptionsMatch.Lowpass = (decimal)CLI.Lowpass;
             OptionsMatch.LowpassSigma = (decimal)CLI.LowpassSigma;
