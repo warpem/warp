@@ -10,7 +10,7 @@ def generate_docs(command, subcommands, output_file):
     output_file.unlink(missing_ok=True)
     if subcommands is None:
         result = subprocess.run([f'{command}', '--help'], capture_output=True, text=True)
-        help_text = result.stdout
+        help_text = result.stderr
         
         with open(output_file, 'a') as f:
             f.write(f"## {command}\n\n")
@@ -21,7 +21,7 @@ def generate_docs(command, subcommands, output_file):
     
     for subcommand in subcommands:
         result = subprocess.run([f'{command}', f'{subcommand}', '--help'], capture_output=True, text=True)
-        help_text = result.stdout
+        help_text = result.stderr
 
         with open(output_file, 'a') as f:
             f.write(f"## {subcommand}\n\n")
