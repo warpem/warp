@@ -44,6 +44,11 @@ nav:
         - Custom Tilt Series Alignment: reference/warptools/custom_tilt_series_alignments.md
         - Advanced Data Flow: reference/warptools/advanced_data_flow.md
         - Processing Tilt Series Stacks: reference/warptools/processing_tilt_series_stacks.md
+        - Tomogram Denoising: reference/warptools/tomogram_denoising.md
+    - MTools/MCore:
+        - API Reference:
+          - MTools: reference/mtools/api/mtools.md
+          - MCore: reference/mtools/api/mcore.md
     - BoxNet:
         Frame Series Training: reference/boxnet/fs_training.md
   - 📜 Papers: papers.md
