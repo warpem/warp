@@ -12,13 +12,13 @@
         <meta name="author" content="Dimitry Tegunov">
       
       
-        <link rel="canonical" href="https://warpem.com/user_guide/warp/quick_start_warp_tilt_series/">
+        <link rel="canonical" href="https://warpem.com/reference/warptools/tomogram_denoising/">
       
       
-        <link rel="prev" href="../quick_start_warp_frame_series/">
+        <link rel="prev" href="../processing_tilt_series_stacks/">
       
       
-        <link rel="next" href="../../m/quick_start_m/">
+        <link rel="next" href="../../mtools/api/mtools/">
       
       
       <link rel="icon" href="../../../assets/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Quick Start: Tilt Series - Warp, M and friends</title>
+        <title>Tomogram Denoising - Warp, M and friends</title>
       
     
     
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#quick-start-tilt-series" class="md-skip">
+        <a href="#denoising-tomograms-in-warptools" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Quick Start: Tilt Series
+              Tomogram Denoising
             
           </span>
         </div>
@@ -224,13 +224,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../overview/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../user_guide/overview/" class="md-tabs__link">
           
   
   📘 User Guides
@@ -244,17 +242,21 @@
         
   
   
+    
+  
   
     
     
       
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../reference/warp/interface/interface_overview/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../warp/interface/interface_overview/" class="md-tabs__link">
           
   
   🗄️ Reference
@@ -502,30 +504,27 @@
       
   
   
-    
   
   
-  
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -536,7 +535,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             📘 User Guides
@@ -550,7 +549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../overview/" class="md-nav__link">
+      <a href="../../../user_guide/overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -568,30 +567,27 @@
                 
   
   
-    
   
   
-  
     
     
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
         
           
-          
         
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
         
           
-          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -602,7 +598,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_2">
             <span class="md-nav__icon md-icon"></span>
             Desktop Warp
@@ -616,7 +612,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quick_start_warp_frame_series/" class="md-nav__link">
+      <a href="../../../user_guide/warp/quick_start_warp_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -634,30 +630,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Quick Start: Tilt Series
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../user_guide/warp/quick_start_warp_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -666,68 +642,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#tilt-movie-pre-processing" class="md-nav__link">
-    <span class="md-ellipsis">
-      Tilt movie pre-processing
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#export-tilt-series-stacks-for-imod" class="md-nav__link">
-    <span class="md-ellipsis">
-      Export tilt series stacks for IMOD
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Export tilt series stacks for IMOD">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#create-tomostar-files-from-imods-results" class="md-nav__link">
-    <span class="md-ellipsis">
-      Create TomoSTAR files from IMOD's results
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tilt-series-pre-processing" class="md-nav__link">
-    <span class="md-ellipsis">
-      Tilt series pre-processing
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -753,13 +667,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -768,7 +679,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
         
           
-          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -793,7 +704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../m/quick_start_m/" class="md-nav__link">
+      <a href="../../../user_guide/m/quick_start_m/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -827,13 +738,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -842,7 +750,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
         
           
-          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -867,7 +775,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../warptools/installation/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -888,7 +796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../warptools/quick_start_warptools_frame_series/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/quick_start_warptools_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -909,7 +817,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
+      <a href="../../../user_guide/warptools/quick_start_warptools_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -942,27 +850,30 @@
       
   
   
+    
   
   
+  
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -973,7 +884,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             🗄️ Reference
@@ -992,10 +903,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1004,7 +918,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_1" >
         
           
-          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1029,7 +943,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/interface/interface_overview/" class="md-nav__link">
+      <a href="../../warp/interface/interface_overview/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1050,7 +964,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/models/" class="md-nav__link">
+      <a href="../../warp/models/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1071,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/task_dialogs_frame_series/" class="md-nav__link">
+      <a href="../../warp/task_dialogs_frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1092,7 +1006,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warp/task_dialogs_tilt_series/" class="md-nav__link">
+      <a href="../../warp/task_dialogs_tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1126,10 +1040,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1138,7 +1055,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1163,7 +1080,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/m/particle_operations/" class="md-nav__link">
+      <a href="../../m/particle_operations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1189,27 +1106,30 @@
                 
   
   
+    
   
   
+  
     
     
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
         
           
+          
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1220,7 +1140,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             WarpTools
@@ -1276,7 +1196,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/api/general/" class="md-nav__link">
+      <a href="../api/general/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1297,7 +1217,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/api/frame_series/" class="md-nav__link">
+      <a href="../api/frame_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1318,7 +1238,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/api/tilt_series/" class="md-nav__link">
+      <a href="../api/tilt_series/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1347,7 +1267,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/environment_variables/" class="md-nav__link">
+      <a href="../environment_variables/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1368,7 +1288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/subsets/" class="md-nav__link">
+      <a href="../subsets/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1389,7 +1309,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/custom_tilt_series_alignments/" class="md-nav__link">
+      <a href="../custom_tilt_series_alignments/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1410,7 +1330,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/advanced_data_flow/" class="md-nav__link">
+      <a href="../advanced_data_flow/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1431,7 +1351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/warptools/processing_tilt_series_stacks/" class="md-nav__link">
+      <a href="../processing_tilt_series_stacks/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1449,10 +1369,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../reference/warptools/tomogram_denoising/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Tomogram Denoising
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1461,6 +1401,77 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#outline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Outline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generating-tomograms-from-half-sets-of-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generating tomograms from half sets of data
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Generating tomograms from half sets of data">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generating-even-and-odd-frame-series-averages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generating even and odd frame series averages
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generating-even-and-odd-tomograms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generating even and odd tomograms
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#training-and-applying-the-denoiser" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training and applying the denoiser
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1486,10 +1497,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1498,7 +1512,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1565,7 +1579,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/mtools/api/mtools/" class="md-nav__link">
+      <a href="../../mtools/api/mtools/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1586,7 +1600,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/mtools/api/mcore/" class="md-nav__link">
+      <a href="../../mtools/api/mcore/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1628,10 +1642,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1640,7 +1657,7 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
             
   
   <span class="md-ellipsis">
@@ -1665,7 +1682,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../reference/boxnet/fs_training/" class="md-nav__link">
+      <a href="../../boxnet/fs_training/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1801,37 +1818,37 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#tilt-movie-pre-processing" class="md-nav__link">
+  <a href="#outline" class="md-nav__link">
     <span class="md-ellipsis">
-      Tilt movie pre-processing
+      Outline
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#export-tilt-series-stacks-for-imod" class="md-nav__link">
+  <a href="#generating-tomograms-from-half-sets-of-data" class="md-nav__link">
     <span class="md-ellipsis">
-      Export tilt series stacks for IMOD
+      Generating tomograms from half sets of data
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Export tilt series stacks for IMOD">
+    <nav class="md-nav" aria-label="Generating tomograms from half sets of data">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#create-tomostar-files-from-imods-results" class="md-nav__link">
+  <a href="#generating-even-and-odd-frame-series-averages" class="md-nav__link">
     <span class="md-ellipsis">
-      Create TomoSTAR files from IMOD's results
+      Generating even and odd frame series averages
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#tilt-series-pre-processing" class="md-nav__link">
+  <a href="#generating-even-and-odd-tomograms" class="md-nav__link">
     <span class="md-ellipsis">
-      Tilt series pre-processing
+      Generating even and odd tomograms
     </span>
   </a>
   
@@ -1839,6 +1856,15 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#training-and-applying-the-denoiser" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training and applying the denoiser
+    </span>
+  </a>
   
 </li>
       
@@ -1860,167 +1886,50 @@
   
 
 
-<h1 id="quick-start-tilt-series">Quick Start: Tilt Series</h1>
-<p>Tilt series pre-processing in Warp will allow you to reach higher resolution for your
-sub-tomogram averages. However, unlike the pipeline for 2D data, the tilt series
-pipeline still has a few gaps. You will have to switch
-to <a href="http://bio3d.colorado.edu/imod/">IMOD</a> to perform the initial tilt series
-alignment (using patch tracking or gold fiducials). There is also no BoxNet-enabled
-on-the-fly particle picking yet, and you will have to use a rather slow template
-matching routine in offline mode. Metadata import is supported only for SerialEM
-currently. We intend to address these shortcomings in the near future.</p>
-<p>We will use data
-from <a href="https://www.ebi.ac.uk/pdbe/emdb/empiar/entry/10164/">EMPIAR-10164</a> in the
-screenshots below – in particular, the 5 tomograms used in <a href="http://europepmc.org/abstract/MED/28743638">Turonova <em>et
-al.</em> 2017</a>.</p>
-<h2 id="tilt-movie-pre-processing">Tilt movie pre-processing</h2>
-<p>The first step towards tilt series pre-processing in Warp is pre-processing the
-individual tilt movies in 2D mode. If you’re not familiar with that procedure or Warp’s
-basic interface features yet, please follow
-the <a href="../quick_start_warp_frame_series/">2D quick start guide</a>. Here are some
-important differences to traditional 2D movie processing for this step:</p>
-<ul>
-<li>The motion model shouldn’t have spatial resolution, as there is usually not enough
-  signal in a single tilt movie average for such fine alignment. Thus, the grid
-  resolution will be 1x1xN. A good value for N is the number of frames in the shortest
-  movie in case you’re using a collection scheme that increases the dose (and thus the
-  movie duration) at higher tilts. If you’re fractionating the dose in very fine steps
-  and collecting with a small pixel size, N can be lower than the frame count to avoid
-  overfitting.</li>
-<li>If you already processed the data with a different pipeline and don’t want to repeat
-  the tilt series alignments because the raw 2D movie alignments would change (e.g.,
-  compared to MotionCor2), you can also reuse those pre-aligned averages. Just
-  pre-process them instead of the movies. Obviously, the movement processing can be
-  turned off. Warp will estimate the CTF and generate averages, which are an exact copy
-  of the input images. This will feel very redundant, but the pipeline was written with
-  movies in mind and doesn’t have a special case for single-frame images.</li>
-<li>The CTF can usually be estimated well with a 2x2x1 defocus grid. You can use these
-  estimates to monitor data collection. However, the values will be re-estimated later
-  during tilt series pre-processing using a more robust model. Because of the low amount
-  of signal per tilt movie, it might help to check <strong>Use Movie Sum</strong>.</li>
-<li>Particle positions obtained with BoxNet won’t be considered later. However, the masks
-  will be. In tilt series mode, those are assumed to cover gold beads and other
-  high-contrast artifacts, and will be used to fill image areas with uncorrelated noise.
-  You can quickly <a href="../boxnet/retraining/">retrain BoxNet</a> to mask out
-  gold beads and not pick any particles. We would like to offer a pre-trained model for
-  this purpose, but currently lack the training data. If you think such a model would be
-  useful, please
-  consider <a href="../boxnet/retraining/">contributing training data</a>!</li>
-</ul>
-<p><img alt="2D Preprocessing Workflow" src="../assets/2d_preprocess.png" /></p>
-<h2 id="export-tilt-series-stacks-for-imod">Export tilt series stacks for IMOD</h2>
-<p>IMOD’s <strong>etomo</strong> requires each tilt series to be assembled in a single MRC stack. You
-can use Warp to combine the previously generated tilt movie averages into such stacks.</p>
-<p>Switch Warp to tilt series mode by selecting <strong>TomoSTAR</strong> as the <strong>Input format</strong>. We
-haven’t created any TomoSTAR files yet, but this mode will allow us to generate the data
-necessary for tilt series alignment in etomo, which will eventually allow us to create
-TomoSTAR files.</p>
-<p><img alt="Import TomoSTAR" src="../assets/import_tomostar.png" /></p>
-<p>Once in tilt series mode, the Overview tab will contain the <strong>Import tilt series from
-IMOD</strong> button. Click it to bring up the task dialog. Specify the folders containing the
-<strong>mdoc</strong> files generated by SerialEM, and the <strong>original tilt movies</strong>. If there are
-multiple mdoc files per tilt series (e.g. "plus" and "minus" after bi-directional
-collection), you can specify several <strong>suffixes</strong>. Once these settings are set, all tilt
-series should appear with the correct number of tilts in the list on the right.
-Individual series can be deselected using the checkboxes next to their names. Click the
-<strong>Create stacks for IMOD</strong> button to generate the stacks. This will create an <em>imod</em>
-folder in the current project directory, and place each stack in a sub-folder named
-after the respective tilt series. You can now execute etomo in each of these folders to
-perform alignments. Please note that it isn't necessary to generate an aligned stack or
-reconstruct tomograms in etomo, other than for diagnostic purposes. You can use <strong>manual
-deselection</strong> in Warp's 2D pre-processing mode to <strong>remove individual tilt images</strong> from
-the stack. Please remember to reflect these changes when setting up the project in
-etomo.</p>
-<p>You can also generate TomoSTAR files <strong>without any alignments</strong> at this point by
-clicking the <strong>Import</strong> button. Please refer to the next section for information on how
-to specify the <strong>electron dose</strong>.</p>
-<p><img alt="createstacks" src="../assets/create_stacks.png" /></p>
-<h3 id="create-tomostar-files-from-imods-results">Create TomoSTAR files from IMOD's results</h3>
-<p>If you closed the <strong>Import tilt series from IMOD</strong> dialog from the previous section,
-open it again. Specify the <strong>mdoc</strong> and <strong>original tilt movie</strong> folders, and the *
-<em>suffixes</em><em> (if applicable) as before. For the </em><em>Root folder with IMOD processing
-results</em><em>, select the </em>imod<em> subfolder created previously. If you didn't use Warp to set
-up the folder structure as suggested in the previous section, make sure the alignment
-results are located in </em>[project folder]/imod/[tilt series name]/<em>. Warp will try to
-find the </em><em>xf</em><em> and </em><em>taSolution.log</em><em> files there. Please note that IMOD's pre-tilt
-correction ("Tomogram positioning" tab in etomo) is currently not supported and
-shouldn't be used if you want the results to match between IMOD and Warp. If everything
-has been parsed correctly, the </em><em>Aligned</em>* checkboxes should become checked.</p>
-<p><strong>SUPER IMPORTANT HANDEDNESS NOTE:</strong><br />
-Warp has a different convention for tilt angles and handedness compared to IMOD. By
-default, the tilt angles will be multiplied by -1 upon import to match IMOD's 3D
-reconstruction handedness. You can turn off this behavior by checking <strong>Don't invert
-tilt angles</strong>. Now that the map handedness is correct, there is still the <strong>defocus
-handedness</strong> to take care of. Although SerialEM is usually calibrated to produce the
-correct map handedness in IMOD's 3D reconstructions, the defocus convention has about a
-50:50 chance of being wrong across labs in our experience. Processing data with the
-wrong handedness calibration will limit the resolution achievable for your sub-tomogram
-averages. That would be a real pity! Luckily, Warp includes an easy way to check if the
-calibration is wrong: Estimate the CTF for the raw tilt movies with a 2×2 spatial
-resolution, then initialize and import the tilt series as described in this guide,
-estimate the CTF for the entire tilt series, and click <strong>Check tilt handedness</strong> in the
-<strong>Fourier Space</strong> tab. A dialog will appear to tell you the result and its certainty. -1
-means certainly wrong, +1 means certainly correct. Values closer to 0 may arise because
-the raw tilt movie CTF estimates were off due to weak signal. If the value is too close
-to 0, you may want to try several tilt series and average the result to be sure. If it
-turns out your defocus handedness is wrong, Warp will offer you to <strong>flip the angles
-used for defocus calculation</strong>. This will change the <em>AreAnglesInverted</em> field in the
-tilt series XML metadata. It is best to do this check and possible flipping before you
-process the data any further.</p>
-<p><img alt="Stranger Defocus" src="../assets/defocus_handedness_flip.png" /></p>
-<p>Specify the same <strong>Pixel size</strong> you used in IMOD. Warp will use it to convert the shifts
-to Ångström. For the electron dose, there are two options: SerialEM, when calibrated
-accordingly, can store the dose values in the original mdoc files. If the calibration is
-off or hasn't been done at all, you can specify a non-zero value in the <strong>Default dose
-per tilt</strong> field. There is currently no option to conveniently specify varying dose
-values. In case of dose-symmetric collection, it is usually OK to just use the per-tilt
-dose of the very first tilt images for all tilts, since the higher tilts won't
-contribute much information to high-resolution 3D averages anyway. If you absolutely
-need to specify varying dose values, you will have to edit the <em>wrpDose</em> column in the
-TomoSTAR files later.</p>
-<p>That's it! Click <strong>Import</strong> to create the files and start processing them in Warp.</p>
-<p><img alt="Create TomoSTAR" src="../assets/create_tomostar.png" /></p>
-<h3 id="tilt-series-pre-processing">Tilt series pre-processing</h3>
-<p><img alt="Tilt Series Preprocess" src="../assets/tilt_series_preprocess.png" /></p>
-<p>You will notice the <strong>Input</strong> section gained a new parameter: <strong>Unbinned tomogram
-dimensions</strong>. The X and Y dimensions are usually similar to the input image size. Note
-that for non-square sensors like the K3 the dimensions should reflect the sensor shape
-if you don't want to lose data. However, the tomographic volume and raw image coordinate
-systems are related to each other through the tilt axis angle. Often, the tilt axis is
-close to the X axis in the raw images, while in the tomogram it is always assumed to be
-aligned with the Y axis. Thus, if the raw image dimensions are 6000x4000 and the tilt
-axis angle is around 90° or 270°, the tomogram dimensions should be 4000x6000. The Z
-dimension depends on the sample thickness. You might have to do a few test
-reconstructions (in Warp or IMOD) to figure out the right value. Ideally, the tomogram
-should be thicker than the sample to allow for artifact-free template matching at its
-borders. Choose these dimensions wisely: Once things like particle positions have been
-established, changing the dimensions will invalidate those positions and will need to
-either adjust the values by hand or start from scratch.</p>
-<p>The <strong>Bin</strong> parameter has a somewhat different use in Warp compared to IMOD. First, it
-is defined as an exponent, i.e. downsampling factor = 2^binning (the UI will tell you
-the result), while in IMOD it is directly the downsampling factor. Second, there are
-multiple places where binning can be set. The value defined in the <strong>Input</strong> section
-will be used when loading the data, i.e. this is the maximum resolution any subsequent
-operations on the data will be able to use. However, task dialogs
-like <a href="../../../reference/warp/task_dialogs_tilt_series/">Tomogram reconstruction</a>
-or <a href="../../../reference/warp/task_dialogs_tilt_series/">Sub-tomogram export</a> allow to set their own
-target pixel size, which will bin the data additionally if it is larger (and it can't be
-smaller) than the initial binned pixel size. Thus, you should only set the initial **Bin
-** parameter if you know that you will never need to go to a lower pixel size – for
-example, if you start with super-resolution data that need to be binned once to get to
-the physical pixel size. Changing this value later will invalidate every already
-pre-processed item.</p>
-<p>The only pre-processing operation implemented for tilt series at the moment is CTF
-estimation. Warp will estimate the defocus and astigmatism for the entire tilt series
-while taking the tilt angles as constraints into account. The settings are the same as
-in the 2D case, except for a lack of model resolution. Since all the information about
-the Z position of objects in the tomogram will come from the tomogram itself, only a
-global defocus offset is needed for each tilt. Additionally, because the sample rarely
-lies flat in the focal plane, a global pre-tilt orientation is fitted for the entire
-tilt series.</p>
-<p>Once all items have been pre-processed, the quality filters work the same way they do in
-2D mode. There is currently no real space view implemented for tilt series data – the
-Fourier space tab is the only place where you will find useful per-item information.</p>
+<h1 id="denoising-tomograms-in-warptools">Denoising Tomograms in WarpTools</h1>
+<p><em>WarpTools</em> comes with everything you need to denoise tomograms using the 
+<a href="https://arxiv.org/abs/1803.04189">Noise2Noise</a> denoising scheme.</p>
+<h2 id="outline">Outline</h2>
+<p>Tomogram denoising is performed in two steps
+1. generate tomograms from half sets of data
+2. train and apply a denoiser using <em>Noise2Map</em></p>
+<p><em>Noise2Noise</em> denoising requires two independent noisy observations of a target signal.
+In cryo-EM we can generate independent noisy copies of the same image by averaging the 
+even and odd frames in a frame series.</p>
+<p>We perform reconstructions from these even and odd images to 
+produce independently noisy tomograms for denoising.</p>
+<h2 id="generating-tomograms-from-half-sets-of-data">Generating tomograms from half sets of data</h2>
+<h3 id="generating-even-and-odd-frame-series-averages">Generating even and odd frame series averages</h3>
+<p>We can generate even and odd movie averages by adding the <code>--out_average_halves</code> flag 
+when running
+<a href="../api/frame_series/#fs_motion_and_ctf"><code>WarpTools fs_motion_and_ctf</code></a>. If you didn't 
+do this don't worry, you can run 
+<a href="../api/frame_series/#fs_export_micrographs"><code>WarpTools fs_export_micrographs</code></a> 
+with the <code>--average_halves</code> flag.</p>
+<p>This will produce <code>even</code> and <code>odd</code> subfolders filled with images in the <code>average</code> folder of your frame series
+processing directory.</p>
+<h3 id="generating-even-and-odd-tomograms">Generating even and odd tomograms</h3>
+<p>Now that we have even and odd images, producing even and odd tomograms is as simple as 
+running <a href="../api/tilt_series/#ts_reconstruct"><code>WarpTools ts_reconstruct</code></a> with the 
+<code>--halfmap_frames</code> flag.</p>
+<div class="admonition question">
+<p class="admonition-title">What if I don't have frame series?</p>
+<p>Don't worry! You can generate tomograms from even and odd tilts instead. 
+Just add <code>--halfmap_tilts</code> to your <code>ts_reconstruct</code> command.</p>
+</div>
+<p>This will generate <code>even</code> and <code>odd</code> subfolders filled with images in the <code>reconstruction</code> 
+folder of your tilt series processing directory.</p>
+<h2 id="training-and-applying-the-denoiser">Training and applying the denoiser</h2>
+<p>Now we can use <em>Noise2Map</em> to train a denoiser and apply it to our tomograms. 
+We typically need to train for &gt;10,000 iterations to get good results.</p>
+<p>An example <em>Noise2Map</em> command for tomogram denoising is provided below.</p>
+<div class="highlight"><pre><span></span><code>Noise2Map
+--observation1<span class="w"> </span>warp_tiltseries/reconstruction/even<span class="w"> </span><span class="se">\</span>
+--observation2<span class="w"> </span>warp_tiltseries/reconstruction/odd<span class="w"> </span><span class="se">\</span>
+--observation_combined<span class="w"> </span>warp_tiltseries/reconstruction<span class="w"> </span><span class="se">\</span>
+--dont_flatten_spectrum<span class="w"> </span><span class="se">\</span>
+--dont_augment
+</code></pre></div>
 
 
 
