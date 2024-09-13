@@ -209,19 +209,22 @@ namespace WarpTools.Commands
                                     {
                                         try
                                         {
+                                            Parts[1] = Parts[1].Replace("  ", " ").Trim();
+
                                             try
                                             {
-                                                NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yy  HH:mm:ss", CultureInfo.InvariantCulture);
+                                                NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yy HH:mm:ss", CultureInfo.InvariantCulture);
                                             }
                                             catch
                                             {
-                                                NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yyyy  HH:mm:ss", CultureInfo.InvariantCulture);
+                                                NewEntry.Time = DateTime.ParseExact(Parts[1], "dd-MMM-yyyy HH:mm:ss", CultureInfo.InvariantCulture);
                                             }
 
                                             FoundTime = true;
                                         }
-                                        catch
+                                        catch (Exception exc)
                                         {
+                                            throw new Exception($"Incorrect time stamp: {Parts[1]}\n" + exc.Message);
                                             FoundTime = false;
                                         }
                                     }
