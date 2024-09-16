@@ -11,7 +11,7 @@ using Warp.Tools;
 namespace WarpTools.Commands
 {
     [VerbGroup("Tilt series")]
-    [Verb("ts_ctf", HelpText = "Estimate CTF parameters in frame series")]
+    [Verb("ts_ctf", HelpText = "Estimate CTF parameters in tilt series")]
     [CommandRunner(typeof(CTFTiltseries))]
     class CTFTiltseriesOptions : DistributedOptions
     {
