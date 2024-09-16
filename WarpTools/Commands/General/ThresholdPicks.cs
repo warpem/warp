@@ -133,7 +133,7 @@ namespace WarpTools.Commands
             Console.WriteLine($"{ParticlesIn} particles found");
             Console.WriteLine($"{ParticlesOut} particles left after thresholding");
 
-            if (CLI.NTopPicks.HasValue)
+            if (CLI.NTopSeries.HasValue)
             {
                 var SelectedSeries = AverageScores.OrderByDescending(v => v.Value).Take(CLI.NTopSeries.Value).Select(v => v.Key);
                 TablesIn = TablesIn.Where(v => SelectedSeries.Contains(v.Key)).ToDictionary(v => v.Key, v => v.Value);
