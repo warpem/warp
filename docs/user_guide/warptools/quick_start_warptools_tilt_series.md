@@ -873,9 +873,11 @@ case.
 
     Low resolution information typically has much more spectral power than high resolution
     in our templates. This leads to low resolution information dominating the calculation of 
-    correlation scores. The `--whiten` flag turns on spectral whitening, 
-    a process designed to boost high frequency information to the same power as 
-    low frequency information. This option improves matching results if your 
+    correlation scores. 
+    
+    The `--whiten` flag turns on spectral whitening, boosting high frequency information 
+    to the same power as low frequency information. 
+    This option improves matching results if your 
     tomograms are well aligned and have meaningful information at the resolution you are 
     using for matching.
 
