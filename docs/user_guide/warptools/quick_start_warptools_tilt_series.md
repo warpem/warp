@@ -857,6 +857,7 @@ WarpTools ts_template_match \
 --template_emdb 15854 \
 --template_diameter 130 \
 --symmetry O \
+--whiten \
 --check_hand 2 
 ```
 
@@ -867,6 +868,16 @@ The `--check_hand` parameter allows you to check the physical handedness of your
 tomograms by running template matching against both the template and a flipped version
 for a number of tilt series and comparing the height of the top scoring peaks in each
 case.
+
+!!! question "When should I use spectral whitening?"
+
+    Low resolution information typically has much more spectral power than high resolution
+    in our templates. This leads to low resolution information dominating the calculation of 
+    correlation scores. The `--whiten` flag turns on spectral whitening of the template, 
+    a process designed to boost the high frequency information to the same power as the 
+    low frequency information. This option will only improve matching results if your 
+    tomograms are well aligned and have meaningful information at the resolution you are 
+    matching at.
 
 Templates are saved in `warp_tiltseries/template` and correlation volumes are written
 into the `warp_tiltseries/matching` directory.
@@ -881,6 +892,7 @@ are written into corresponding `*_picks` directories inside the `matching` direc
 Scores are normalised to the mean and standard deviation of background of the whole
 volume
 so should be comparable across different tomograms and datasets.
+    
 
 #### Generating Particle Picks
 
