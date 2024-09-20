@@ -74,7 +74,7 @@ namespace Warp.Tools
             {
                 int currentLineCursor = Console.CursorTop;
                 Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write(new string(' ', Console.WindowWidth - 2));
+                Console.Write(new string(' ', Math.Max(0, Console.WindowWidth - 2)));
                 Console.SetCursorPosition(0, currentLineCursor);
             }
         }
