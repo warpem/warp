@@ -8914,10 +8914,8 @@ namespace Warp
             float ScaleFactor = (float)size / Math.Max(Average.Dims.X, Average.Dims.Y);
             int2 DimsScaled = new int2(new float2(Average.Dims.X, Average.Dims.Y) * ScaleFactor + 1) / 2 * 2;
 
-            Image AverageScaled = Average.AsScaled(DimsScaled);
-            Average.Dispose();
-
-            Image AverageCenter = Average.AsPadded(DimsScaled / 4 * 2);
+            Image AverageScaled = Average.AsScaled(DimsScaled).AndDisposeParent();
+            Image AverageCenter = AverageScaled.AsPadded(DimsScaled / 4 * 2);
 
             float2 MeanStd = MathHelper.MedianAndStd(AverageCenter.GetHost(Intent.Read)[0]);
             float Min = MeanStd.X;
