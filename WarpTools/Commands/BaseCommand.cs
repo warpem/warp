@@ -1,6 +1,7 @@
 ﻿using MathNet.Numerics.Distributions;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -60,6 +61,9 @@ namespace WarpTools.Commands
             string LogDirectory = Path.Combine(cli.OutputProcessing, "logs");
             Directory.CreateDirectory(LogDirectory);
 
+            var JsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
+            List<Movie> ProcessedItems = new List<Movie>();
+
             Console.Write($"0/{cli.InputSeries.Length}");
 
             int NDone = 0;
@@ -89,11 +93,19 @@ namespace WarpTools.Commands
                 {
                     // process the movie
                     body(Processor, M);
-                    
+
+                    List<Movie> ImmutableProcessed;
+                    lock (workers)
+                    {
+                        ProcessedItems.Add(M);
+                        ImmutableProcessed = ProcessedItems.ToList();
+                    }
+
                     // write processed_items.json
-                    var JsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
-                    JsonArray ItemsJson = new JsonArray(cli.InputSeries.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
-                    File.WriteAllText(JsonFilePath, ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
+                    JsonArray ItemsJson = new JsonArray(ImmutableProcessed.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
+                    File.WriteAllText(JsonFilePath + $".{iitem}", ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
+                    lock (workers)
+                        File.Move(JsonFilePath + $".{iitem}", JsonFilePath, true);
                 }
                 catch
                 {
