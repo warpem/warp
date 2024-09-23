@@ -22,6 +22,9 @@ namespace WarpTools.Commands
         [Option("average_halves", HelpText = "Export aligned averages of odd and even frames separately, e.g. for denoiser training")]
         public bool AverageHalves { get; set; }
 
+        [Option("thumbnails", HelpText = "Export thumbnails, scaled so that the long edge has this length in pixels")]
+        public int? Thumbnails { get; set; }
+
         [Option("skip_first", Default = 0, HelpText = "Skip first N frames when exporting averages")]
         public int SkipFirst { get; set; }
 
@@ -49,6 +52,16 @@ namespace WarpTools.Commands
             if (!CLI.Averages && !CLI.AverageHalves)
                 throw new Exception("No output types requested");
 
+            if (CLI.Thumbnails.HasValue)
+            {
+                if (!CLI.Averages)
+                    throw new Exception("Can't export thumbnails without exporting averages");
+                else if (CLI.Thumbnails.Value <= 0)
+                    throw new Exception("Thumbnail size must be a positive integer");
+                else if (CLI.Thumbnails.Value % 2 != 0)
+                    throw new Exception("Thumbnail size must be an even number");
+            }
+
             #endregion
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
@@ -61,6 +74,9 @@ namespace WarpTools.Commands
 
                 worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
                 worker.MovieExportMovie(m.Path, OptionsMovieExport);
+
+                if (CLI.Thumbnails.HasValue)
+                    worker.MovieCreateThumbnail(m.Path, CLI.Thumbnails.Value, 3);
             });
 
             Console.Write("Saying goodbye to all workers...");

@@ -80,6 +80,9 @@ namespace WarpTools.Commands
         [Option("out_average_halves", HelpText = "Export aligned averages of odd and even frames separately, e.g. for denoiser training")]
         public bool OutAverageHalves { get; set; }
 
+        [Option("out_thumbnails", HelpText = "Export thumbnails, scaled so that the long edge has this length in pixels")]
+        public int? OutThumbnails { get; set; }
+
         [Option("out_skip_first", Default = 0, HelpText = "Skip first N frames when exporting averages")]
         public int OutSkipFirst { get; set; }
 
@@ -180,6 +183,16 @@ namespace WarpTools.Commands
             Options.Export.SkipFirstN = CLI.OutSkipFirst;
             Options.Export.SkipLastN = CLI.OutSkipLast;
 
+            if (CLI.OutThumbnails.HasValue)
+            {
+                if (!CLI.OutAverages)
+                    throw new Exception("Can't export thumbnails without exporting averages");
+                else if (CLI.OutThumbnails.Value <= 0)
+                    throw new Exception("Thumbnail size must be a positive integer");
+                else if (CLI.OutThumbnails.Value % 2 != 0)
+                    throw new Exception("Thumbnail size must be an even number");
+            }
+
             #endregion
 
             #endregion
@@ -198,6 +211,9 @@ namespace WarpTools.Commands
                 worker.MovieProcessMovement(m.Path, OptionsMovement);
                 if (CLI.OutAverages || CLI.OutAverageHalves)
                     worker.MovieExportMovie(m.Path, OptionsMovieExport);
+
+                if (CLI.OutThumbnails.HasValue)
+                    worker.MovieCreateThumbnail(m.Path, CLI.OutThumbnails.Value, 3);
 
                 if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
                     worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames, false);

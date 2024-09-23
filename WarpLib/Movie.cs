@@ -8912,16 +8912,20 @@ namespace Warp
 
             Image Average = Image.FromFile(AveragePath);
             float ScaleFactor = (float)size / Math.Max(Average.Dims.X, Average.Dims.Y);
-            int2 DimsScaled = new int2(new float2(Average.Dims.X, Average.Dims.Y) * ScaleFactor + 0.5f) / 2 * 2;
+            int2 DimsScaled = new int2(new float2(Average.Dims.X, Average.Dims.Y) * ScaleFactor + 1) / 2 * 2;
 
             Image AverageScaled = Average.AsScaled(DimsScaled);
             Average.Dispose();
 
-            float2 MeanStd = MathHelper.MeanAndStd(AverageScaled.GetHost(Intent.Read)[0]);
-            float Min = MeanStd.X - MeanStd.Y * stddevRange;
-            float Range = MeanStd.Y * stddevRange * 2;
+            Image AverageCenter = Average.AsPadded(DimsScaled / 4 * 2);
 
-            AverageScaled.TransformValues(v => (v - Min) / Range * 255);
+            float2 MeanStd = MathHelper.MedianAndStd(AverageCenter.GetHost(Intent.Read)[0]);
+            float Min = MeanStd.X;
+            float Range = 0.5f / (MeanStd.Y * stddevRange);
+
+            AverageCenter.Dispose();
+
+            AverageScaled.TransformValues(v => ((v - Min) * Range + 0.5f) * 255);
 
             AverageScaled.WritePNG(ThumbnailsPath);
             AverageScaled.Dispose();

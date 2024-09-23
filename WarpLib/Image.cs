@@ -308,21 +308,25 @@ namespace Warp
         public static Image FromFile(string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int[] layers, Stream stream = null)
         {
             MapHeader Header = MapHeader.ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType);
-            float[][] Data = IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layers, stream);
             if (layers is not null)
                 Header.Dimensions.Z = layers.Length;
 
-            return new Image(Data, Header.Dimensions) { PixelSize = Header.PixelSize.X };
+            Image Result = new Image(Header.Dimensions) { PixelSize = Header.PixelSize.X };
+            IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layers, stream, Result.GetHost(Intent.Write));
+
+            return Result;
         }
 
         public static Image FromFile(string path, int2 headerlessSliceDims, int headerlessOffset, Type headerlessType, int layer = -1, Stream stream = null)
         {
             MapHeader Header = MapHeader.ReadFromFile(path, headerlessSliceDims, headerlessOffset, headerlessType);
-            float[][] Data = IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer < 0 ? null : new[] { layer }, stream);
             if (layer >= 0)
                 Header.Dimensions.Z = 1;
 
-            return new Image(Data, Header.Dimensions) { PixelSize = Header.PixelSize.X };
+            Image Result = new Image(Header.Dimensions) { PixelSize = Header.PixelSize.X };
+            IOHelper.ReadMapFloat(path, headerlessSliceDims, headerlessOffset, headerlessType, layer < 0 ? null : new[] { layer }, stream, Result.GetHost(Intent.Write));
+
+            return Result;
         }
 
         public static Image FromFile(string path, int layer = -1, Stream stream = null)
