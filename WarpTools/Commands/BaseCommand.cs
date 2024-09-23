@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
@@ -85,7 +87,13 @@ namespace WarpTools.Commands
 
                 try
                 {
+                    // process the movie
                     body(Processor, M);
+                    
+                    // write processed_items.json
+                    var JsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
+                    JsonArray ItemsJson = new JsonArray(cli.InputSeries.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
+                    File.WriteAllText(JsonFilePath, ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
                 }
                 catch
                 {
