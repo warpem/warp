@@ -62,6 +62,7 @@ namespace WarpTools.Commands
             Directory.CreateDirectory(LogDirectory);
 
             var JsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
+            List<Task> JsonTasks = new();
             List<Movie> ProcessedItems = new List<Movie>();
 
             Console.Write($"0/{cli.InputSeries.Length}");
@@ -94,18 +95,21 @@ namespace WarpTools.Commands
                     // process the movie
                     body(Processor, M);
 
-                    List<Movie> ImmutableProcessed;
-                    lock (workers)
+                    JsonTasks.Add(Task.Run(() =>
                     {
-                        ProcessedItems.Add(M);
-                        ImmutableProcessed = ProcessedItems.ToList();
-                    }
+                        List<Movie> ImmutableProcessed;
+                        lock (workers)
+                        {
+                            ProcessedItems.Add(M);
+                            ImmutableProcessed = ProcessedItems.ToList();
+                        }
 
-                    // write processed_items.json
-                    JsonArray ItemsJson = new JsonArray(ImmutableProcessed.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
-                    File.WriteAllText(JsonFilePath + $".{iitem}", ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
-                    lock (workers)
-                        File.Move(JsonFilePath + $".{iitem}", JsonFilePath, true);
+                        // write processed_items.json
+                        JsonArray ItemsJson = new JsonArray(ImmutableProcessed.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
+                        File.WriteAllText(JsonFilePath + $".{iitem}", ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
+                        lock (workers)
+                            File.Move(JsonFilePath + $".{iitem}", JsonFilePath, true);
+                    }));
                 }
                 catch
                 {
@@ -151,6 +155,11 @@ namespace WarpTools.Commands
                 }
             }, null);
             TimerOverall.Stop();
+
+            // Write out full Json one last time in case the last thread to write it out wasn't the thread processing the last item
+            Task.WaitAll(JsonTasks.ToArray());
+            JsonArray ItemsJson = new JsonArray(ProcessedItems.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
+            File.WriteAllText(JsonFilePath, ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
 
             Console.WriteLine($"\nFinished processing in {TimeSpan.FromMilliseconds(TimerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
         }
