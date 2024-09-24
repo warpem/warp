@@ -1,3 +1,4 @@
+dotnet publish -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0661,CS0659,CS0169,CS0618,CS1998,MSB3270,SYSLIB0011 --configuration Release /p:PublishProfile=FolderProfile Bridge/Bridge.csproj
 dotnet publish -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0661,CS0659,CS0169,CS0618,CS1998,MSB3270,SYSLIB0011 --configuration Release /p:PublishProfile=FolderProfile M/M.csproj
 dotnet publish -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0661,CS0659,CS0169,CS0618,CS1998,MSB3270,SYSLIB0011 --configuration Release /p:PublishProfile=FolderProfile Warp/Warp.csproj
 dotnet publish -nowarn:CS0219,CS0162,CS0168,CS0649,CS0067,CS0414,CS0661,CS0659,CS0169,CS0618,CS1998,MSB3270,SYSLIB0011 --configuration Release /p:PublishProfile=FolderProfile Cube/Cube.csproj
