@@ -1,0 +1,11 @@
+﻿@using Bridge.Services
+@using FL = Microsoft.FluentUI.AspNetCore.Components
+@inject NerdyService NerdyService
+
+<FluentSwitch @bind-Value="@(NerdyService.IsNerdy)" AriaLabel="Show advanced properties">
+    <FluentEmoji Value="@(new FL.Emojis.SmileysEmotion.Color.Default.NerdFace())" Width="26" />
+</FluentSwitch>
+
+@code {
+
+}

@@ -1,0 +1,331 @@
+﻿@using Bridge.Services
+@inject ProjectSettingsService SettingsService
+
+@page "/verbs/fs/motion_and_ctf"
+
+<VerbBase Title="Correct motion & estimate CTF" ReferencePath="frame_series/#fs_motion_and_ctf" @bind-SettingsFile=Params.Settings SettingsType="@(SettingsType)" ComposedCommand="@(CurrentCommand())">
+
+    <ArgumentsContent>
+        <FluentTabs Style="margin-bottom: 16px" Orientation="Orientation.Horizontal" Size="TabSize.Large">
+            <div slot="end">
+                <NerdSwitch />
+            </div>
+
+            <FluentTab Label="Optics">
+                <div class="verb-args-tab">
+                    <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+
+                        <LabeledField Label="Voltage">
+                            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                <FluentNumberField @bind-Value=Params.Voltage Step="1" Min="1" Max="9999999" Size="1" />
+                                <span>kV</span>
+                            </FluentStack>
+                        </LabeledField>
+
+                        <LabeledField Label="Spherical aberration">
+                            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                <FluentNumberField @bind-Value=Params.Cs Step="0.01" Min="0.01" Max="9999" Size="1" />
+                                <span>mm</span>
+                            </FluentStack>
+                        </LabeledField>
+
+                        <LabeledField Label="Amplitude contrast">
+                            <FluentNumberField @bind-Value=Params.AmplitudeContrast Step="0.01" Min="0" Max="1" Size="1" />
+                        </LabeledField>
+
+                        <FluentCheckbox @bind-Value=Params.FitPhase><label>Phase plate</label></FluentCheckbox>
+
+                    </FluentStack>
+                </div>
+            </FluentTab>
+
+            <FluentTab Label="Output">
+                <div class="verb-args-tab">
+                    <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+
+                        <FluentCheckbox @bind-Value=Params.OutAverage Immediate="true"><label>Export aligned averages</label></FluentCheckbox>
+
+                        <FluentCheckbox @bind-Value=Params.OutHalves Immediate="true"><label>Export aligned half-averages for denoiser training</label></FluentCheckbox>
+
+                        <NerdContainer>
+                            <LabeledField Label="Skip first N frames">
+                                <FluentNumberField @bind-Value=Params.SkipFirst Step="1" Min="0" Max="9999" Immediate="true" Size="1" />
+                            </LabeledField>
+
+                            <LabeledField Label="Skip last N frames">
+                                <FluentNumberField @bind-Value=Params.SkipLast Step="1" Min="0" Max="9999" Immediate="true" Size="1" />
+                            </LabeledField>
+                        </NerdContainer>
+
+                    </FluentStack>
+                </div>
+            </FluentTab>
+
+            <NerdContainer>
+                <FluentTab Label="CTF fitting">
+                    <div class="verb-args-tab">
+                        <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+
+                            <LabeledField Label="Patch size in binned pixels">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                    <FluentNumberField @bind-Value=Params.CWindow Step="128" Min="128" Max="2048" Size="1" />
+                                    <span>px</span>
+                                </FluentStack>
+                            </LabeledField>
+
+                            <LabeledField Label="Spatial frequencies considered for alignment">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                    <FluentNumberField @bind-Value=Params.CRangeMin Step="0.1" Min=@((Params.CRangeMax + 0.1M).ToString()) Max="9999" Immediate="true" Size="1" />
+                                    <span>—</span>
+                                    <FluentNumberField @bind-Value=Params.CRangeMax Step="0.1" Min="1" Max="@((Params.CRangeMin - 0.1M).ToString())" Immediate="true" Size="1" />
+                                    <span>Å</span>
+                                </FluentStack>
+                            </LabeledField>
+
+                            <LabeledField Label="Defocus range to explore">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                    <FluentNumberField @bind-Value=Params.CDefocusMin Step="0.1" Max=@((Params.CDefocusMax - 0.1M).ToString()) Min="-9999" Immediate="true" Size="1" />
+                                    <span>—</span>
+                                    <FluentNumberField @bind-Value=Params.CDefocusMax Step="0.1" Max="9999" Min="@((Params.CDefocusMin + 0.1M).ToString())" Immediate="true" Size="1" />
+                                    <span>μm</span>
+                                </FluentStack>
+                            </LabeledField>
+
+                            <FluentCheckbox @bind-Value=Params.CUseSum><label>Use spectrum of frame average for fitting</label></FluentCheckbox>
+
+                            <LabeledField Label="Motion model dimensions">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="0">
+                                    <FluentRadioGroup @bind-Value=Params.CGridMode Orientation="Orientation.Horizontal" Style="width: 160px">
+                                        <FluentRadio Value="@("auto")">Auto</FluentRadio>
+                                        <FluentRadio Value="@("manual")"></FluentRadio>
+                                    </FluentRadioGroup>
+                                    <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                        <FluentNumberField @bind-Value=Params.CGridX Step="1" Min="1" Max="9999" Immediate="true" Size="1" Disabled="@(Params.CGridMode != "manual")" />
+                                        <span>×</span>
+                                        <FluentNumberField @bind-Value=Params.CGridY Step="1" Min="1" Max="9999" Immediate="true" Size="1" Disabled="@(Params.CGridMode != "manual")" />
+
+                                        @if (!(Params.CGridX == 2 && Params.CGridY == 2 && Params.CUseSum))
+                                        {
+                                            <FluentButton OnClick="@TiltMoviesClick">These are tilt movies</FluentButton>
+                                        }
+                                    </FluentStack>
+                                </FluentStack>
+                            </LabeledField>
+
+                        </FluentStack>
+                    </div>
+                </FluentTab>
+            </NerdContainer>
+
+            <NerdContainer>
+                <FluentTab Label="Motion fitting">
+                    <div class="verb-args-tab">
+                        <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+
+                            <LabeledField Label="Spatial frequencies considered for alignment">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                    <FluentNumberField @bind-Value=Params.MRangeMin Step="0.1" Min=@((Params.MRangeMax + 0.1M).ToString()) Max="9999" Immediate="true" Size="1" />
+                                    <span>—</span>
+                                    <FluentNumberField @bind-Value=Params.MRangeMax Step="0.1" Min="1" Max="@((Params.MRangeMin - 0.1M).ToString())" Immediate="true" Size="1" />
+                                    <span>Å</span>
+                                </FluentStack>
+                            </LabeledField>
+
+                            <LabeledField Label="B-factor for downweighting higher spatial frequencies">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                    <FluentNumberField @bind-Value=Params.MBFactor Step="10" Min="-100000" Max="0" Size="1" />
+                                    <span>Å²</span>
+                                </FluentStack>
+                            </LabeledField>
+
+                            <LabeledField Label="Motion model dimensions">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="0">
+                                    <FluentRadioGroup @bind-Value=Params.MGridMode Orientation="Orientation.Horizontal" Style="width: 160px">
+                                        <FluentRadio Value="@("auto")">Auto</FluentRadio>
+                                        <FluentRadio Value="@("manual")"></FluentRadio>
+                                    </FluentRadioGroup>
+                                    <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" HorizontalGap="4">
+                                        <FluentNumberField @bind-Value=Params.MGridX Step="1" Min="1" Max="9999" Immediate="true" Size="1" Disabled="@(Params.MGridMode != "manual")" />
+                                        <span>×</span>
+                                        <FluentNumberField @bind-Value=Params.MGridY Step="1" Min="1" Max="9999" Immediate="true" Size="1" Disabled="@(Params.MGridMode != "manual")" />
+                                        <span>×</span>
+                                        <FluentNumberField @bind-Value=Params.MGridZ Step="1" Min="1" Max="9999" Immediate="true" Size="1" Disabled="@(Params.MGridMode != "manual")" />
+                                    </FluentStack>
+                                </FluentStack>
+                            </LabeledField>
+                        </FluentStack>
+                    </div>
+                </FluentTab>
+            </NerdContainer>
+
+            <WorkDistributionTab @bind-Parameters=Params.WorkDistributionTabParams />
+
+            <AdvancedIOTab @bind-Parameters=Params.AdvancedIOTabParams />
+
+        </FluentTabs>
+    </ArgumentsContent>
+
+</VerbBase>
+
+@code {
+    [Inject]
+    protected NerdyService NerdyService { get; set; }
+
+    readonly SettingsType SettingsType = SettingsType.FrameSeries;
+    readonly string VerbName = "wt_fs_motion_and_ctf";
+    VerbCommand Command = new("WarpTools fs_motion_and_ctf");
+
+    class CommandParams
+    {
+        public string Settings { get; set; } = "";
+
+        #region Optics
+
+        public int Voltage { get; set; } = 300;
+        public decimal Cs { get; set; } = 2.7M;
+        public decimal AmplitudeContrast { get; set; } = 0.07M;
+        public bool FitPhase { get; set; } = false;
+
+        #endregion
+
+        #region Output
+
+        public bool OutAverage { get; set; } = true;
+        public bool OutHalves { get; set; } = false;
+
+        public int SkipFirst { get; set; } = 0;
+        public int SkipLast { get; set; } = 0;
+
+        #endregion
+
+        #region CTF fitting
+
+        public int CWindow { get; set; } = 512;
+
+        public decimal CRangeMin { get; set; } = 30;
+        public decimal CRangeMax { get; set; } = 4;
+
+        public decimal CDefocusMin { get; set; } = 0.5M;
+        public decimal CDefocusMax { get; set; } = 5;
+
+        public bool CUseSum { get; set; } = false;
+
+        public string CGridMode { get; set; } = "auto";
+        public int CGridX { get; set; } = 1;
+        public int CGridY { get; set; } = 1;
+
+        #endregion
+
+        #region Motion fitting
+
+        public decimal MRangeMin { get; set; } = 500;
+        public decimal MRangeMax { get; set; } = 10;
+
+        public int MBFactor { get; set; } = -500;
+
+        public string MGridMode { get; set; } = "auto";
+        public int MGridX { get; set; } = 1;
+        public int MGridY { get; set; } = 1;
+        public int MGridZ { get; set; } = 1;
+
+        #endregion
+
+        public WorkDistributionTabParams WorkDistributionTabParams { get; set; } = new();
+        public AdvancedIOTabParams AdvancedIOTabParams { get; set; } = new();
+    }
+    CommandParams Params = new();
+
+    VerbCommand CurrentCommand()
+    {
+        SettingsService.SaveVerbSettings(VerbName, Params);
+
+        Command.Arguments.Clear();
+
+        if (!string.IsNullOrWhiteSpace(Params.Settings))
+            Command.AddArgument($"--settings {Params.Settings}");
+        else
+            Command.AddArgument($"--settings {SettingsService.GetSettingsName(SettingsType)}");
+
+
+        #region CTF
+
+        if (Params.CWindow != 512)
+            Command.AddArgument($"--c_window {Params.CWindow}");
+
+        if (Params.CRangeMin != 30)
+            Command.AddArgument($"--c_range_min {Params.CRangeMin}");
+        if (Params.CRangeMax != 4)
+            Command.AddArgument($"--c_range_max {Params.CRangeMax}");
+
+        if (Params.CDefocusMin != 0.5M)
+            Command.AddArgument($"--c_defocus_min {Params.CDefocusMin}");
+        if (Params.CDefocusMax != 5)
+            Command.AddArgument($"--c_defocus_max {Params.CDefocusMax}");
+
+        if (Params.Voltage != 300)
+            Command.AddArgument($"--c_voltage {Params.Voltage}");
+        if (Params.Cs != 2.7M)
+            Command.AddArgument($"--c_cs {Params.Cs}");
+        if (Params.AmplitudeContrast != 0.07M)
+            Command.AddArgument($"--c_amplitude {Params.AmplitudeContrast}");
+        if (Params.FitPhase)
+            Command.AddArgument("--c_fit_phase");
+        if (Params.CUseSum)
+            Command.AddArgument("--c_use_sum");
+
+        if (Params.CGridMode == "manual")
+            Command.AddArgument($"--c_grid {Params.CGridX}x{Params.CGridY}x1");
+
+        #endregion
+
+        #region Motion
+
+        if (Params.MRangeMin != 500)
+            Command.AddArgument($"--m_range_min {Params.MRangeMin}");
+        if (Params.MRangeMax != 10)
+            Command.AddArgument($"--m_range_max {Params.MRangeMax}");
+        if (Params.MBFactor != -500)
+            Command.AddArgument($"--m_bfac {Params.MBFactor}");
+
+        if (Params.MGridMode == "manual")
+            Command.AddArgument($"--m_grid {Params.MGridX}x{Params.MGridY}x{Params.MGridZ}");
+
+        #endregion
+
+        #region Output
+
+        if (Params.OutAverage)
+            Command.AddArgument("--out_averages");
+        if (Params.OutHalves)
+            Command.AddArgument("--out_average_halves");
+
+        if (Params.SkipFirst > 0)
+            Command.AddArgument($"--out_skip_first {Params.SkipFirst}");
+        if (Params.SkipLast > 0)
+            Command.AddArgument($"--out_skip_last {Params.SkipLast}");
+
+        #endregion
+
+        Params.WorkDistributionTabParams.PopulateArguments(Command);
+
+        Params.AdvancedIOTabParams.PopulateArguments(Command);
+
+        return Command;
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        CommandParams Loaded = SettingsService.LoadVerbSettings<CommandParams>(VerbName);
+        if (Loaded != null)
+            Params = Loaded;
+    }
+
+    private async Task TiltMoviesClick()
+    {
+        Params.CGridX = 2;
+        Params.CGridY = 2;
+        Params.CUseSum = true;
+    }
+}

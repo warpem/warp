@@ -1,0 +1,30 @@
+﻿@using Bridge.Services
+@inject NerdyService NerdyService
+
+@if (NerdyService.IsNerdy)
+{
+    @ChildContent
+}
+
+@code {
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+
+    protected override void OnInitialized()
+    {
+        NerdyService.OnIsNerdyChanged += HandleIsNerdyChanged;
+    }
+
+    private void HandleIsNerdyChanged(bool newValue)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NerdyService.OnIsNerdyChanged -= HandleIsNerdyChanged;
+    }
+
+}

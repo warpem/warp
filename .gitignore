@@ -20,6 +20,8 @@ testdata/
 boxnet3models/
 BoxNetDev/
 
+Bridge/.bridge
+
 Snippets/
 
 launchSettings.json

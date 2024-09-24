@@ -1,0 +1,118 @@
+﻿@using System.Web
+@using Bridge.Services
+@inject IJSRuntime JSRuntime
+@inject IToastService ToastService
+@inject ProjectSettingsService SettingsService
+
+<PageTitle>@Title</PageTitle>
+
+<h3>@Title — <a target="_blank" href="@("https://warpem.github.io/warp/reference/warptools/api/" + ReferencePath)">read the docs</a></h3>
+
+
+@if (HasSettings)
+{
+    <div style="margin-bottom: 16px">
+        <ErrorField IsError="@(SettingsType == SettingsType.Undefined && string.IsNullOrWhiteSpace(SettingsFile))" Message="Value required">
+            <LabeledField Label="Settings file">
+                <FluentTextField @bind-Value=SettingsFile Immediate="true" Placeholder="@(SettingsService.GetSettingsName(SettingsType))" Required="@(SettingsType == SettingsType.Undefined)" />
+            </LabeledField>
+        </ErrorField>
+    </div>
+}
+
+@ArgumentsContent
+
+@if (string.IsNullOrWhiteSpace(ValidationMessage))
+{
+    <span>Command:</span>
+    <div style="background-color: #eee; border: 1px solid #555; border-radius: 4px; padding: 10px; font-family: monospace; overflow-wrap: break-word; position: relative" 
+    @onmouseover="@(() => ShowToolbar = true)" 
+    @onmouseout="@(() => ShowToolbar = false)">
+        @if (ShowToolbar)
+        {
+            <FluentToolbar style="position: absolute; right: 0px; top: 0px">
+                <FluentCheckbox @bind-Value=GenerateMultiLine>Multi-line</FluentCheckbox>
+                <FluentButton OnClick="@CopyToClipboard">Copy</FluentButton>
+            </FluentToolbar>
+        }
+
+        @((MarkupString)GetFormattedCommandHtml())
+    </div>
+}
+else
+{
+    <span style="color: #f00">Error:</span>
+    <div style="background-color: #fcc; border: 1px solid #f55; border-radius: 4px; padding: 10px; font-family: monospace; overflow-wrap: break-word; color: #f00">
+        @((MarkupString)GetFormattedValidationMessageHtml())
+    </div>
+}
+
+@code {
+    private bool ShowToolbar = false;
+    private bool GenerateMultiLine { get; set; } = true;
+
+    [Parameter]
+    public string Title { get; set; }
+
+    [Parameter]
+    public string ReferencePath { get; set; }
+
+    [Parameter]
+    public bool HasSettings { get; set; } = true;
+
+    private string settingsFile;
+    [Parameter]
+    public string SettingsFile
+    {
+        get => settingsFile;
+        set
+        {
+            if (settingsFile != value)
+            {
+                settingsFile = value;
+                SettingsFileChanged.InvokeAsync(value);
+            }
+        }
+    }
+    [Parameter]
+    public EventCallback<string> SettingsFileChanged { get; set; }
+
+    [Parameter]
+    public SettingsType SettingsType { get; set; }
+
+    [Parameter]
+    public RenderFragment ArgumentsContent { get; set; }
+
+    [Parameter]
+    public VerbCommand ComposedCommand { get; set; }
+
+    [Parameter]
+    public string ValidationMessage { get; set; }
+
+    private string GetFormattedCommandHtml()
+    {
+        if (ComposedCommand == null)
+            return "";
+
+        return HttpUtility.HtmlEncode(ComposedCommand.GetString(GenerateMultiLine)).Replace("\\\n", "\\<br />");
+    }
+
+    private string GetFormattedCommandRaw()
+    {
+        if (ComposedCommand == null)
+            return "";
+
+        return ComposedCommand.GetString(GenerateMultiLine);
+    }
+
+    private string GetFormattedValidationMessageHtml()
+    {
+        return HttpUtility.HtmlEncode(ValidationMessage).Replace("\n", "<br />");
+    }
+
+    private async void CopyToClipboard()
+    {
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", GetFormattedCommandRaw());
+        ToastService.ShowSuccess("Command copied to clipboard", timeout: 1000);
+    }
+}

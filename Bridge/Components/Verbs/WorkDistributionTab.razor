@@ -1,0 +1,46 @@
+﻿<FluentTab Label="Work distribution">
+    <div class="verb-args-tab">
+        <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+
+            <LabeledField Label="Workers per GPU">
+                <FluentNumberField Value="@(Parameters.WorkersPerGPU)" ValueChanged="@OnWorkersPerGPUChanged" Step="1" Min="1" Max="9999" Immediate="true" Size="1" />
+            </LabeledField>
+
+            <NerdContainer>
+                <LabeledField Label="List of GPUs to use">
+                    <FluentTextField Value="@(Parameters.GPUList)" ValueChanged="@OnGPUListChanged" Immediate="true" Placeholder="Leave empty to use all" />
+                </LabeledField>
+
+                <LabeledField Label="(Advanced) List of remote workers, formatted as host:port, space-separated">
+                    <FluentTextArea Value="@(Parameters.RemoteWorkers)" ValueChanged="@OnRemoteWorkersChanged" Rows="4" Cols="40" Immediate="true" />
+                </LabeledField>
+            </NerdContainer>
+
+        </FluentStack>
+    </div>
+</FluentTab>
+
+@code {
+    [Parameter]
+    public WorkDistributionTabParams Parameters { get; set; }
+    [Parameter]
+    public EventCallback<WorkDistributionTabParams> ParametersChanged { get; set; }
+
+    private EventCallback<int> OnWorkersPerGPUChanged => EventCallback.Factory.Create<int>(this, async (newValue) =>
+    {
+        Parameters.WorkersPerGPU = newValue;
+        await ParametersChanged.InvokeAsync(Parameters);
+    });
+
+    private EventCallback<string> OnGPUListChanged => EventCallback.Factory.Create<string>(this, async (newValue) =>
+    {
+        Parameters.GPUList = newValue;
+        await ParametersChanged.InvokeAsync(Parameters);
+    });
+
+    private EventCallback<string> OnRemoteWorkersChanged => EventCallback.Factory.Create<string>(this, async (newValue) =>
+    {
+        Parameters.RemoteWorkers = newValue;
+        await ParametersChanged.InvokeAsync(Parameters);
+    });
+}
