@@ -43,11 +43,11 @@ namespace gtom
 		d_ValueFill(d_bestangle, Elements(dimsvolume) * nvolumes, (float)0);
 
 		tcomplex* d_projectedftctf;
-		cudaMalloc((void**)&d_projectedftctf, ElementsFFT(dimsvolume) * tmax(nvolumes, batchsize) * sizeof(tcomplex));
+		cudaMalloc((void**)&d_projectedftctf, ElementsFFT(dimsvolume) * batchsize * sizeof(tcomplex));
 		tcomplex* d_projectedftctfcorr;
-		cudaMalloc((void**)&d_projectedftctfcorr, ElementsFFT(dimsvolume) * tmax(nvolumes, batchsize) * sizeof(tcomplex));
+		cudaMalloc((void**)&d_projectedftctfcorr, ElementsFFT(dimsvolume) * batchsize * sizeof(tcomplex));
 		tfloat* d_projected;
-		cudaMalloc((void**)&d_projected, Elements(dimsvolume) * tmax(nvolumes, batchsize) * sizeof(tfloat));
+		cudaMalloc((void**)&d_projected, Elements(dimsvolume) * batchsize * sizeof(tfloat));
 
 		cufftHandle planback = d_IFFTC2RGetPlan(ndims, dimsvolume, batchsize);
 
@@ -59,6 +59,8 @@ namespace gtom
 
 			// d_projectedftctf will contain rotated reference volume multiplied by CTF
 			d_rlnProjectCTFMult(t_projectordataRe, t_projectordataIm, d_ctf, dimsprojector, d_projectedftctf, dimsvolume, h_angles + b, projectoroversample, curbatch);
+
+			d_NormFTMonolithic(d_projectedftctf, d_projectedftctf, ElementsFFT(dimsvolume), curbatch);
 
 			for (uint v = 0; v < nvolumes; v++)
 			{
