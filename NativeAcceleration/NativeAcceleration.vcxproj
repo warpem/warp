@@ -406,6 +406,7 @@ copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
       <InterleaveSourceInPTX>false</InterleaveSourceInPTX>
       <GPUDebugInfo>false</GPUDebugInfo>
       <GenerateLineInfo>false</GenerateLineInfo>
+      <AdditionalOptions>--allow-unsupported-compiler %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
   </ItemDefinitionGroup>
 </Project>
