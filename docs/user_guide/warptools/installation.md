@@ -31,6 +31,14 @@ To update your installation, run the following command
 conda update warp -c warpem -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
 ```
 
+## Checking what version you are running
+
+To check which version you are running use
+
+```sh
+conda list warp
+```
+
 ## Windows
 
 We don't currently provide pre-built binaries for *WarpTools* on Windows.
