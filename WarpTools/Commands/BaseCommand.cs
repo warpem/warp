@@ -107,8 +107,19 @@ namespace WarpTools.Commands
                         // write processed_items.json
                         JsonArray ItemsJson = new JsonArray(ImmutableProcessed.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
                         File.WriteAllText(JsonFilePath + $".{iitem}", ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
-                        lock (workers)
-                            File.Move(JsonFilePath + $".{iitem}", JsonFilePath, true);
+                        
+                        bool Success = false;
+                        Stopwatch Watch = Stopwatch.StartNew();
+                        while (!Success && Watch.ElapsedMilliseconds < 10_000)
+                        {
+                            try
+                            {
+                                lock (workers)
+                                    File.Move(JsonFilePath + $".{iitem}", JsonFilePath, true);
+                                Success = true;
+                            }
+                            catch { }
+                        }
                     }));
                 }
                 catch
@@ -119,9 +130,9 @@ namespace WarpTools.Commands
                     lock (workers)
                     {
                         VirtualConsole.ClearLastLine();
-                        Console.WriteLine($"Failed to process {M.Path}, marked as unselected");
-                        Console.WriteLine($"Check logs in {LogDirectory} for more info.");
-                        Console.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
+                        Console.Error.WriteLine($"Failed to process {M.Path}, marked as unselected");
+                        Console.Error.WriteLine($"Check logs in {LogDirectory} for more info.");
+                        Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
                         NFailed++;
                     }
                 }
