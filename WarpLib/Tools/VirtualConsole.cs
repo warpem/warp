@@ -21,6 +21,7 @@ namespace Warp.Tools
         public static string FileOutputPath = null;
 
         static bool IsAttached = false;
+        static bool IsOutputPiped = false;
         public static bool IsSilent = false;
 
         static VirtualConsole()
@@ -29,6 +30,8 @@ namespace Warp.Tools
             ((VirtualTextWriter)Out).Written += OutWritten;
             ((VirtualTextWriter)Error).LineWritten += ErrorLineWritten;
             ((VirtualTextWriter)Error).Written += ErrorWritten;
+            
+            IsOutputPiped = Console.IsOutputRedirected;
 
             SystemOut = Console.Out;
             SystemError = Console.Error;
@@ -72,7 +75,7 @@ namespace Warp.Tools
 
             if (IsAttached && !IsSilent)
             {
-                if (Console.WindowWidth > 1)
+                if (!IsOutputPiped && Console.WindowWidth > 1)
                 {
                     int currentLineCursor = Console.CursorTop;
                     Console.SetCursorPosition(0, Console.CursorTop);
