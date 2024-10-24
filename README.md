@@ -1,3 +1,6 @@
+[![Latest Release](https://img.shields.io/conda/vn/warpem/warp.svg)](https://anaconda.org/warpem/warp)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.13982246-blue)](https://doi.org/10.5281/zenodo.13982246)
+
 # Warp?
 
 Warp is a set of tools for cryo-EM and cryo-ET data processing including, among other tools: [Warp](https://doi.org/10.1038/s41592-019-0580-y), [M](https://doi.org/10.1038/s41592-020-01054-7), WarpTools, MTools, MCore, and Noise2Map.
