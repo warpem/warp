@@ -2341,9 +2341,9 @@ namespace Warp.Sociology
             Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Helper.ToInterleaved(Helper.Combine(DescendantParticles.Select(p => p.Coordinates))))));
             Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Helper.ToInterleaved(Helper.Combine(DescendantParticles.Select(p => p.Angles))))));
 
-            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(HalfMap1.GetHostContinuousCopy())));
-            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(HalfMap2.GetHostContinuousCopy())));
-            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Mask.GetHostContinuousCopy())));
+            Builder.Append(MathHelper.GetSHA1(Helper.ToBytesSafe(HalfMap1.GetHostContinuousCopy())));
+            Builder.Append(MathHelper.GetSHA1(Helper.ToBytesSafe(HalfMap2.GetHostContinuousCopy())));
+            Builder.Append(MathHelper.GetSHA1(Helper.ToBytesSafe(Mask.GetHostContinuousCopy())));
 
             Version = MathHelper.GetSHA1(Helper.ToBytes(Builder.ToString().ToCharArray())).Substring(0, 8);
         }

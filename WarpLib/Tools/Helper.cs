@@ -1106,6 +1106,15 @@ namespace Warp.Tools
 
             return Bytes;
         }
+        
+        public static byte[] ToBytesSafe(float[] data)
+        {
+            // truncates data in byte array if necessary
+            byte[] Bytes = new byte[Math.Min(1 << 19, data.Length * sizeof(float))];
+            Buffer.BlockCopy(data, 0, Bytes, 0, Bytes.Length);
+
+            return Bytes;
+        }
 
         public static byte[] ToBytes(int[] data)
         {
