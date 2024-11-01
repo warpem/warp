@@ -877,7 +877,7 @@ namespace PCA3D
                             }
                         }
 
-                        Image NextVolume = NextReconstructor.Reconstruct(false, "C1", PlanForwRec, PlanBackRec, PlanForwCTF);
+                        Image NextVolume = NextReconstructor.Reconstruct(false, "C1", null, PlanForwRec, PlanBackRec, PlanForwCTF);
                         NextVolume.MaskSpherically(Dim - 16, 8, true);
                         if (iiter % RetrainEveryNIters == 0)
                             NextVolume.WriteMRC($"d_nextvolume{icomponent:D2}_it{iiter:D3}_{ihalf}.mrc", true);

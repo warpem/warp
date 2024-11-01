@@ -277,7 +277,7 @@ namespace Warp
                 Range = 1e-5f;
 
             ColorScale Palette = ColorScale == null ? 
-                                 new ColorScale(new[] { new float4(0, 0, 0, 1), new float4(1, 1, 1, 1) }) : 
+                                 new ColorScale(new[] { new float4(0, 0, 0, 1), new float4(1, 1, 1, 1) }, 1000) : 
                                  ColorScale;
 
             byte[] DataBytes = new byte[data.Length * 4];
@@ -285,7 +285,7 @@ namespace Warp
                 for (int x = 0; x < dims.X; x++)
                 {
                     float V = (data[y * dims.X + x] - Min) / Range;
-                    float4 C = Palette.GetColor(V) * 255;
+                    float4 C = new float4(Palette.GetColor(V)) * 255;
 
                     DataBytes[((dims.Y - 1 - y) * dims.X + x) * 4 + 3] = (byte)C.W;
                     DataBytes[((dims.Y - 1 - y) * dims.X + x) * 4 + 2] = (byte)C.X;
