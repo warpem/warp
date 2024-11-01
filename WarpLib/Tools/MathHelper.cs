@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -154,6 +155,46 @@ namespace Warp.Tools
 
             return new float2((float)Sum / data.Count(), MathF.Sqrt((float)Math.Max(0, data.Count() * Sum2 - Sum * Sum)) / data.Count());
         }
+        
+        public static float2 MeanAndStd(float[] data)
+        {
+            int count = data.Length;
+            if (count == 0)
+                return new float2(0, 0);
+
+            Vector<float> sumVector = Vector<float>.Zero;
+            Vector<float> sum2Vector = Vector<float>.Zero;
+            int vectorSize = Vector<float>.Count;
+
+            int i;
+            for (i = 0; i <= count - vectorSize; i += vectorSize)
+            {
+                var vector = new Vector<float>(data, i);
+                sumVector += vector;
+                sum2Vector += vector * vector;
+            }
+
+            float sum = 0f;
+            float sum2 = 0f;
+            for (int j = 0; j < vectorSize; j++)
+            {
+                sum += sumVector[j];
+                sum2 += sum2Vector[j];
+            }
+
+            // Process remaining elements
+            for (; i < count; i++)
+            {
+                sum += data[i];
+                sum2 += data[i] * data[i];
+            }
+
+            if (sum == sum2)
+                return new float2(0, 0);
+
+            return new float2((float)sum / data.Length, MathF.Sqrt((float)Math.Max(0, data.Length * sum2 - sum * sum)) / data.Length);
+        }
+
 
         public static float2 MeanAndStdNonZero(IEnumerable<float> data)
         {
@@ -410,6 +451,28 @@ namespace Warp.Tools
             float Min = float.MaxValue;
             return data.Aggregate(Min, (start, i) => Math.Min(start, i));
         }
+        
+        public static float Min(float[] data)
+        {
+            if (data.Length == 0)
+                return 0;
+
+            int VectorSize = Vector<float>.Count;
+            Vector<float> MinVector = new Vector<float>(float.MaxValue);
+
+            int i;
+            for (i = 0; i <= data.Length - VectorSize; i += VectorSize)
+                MinVector = Vector.Min(MinVector, new Vector<float>(data, i));
+
+            float Min = float.MaxValue;
+            for (int j = 0; j < VectorSize; j++)
+                Min = Math.Min(Min, MinVector[j]);
+
+            for (; i < data.Length; i++)
+                Min = Math.Min(Min, data[i]);
+
+            return Min;
+        }
 
         public static float[] Min(float[] data, float val)
         {
@@ -523,6 +586,40 @@ namespace Warp.Tools
         {
             int Max = -int.MaxValue;
             return data.Aggregate(Max, (start, i) => Math.Max(start, i));
+        }
+        
+        public static float2 MinMax(float[] data)
+        {
+            if (data.Length == 0)
+                return new float2(0);
+
+            int vectorSize = Vector<float>.Count;
+            Vector<float> minVector = new Vector<float>(float.MaxValue);
+            Vector<float> maxVector = new Vector<float>(float.MinValue);
+
+            int i;
+            for (i = 0; i <= data.Length - vectorSize; i += vectorSize)
+            {
+                var vector = new Vector<float>(data, i);
+                minVector = Vector.Min(minVector, vector);
+                maxVector = Vector.Max(maxVector, vector);
+            }
+
+            float min = float.MaxValue;
+            float max = float.MinValue;
+            for (int j = 0; j < vectorSize; j++)
+            {
+                min = Math.Min(min, minVector[j]);
+                max = Math.Max(max, maxVector[j]);
+            }
+
+            for (; i < data.Length; i++)
+            {
+                min = Math.Min(min, data[i]);
+                max = Math.Max(max, data[i]);
+            }
+
+            return new float2(min, max);
         }
 
         public static float[] Plus(float[] data1, float[] data2)
