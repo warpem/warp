@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.42">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
     
     
       
@@ -2593,7 +2593,7 @@ These will be used for frame series and tilt series processing respectively.</p>
 --tomo_dimensions<span class="w"> </span>4400x6000x1000<span class="w"> </span><span class="c1"># (1)!</span>
 </code></pre></div>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> These are the dimensions of your tomograms in unbinned pixels.
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> These are the dimensions of your tomograms in unbinned pixels.
     Tomograms are reconstructed with the tilt axis aligned along Y, remember to 
     account for rotation of the tilt axis when setting these dimensions!</li>
 </ol>
@@ -2615,7 +2615,7 @@ contrast transfer function.</p>
 --out_average_halves<span class="w"> </span><span class="c1"># (1)!</span>
 </code></pre></div>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> averages of half sets of frames are required for Noise2Noise
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> averages of half sets of frames are required for Noise2Noise
    based denoising of images and tomograms</li>
 </ol>
 <p>Motion corrected averages will be written out to the <code>warp_frameseries/average</code>
@@ -2762,7 +2762,7 @@ so we can process them.</p>
 cumulative dose received for each tilt. We also have an option to remove images which
 are darker than expected by supplying <code>--min_intensity</code> at this stage. (1)</p>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> images are removed if their intensity is less
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> images are removed if their intensity is less
    than <code>min_intensity</code> * <code>cos(tilt_angle)</code> * <code>0-tilt intensity</code></li>
 </ol>
 <p>This command produces files with the <em>tomostar</em> extension, these are STAR files with
@@ -2777,7 +2777,7 @@ We put these in a folder called <code>tomostar</code></p>
 --output<span class="w"> </span>tomostar
 </code></pre></div>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option inverts geometric handedness by flipping the
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option inverts geometric handedness by flipping the
    tomogram reconstruction through the XY plane, we do this here because we know for
    this dataset it leads to the correct geometric handedness in the tomogram.</li>
 </ol>
@@ -2844,7 +2844,7 @@ wrappers around <a href="https://bio3d.colorado.edu/imod/">IMOD</a> and
 <a href="https://drive.google.com/drive/folders/1Z7pKVEdgMoNaUmd_cOFhlt-QCcfcwF3_">AreTomo</a>.</p>
 <p class="annotate">In this case, we will use patch tracking from IMOD via the <code>etomo_patches</code> WarpTool. (1)</p>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> <code>ts_etomo_fiducials</code> and <code>ts_aretomo</code> are also available.</li>
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> <code>ts_etomo_fiducials</code> and <code>ts_aretomo</code> are also available.</li>
 </ol>
 <div class="highlight"><span class="filename">Tilt Series Alignment in Etomo using Patch Tracking</span><pre><span></span><code>WarpTools<span class="w"> </span>ts_etomo_patches<span class="w"> </span><span class="se">\</span>
 --settings<span class="w"> </span>warp_tiltseries.settings<span class="w"> </span><span class="se">\</span>
@@ -2853,7 +2853,7 @@ wrappers around <a href="https://bio3d.colorado.edu/imod/">IMOD</a> and
 --initial_axis<span class="w"> </span>-85.6
 </code></pre></div>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option is the sidelength of patches in Ångstroms. Patches
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this option is the sidelength of patches in Ångstroms. Patches
    are arranged on a regular grid with 80% overlap.</li>
 </ol>
 <h3 id="tilt-series-check-defocus-handedness">Tilt Series: Check Defocus Handedness</h3>
@@ -2862,7 +2862,7 @@ wrappers around <a href="https://bio3d.colorado.edu/imod/">IMOD</a> and
 and applying a correction to the model if necessary.</p>
 <p class="annotate">First, we check how well our data match expectations. (1)</p>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this check requires that defocus was estimated with at least
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this check requires that defocus was estimated with at least
    two points in each spatial dimension (i.e. minimum <code>2x2x1</code>).</li>
 </ol>
 <div class="highlight"><span class="filename">Defocus Handedness Check</span><pre><span></span><code>WarpTools ts_defocus_hand \
@@ -2899,7 +2899,7 @@ striving for the same accuracy.</p>
 in a tilt series whilst ensuring that data in all tilt images respect constraints
 common to the whole series. (1)</p>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this procedure is described in detail over at
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> this procedure is described in detail over at
    <a href="../../../reference/warp/ts_ctf_estimation/">Tilt Series CTF Estimation</a>.</li>
 </ol>
 <div class="highlight"><span class="filename">Tilt Series CTF Estimation</span><pre><span></span><code>WarpTools ts_ctf \
@@ -3022,7 +3022,7 @@ suffix in the filename</p>
 <p class="annotate">Both output types are compatible with the latest version of RELION, RELION-5.
 For this tutorial we will write out 2D particle image series. (1)</p>
 <ol>
-<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> if using 3D particles you need to launch refinements from
+<li><img alt="🙋‍♂️" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/1f64b-200d-2642-fe0f.svg" title=":man_raising_hand:" /> if using 3D particles you need to launch refinements from
    the <code>relion</code> GUI,
    not the <code>relion --tomo</code> GUI.</li>
 </ol>
