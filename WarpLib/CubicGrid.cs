@@ -19,11 +19,35 @@ namespace Warp
         public readonly float3 Margins = new float3(0);
         public float[] Values;
         private IntPtr Einspline = IntPtr.Zero;
+        
+        private static readonly bool CanUseEinspline;
 
         public float[] FlatValues
         {
             get { return Values; }
         }
+        
+        static CubicGrid()
+        {
+            try
+            {
+                IntPtr Test = CPU.CreateEinspline3(new float[] { 1.0f, 2.0f, 3.0f }, new int3(1, 1, 1), new float3(0.1f, 0.1f, 0.1f));
+                CPU.DestroyEinspline(Test);
+
+                CanUseEinspline = true;
+            }
+            catch (DllNotFoundException ex)
+            {
+                //Console.WriteLine("Einspline will not be available: " + ex.Message);
+                CanUseEinspline = false;
+            }
+            catch (EntryPointNotFoundException ex)
+            {
+                //Console.WriteLine("The required entry point in the native library is not found: " + ex.Message);
+                CanUseEinspline = false;
+            }
+        }
+
 
         public CubicGrid(int3 dimensions, float valueMin, float valueMax, Dimension gradientDirection, bool centeredSpacing = false)
         {
@@ -66,7 +90,8 @@ namespace Warp
                         Values[(z * Dimensions.Y + y) * Dimensions.X + x] = Value;
                     }
 
-            Einspline = MakeEinspline(Values, Dimensions, Margins);
+            if (CanUseEinspline)
+                Einspline = MakeEinspline(Values, Dimensions, Margins);
         }
 
         public CubicGrid(int3 dimensions)
@@ -97,7 +122,8 @@ namespace Warp
             Values = new float[dimensions.Elements()];
             Array.Copy(values, Values, (int)Dimensions.Elements());
 
-            Einspline = MakeEinspline(Values, Dimensions, Margins);
+            if (CanUseEinspline)
+                Einspline = MakeEinspline(Values, Dimensions, Margins);
         }
 
         public CubicGrid(int3 dimensions, float[] values, float3 margins)
@@ -110,7 +136,8 @@ namespace Warp
             Values = new float[dimensions.Elements()];
             Array.Copy(values, Values, (int)Dimensions.Elements());
 
-            Einspline = MakeEinspline(Values, Dimensions, Margins);
+            if (CanUseEinspline)
+                Einspline = MakeEinspline(Values, Dimensions, Margins);
         }
 
         ~CubicGrid()
@@ -355,7 +382,7 @@ namespace Warp
 
         public void Dispose()
         {
-            if (Einspline != IntPtr.Zero)
+            if (CanUseEinspline && Einspline != IntPtr.Zero)
             {
                 CPU.DestroyEinspline(Einspline);
                 Einspline = IntPtr.Zero;
