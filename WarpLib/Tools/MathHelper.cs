@@ -1474,6 +1474,60 @@ namespace Warp.Tools
 
             return Convolved;
         }
+        
+        public static (float[] binned, int2 newDims) Bin2(float[] data, int2 dims)
+        {
+            int width = dims.X;
+            int height = dims.Y;
+            
+            int newWidth = width / 2;
+            int newHeight = height / 2;
+
+            float[] binned = new float[newWidth * newHeight];
+
+            int vecLength = Vector<float>.Count;
+
+            unsafe
+            {
+                fixed (float* dataPtr = data)
+                    for (int y = 0; y < newHeight; y++)
+                    {
+                        int x = 0;
+                        // for (x = 0; x < newWidth - vecLength + 1; x += vecLength)
+                        // {
+                        //     int offset = (2 * y) * width + (2 * x);
+                        //
+                        //     // Load four blocks of 4 pixels into vectors using ReadOnlySpan.Slice
+                        //     Vector<float> v1 = new Vector<float>(data, offset);             // Top-left
+                        //     Vector<float> v2 = new Vector<float>(data, offset + 1);         // Top-right
+                        //     Vector<float> v3 = new Vector<float>(data, offset + width);     // Bottom-left
+                        //     Vector<float> v4 = new Vector<float>(data, offset + width + 1); // Bottom-right
+                        //
+                        //     Vector<float> sumVec = (v1 + v2 + v3 + v4) * 0.25f;
+                        //
+                        //     sumVec.CopyTo(binned, y * newWidth + x);
+                        // }
+
+                        // Non-vectorized loop for remaining elements (if width is not divisible by the vector length)
+                        for (; x < newWidth; x++)
+                        {
+                            float sum = 0;
+
+                            // Manually load 4 pixels and average them
+                            sum += dataPtr[(2 * y) * width + (2 * x)];         // Top-left
+                            sum += dataPtr[(2 * y) * width + (2 * x + 1)];     // Top-right
+                            sum += dataPtr[(2 * y + 1) * width + (2 * x)];     // Bottom-left
+                            sum += dataPtr[(2 * y + 1) * width + (2 * x + 1)]; // Bottom-right
+
+                            // Store the average
+                            binned[y * newWidth + x] = sum * 0.25f;
+                        }
+                    }
+            }
+
+
+            return (binned, new int2(newWidth, newHeight));
+        }
 
         public static float CircleFractionInsideRectangle(float2 center, float radius, float2 topleft, float2 bottomright, int steps = 100)
         {
