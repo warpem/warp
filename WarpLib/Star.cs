@@ -31,6 +31,9 @@ namespace Warp
                 {
                     tableName = "data_" + tableName;
                     while ((Line = Reader.ReadLine()) != null && !Line.StartsWith(tableName)) ;
+                    
+                    if (Line == null)
+                        throw new Exception($"Table {tableName} not found in {path}");
                 }
 
                 while ((Line = Reader.ReadLine()) != null && !Line.Contains("loop_")) ;
