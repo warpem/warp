@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.44">
     
     
       
@@ -1445,6 +1445,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Subsequent Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      Differences
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1866,6 +1881,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Subsequent Processing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#differences" class="md-nav__link">
+    <span class="md-ellipsis">
+      Differences
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2009,10 +2039,19 @@ These can be installed from <a href="https://pypi.org/">PyPI</a> in your warp co
 │   └── TS_005.mrc
 └── warp_ts_split_10453.py
 </code></pre></div>
+<div class="admonition info">
+<p class="admonition-title">what if I don't have mdoc files?</p>
+<p>You'll have to make them yourself!
+The <a href="https://teamtomo.org/mdocfile"><em>mdocfile</em></a> Python package might be useful.</p>
+</div>
 <h2 id="subsequent-processing">Subsequent Processing</h2>
 <p>You should now be able to follow the
-<a href="../../../user_guide/warptools/quick_start_warptools_tilt_series/">quick start guide for tilt series processing</a>.
-Remember to process your data as single frame images!</p>
+<a href="../../../user_guide/warptools/quick_start_warptools_tilt_series/">quick start guide for tilt series processing</a>.</p>
+<h3 id="differences">Differences</h3>
+<ul>
+<li>use <code>fs_ctf</code> not <code>fs_motion_and_ctf</code> - you don't need to correct motion!</li>
+<li>you won't be able to refine motion correction results in M</li>
+</ul>
 
 
 
