@@ -151,4 +151,5 @@ You should now be able to follow the
 
 ### Differences
 - use `fs_ctf` not `fs_motion_and_ctf` - you don't need to correct motion!
+- copy and paste or symlink motion corrected averages into an `averages` directory inside your frame series processing directory
 - you won't be able to refine motion correction results in M
