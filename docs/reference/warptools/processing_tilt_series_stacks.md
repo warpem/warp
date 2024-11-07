@@ -140,8 +140,15 @@ python warp_ts_split_10453.py
 └── warp_ts_split_10453.py
 ```
 
+!!! info "what if I don't have mdoc files?"
+    You'll have to make them yourself!
+    The [*mdocfile*](https://teamtomo.org/mdocfile) Python package might be useful.
+
 ## Subsequent Processing
 
 You should now be able to follow the
 [quick start guide for tilt series processing](../../user_guide/warptools/quick_start_warptools_tilt_series.md).
-Remember to process your data as single frame images!
+
+### Differences
+- use `fs_ctf` not `fs_motion_and_ctf` - you don't need to correct motion!
+- you won't be able to refine motion correction results in M
