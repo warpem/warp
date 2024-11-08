@@ -2038,6 +2038,14 @@ namespace Warp
 
         public void ProcessShift(Image originalStack, ProcessingOptionsMovieMovement options)
         {
+            if (originalStack.Dims.Z == 1)
+            {
+                OptionsMovement = options;
+                SaveMeta();
+
+                return;
+            }
+            
             IsProcessing = true;
 
             // Deal with dimensions and grids.
