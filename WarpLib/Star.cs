@@ -454,7 +454,10 @@ namespace Warp
 
         public float GetRowValueFloat(int row, int column)
         {
-            return float.Parse(Rows[row][column], CultureInfo.InvariantCulture);
+            return float.Parse(Rows[row][column].Replace("inf", "Infinity")
+                                                .Replace("-nan", "NaN")
+                                                .Replace("nan", "NaN"), 
+                               CultureInfo.InvariantCulture);
         }
 
         public int GetRowValueInt(int row, string column)
