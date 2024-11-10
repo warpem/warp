@@ -1398,8 +1398,10 @@ namespace Warp.Tools
         {
             int[] Factors = { 2, 3, 5, 7 };
             int Result = size;
-            while (!IsProductOf(Result, Factors))
+            if (Result % 2 != 0)
                 Result--;
+            while (!IsProductOf(Result, Factors))
+                Result -= 2;
 
             return Result;
         }
@@ -1413,8 +1415,10 @@ namespace Warp.Tools
         {
             int[] Factors = { 2, 3, 5, 7 };
             int Result = size;
-            while (!IsProductOf(Result, Factors))
+            if (Result % 2 != 0)
                 Result++;
+            while (!IsProductOf(Result, Factors))
+                Result += 2;
 
             return Result;
         }

@@ -1417,6 +1417,7 @@ namespace Warp
             #endregion
         }
 
+        private static Projector TemplateMatchingProjector = null;
         public void MatchFull(ProcessingOptionsTomoFullMatch options, Image template, Func<int3, float, string, bool> progressCallback)
         {
             bool IsCanceled = false;
@@ -1432,30 +1433,115 @@ namespace Warp
             float[][] CorrData;
             float[][] AngleData;
 
+            progressCallback?.Invoke(new int3(1), 0, "Loading...");
+
+            if (!File.Exists(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc")))
+                throw new FileNotFoundException("A reconstruction at the desired resolution was not found.");
+
+            Image TomoRec = null;
+            TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
+
             #region Dimensions
 
-            int SizeSub = options.SubVolumeSize;
-            int SizeSubPadded = SizeSub * 2;
-            int SizeParticle = (int)(options.TemplateDiameter / options.BinnedPixelSizeMean);
-            int PeakDistance = (int)(options.PeakDistance / options.BinnedPixelSizeMean);
-            int SizeUseful = Math.Min(SizeSub / 2, SizeSub - SizeParticle * 2);// Math.Min(SizeSub - SizeParticle, SizeSub / 2);
-            if (SizeUseful < 2)
-                throw new DimensionMismatchException("Particle diameter is bigger than the box.");
-
             VolumeDimensionsPhysical = options.DimensionsPhysical;
+            int3 DimsVolumeCropped = TomoRec.Dims;
 
-            int3 DimsVolumeCropped = new int3((int)Math.Round(options.DimensionsPhysical.X / (float)options.BinnedPixelSizeMean / 2) * 2,
-                                                (int)Math.Round(options.DimensionsPhysical.Y / (float)options.BinnedPixelSizeMean / 2) * 2,
-                                                (int)Math.Round(options.DimensionsPhysical.Z / (float)options.BinnedPixelSizeMean / 2) * 2);
+            int SizeParticle = (int)Math.Ceiling(options.TemplateDiameter / options.BinnedPixelSizeMean);
+            int Margin = SizeParticle;
+            int3 SizeWithMargin;
+            int3 SizeNoMargin;
+            int3 Grid;
 
-            int3 Grid = (DimsVolumeCropped - SizeParticle + SizeUseful - 1) / SizeUseful;
-            List<float3> GridCoords = new List<float3>();
+            // Figure out maximum subvolume size given tolerable phase error
+            {
+                int NComponents = 32;
+                float[][] Weights = new float[NTilts][];
+                for (int t = 0; t < NTilts; t++)
+                    Weights[t] = GetCTFParamsForOneTilt((float)options.BinnedPixelSizeMean, 
+                                                        new float[1], 
+                                                        [VolumeDimensionsPhysical * 0.5f], 
+                                                        t, 
+                                                        true, 
+                                                        true)[0].Get1D(NComponents, false);
+
+                Func<int3, float> GetMaxError = (int3 dims) =>
+                {
+                    float[] DefociCenter = GetPositionInAllTilts(VolumeDimensionsPhysical * 0.5f).Select(p => p.Z).ToArray();
+                    float[] DefociCorner = GetPositionInAllTilts(VolumeDimensionsPhysical * 0.5f + 
+                                                                 new float3(dims) * 0.5f * (float)options.BinnedPixelSizeMean).Select(p => p.Z).ToArray();
+
+                    float MaxError = 0;
+                    for (int t = 0; t < NTilts; t++)
+                    {
+                        float[] Diff = CTF.GetPhaseDiff(NComponents, (float)options.BinnedPixelSizeMean, DefociCenter[t], DefociCorner[t]);
+                        for (int i = 0; i < NComponents; i++)
+                            MaxError = Math.Max(MaxError, Math.Abs(Diff[i]) * Weights[t][i]);
+                    }
+
+                    return MaxError * Helper.ToDeg;
+                };
+
+                int[] DimsSorted;
+                {
+                    var DimGradient = new float[3];
+                    float Center = GetMaxError(new int3(64));
+                    for (int idim = 0; idim < DimGradient.Length; idim++)
+                    {
+                        int3 Resized = new int3(64);
+                        Resized[idim]++;
+                        DimGradient[idim] = GetMaxError(Resized) - Center;
+                    }
+
+                    DimsSorted = new[] { 0, 1, 2 }.OrderBy(i => DimGradient[i]).ToArray();
+                }
+
+                SizeWithMargin = new int3(Margin * 2 + 2);
+                SizeWithMargin[DimsSorted[0]] = DimsVolumeCropped[DimsSorted[0]];
+                while (GetMaxError(SizeWithMargin) < options.MaxPhaseError && SizeWithMargin != DimsVolumeCropped)
+                {
+                    SizeWithMargin[DimsSorted[1]] += 2;
+                    SizeWithMargin[DimsSorted[2]] += 2;
+                    SizeWithMargin = int3.Min(SizeWithMargin, DimsVolumeCropped);
+                }
+
+                SizeNoMargin = SizeWithMargin - Margin * 2;
+                Grid = (DimsVolumeCropped - Margin + (SizeNoMargin + Margin) / 2) / (SizeNoMargin + Margin);
+                SizeNoMargin = (DimsVolumeCropped - (Grid + 1) * Margin + Grid / 2) / Grid;
+                SizeWithMargin = SizeNoMargin + Margin * 2;
+
+                foreach (var dim in DimsSorted)
+                    SizeWithMargin[dim] = MathHelper.FindFFTFriendlySizeHigher(SizeWithMargin[dim]);
+
+                Console.WriteLine($"Correlation box size {SizeWithMargin} px will have a maximum phase error of {GetMaxError(SizeWithMargin)}");
+                Console.WriteLine($"The size without overlapping margins is {SizeNoMargin} px");
+
+                SizeNoMargin = SizeWithMargin - Margin * 2;
+            }
+
+            int SizeProjector = SizeParticle * 2;
+            int PeakDistance = (int)(options.PeakDistance / options.BinnedPixelSizeMean);
+            if (SizeNoMargin.Min() < 2)
+                throw new DimensionMismatchException($"Useful correlation box size is too small: {SizeNoMargin}");
+
+            int SizeCTFProjector = SizeWithMargin.Z;
+
+
+            //int3 Grid = (DimsVolumeCropped - SizeParticle + SizeUseful - 1) / SizeUseful;
+            //List<float3> GridCoords = new List<float3>();
+            //for (int z = 0; z < Grid.Z; z++)
+            //    for (int x = 0; x < Grid.X; x++)
+            //        for (int y = 0; y < Grid.Y; y++)
+            //            GridCoords.Add(new float3(x * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
+            //                                        y * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
+            //                                        z * SizeUseful + SizeUseful / 2 + SizeParticle / 2));
+
+            List<int3> GridCoords = new();
             for (int z = 0; z < Grid.Z; z++)
-                for (int x = 0; x < Grid.X; x++)
-                    for (int y = 0; y < Grid.Y; y++)
-                        GridCoords.Add(new float3(x * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
-                                                    y * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
-                                                    z * SizeUseful + SizeUseful / 2 + SizeParticle / 2));
+                for (int y = 0; y < Grid.Y; y++)
+                    for (int x = 0; x < Grid.X; x++)
+                        GridCoords.Add(new int3(Margin + (SizeNoMargin.X + Margin) * x + SizeNoMargin.X / 2,
+                                                Margin + (SizeNoMargin.Y + Margin) * y + SizeNoMargin.Y / 2,
+                                                Margin + (SizeNoMargin.Z + Margin) * z + SizeNoMargin.Z / 2));
 
             #endregion
 
@@ -1463,20 +1549,14 @@ namespace Warp
 
             string CorrVolumePath = IOPath.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_corr.mrc");
 
-            Image TomoRec = null;
             CorrData = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
             AngleData = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
 
-            if (!File.Exists(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc")))
-                throw new FileNotFoundException("A reconstruction at the desired resolution was not found.");
-
             if (!File.Exists(CorrVolumePath) || !options.ReuseCorrVolumes)
             {
-                progressCallback?.Invoke(Grid, 0, "Loading...");
+                #region Normalize tomogram by local standard deviation
 
-                TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
-
-                //if (GPU.GetDevice() == 1)
+                progressCallback?.Invoke(Grid, 0, "Preparing tomogram...");
                 {
                     Image TomoStd = new Image(TomoRec.Dims);
                     Image TomoMean = new Image(TomoRec.Dims);
@@ -1505,11 +1585,16 @@ namespace Warp
                     TomoMean.Dispose();
                 }
 
-                #region Scale and pad/crop the template to the right size, create projector
+                #endregion
+
+                #region Scale and pad/crop the template to the right size, create projector if this is the first run
 
                 progressCallback?.Invoke(Grid, 0, "Preparing template...");
 
-                Projector ProjectorReference;
+                if (TemplateMatchingProjector != null && TemplateMatchingProjector.Dims != new int3(SizeProjector))
+                    TemplateMatchingProjector.Dispose();
+
+                if (TemplateMatchingProjector == null)
                 {
                     int SizeBinned = (int)Math.Round(template.Dims.X * (options.TemplatePixel / options.BinnedPixelSizeMean) / 2) * 2;
 
@@ -1524,7 +1609,7 @@ namespace Warp
                                    false,
                                    1);
 
-                    Image TemplatePadded = TemplateScaled.AsPadded(new int3(SizeSub));
+                    Image TemplatePadded = TemplateScaled.AsPadded(new int3(SizeProjector));
                     TemplateScaled.Dispose();
 
                     if (options.WhitenSpectrum)
@@ -1533,7 +1618,7 @@ namespace Warp
                         //TemplatePadded.WriteMRC("d_template.mrc", true);
                     }
 
-                    ProjectorReference = new Projector(TemplatePadded, 2, true, 3);
+                    TemplateMatchingProjector = new Projector(TemplatePadded, 3, true, 3);
                     TemplatePadded.Dispose();
                     //ProjectorReference.PutTexturesOnDevice();
                 }
@@ -1545,26 +1630,17 @@ namespace Warp
                 if (TomoRec.Dims != DimsVolumeCropped)
                     throw new DimensionMismatchException($"Tomogram dimensions ({TomoRec.Dims}) don't match expectation ({DimsVolumeCropped})");
 
-                //if (options.WhitenSpectrum)
-                //{
-                //    progressCallback?.Invoke(Grid, 0, "Whitening spectral noise...");
-
-                //    TomoRec = TomoRec.AsSpectrumFlattened(true, 0.99f).AndDisposeParent();
-                //    //TomoRec.WriteMRC("d_tomorec.mrc", true);
-                //}
-
                 float[][] TomoRecData = TomoRec.GetHost(Intent.Read);
 
-                int PlanForw, PlanBack, PlanForwCTF;
-                Projector.GetPlans(new int3(SizeSub), 3, out PlanForw, out PlanBack, out PlanForwCTF);
+                int PlanForwSubvolume = GPU.CreateFFTPlan(SizeWithMargin, 1);
 
-                Image CTFCoords = CTF.GetCTFCoords(SizeSubPadded, SizeSubPadded);
+                Image CTFCoords = CTF.GetCTFCoords(SizeCTFProjector, SizeCTFProjector);
 
                 #endregion
 
                 progressCallback?.Invoke(Grid, 0, "Matching...");
 
-                int BatchSize = Grid.Y;
+                int BatchSize = 1;
                 float[] ProgressFraction = new float[1];
                 for (int b = 0; b < GridCoords.Count; b += BatchSize)
                 {
@@ -1575,7 +1651,7 @@ namespace Warp
 
                     Image Subtomos = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch), true, true);
 
-                    #region Create CTF for this column of subvolumes (X = const, Z = const)
+                    #region Create a CTF for each subvolume in this batch
 
                     Image SubtomoCTF;
                     {
@@ -1669,10 +1745,10 @@ namespace Warp
                     Image BestCorrelation = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
                     Image BestAngle = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
 
-                    GPU.CorrelateSubTomos(ProjectorReference.t_DataRe,
-                                          ProjectorReference.t_DataIm,
-                                          ProjectorReference.Oversampling,
-                                          ProjectorReference.Data.Dims,
+                    GPU.CorrelateSubTomos(TemplateMatchingProjector.t_DataRe,
+                                          TemplateMatchingProjector.t_DataIm,
+                                          TemplateMatchingProjector.Oversampling,
+                                          TemplateMatchingProjector.Data.Dims,
                                           Subtomos.GetDevice(Intent.Read),
                                           SubtomoCTF.GetDevice(Intent.Read),
                                           new int3(SizeSub),
@@ -1746,12 +1822,12 @@ namespace Warp
 
 
 
-                GPU.DestroyFFTPlan(PlanForw);
+                GPU.DestroyFFTPlan(PlanForwSubvolume);
                 GPU.DestroyFFTPlan(PlanBack);
                 GPU.DestroyFFTPlan(PlanForwCTF);
 
                 CTFCoords.Dispose();
-                ProjectorReference.Dispose();
+                TemplateMatchingProjector.Dispose();
 
                 // Normalize by background std
                 if (options.NormalizeScores)
@@ -1790,7 +1866,7 @@ namespace Warp
                     progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Trimming...");
 
                     float BinnedAngPix = (float)options.BinnedPixelSizeMean;
-                    float Margin = (float)options.TemplateDiameter;
+                    float VolumeMargin = (float)options.TemplateDiameter;
 
                     int Undersample = 4;
                     int3 DimsUndersampled = (DimsVolumeCropped + Undersample - 1) / Undersample;
@@ -1805,8 +1881,8 @@ namespace Warp
 
                     float[][] OccupancyMask = Helper.ArrayOfFunction(z => Helper.ArrayOfConstant(1f, VolumePositions.Length), DimsUndersampled.Z);
 
-                    float WidthNoMargin = ImageDimensionsPhysical.X - BinnedAngPix - Margin;
-                    float HeightNoMargin = ImageDimensionsPhysical.Y - BinnedAngPix - Margin;
+                    float WidthNoMargin = ImageDimensionsPhysical.X - BinnedAngPix - VolumeMargin;
+                    float HeightNoMargin = ImageDimensionsPhysical.Y - BinnedAngPix - VolumeMargin;
 
                     for ( int z = 0; z < DimsUndersampled.Z; z++)
                     {
@@ -1823,7 +1899,7 @@ namespace Warp
                                 int i = p * NTilts + t;
 
                                 if (UseTilt[t] &&
-                                    (ImagePositions[i].X < Margin || ImagePositions[i].Y < Margin ||
+                                    (ImagePositions[i].X < VolumeMargin || ImagePositions[i].Y < VolumeMargin ||
                                     ImagePositions[i].X > WidthNoMargin ||
                                     ImagePositions[i].Y > HeightNoMargin))
                                 {
@@ -1861,7 +1937,6 @@ namespace Warp
             {
                 progressCallback?.Invoke(Grid, 0, "Loading...");
 
-                TomoRec = Image.FromFile(IOPath.Combine(ReconstructionDir, NameWithRes + ".mrc"));
                 CorrImage = Image.FromFile(CorrVolumePath);
                 CorrData = CorrImage.GetHost(Intent.Read);
             }
@@ -10871,7 +10946,7 @@ namespace Warp
         public bool OverwriteFiles { get; set; }
 
         [WarpSerializable]
-        public int SubVolumeSize { get; set; }
+        public int MaxPhaseError { get; set; }
 
         [WarpSerializable]
         public string TemplateName { get; set; }

@@ -607,7 +607,7 @@ namespace Warp
                 PeakDistance = Tasks.TomoMatchPeakDistance,
                 TemplateFraction = Tasks.TomoMatchTemplateFraction,
                 
-                SubVolumeSize = 192,
+                MaxPhaseError = 30,
                 Symmetry = Tasks.TomoMatchSymmetry,
                 HealpixOrder = (int)Tasks.TomoMatchHealpixOrder,
                 BatchAngles = Tasks.TomoMatchBatchAngles,
