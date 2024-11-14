@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
@@ -15,10 +14,9 @@ using Warp.Tools;
 using Accord;
 using Warp.Sociology;
 using IOPath = System.IO.Path;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
-using Newtonsoft.Json;
-using Formatting = System.Xml.Formatting;
 
 namespace Warp
 {
@@ -104,7 +102,7 @@ namespace Warp
         public string ParticleCTFPath => IOPath.Combine(ParticleCTFDir, RootName + "_particlesctf.mrcs");
         public string ParticleMoviesCTFPath => IOPath.Combine(ParticleMoviesCTFDir, RootName + "_particlemoviesctf.mrcs");
         public string ThumbnailsPath => IOPath.Combine(ThumbnailsDir, RootName + ".png");
-        public string MotionTracksPath => IOPath.Combine(AverageDir, RootName + "_motion.json")
+        public string MotionTracksPath => IOPath.Combine(AverageDir, RootName + "_motion.json");
 
         public string XMLName => RootName + ".xml";
         public string XMLPath => IOPath.Combine(ProcessingDirectoryName, XMLName);
@@ -282,44 +280,28 @@ namespace Warp
 
         public void SaveMotionTracks()
         {
-            // evaluate motion tracks on a 6x6 grid and save as json
-            int nx = 6; ny = 6;
-            float gx, gy, gt; // grid coordinates [0, 1]
+            if (!HasGlobalMovement)
+                return;
+            
+            // evaluate motion tracks on a grid and save as json
+            int nx = GridLocalX.Dimensions.X, ny = GridLocalX.Dimensions.Y;
+            float gx, gy; // grid coordinates [0, 1]
             
             // dictionary to store JSON data structure
             var motionTracks = new Dictionary<string, Dictionary<string, float[]>>();
             
             for (int x = 0; x < nx; x++)
             {
-                gx = x / (float)(nx - 1);
+                gx = x / (float)Math.Max(1, nx - 1);
                 for (int y = 0; y < ny; y++)
                 {
-                    gy = y / (float)(ny - 1);
+                    gy = y / (float)Math.Max(1, ny - 1);
+
+                    var track = GetMotionTrack(new float2(gx, gy), GridMovementX.Dimensions.Z);
                     
                     // Initialize arrays for each cell
-                    float[] vx = new float[this.NFrames];  // x motion values
-                    float[] vy = new float[this.NFrames];  // y motion values
-                    
-                    for (float t = 0; t < this.NFrames; t++)
-                    {
-                        gt = t / (float)(this.NFrames - 1);
-                        float3 gxyz = new float3(gx, gy, gt);
-                        
-                        // Calculate interpolated values
-                        vx[t] = 0;
-                        vy[t] = 0;
-                        if (this.HasGlobalMovement)
-                        {
-                            vx[t] += GridMovementX.GetInterpolated(gxyz);
-                            vy[t] += GridMovementY.GetInterpolated(gxyz);
-                        }
-
-                        if (this.HasLocalMovement)
-                        {
-                            vx[t] += GridLocalX.GetInterpolated(gxyz);
-                            vy[t] += GridLocalY.GetInterpolated(gxyz);
-                        }
-                    }
+                    float[] vx = track.Select(v => v.X).ToArray();  // x motion values
+                    float[] vy = track.Select(v => v.Y).ToArray();  // y motion values
                     
                     // Use row_column format for key
                     string cellKey = $"{x}_{y}";
@@ -333,7 +315,7 @@ namespace Warp
             }
             
             // Serialize to JSON
-            string json = JsonConvert.SerializeObject(new { motion_tracks = motionTracks });
+            string json = JsonSerializer.Serialize(motionTracks);
             File.WriteAllText(MotionTracksPath, json);
         }
 
