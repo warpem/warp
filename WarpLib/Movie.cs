@@ -2507,9 +2507,11 @@ namespace Warp
                 float[] Diff = MathHelper.Diff(Track).Select(v => v.Length()).ToArray();
                 MeanFrameMovement = (decimal)MathHelper.Mean(Diff.Take(Math.Max(1, Diff.Length / 3)));
             }
-
+            
+            // Save XML metadata and export motion tracks json
             SaveMeta();
-
+            SaveMotionTracks();
+            
             //lock (ShiftTimers)
             //{
             //    if (ShiftTimers[0].NItems > 0)
