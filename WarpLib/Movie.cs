@@ -296,8 +296,10 @@ namespace Warp
                 for (int y = 0; y < ny; y++)
                 {
                     gy = y / (float)Math.Max(1, ny - 1);
-
-                    var track = GetMotionTrack(new float2(gx, gy), GridMovementX.Dimensions.Z);
+                    
+                    // Get the motion track for each grid point
+                    // note: API is samples per 
+                    var track = GetMotionTrack(new float2(gx, gy), samplesPerGridPointAlongZ: 1);
                     
                     // Initialize arrays for each cell
                     float[] vx = track.Select(v => v.X).ToArray();  // x motion values
@@ -8982,16 +8984,16 @@ namespace Warp
             AverageScaled.Dispose();
         }
 
-        public float2[] GetMotionTrack(float2 position, int samples, bool localOnly = false)
+        public float2[] GetMotionTrack(float2 position, int samplesPerGridPointAlongZ, bool localOnly = false)
         {
             if (OptionsMovement == null || OptionsMovement.Dimensions.Z <= 1)
                 return null;
 
             int NFrames = (int)OptionsMovement.Dimensions.Z;
-            float2[] Result = new float2[NFrames * samples];
+            float2[] Result = new float2[NFrames * samplesPerGridPointAlongZ];
 
-            float StepZ = 1f / Math.Max(NFrames * samples - 1, 1);
-            for (int z = 0; z < NFrames * samples; z++)
+            float StepZ = 1f / Math.Max(NFrames * samplesPerGridPointAlongZ - 1, 1);
+            for (int z = 0; z < NFrames * samplesPerGridPointAlongZ; z++)
                 Result[z] = GetShiftFromPyramid(new float3(position.X, position.Y, z * StepZ), localOnly);
 
             return Result;
