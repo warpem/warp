@@ -297,9 +297,8 @@ namespace Warp
                 {
                     gy = y / (float)Math.Max(1, ny - 1);
                     
-                    // Get the motion track for each grid point
-                    // note: API is samples per 
-                    var track = GetMotionTrack(new float2(gx, gy), oversampleFactorAlongZ: 1);
+                    // Get the motion track for this cell
+                    var track = GetMotionTrack(new float2(gx, gy));
                     
                     // Initialize arrays for each cell
                     float[] vx = track.Select(v => v.X).ToArray();  // x motion values
@@ -8984,7 +8983,7 @@ namespace Warp
             AverageScaled.Dispose();
         }
 
-        public float2[] GetMotionTrack(float2 position, int oversampleFactorAlongZ, bool localOnly = false)
+        public float2[] GetMotionTrack(float2 position, int oversampleFactorAlongZ = 1, bool localOnly = false)
         {
             if (OptionsMovement == null || OptionsMovement.Dimensions.Z <= 1)
                 return null;
