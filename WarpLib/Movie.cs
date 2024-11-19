@@ -14,6 +14,7 @@ using Warp.Tools;
 using Accord;
 using Warp.Sociology;
 using IOPath = System.IO.Path;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 
@@ -101,6 +102,7 @@ namespace Warp
         public string ParticleCTFPath => IOPath.Combine(ParticleCTFDir, RootName + "_particlesctf.mrcs");
         public string ParticleMoviesCTFPath => IOPath.Combine(ParticleMoviesCTFDir, RootName + "_particlemoviesctf.mrcs");
         public string ThumbnailsPath => IOPath.Combine(ThumbnailsDir, RootName + ".png");
+        public string MotionTracksPath => IOPath.Combine(AverageDir, RootName + "_motion.json");
 
         public string XMLName => RootName + ".xml";
         public string XMLPath => IOPath.Combine(ProcessingDirectoryName, XMLName);
@@ -275,6 +277,47 @@ namespace Warp
 
         public bool HasLocalMovement => (GridLocalX != null && GridLocalX.FlatValues.Length > 1) || (PyramidShiftX != null && PyramidShiftX.Count > 1);
         public bool HasGlobalMovement => (GridMovementX != null && GridMovementX.FlatValues.Length > 1) || (PyramidShiftX != null && PyramidShiftX.Count > 0);
+
+        public void SaveMotionTracks()
+        {
+            if (!HasGlobalMovement)
+                return;
+            
+            // evaluate motion tracks on a grid and save as json
+            int nx = GridLocalX.Dimensions.X, ny = GridLocalX.Dimensions.Y;
+            float gx, gy; // grid coordinates [0, 1]
+            
+            // dictionary to store JSON data structure
+            var motionTracks = new Dictionary<string, Dictionary<string, float[]>>();
+            
+            for (int x = 0; x < nx; x++)
+            {
+                gx = x / (float)Math.Max(1, nx - 1);
+                for (int y = 0; y < ny; y++)
+                {
+                    gy = y / (float)Math.Max(1, ny - 1);
+
+                    var track = GetMotionTrack(new float2(gx, gy), GridMovementX.Dimensions.Z);
+                    
+                    // Initialize arrays for each cell
+                    float[] vx = track.Select(v => v.X).ToArray();  // x motion values
+                    float[] vy = track.Select(v => v.Y).ToArray();  // y motion values
+                    
+                    // Use row_column format for key
+                    string cellKey = $"{x}_{y}";
+                    motionTracks[cellKey] = new Dictionary<string, float[]>
+                    {
+                        { "x", vx },
+                        { "y", vy }
+                    };
+                    
+                }
+            }
+            
+            // Serialize to JSON
+            string json = JsonSerializer.Serialize(motionTracks);
+            File.WriteAllText(MotionTracksPath, json);
+        }
 
         #endregion
 
@@ -2464,9 +2507,11 @@ namespace Warp
                 float[] Diff = MathHelper.Diff(Track).Select(v => v.Length()).ToArray();
                 MeanFrameMovement = (decimal)MathHelper.Mean(Diff.Take(Math.Max(1, Diff.Length / 3)));
             }
-
+            
+            // Save XML metadata and export motion tracks json
             SaveMeta();
-
+            SaveMotionTracks();
+            
             //lock (ShiftTimers)
             //{
             //    if (ShiftTimers[0].NItems > 0)
