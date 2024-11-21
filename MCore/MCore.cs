@@ -574,7 +574,8 @@ namespace MCore
                     }
 
                     foreach (var folder in AllProcessingFolders)
-                        Directory.Delete(folder, true);
+                        if (Directory.Exists(folder))
+                            Directory.Delete(folder, true);
 
                     Console.WriteLine("");
                 }
