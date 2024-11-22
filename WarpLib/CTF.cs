@@ -743,7 +743,7 @@ namespace Warp
             float[] Values = Get1D(1 << 12, true);
             for (int i = 0; i < Values.Length - 1; i++)
                 if (Math.Sign(Values[i]) != Math.Sign(Values[i + 1]))
-                    Result.Add(0.5f * i / Values.Length - 1);
+                    Result.Add(0.5f * i / (Values.Length - 1));
 
             return Result.ToArray();
         }
