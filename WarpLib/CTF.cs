@@ -739,6 +739,18 @@ namespace Warp
         public float[] GetZeros()
         {
             List<float> Result = new List<float>();
+            
+            float[] Values = Get1D(1 << 12, true);
+            for (int i = 0; i < Values.Length - 1; i++)
+                if (Math.Sign(Values[i]) != Math.Sign(Values[i + 1]))
+                    Result.Add(0.5f * i / Values.Length);
+
+            return Result.ToArray();
+        }
+
+        public float[] GetMinima()
+        {
+            List<float> Result = new List<float>();
 
             float[] Values = Get1D(1 << 12, true);
             float[] dValues = MathHelper.Diff(Values);
