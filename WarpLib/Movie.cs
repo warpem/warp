@@ -317,7 +317,7 @@ namespace Warp
             
             // Serialize to JSON, creating directory first if necessary
             string json = JsonSerializer.Serialize(motionTracks);
-            string directoryPath = Path.GetDirectoryName(MotionTracksPath);
+            string directoryPath = IOPath.GetDirectoryName(MotionTracksPath);
             if (!string.IsNullOrEmpty(directoryPath))
                 Directory.CreateDirectory(directoryPath);
             File.WriteAllText(MotionTracksPath, json);
