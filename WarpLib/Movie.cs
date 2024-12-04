@@ -1498,7 +1498,7 @@ namespace Warp
                 float[] CTFAverage1DData = CTFAverage1D.GetHost(Intent.Read)[0];
                 float2[] ForPS1D = new float2[DimsRegion.X / 2];
                 for (int i = 0; i < ForPS1D.Length; i++)
-                    ForPS1D[i] = new float2(0.5f * (float)i / (PS1D.Length - 1), (float)Math.Round(CTFAverage1DData[i], 4));
+                    ForPS1D[i] = new float2((float)i / DimsRegion.X, (float)Math.Round(CTFAverage1DData[i], 4));
                 _PS1D = ForPS1D;
 
                 CTFAverage1D.Dispose();
@@ -1555,10 +1555,10 @@ namespace Warp
                 float2[] ForPS1D = new float2[PS1D.Length];
                 if (keepbackground)
                     for (int i = 0; i < ForPS1D.Length; i++)
-                        ForPS1D[i] = new float2(0.5f * (float)i / ForPS1D.Length, RotationalAverageData[i] + _SimulatedBackground.Interp(0.5f * (float)i / ForPS1D.Length));
+                        ForPS1D[i] = new float2((float)i / DimsRegion.X, RotationalAverageData[i] + _SimulatedBackground.Interp((float)i / DimsRegion.X));
                 else
                     for (int i = 0; i < ForPS1D.Length; i++)
-                        ForPS1D[i] = new float2(0.5f * (float)i / ForPS1D.Length, RotationalAverageData[i]);
+                        ForPS1D[i] = new float2((float)i / DimsRegion.X, RotationalAverageData[i]);
                 MathHelper.UnNaN(ForPS1D);
 
                 _PS1D = ForPS1D;

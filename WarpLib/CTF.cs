@@ -731,7 +731,7 @@ namespace Warp
 
             for (int i = 0; i < dValues.Length - 1; i++)
                 if (Math.Sign(dValues[i]) > 0 && Math.Sign(dValues[i + 1]) < 0)
-                    Result.Add(0.5f * i / (Values.Length - 1));
+                    Result.Add(0.5f * i / Values.Length);
 
             return Result.ToArray();
         }
@@ -745,7 +745,7 @@ namespace Warp
 
             for (int i = 0; i < dValues.Length - 1; i++)
                 if (Math.Sign(dValues[i]) < 0 && Math.Sign(dValues[i + 1]) > 0)
-                    Result.Add(0.5f * i / (Values.Length - 1));
+                    Result.Add(0.5f * i / Values.Length);
 
             return Result.ToArray();
         }
