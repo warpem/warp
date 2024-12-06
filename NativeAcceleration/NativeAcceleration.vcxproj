@@ -300,7 +300,7 @@
     <ClCompile>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN64;_DEBUG;FLOAT_PRECISION;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN64;_DEBUG;FLOAT_PRECISION;_CONSOLE;_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <OpenMPSupport>true</OpenMPSupport>
       <MinimalRebuild>false</MinimalRebuild>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
@@ -357,7 +357,7 @@ copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN64;_CONSOLE;FLOAT_PRECISION;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN64;_CONSOLE;FLOAT_PRECISION;_ITERATOR_DEBUG_LEVEL=0;_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OpenMPSupport>true</OpenMPSupport>
       <AdditionalOptions>/FS /openmp:experimental /Qvec-report:2 %(AdditionalOptions)</AdditionalOptions>
