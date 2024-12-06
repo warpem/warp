@@ -65,6 +65,9 @@ namespace WarpTools.Commands
             List<Task> JsonTasks = new();
             List<Movie> ProcessedItems = new List<Movie>();
 
+            foreach (var item in cli.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
             Console.Write($"0/{cli.InputSeries.Length}");
 
             int NDone = 0;
@@ -95,6 +98,25 @@ namespace WarpTools.Commands
                     // process the movie
                     body(Processor, M);
 
+                    M.ProcessingStatus = ProcessingStatus.Processed;
+                }
+                catch
+                {
+                    M.UnselectManual = true;
+                    M.ProcessingStatus = ProcessingStatus.LeaveOut;
+                    M.SaveMeta();
+
+                    lock (workers)
+                    {
+                        VirtualConsole.ClearLastLine();
+                        Console.Error.WriteLine($"Failed to process {M.Path}, marked as unselected");
+                        Console.Error.WriteLine($"Check logs in {LogDirectory} for more info.");
+                        Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
+                        NFailed++;
+                    }
+                }
+                finally
+                {
                     JsonTasks.Add(Task.Run(() =>
                     {
                         List<Movie> ImmutableProcessed;
@@ -107,7 +129,7 @@ namespace WarpTools.Commands
                         // write processed_items.json
                         JsonArray ItemsJson = new JsonArray(ImmutableProcessed.Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
                         File.WriteAllText(JsonFilePath + $".{iitem}", ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
-                        
+
                         bool Success = false;
                         Stopwatch Watch = Stopwatch.StartNew();
                         while (!Success && Watch.ElapsedMilliseconds < 10_000)
@@ -121,20 +143,6 @@ namespace WarpTools.Commands
                             catch { }
                         }
                     }));
-                }
-                catch
-                {
-                    M.UnselectManual = true;
-                    M.SaveMeta();
-
-                    lock (workers)
-                    {
-                        VirtualConsole.ClearLastLine();
-                        Console.Error.WriteLine($"Failed to process {M.Path}, marked as unselected");
-                        Console.Error.WriteLine($"Check logs in {LogDirectory} for more info.");
-                        Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
-                        NFailed++;
-                    }
                 }
 
                 Processor.Console.SetFileOutput("");
