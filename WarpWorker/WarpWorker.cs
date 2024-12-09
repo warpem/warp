@@ -71,9 +71,13 @@ namespace WarpWorker
 
             var Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
             {
-                webBuilder.UseKestrel(options => options.ListenAnyIP(Port))
-                          .UseStartup<RESTStartup>()
-                          .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning));
+                webBuilder.UseKestrel(options =>
+                    {
+                        options.ListenAnyIP(Port);
+                        options.Limits.MaxRequestBodySize = 104857600; // 100 MB
+                    })
+                    .UseStartup<RESTStartup>()
+                    .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning));
             }).Build();
             Host.Start();
 
