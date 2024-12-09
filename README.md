@@ -5,6 +5,12 @@
 
 Warp is a set of tools for cryo-EM and cryo-ET data processing including, among other tools: [Warp](https://doi.org/10.1038/s41592-019-0580-y), [M](https://doi.org/10.1038/s41592-020-01054-7), WarpTools, MTools, MCore, and Noise2Map.
 
+# Citing Warp
+
+https://doi.org/10.5281/zenodo.13982246
+
+This DOI represents all versions and will resolve to the latest version.
+
 # Install Warp
 
 ## Windows
@@ -58,9 +64,13 @@ setenv("RELION_EXTERNAL_RECONSTRUCT_EXECUTABLE", pathJoin(root, "Noise2Half"))
 
 # Other programs you'll want to install (on Linux)
 
-- [IMOD](https://bio3d.colorado.edu/imod/)
-- [AreTomo](https://github.com/czimaginginstitute/AreTomo2)
-- [RELION](https://github.com/3dem/relion)
+- [IMOD](https://bio3d.colorado.edu/imod/download.html#Development) `>=4.12.50`
+- [AreTomo](https://msg.ucsf.edu/software) `==1.3.4`
+- [RELION](https://github.com/3dem/relion) `==5`
+
+AreTomo2 seems broken (c.f. [#159](https://github.com/warpem/warp/issues/159) and [AreTomo2/#21](https://github.com/czimaginginstitute/AreTomo2/issues/21)) and we have not added compatibility for AreTomo3 ([#279](https://github.com/warpem/warp/issues/279)).
+
+We only ensure compatibility with RELION 5.
 
 ## Editing Documentation
 Install `mkdocs-material` into your conda environment then run
