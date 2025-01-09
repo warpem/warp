@@ -67,6 +67,35 @@ namespace WarpTools.Commands
                 throw new Exception("--top_series must be positive");
 
             #endregion
+            
+            #region Create symbolic link to matching dir if necessary
+            
+            if (!string.IsNullOrEmpty(CLI.InputProcessing) && !string.IsNullOrEmpty(CLI.OutputProcessing))
+            {
+                string inputMatchingDir = Path.Combine(CLI.InputProcessing, "reconstruction");
+                string outputMatchingDir = Path.Combine(CLI.OutputProcessing, "reconstruction");
+                
+                Console.WriteLine($"Both --input_processing and --output_processing are set, attempting to link matching results from {inputMatchingDir} to {outputMatchingDir}...");
+
+                if (!Directory.Exists(inputMatchingDir))
+                    throw new Exception($"No matching directory found at {inputMatchingDir}");
+                
+                if (Directory.Exists(outputMatchingDir))
+                {
+                    DirectoryInfo dirInfo = new DirectoryInfo(outputMatchingDir);
+                    bool outputReconstructionDirIsSymbolicLink = dirInfo.LinkTarget != null;
+
+                    if (outputReconstructionDirIsSymbolicLink)
+                        Directory.Delete(outputMatchingDir);
+                    else
+                        throw new Exception("Matching directory exists and is not a symbolic link, cannot replace");
+                }
+
+                Directory.CreateSymbolicLink(outputMatchingDir, pathToTarget: inputMatchingDir);
+                Console.WriteLine("Matching directory successfully linked.");
+            }
+            
+            #endregion
 
             var TablesIn = new Dictionary<Movie, Star>();
             int ParticlesIn = 0;
