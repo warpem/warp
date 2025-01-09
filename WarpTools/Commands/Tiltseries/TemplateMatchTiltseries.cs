@@ -20,6 +20,9 @@ namespace WarpTools.Commands
     {
         [Option("tomo_angpix", Required = true, HelpText = "Pixel size of the reconstructed tomograms in Angstrom")]
         public double TomoAngPix { get; set; }
+        
+        [Option("tomo_directory", HelpText = "Path to the directory containing Warp reconstructions at --tomo_angpix")]
+        public string TomoDirectory { get; set; }
 
         [Option("template_path", HelpText = "Path to the template file")]
         public string TemplatePath { get; set; }
@@ -151,8 +154,35 @@ namespace WarpTools.Commands
 
             if (CLI.LowpassSigma < 0)
                 throw new Exception("--lowpass_sigma can't be negative");
+            
+            #endregion
+            
+            #region Create symbolic link to reconstruction dir if necessary
+            
+            if (!string.IsNullOrEmpty(CLI.InputProcessing) && !string.IsNullOrEmpty(CLI.OutputProcessing))
+            {
+                string inputReconstructionDir = Path.Combine(CLI.InputProcessing, "reconstruction");
+                string outputReconstructionDir = Path.Combine(CLI.OutputProcessing, "reconstruction");
+                
+                Console.WriteLine($"Both --input_processing and --output_processing are set, attempting to link tomograms from {inputReconstructionDir} to {outputReconstructionDir}...");
 
+                if (!Directory.Exists(inputReconstructionDir))
+                    throw new Exception($"no reconstruction directory found at {inputReconstructionDir}");
+                
+                if (Directory.Exists(outputReconstructionDir))
+                {
+                    DirectoryInfo dirInfo = new DirectoryInfo(outputReconstructionDir);
+                    bool outputReconstructionDirIsSymbolicLink = dirInfo.LinkTarget != null;
 
+                    if (outputReconstructionDirIsSymbolicLink)
+                        Directory.Delete(outputReconstructionDir);
+                    else
+                        throw new Exception("reconstruction directory exists and is not a symbolic link, cannot replace");
+                }
+
+                Directory.CreateSymbolicLink(outputReconstructionDir, pathToTarget: inputReconstructionDir);
+            }
+            
             #endregion
 
             #region Create processing options
