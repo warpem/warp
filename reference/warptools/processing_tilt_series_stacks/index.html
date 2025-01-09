@@ -22,7 +22,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.48">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.49">
     
     
       
@@ -1943,9 +1943,9 @@ These can be installed from <a href="https://pypi.org/">PyPI</a> in your warp co
 │   └── TS_005.mrc
 └── warp_ts_split_10453.py
 </code></pre></div>
-<div class="highlight"><span class="filename">warp_ts_split_10453.py</span><pre><span></span><code><span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span> <span class="nn">mrcfile</span>
-<span class="kn">import</span> <span class="nn">mdocfile</span>
+<div class="highlight"><span class="filename">warp_ts_split_10453.py</span><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mrcfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mdocfile</span>
 
 <span class="c1"># modify these variables for your own processing</span>
 <span class="n">OUTPUT_DIRECTORY</span> <span class="o">=</span> <span class="s1">&#39;movies&#39;</span>
@@ -1954,7 +1954,7 @@ These can be installed from <a href="https://pypi.org/">PyPI</a> in your warp co
 
 
 <span class="c1"># define a function for processing a single tilt series</span>
-<span class="k">def</span> <span class="nf">process_tilt_series</span><span class="p">(</span><span class="n">mdoc_file</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">output_directory</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_tilt_series</span><span class="p">(</span><span class="n">mdoc_file</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">output_directory</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
     <span class="c1"># load mdoc into pandas dataframe</span>
     <span class="n">df</span> <span class="o">=</span> <span class="n">mdocfile</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">mdoc_file</span><span class="p">)</span>
 
@@ -2108,7 +2108,7 @@ The <a href="https://teamtomo.org/mdocfile"><em>mdocfile</em></a> Python package
     <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.tabs.sticky", "navigation.expand", "navigation.sections", "search.highlight", "search.suggest", "content.tabs.link", "content.code.annotate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.83f73b43.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.88dd0f4e.min.js"></script>
       
     
   </body>
