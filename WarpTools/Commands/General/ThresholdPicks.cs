@@ -91,6 +91,9 @@ namespace WarpTools.Commands
                         throw new Exception("Matching directory exists and is not a symbolic link, cannot replace");
                 }
 
+                if (!Directory.Exists(CLI.OutputProcessing))
+                    Directory.CreateDirectory(CLI.OutputProcessing);
+                
                 Directory.CreateSymbolicLink(outputMatchingDir, pathToTarget: inputMatchingDir);
                 Console.WriteLine("Matching directory successfully linked.");
             }

@@ -179,7 +179,10 @@ namespace WarpTools.Commands
                     else
                         throw new Exception("reconstruction directory exists and is not a symbolic link, cannot replace");
                 }
-
+                
+                if (!Directory.Exists(CLI.OutputProcessing))
+                    Directory.CreateDirectory(CLI.OutputProcessing);
+                
                 Directory.CreateSymbolicLink(outputReconstructionDir, pathToTarget: inputReconstructionDir);
                 Console.WriteLine("Reconstruction directory successfully linked.");
             }
