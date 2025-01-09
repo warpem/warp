@@ -72,8 +72,8 @@ namespace WarpTools.Commands
             
             if (!string.IsNullOrEmpty(CLI.InputProcessing) && !string.IsNullOrEmpty(CLI.OutputProcessing))
             {
-                string inputMatchingDir = Path.Combine(CLI.InputProcessing, "reconstruction");
-                string outputMatchingDir = Path.Combine(CLI.OutputProcessing, "reconstruction");
+                string inputMatchingDir = Path.Combine(CLI.InputProcessing, "matching");
+                string outputMatchingDir = Path.Combine(CLI.OutputProcessing, "matching");
                 
                 Console.WriteLine($"Both --input_processing and --output_processing are set, attempting to link matching results from {inputMatchingDir} to {outputMatchingDir}...");
 
