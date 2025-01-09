@@ -181,6 +181,7 @@ namespace WarpTools.Commands
                 }
 
                 Directory.CreateSymbolicLink(outputReconstructionDir, pathToTarget: inputReconstructionDir);
+                Console.WriteLine("Reconstruction directory successfully linked.");
             }
             
             #endregion
