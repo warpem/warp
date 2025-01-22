@@ -429,6 +429,9 @@ These will be used for frame series and tilt series processing respectively.
         Tomograms are reconstructed with the tilt axis aligned along Y, remember to 
         account for rotation of the tilt axis when setting these dimensions!
 
+!!! tip "Processing EER files?"
+    add `--eer_ngroups` or `--eer_groupexposure` to your settings creation command
+
 ## Preprocessing: From Frames to Tomograms
 
 ### Frame Series: Motion and CTF Estimation
@@ -462,6 +465,9 @@ the `warp_frameseries` directory.
     
     If you're lucky enough to access to bigger cards, try running multiple worker processes 
     per GPU. We typically use `--perdevice 4` on A100 cards with 80GB memory.
+
+!!! question "Need more info?"
+    All command line options and associated help text can be seen on our [API reference pages](../../reference/warptools/api/general.md)
 
 #### Parameters explained
 
