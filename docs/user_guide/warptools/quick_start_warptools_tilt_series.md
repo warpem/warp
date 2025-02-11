@@ -851,9 +851,7 @@ export.
 
 We provide a CTF aware template matching routine, `ts_template_match`,
 for automated particle picking within *WarpTools*. In this example, we will match
-against
-an apoferritin template from the
-EMDB, [EMD-15854](https://www.ebi.ac.uk/emdb/EMD-15854).
+against an apoferritin template from the EMDB, [EMD-15854](https://www.ebi.ac.uk/emdb/EMD-15854).
 
 ```txt title="Template Matching with a Template from the EMDB"
 WarpTools ts_template_match \
@@ -900,7 +898,21 @@ are written into corresponding `*_picks` directories inside the `matching` direc
 Scores are normalised to the mean and standard deviation of background of the whole
 volume
 so should be comparable across different tomograms and datasets.
-    
+
+#### Visualizing Results
+
+We have developed [*warp-tm-vis*](https://github.com/warpem/warp-tm-vis) as a standalone tool
+for visualizing template matching results and simulating the effects of thresholding at different
+cutoffs.
+
+<figure markdown="span">
+  ![warp-tm-vconda  screenshot](https://raw.githubusercontent.com/warpem/warp-tm-vis/refs/heads/main/assets/gui-screenshot.png){ width="60%" }
+  <figcaption>screenshot of the warp-tm-vis user interface</figcaption>
+</figure>
+
+!!! tip
+    *warp-tm-vis* is a graphical application which is designed to be run locally. 
+    If your data are on a remote server, download them first before visualizing.
 
 #### Generating Particle Picks
 
