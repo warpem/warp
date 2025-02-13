@@ -340,6 +340,7 @@ namespace WarpWorker
 
                     Movie[] Movies = paths.Select(p => new Movie(p)).ToArray();
                     string downsampledImageDir = Path.Combine(Movies.First().AverageDir, "downsampled");
+                    Directory.CreateDirectory(downsampledImageDir);
                     foreach (var m in Movies)
                     {
                         Image Average = Image.FromFile(m.AveragePath);
