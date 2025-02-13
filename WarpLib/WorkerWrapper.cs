@@ -356,7 +356,7 @@ namespace Warp
 
         public void TardisSegmentMembranes2D(string[] paths, ProcessingOptionsTardisSegmentMembranes2D options)
         {
-            SendCommand(new NamedSerializableObject("TardisSegmentMembranes2D",
+            SendCommand(new NamedSerializableObject("MoviesTardisSegmentMembranes2D",
                 string.Join(';', paths),
                 options));
         }
