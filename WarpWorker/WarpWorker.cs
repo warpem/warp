@@ -331,16 +331,53 @@ namespace WarpWorker
 
                     Console.WriteLine($"Exported {Coordinates.Length} particles for {Path}");
                 }
-                else if (Command.Name == "TardisSegmentMembranes2D")
+                else if (Command.Name == "MoviesTardisSegmentMembranes2D")
                 {
-                    string Path = (string)Command.Content[0];
-                    ProcessingOptionsTardisSegmentMembranes2D Options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
+                    string[] paths = Command.Content[0].ToString().Split(';');
+                    ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
-                    Movie M = new Movie(Path);
-                    M.TardisSegmentMembranes(Options);
-                    M.SaveMeta();
-
-                    Console.WriteLine($"Segmented membranes using TARDIS for {Path}");
+                    Movie[] Movies = paths.Select(p => new Movie(p)).ToArray();
+                    string downsampledImageDir = Path.Combine(Movies.First().AverageDir, "downsampled");
+                    foreach (var m in Movies)
+                    {
+                        Image Average = Image.FromFile(m.AveragePath);
+                        float AveragePixelSize = Average.PixelSize;
+                        float TargetPixelSize = 15;
+                        int2 DimsOut = (new int2(Average.Dims * AveragePixelSize / TargetPixelSize) + 1) / 2 * 2;
+                        Average.AsScaled(DimsOut).WriteMRC16b(Path.Combine(downsampledImageDir, m.RootName + "_15.00Apx.mrc"));
+                    }
+                    //
+                    //
+                    // string Arguments = $"--path {M.AveragePath} --output_format tif_None --device {DeviceID}";
+                    // Console.WriteLine($"Executing tardis_mem2d in {M.AverageDir} with arguments: {Arguments}");
+                    //
+                    // Process Tardis = new Process
+                    // {
+                    //     StartInfo =
+                    //     {
+                    //         FileName = "tardis_mem2d",
+                    //         CreateNoWindow = false,
+                    //         WindowStyle = ProcessWindowStyle.Minimized,
+                    //         WorkingDirectory = M.AverageDir,
+                    //         Arguments = Arguments,
+                    //         RedirectStandardOutput = true,
+                    //         RedirectStandardError = true
+                    //     }
+                    // };
+                    // DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+                    // AreTomo.OutputDataReceived += Handler;
+                    // AreTomo.ErrorDataReceived += Handler;
+                    //
+                    // AreTomo.Start();
+                    //
+                    // AreTomo.BeginOutputReadLine();
+                    // AreTomo.BeginErrorReadLine();
+                    //
+                    // AreTomo.WaitForExit();
+                    //
+                    //
+                    //
+                    // Console.WriteLine($"Segmented membranes using TARDIS for {Path}");
                 }
                 else if (Command.Name == "TomoStack")
                 {

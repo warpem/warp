@@ -182,6 +182,194 @@ namespace WarpTools.Commands
 
             Console.WriteLine($"\nFinished processing in {TimeSpan.FromMilliseconds(TimerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
         }
+
+        internal void IterateOverItemsBatched(
+            WorkerWrapper[] workers, 
+            BaseOptions cli,
+            Action<WorkerWrapper, Movie[]> body, 
+            int oversubscribe = 1
+            )
+        {
+            string LogDirectory = Path.Combine(cli.OutputProcessing, "logs");
+            Directory.CreateDirectory(LogDirectory);
+
+            var JsonFilePath =
+                Path.Combine(cli.OutputProcessing, "processed_items.json");
+            List<Task> JsonTasks = new();
+            List<Movie> ProcessedItems = new List<Movie>();
+
+            foreach (var item in cli.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+            Console.Write($"0/{cli.InputSeries.Length}");
+
+            int NDone = 0;
+            int NFailed = 0;
+            Queue<long> ProcessingTimes = new Queue<long>();
+            Stopwatch TimerOverall = Stopwatch.StartNew();
+
+            // Calculate total number of batches based on workers and oversubscription
+            int totalBatches = workers.Length * oversubscribe;
+            int itemsPerBatch =
+                (int)Math.Ceiling(cli.InputSeries.Length / (double)totalBatches);
+            List<Task> batchTasks = new List<Task>();
+
+            // Create tasks for each batch
+            for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++)
+            {
+                int startIndex = batchIndex * itemsPerBatch;
+                int endIndex = Math.Min(startIndex + itemsPerBatch,
+                    cli.InputSeries.Length);
+
+                if (startIndex >= cli.InputSeries.Length)
+                    break;
+
+                Movie[] batchItems = cli.InputSeries[startIndex..endIndex];
+                WorkerWrapper worker = workers[batchIndex % workers.Length];
+
+                batchTasks.Add(Task.Run(() =>
+                {
+                    Stopwatch Timer = Stopwatch.StartNew();
+                    string batchLogPath =
+                        Path.Combine(LogDirectory, $"batch_{batchIndex}.log");
+                    worker.Console.Clear();
+                    worker.Console.SetFileOutput(batchLogPath);
+
+                    try
+                    {
+                        // Ensure correct paths for all movies in batch
+                        foreach (var movie in batchItems)
+                        {
+                            if (Path.GetFullPath(cli.OutputProcessing) !=
+                                Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
+                            {
+                                if (string.IsNullOrEmpty(movie.DataDirectoryName))
+                                    movie.DataDirectoryName =
+                                        Path.GetDirectoryName(movie.Path);
+
+                                movie.Path = Path.Combine(cli.OutputProcessing,
+                                    Path.GetFileName(movie.Path));
+                                movie.SaveMeta();
+                            }
+                        }
+
+                        // Process the batch
+                        body(worker, batchItems);
+
+                        // Mark all movies as processed
+                        foreach (var movie in batchItems)
+                            movie.ProcessingStatus = ProcessingStatus.Processed;
+                    }
+                    catch(Exception ex)
+                    {
+                        // Mark all movies in batch as failed
+                        foreach (var movie in batchItems)
+                        {
+                            movie.UnselectManual = true;
+                            movie.ProcessingStatus = ProcessingStatus.LeaveOut;
+                            movie.SaveMeta();
+                        }
+
+                        lock(workers)
+                        {
+                            VirtualConsole.ClearLastLine();
+                            Console.Error.WriteLine(
+                                $"Failed to process batch {batchIndex}, marked as unselected");
+                            Console.Error.WriteLine(
+                                $"Check logs in {batchLogPath} for more info.");
+                            Console.Error.WriteLine(
+                                "Use the change_selection WarpTool to reactivate these items if required.");
+                            NFailed += batchItems.Length;
+                        }
+                    }
+                    finally
+                    {
+                        worker.Console.SetFileOutput("");
+
+                        JsonTasks.Add(Task.Run(() =>
+                        {
+                            List<Movie> ImmutableProcessed;
+                            lock(workers)
+                            {
+                                ProcessedItems.AddRange(batchItems);
+                                ImmutableProcessed = ProcessedItems.ToList();
+                            }
+
+                            // Write processed_items.json
+                            JsonArray ItemsJson = new JsonArray(ImmutableProcessed
+                                .Select(series =>
+                                    series.ToMiniJson(
+                                        cli.Options.Filter.ParticlesSuffix)).ToArray());
+                            File.WriteAllText(JsonFilePath + $".{batchIndex}",
+                                ItemsJson.ToJsonString(new JsonSerializerOptions()
+                                    { WriteIndented = true }));
+
+                            bool Success = false;
+                            Stopwatch Watch = Stopwatch.StartNew();
+                            while(!Success && Watch.ElapsedMilliseconds < 10_000)
+                            {
+                                try
+                                {
+                                    lock(workers)
+                                        File.Move(JsonFilePath + $".{batchIndex}",
+                                            JsonFilePath, true);
+                                    Success = true;
+                                }
+                                catch
+                                {
+                                }
+                            }
+                        }));
+
+                        Timer.Stop();
+
+                        lock(workers)
+                        {
+                            NDone += batchItems.Length;
+                            ProcessingTimes.Enqueue(Timer.ElapsedMilliseconds);
+                            if (ProcessingTimes.Count > 20)
+                                ProcessingTimes.Dequeue();
+
+                            long AverageTime = (long)Math.Max(1,
+                                ProcessingTimes.Average() / totalBatches);
+                            long RemainingTime = (cli.InputSeries.Length - NDone) *
+                                                 AverageTime;
+                            TimeSpan RemainingTimeSpan =
+                                TimeSpan.FromMilliseconds(RemainingTime);
+
+                            string FailedString =
+                                NFailed > 0 ? $", {NFailed} failed" : "";
+
+                            string TimeString = RemainingTimeSpan.ToString(
+                                (int)RemainingTimeSpan.TotalDays > 0
+                                    ? @"dd\.hh\:mm\:ss"
+                                    : ((int)RemainingTimeSpan.TotalHours > 0
+                                        ? @"hh\:mm\:ss"
+                                        : @"mm\:ss"));
+
+                            VirtualConsole.ClearLastLine();
+                            Console.Write(
+                                $"{NDone}/{cli.InputSeries.Length}{FailedString}, {TimeString} remaining");
+                        }
+                    }
+                }));
+            }
+
+            // Wait for all batch tasks to complete
+            Task.WaitAll(batchTasks.ToArray());
+            TimerOverall.Stop();
+
+            // Write out full Json one last time
+            Task.WaitAll(JsonTasks.ToArray());
+            JsonArray FinalItemsJson = new JsonArray(ProcessedItems.Select(series =>
+                series.ToMiniJson(cli.Options.Filter.ParticlesSuffix)).ToArray());
+            File.WriteAllText(JsonFilePath,
+                FinalItemsJson.ToJsonString(new JsonSerializerOptions()
+                    { WriteIndented = true }));
+
+            Console.WriteLine(
+                $"\nFinished processing in {TimeSpan.FromMilliseconds(TimerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
+        }
     }
 
     class CommandRunner : Attribute

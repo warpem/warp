@@ -4289,11 +4289,6 @@ namespace Warp
             #endregion
         }
 
-        public void TardisSegmentMembranes(ProcessingOptionsTardisSegmentMembranes2D options)
-        {
-            Console.WriteLine("segmenting membranes");
-        }
-
         #endregion
 
         #region Multi-particle refinement

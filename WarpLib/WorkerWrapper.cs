@@ -354,10 +354,10 @@ namespace Warp
                                                     range));
         }
 
-        public void TardisSegmentMembranes2D(string path, ProcessingOptionsTardisSegmentMembranes2D options)
+        public void TardisSegmentMembranes2D(string[] paths, ProcessingOptionsTardisSegmentMembranes2D options)
         {
             SendCommand(new NamedSerializableObject("TardisSegmentMembranes2D",
-                path,
+                string.Join(';', paths),
                 options));
         }
 
