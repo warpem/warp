@@ -67,9 +67,9 @@ namespace WarpTools.Commands
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
+            IterateOverItemsBatched(Workers, CLI, (worker, movies) =>
             {
-                worker.TardisSegmentMembranes2D(m.Path, OptionsTardis);
+                worker.TardisSegmentMembranes2D(movies.Select(m => m.Path).ToArray(), OptionsTardis);
             });
 
             Console.Write("Saying goodbye to all workers...");
@@ -78,7 +78,7 @@ namespace WarpTools.Commands
             Console.WriteLine(" Done");
 
             Console.Write("Saving settings...");
-            Options.Save(Path.Combine(CLI.OutputProcessing, "align_frameseries.settings"));
+            Options.Save(Path.Combine(CLI.OutputProcessing, "tardis.settings"));
             Console.WriteLine(" Done");
         }
     }
