@@ -331,6 +331,17 @@ namespace WarpWorker
 
                     Console.WriteLine($"Exported {Coordinates.Length} particles for {Path}");
                 }
+                else if (Command.Name == "TardisSegmentMembranes2D")
+                {
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTardisSegmentMembranes2D Options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
+
+                    Movie M = new Movie(Path);
+                    M.TardisSegmentMembranes(Options);
+                    M.SaveMeta();
+
+                    Console.WriteLine($"Segmented membranes using TARDIS for {Path}");
+                }
                 else if (Command.Name == "TomoStack")
                 {
                     string Path = (string)Command.Content[0];

@@ -529,6 +529,15 @@ namespace Warp
                 ExportNormalize = Picking.Normalize
             });
         }
+        
+        public ProcessingOptionsTardisSegmentMembranes2D GetProcessingTardisSegmentMembranes2D()
+        {
+            return (ProcessingOptionsTardisSegmentMembranes2D)FillProcessingBase(
+                new ProcessingOptionsTardisSegmentMembranes2D()
+                {
+                    // add options here later if required
+                });
+        }
 
         #endregion
 
