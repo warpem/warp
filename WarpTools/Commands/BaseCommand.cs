@@ -284,7 +284,7 @@ namespace WarpTools.Commands
                     }
                     finally
                     {
-                        worker.Console.SetFileOutput("");
+                        // worker.Console.SetFileOutput("");
 
                         JsonTasks.Add(Task.Run(() =>
                         {
@@ -327,11 +327,10 @@ namespace WarpTools.Commands
                         {
                             NDone += batchItems.Length;
                             ProcessingTimes.Enqueue(Timer.ElapsedMilliseconds);
-                            if (ProcessingTimes.Count > 20)
+                            if (ProcessingTimes.Count > 20) 
                                 ProcessingTimes.Dequeue();
 
-                            long AverageTime = (long)Math.Max(1,
-                                ProcessingTimes.Average() / totalBatches);
+                            long AverageTime = (long)Math.Max(1, ProcessingTimes.Average() / totalBatches);
                             long RemainingTime = (cli.InputSeries.Length - NDone) *
                                                  AverageTime;
                             TimeSpan RemainingTimeSpan =
