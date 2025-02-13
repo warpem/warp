@@ -214,6 +214,7 @@ namespace WarpTools.Commands
             List<Task> batchTasks = new List<Task>();
 
             // Create tasks for each batch
+            Console.WriteLine("");
             for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++)
             {
                 int startIndex = batchIndex * itemsPerBatch;
@@ -226,7 +227,7 @@ namespace WarpTools.Commands
                 Movie[] batchItems = cli.InputSeries[startIndex..endIndex];
                 WorkerWrapper worker = workers[batchIndex % workers.Length];
 
-                Console.WriteLine($"submitted batch {batchIndex}");
+                Console.WriteLine($"submitted {batchItems.Length} items in batch {batchIndex} to worker {batchIndex % workers.Length}");
 
                 batchTasks.Add(Task.Run(() =>
                 {
