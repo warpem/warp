@@ -334,6 +334,7 @@ namespace WarpWorker
                 else if (Command.Name == "MoviesTardisSegmentMembranes2D")
                 {
                     string[] paths = Command.Content[0].ToString().Split(';');
+                    Console.WriteLine(string.Join(';', paths));
                     ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
                     Movie[] Movies = paths.Select(p => new Movie(p)).ToArray();
