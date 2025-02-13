@@ -193,8 +193,7 @@ namespace WarpTools.Commands
             string LogDirectory = Path.Combine(cli.OutputProcessing, "logs");
             Directory.CreateDirectory(LogDirectory);
 
-            var JsonFilePath =
-                Path.Combine(cli.OutputProcessing, "processed_items.json");
+            var JsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
             List<Task> JsonTasks = new();
             List<Movie> ProcessedItems = new List<Movie>();
 
@@ -227,28 +226,22 @@ namespace WarpTools.Commands
                 Movie[] batchItems = cli.InputSeries[startIndex..endIndex];
                 WorkerWrapper worker = workers[batchIndex % workers.Length];
 
+                Console.WriteLine($"submitted batch {batchIndex}");
+
                 batchTasks.Add(Task.Run(() =>
                 {
                     Stopwatch Timer = Stopwatch.StartNew();
-                    string batchLogPath =
-                        Path.Combine(LogDirectory, $"batch_{batchIndex}.log");
-                    worker.Console.Clear();
-                    worker.Console.SetFileOutput(batchLogPath);
-
                     try
                     {
                         // Ensure correct paths for all movies in batch
                         foreach (var movie in batchItems)
                         {
-                            if (Path.GetFullPath(cli.OutputProcessing) !=
-                                Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
+                            if (Path.GetFullPath(cli.OutputProcessing) != Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
                             {
                                 if (string.IsNullOrEmpty(movie.DataDirectoryName))
-                                    movie.DataDirectoryName =
-                                        Path.GetDirectoryName(movie.Path);
+                                    movie.DataDirectoryName = Path.GetDirectoryName(movie.Path);
 
-                                movie.Path = Path.Combine(cli.OutputProcessing,
-                                    Path.GetFileName(movie.Path));
+                                movie.Path = Path.Combine(cli.OutputProcessing, Path.GetFileName(movie.Path));
                                 movie.SaveMeta();
                             }
                         }
@@ -273,18 +266,14 @@ namespace WarpTools.Commands
                         lock(workers)
                         {
                             VirtualConsole.ClearLastLine();
-                            Console.Error.WriteLine(
-                                $"Failed to process batch {batchIndex}, marked as unselected");
-                            Console.Error.WriteLine(
-                                $"Check logs in {batchLogPath} for more info.");
-                            Console.Error.WriteLine(
-                                "Use the change_selection WarpTool to reactivate these items if required.");
+                            Console.Error.WriteLine($"Failed to process batch {batchIndex}, marked as unselected");
+                            // Console.Error.WriteLine($"Check logs in {batchLogPath} for more info.");
+                            Console.Error.WriteLine("Use the change_selection WarpTool to reactivate these items if required.");
                             NFailed += batchItems.Length;
                         }
                     }
                     finally
                     {
-                        // worker.Console.SetFileOutput("");
 
                         JsonTasks.Add(Task.Run(() =>
                         {
