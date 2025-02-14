@@ -64,9 +64,9 @@ namespace WarpTools.Commands
             WorkerWrapper[] workers,
             BaseOptions cli,
             Action<WorkerWrapper, T> body,
-            int oversubscribe = 1,
             Func<int, int, T> getBatch = null,
-            Func<T, int> getBatchSize = null
+            Func<T, int> getBatchSize = null,
+            int oversubscribe = 1
         ) where T : class
         {
             // Provide default implementations of getBatch and getBatchSize
@@ -77,7 +77,7 @@ namespace WarpTools.Commands
             // setup log dir
             string logDirectory = Path.Combine(cli.OutputProcessing, "logs");
             Directory.CreateDirectory(logDirectory);
-            
+
             // setup json file for external progress tracking
             var jsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
             List<Task> jsonTasks = new();
@@ -147,8 +147,7 @@ namespace WarpTools.Commands
                         }
                         else if (batchOrItem is Movie processedMovie)
                         {
-                            processedMovie.ProcessingStatus =
-                                ProcessingStatus.Processed;
+                            processedMovie.ProcessingStatus = ProcessingStatus.Processed;
                         }
                     }
                     catch(Exception ex)
@@ -166,12 +165,9 @@ namespace WarpTools.Commands
                         lock(workers)
                         {
                             VirtualConsole.ClearLastLine();
-                            Console.Error.WriteLine(
-                                $"Failed to process batch {batchIndex}, marked as unselected");
-                            Console.Error.WriteLine(
-                                $"Check logs in {logDirectory} for more info.");
-                            Console.Error.WriteLine(
-                                "Use the change_selection WarpTool to reactivate these items if required.");
+                            Console.Error.WriteLine($"Failed to process batch {batchIndex}, marked as unselected");
+                            Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
+                            Console.Error.WriteLine("Use the change_selection WarpTool to reactivate these items if required.");
                             nFailed += getBatchSize(batchOrItem);
                         }
                     }
