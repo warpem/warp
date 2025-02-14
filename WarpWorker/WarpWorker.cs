@@ -364,7 +364,7 @@ namespace WarpWorker
                     // symlink all files into a temporary directory for running tardis
                     // Create random directory name
                     string randomId = Path.GetRandomFileName().Replace(".", "");
-                    string tempDir = Path.Combine(Directory.GetCurrentDirectory(), $"temp_{randomId}");
+                    string tempDir = Path.Combine(downsampledImageDir, $"temp_{randomId}");
                     Directory.CreateDirectory(tempDir);
                     
                     // Create symlinks
