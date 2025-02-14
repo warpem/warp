@@ -77,6 +77,8 @@ namespace Warp
         public string DenoiseTrainingDirModel => IOPath.Combine(DenoiseTrainingDir, "model.pt");
         public string ShiftedStackDir => IOPath.Combine(ProcessingDirectoryName, "stack");
         public string MaskDir => IOPath.Combine(ProcessingDirectoryName, "mask");
+        public string SegmentationDir => IOPath.Combine(ProcessingDirectoryName, "segmentation");
+        public string MembraneSegmentationDir => IOPath.Combine(SegmentationDir, "membranes");
         public string ParticlesDir => IOPath.Combine(ProcessingDirectoryName, "particles");
         public string ParticlesDenoisingOddDir => IOPath.Combine(ProcessingDirectoryName, "particles", "odd");
         public string ParticlesDenoisingEvenDir => IOPath.Combine(ProcessingDirectoryName, "particles", "even");
@@ -9805,5 +9807,10 @@ namespace Warp
         }
 
         #endregion
+    }
+    
+    [Serializable]
+    public class ProcessingOptionsTardisSegmentMembranes2D : ProcessingOptionsBase
+    {
     }
 }
