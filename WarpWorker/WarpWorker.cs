@@ -337,16 +337,25 @@ namespace WarpWorker
                     Console.WriteLine(string.Join(';', paths));
                     ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
-                    Movie[] Movies = paths.Select(p => new Movie(p)).ToArray();
-                    string downsampledImageDir = Path.Combine(Movies.First().AverageDir, "downsampled");
+                    Movie[] movies = paths.Select(p => new Movie(p)).ToArray();
+                    string downsampledImageDir = Path.Combine(movies.First().AverageDir, "downsampled");
                     Directory.CreateDirectory(downsampledImageDir);
-                    foreach (var m in Movies)
+                    foreach (var m in movies)
                     {
-                        Image Average = Image.FromFile(m.AveragePath);
-                        float AveragePixelSize = Average.PixelSize;
-                        float TargetPixelSize = 15;
-                        int2 DimsOut = (new int2(Average.Dims * AveragePixelSize / TargetPixelSize) + 1) / 2 * 2;
-                        Average.AsScaled(DimsOut).WriteMRC16b(Path.Combine(downsampledImageDir, m.RootName + "_15.00Apx.mrc"));
+                        // load average
+                        Image average = Image.FromFile(m.AveragePath);
+                        
+                        // downsample to 15Apx
+                        float averagePixelSize = average.PixelSize;
+                        float targetPixelSize = 15;
+                        int2 dimsOut = (new int2(average.Dims * averagePixelSize / targetPixelSize) + 1) / 2 * 2;
+                        string downsampledImagePath = Path.Combine(downsampledImageDir, m.RootName + "_15.00Apx.mrc");
+                        Image scaled = average.AsScaled(dimsOut);
+                        
+                        // write out, force header pixel size to 15.00
+                        scaled.PixelSize = (float)15.00;
+                        scaled.WriteMRC16b(downsampledImagePath);
+                        
                     }
                     //
                     //
