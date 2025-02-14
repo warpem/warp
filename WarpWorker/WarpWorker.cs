@@ -448,6 +448,9 @@ namespace WarpWorker
                         }
                     }
                     
+                    // remove all files recursively from temp dir
+                    Directory.Delete(tempDir, recursive: true);
+                    
                     Console.WriteLine($"Segmented membranes using TARDIS");
                 }
                 else if (Command.Name == "TomoStack")
