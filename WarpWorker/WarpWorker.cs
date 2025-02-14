@@ -437,7 +437,10 @@ namespace WarpWorker
                     {
                         try
                         {
-                            File.Copy(membraneImageFile, Path.Combine(movie.MembraneSegmentationDir, Path.GetFileName(membraneImageFile).Replace("_15.00Apx_semantic", "")));
+                            var destFile = Path.Combine(movie.MembraneSegmentationDir,
+                                Path.GetFileName(membraneImageFile).Replace("_15.00Apx_semantic", ""));
+                            File.WriteAllText(Path.Combine(tempDir, Path.GetFileName(destFile)), $"{membraneImageFile}");
+                            File.Copy(membraneImageFile, destFile);
                         }
                         catch (IOException ex)
                         {
