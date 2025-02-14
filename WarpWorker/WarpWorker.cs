@@ -427,7 +427,7 @@ namespace WarpWorker
                     string[] membraneImageFiles = downsampledImagePaths.Select(
                         p =>
                         {
-                            var dir = Path.Combine(Path.GetDirectoryName(p), "Predictions");
+                            var dir = Path.Combine(tempDir, "Predictions");
                             var filename = Path.GetFileName(p).Replace(".mrc", "_semantic.tif");
                             return Path.Combine(dir, filename);
                         }).ToArray();
