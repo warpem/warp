@@ -338,56 +338,72 @@ namespace WarpWorker
                     ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
                     Movie[] movies = paths.Select(p => new Movie(p)).ToArray();
+                    
+                    // downsample images to 15Apx
                     string downsampledImageDir = Path.Combine(movies.First().AverageDir, "downsampled");
                     Directory.CreateDirectory(downsampledImageDir);
-                    foreach (var m in movies)
+                    string[] downsampledImagePaths = movies.Select(
+                            m => Path.Combine(downsampledImageDir, m.RootName + "_15.00Apx.mrc")
+                            ).ToArray();
+                    foreach (var (movie, outputPath) in movies.Zip(downsampledImagePaths))
                     {
                         // load average
-                        Image average = Image.FromFile(m.AveragePath);
+                        Image average = Image.FromFile(movie.AveragePath);
                         
                         // downsample to 15Apx
                         float averagePixelSize = average.PixelSize;
                         float targetPixelSize = 15;
                         int2 dimsOut = (new int2(average.Dims * averagePixelSize / targetPixelSize) + 1) / 2 * 2;
-                        string downsampledImagePath = Path.Combine(downsampledImageDir, m.RootName + "_15.00Apx.mrc");
                         Image scaled = average.AsScaled(dimsOut);
                         
-                        // write out, force header pixel size to 15.00
+                        // write out downsampled image, force header pixel size to 15.00
                         scaled.PixelSize = (float)15.00;
-                        scaled.WriteMRC16b(downsampledImagePath);
-                        
+                        scaled.WriteMRC16b(outputPath);
                     }
-                    //
-                    //
-                    // string Arguments = $"--path {M.AveragePath} --output_format tif_None --device {DeviceID}";
-                    // Console.WriteLine($"Executing tardis_mem2d in {M.AverageDir} with arguments: {Arguments}");
-                    //
-                    // Process Tardis = new Process
-                    // {
-                    //     StartInfo =
-                    //     {
-                    //         FileName = "tardis_mem2d",
-                    //         CreateNoWindow = false,
-                    //         WindowStyle = ProcessWindowStyle.Minimized,
-                    //         WorkingDirectory = M.AverageDir,
-                    //         Arguments = Arguments,
-                    //         RedirectStandardOutput = true,
-                    //         RedirectStandardError = true
-                    //     }
-                    // };
-                    // DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
-                    // AreTomo.OutputDataReceived += Handler;
-                    // AreTomo.ErrorDataReceived += Handler;
-                    //
-                    // AreTomo.Start();
-                    //
-                    // AreTomo.BeginOutputReadLine();
-                    // AreTomo.BeginErrorReadLine();
-                    //
-                    // AreTomo.WaitForExit();
-                    //
-                    //
-                    //
+                    
+                    // symlink all files into a temporary directory for running tardis
+                    // Create random directory name
+                    string randomId = Path.GetRandomFileName().Replace(".", "");
+                    string tempDir = Path.Combine(Directory.GetCurrentDirectory(), $"temp_{randomId}");
+                    
+                    // Create symlinks
+                    foreach (string imagePath in downsampledImagePaths)
+                    {
+                        string fileName = Path.GetFileName(imagePath);
+                        string symlinkPath = Path.Combine(tempDir, fileName);
+        
+                        // CreateSymbolicLink returns true if successful
+                        File.CreateSymbolicLink(symlinkPath, imagePath);
+                    }
+                    
+                    // run tardis in tempdir
+                    string Arguments = $"--path {tempDir} --output_format tif_None --device {DeviceID}";
+                    Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
+                    
+                    Process Tardis = new Process
+                    {
+                        StartInfo =
+                        {
+                            FileName = "tardis_mem2d",
+                            CreateNoWindow = false,
+                            WindowStyle = ProcessWindowStyle.Minimized,
+                            WorkingDirectory = tempDir,
+                            Arguments = Arguments,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        }
+                    };
+                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+                    Tardis.OutputDataReceived += Handler;
+                    Tardis.ErrorDataReceived += Handler;
+                    
+                    Tardis.Start();
+                    
+                    Tardis.BeginOutputReadLine();
+                    Tardis.BeginErrorReadLine();
+                    
+                    Tardis.WaitForExit();
+                    
                     // Console.WriteLine($"Segmented membranes using TARDIS for {Path}");
                 }
                 else if (Command.Name == "TomoStack")
