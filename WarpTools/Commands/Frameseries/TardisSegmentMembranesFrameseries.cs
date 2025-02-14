@@ -32,7 +32,7 @@ namespace WarpTools.Commands
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
-            IterateOverItems(
+            IterateOverItems<Movie[]>(
                 Workers,
                 CLI,
                 body: (worker, movies) =>

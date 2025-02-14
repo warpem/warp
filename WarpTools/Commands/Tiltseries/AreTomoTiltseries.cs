@@ -165,7 +165,7 @@ namespace WarpTools.Commands
                     CLI.InputSeries = AllSeries;
                 }
 
-                IterateOverItems(Workers, CLI, (worker, t) =>
+                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                 {
                     if (iiter == 0 || NotUsedForSearch.Contains(t))
                         worker.TomoStack(t.Path, OptionsStack);
@@ -174,7 +174,7 @@ namespace WarpTools.Commands
 
                     try
                     {
-                        (t as TiltSeries).ImportAlignments(OptionsImport);
+                        t.ImportAlignments(OptionsImport);
                     }
                     catch (Exception exc)
                     {

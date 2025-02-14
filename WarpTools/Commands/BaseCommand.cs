@@ -64,6 +64,7 @@ namespace WarpTools.Commands
             WorkerWrapper[] workers,
             BaseOptions cli,
             Action<WorkerWrapper, T> body,
+            int oversubscribe = 1,
             Func<int, int, T> getBatch = null,
             Func<T, int> getBatchSize = null
         ) where T : class
@@ -94,7 +95,7 @@ namespace WarpTools.Commands
 
             // Calculate total number of batches
             int nItems = cli.InputSeries.Length;
-            int nBatches = workers.Length;
+            int nBatches = workers.Length * oversubscribe;
             int itemsPerBatch = (int)Math.Ceiling(nItems / (double)nBatches);
             List<Task> batchTasks = new List<Task>();
 

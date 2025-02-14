@@ -68,16 +68,20 @@ namespace WarpTools.Commands
 
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
-            {
-                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+            IterateOverItems<Movie>(
+                Workers, 
+                CLI, 
+                (worker, m) =>
+                {
+                    decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
-                worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-                worker.MovieExportMovie(m.Path, OptionsMovieExport);
+                    worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
+                    worker.MovieExportMovie(m.Path, OptionsMovieExport);
 
-                if (CLI.Thumbnails.HasValue)
-                    worker.MovieCreateThumbnail(m.Path, CLI.Thumbnails.Value, 3);
-            });
+                    if (CLI.Thumbnails.HasValue)
+                        worker.MovieCreateThumbnail(m.Path, CLI.Thumbnails.Value, 3);
+                }
+            );
 
             Console.Write("Saying goodbye to all workers...");
             foreach (var worker in Workers)

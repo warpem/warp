@@ -203,7 +203,7 @@ namespace WarpTools.Commands
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
+            IterateOverItems<Movie>(Workers, CLI, (worker, m) =>
             {
                 decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
