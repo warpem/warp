@@ -358,7 +358,7 @@ namespace WarpWorker
                         
                         // write out downsampled image, force header pixel size to 15.00
                         scaled.PixelSize = (float)15.00;
-                        scaled.WriteMRC16b(outputPath);
+                        scaled.WriteMRC(outputPath);
                     }
                     
                     // symlink all files into a temporary directory for running tardis
