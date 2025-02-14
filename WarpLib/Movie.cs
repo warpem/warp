@@ -9812,7 +9812,5 @@ namespace Warp
     [Serializable]
     public class ProcessingOptionsTardisSegmentMembranes2D : ProcessingOptionsBase
     {
-        [WarpSerializable]
-        public bool DoAverage { get; set; }
     }
 }
