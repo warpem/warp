@@ -365,6 +365,7 @@ namespace WarpWorker
                     // Create random directory name
                     string randomId = Path.GetRandomFileName().Replace(".", "");
                     string tempDir = Path.Combine(Directory.GetCurrentDirectory(), $"temp_{randomId}");
+                    Directory.CreateDirectory(tempDir);
                     
                     // Create symlinks
                     foreach (string imagePath in downsampledImagePaths)
