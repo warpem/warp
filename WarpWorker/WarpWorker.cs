@@ -378,8 +378,9 @@ namespace WarpWorker
                     }
                     
                     // run tardis in tempdir
-                    string Arguments = $"--path {tempDir} --output_format tif_None --device {DeviceID}";
+                    string Arguments = $"--path {tempDir} --output_format tif_None --device {DeviceID} > run.out 2> run.err";
                     Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
+                    File.WriteAllText(Path.Combine(tempDir, "command.txt"), $"tardis_mem2d {Arguments}");
                     
                     Process Tardis = new Process
                     {
