@@ -379,7 +379,7 @@ namespace WarpWorker
                     }
                     
                     // run tardis in tempdir
-                    string Arguments = $"--path {tempDir} --output_format tif_None --device {DeviceID} --patch_size 64";
+                    string Arguments = $"--path {tempDir} --output_format mrc_None --device {DeviceID} --patch_size 64";
                     Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
                     File.WriteAllText(Path.Combine(tempDir, "command.txt"), $"tardis_mem2d {Arguments}");
                     
@@ -428,7 +428,7 @@ namespace WarpWorker
                         p =>
                         {
                             var dir = Path.Combine(tempDir, "Predictions");
-                            var filename = Path.GetFileName(p).Replace(".mrc", "_semantic.tif");
+                            var filename = Path.GetFileName(p).Replace(".mrc", "_semantic.mrc");
                             return Path.Combine(dir, filename);
                         }).ToArray();
 
