@@ -440,7 +440,7 @@ namespace WarpWorker
                             var destFile = Path.Combine(movie.MembraneSegmentationDir,
                                 Path.GetFileName(membraneImageFile).Replace("_15.00Apx_semantic", ""));
                             File.WriteAllText(Path.Combine(tempDir, Path.GetFileName(destFile)), $"{membraneImageFile}");
-                            File.Copy(membraneImageFile, destFile);
+                            File.Copy(membraneImageFile, destFile, overwrite: true);
                         }
                         catch (IOException ex)
                         {
