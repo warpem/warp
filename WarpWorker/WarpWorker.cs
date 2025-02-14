@@ -378,7 +378,7 @@ namespace WarpWorker
                     }
                     
                     // run tardis in tempdir
-                    string Arguments = $"--path {tempDir} --output_format tif_None --device {DeviceID} > run.out 2> run.err";
+                    string Arguments = $"--path {tempDir} --output_format tif_None --device {DeviceID}";
                     Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
                     File.WriteAllText(Path.Combine(tempDir, "command.txt"), $"tardis_mem2d {Arguments}");
                     
@@ -395,18 +395,34 @@ namespace WarpWorker
                             RedirectStandardError = true
                         }
                     };
-                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
-                    Tardis.OutputDataReceived += Handler;
-                    Tardis.ErrorDataReceived += Handler;
                     
-                    Tardis.Start();
+                    using (var stdout = File.CreateText(Path.Combine(tempDir, "run.out")))
+                    using (var stderr = File.CreateText(Path.Combine(tempDir, "run.err")))
+                    {
+                        Tardis.OutputDataReceived += (sender, args) => 
+                        {
+                            if (args.Data != null) stdout.WriteLine(args.Data);
+                        };
+    
+                        Tardis.ErrorDataReceived += (sender, args) => 
+                        {
+                            if (args.Data != null) stderr.WriteLine(args.Data);
+                        };
+
+                        DataReceivedEventHandler toConsole = (sender, args) =>
+                        {
+                            if (args.Data != null) Console.WriteLine(args.Data);
+                        };
+                        Tardis.OutputDataReceived += toConsole;
+                        Tardis.ErrorDataReceived += toConsole;
+
+                        Tardis.Start();
+                        Tardis.BeginOutputReadLine();
+                        Tardis.BeginErrorReadLine();
+                        Tardis.WaitForExit();
+                    }
                     
-                    Tardis.BeginOutputReadLine();
-                    Tardis.BeginErrorReadLine();
-                    
-                    Tardis.WaitForExit();
-                    
-                    // Console.WriteLine($"Segmented membranes using TARDIS for {Path}");
+                    Console.WriteLine($"Segmented membranes using TARDIS");
                 }
                 else if (Command.Name == "TomoStack")
                 {
