@@ -340,12 +340,15 @@ namespace WarpWorker
 
                     Movie[] movies = paths.Select(p => new Movie(p)).ToArray();
                     
+                    // Create a temporary directory
+                    string randomId = Path.GetRandomFileName().Replace(".", "");
+                    string tempDir = Path.Combine(movies.First().MembraneSegmentationDir, $"temp_{randomId}");
+                    Directory.CreateDirectory(tempDir);
+                    
                     // downsample images to 15Apx
-                    string downsampledImageDir = Path.Combine(movies.First().AverageDir, "downsampled");
-                    Directory.CreateDirectory(downsampledImageDir);
                     string[] downsampledImagePaths = movies.Select(
-                            m => Path.Combine(downsampledImageDir, m.RootName + "_15.00Apx.mrc")
-                            ).ToArray();
+                        m => Path.Combine(tempDir, m.RootName + "_15.00Apx.mrc")
+                    ).ToArray();
                     foreach (var (movie, outputPath) in movies.Zip(downsampledImagePaths))
                     {
                         // load average
@@ -360,22 +363,6 @@ namespace WarpWorker
                         // write out downsampled image, force header pixel size to 15.00
                         scaled.PixelSize = (float)15.00;
                         scaled.WriteMRC(outputPath);
-                    }
-                    
-                    // symlink all files into a temporary directory for running tardis
-                    // Create random directory name
-                    string randomId = Path.GetRandomFileName().Replace(".", "");
-                    string tempDir = Path.Combine(downsampledImageDir, $"temp_{randomId}");
-                    Directory.CreateDirectory(tempDir);
-                    
-                    // Create symlinks
-                    foreach (string imagePath in downsampledImagePaths)
-                    {
-                        string fileName = Path.GetFileName(imagePath);
-                        string symlinkPath = Path.Combine(tempDir, fileName);
-        
-                        // CreateSymbolicLink returns true if successful
-                        File.CreateSymbolicLink(symlinkPath, imagePath);
                     }
                     
                     // run tardis in tempdir
@@ -450,7 +437,6 @@ namespace WarpWorker
                     
                     // remove all files recursively from temp dir
                     Directory.Delete(tempDir, recursive: true);
-                    
                     Console.WriteLine($"Segmented membranes using TARDIS");
                 }
                 else if (Command.Name == "TomoStack")
