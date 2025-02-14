@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 using System.Runtime.InteropServices;
+using Accord.Math;
 
 namespace WarpWorker
 {
@@ -420,6 +421,28 @@ namespace WarpWorker
                         Tardis.BeginOutputReadLine();
                         Tardis.BeginErrorReadLine();
                         Tardis.WaitForExit();
+                    }
+                    
+                    // copy files to correct directory
+                    string[] membraneImageFiles = downsampledImagePaths.Select(
+                        p =>
+                        {
+                            var dir = Path.Combine(Path.GetDirectoryName(p), "Predictions");
+                            var filename = Path.GetFileName(p).Replace(".mrc", "_semantic.tif");
+                            return Path.Combine(dir, filename);
+                        }).ToArray();
+
+                    Directory.CreateDirectory(movies.First().MembraneSegmentationDir);
+                    foreach (var (movie, membraneImageFile) in movies.Zip(membraneImageFiles))
+                    {
+                        try
+                        {
+                            File.Copy(membraneImageFile, Path.Combine(movie.MembraneSegmentationDir, Path.GetFileName(membraneImageFile).Replace("_15.00Apx_semantic", "")));
+                        }
+                        catch (IOException ex)
+                        {
+                            Console.WriteLine($"Error occurred copying file {membraneImageFile}: {ex.Message}");
+                        }
                     }
                     
                     Console.WriteLine($"Segmented membranes using TARDIS");
