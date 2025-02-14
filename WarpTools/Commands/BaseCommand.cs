@@ -68,15 +68,17 @@ namespace WarpTools.Commands
             Func<T, int> getBatchSize = null
         ) where T : class
         {
-            // Provide default implementations for single-item processing
-            getBatch ??= (start, _) => cli.InputSeries[start] as T;
+            // Provide default implementations of getBatch and getBatchSize
+            // for single-item processing
+            getBatch ??= (start, _) => (T)(object)cli.InputSeries[start];
             getBatchSize ??= _ => 1;
 
+            // setup log dir
             string logDirectory = Path.Combine(cli.OutputProcessing, "logs");
             Directory.CreateDirectory(logDirectory);
-
-            var jsonFilePath =
-                Path.Combine(cli.OutputProcessing, "processed_items.json");
+            
+            // setup json file for external progress tracking
+            var jsonFilePath = Path.Combine(cli.OutputProcessing, "processed_items.json");
             List<Task> jsonTasks = new();
             List<Movie> processedItems = new List<Movie>();
 
@@ -108,8 +110,7 @@ namespace WarpTools.Commands
                 WorkerWrapper worker = workers[batchIndex % workers.Length];
 
                 if (typeof(T).IsArray)
-                    Console.WriteLine(
-                        $"Submitted {getBatchSize(batchOrItem)} items in batch {batchIndex} to worker process {batchIndex % workers.Length}");
+                    Console.WriteLine($"Submitted {getBatchSize(batchOrItem)} items in batch {batchIndex} to worker process {batchIndex % workers.Length}");
 
                 batchTasks.Add(Task.Run(() =>
                 {
@@ -122,16 +123,14 @@ namespace WarpTools.Commands
                         {
                             foreach (var movie in movies)
                                 EnsureCorrectPaths(movie, cli);
-                            var logFile = Path.Combine(logDirectory,
-                                $"batch{batchIndex}.log");
+                            var logFile = Path.Combine(logDirectory, $"batch{batchIndex}.log");
                             worker.Console.Clear();
                             worker.Console.SetFileOutput(logFile);
                         }
                         else if (batchOrItem is Movie movie)
                         {
                             EnsureCorrectPaths(movie, cli);
-                            var logFile = Path.Combine(logDirectory,
-                                $"{movie.RootName}.log");
+                            var logFile = Path.Combine(logDirectory, $"{movie.RootName}.log");
                             worker.Console.Clear();
                             worker.Console.SetFileOutput(logFile);
                         }
