@@ -32,11 +32,16 @@ namespace WarpTools.Commands
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
-            IterateOverItemsBatched(Workers, CLI, (worker, movies) =>
-            {
-                var paths = movies.Select(m => m.Path).ToArray();
-                worker.TardisSegmentMembranes2D(paths, OptionsTardis);
-            });
+            IterateOverItems(
+                Workers,
+                CLI,
+                body: (worker, movies) =>
+                {
+                    var paths = movies.Select(m => m.Path).ToArray();
+                    worker.TardisSegmentMembranes2D(paths, OptionsTardis);
+                },
+                getBatch: (start, end) => CLI.InputSeries[start..end]
+            );
 
             Console.Write("Saying goodbye to all workers...");
             foreach (var worker in Workers)
