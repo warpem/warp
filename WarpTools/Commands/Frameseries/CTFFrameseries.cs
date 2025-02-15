@@ -110,17 +110,21 @@ namespace WarpTools.Commands
 
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
-            {
-                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+            IterateOverItems<Movie>(
+                Workers,
+                CLI,
+                (worker, m) =>
+                {
+                    decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
-                if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
-                    worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames);
-                else
-                    worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-
-                worker.MovieProcessCTF(m.Path, OptionsCTF);
-            });
+                    if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
+                        worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames);
+                    else
+                        worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
+                    
+                    worker.MovieProcessCTF(m.Path, OptionsCTF);
+                }
+            );
 
             Console.Write("Saying goodbye to all workers...");
             foreach (var worker in Workers)

@@ -116,14 +116,14 @@ namespace WarpTools.Commands
             
             
             Console.WriteLine("Performing fiducial tracking on all tilt-series...");
-            IterateOverItems(Workers, CLI, (worker, t) =>
+            IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                 {
                     worker.TomoStack(t.Path, OptionsStack);
                     worker.TomoEtomoFiducials(t.Path, OptionsEtomo);
                     
                     try
                     {
-                        (t as TiltSeries).ImportAlignments(OptionsImport);
+                        t.ImportAlignments(OptionsImport);
                     }
                     catch (Exception exc)
                     {
@@ -145,13 +145,13 @@ namespace WarpTools.Commands
                 Console.WriteLine($"Average tilt axis angle from patch tracking: {OptionsEtomo.AxisAngle}");
                 Console.WriteLine($"Recalculating alignments for all tilt series with new average tilt axis angle...");
             
-                IterateOverItems(Workers, CLI, (worker, t) =>
+                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                     {
                         worker.TomoEtomoFiducials(t.Path, OptionsEtomo);
                     
                         try
                         {
-                            (t as TiltSeries).ImportAlignments(OptionsImport);
+                            t.ImportAlignments(OptionsImport);
                         }
                         catch (Exception exc)
                         {

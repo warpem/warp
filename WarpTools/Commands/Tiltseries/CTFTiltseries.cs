@@ -116,9 +116,9 @@ namespace WarpTools.Commands
 
             if (CLI.AutoHand == 0)
             {
-                IterateOverItems(Workers, CLI, (worker, m) =>
+                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                 {
-                    worker.TomoProcessCTF(m.Path, OptionsCTF);
+                    worker.TomoProcessCTF(t.Path, OptionsCTF);
                 });
             }
             else
@@ -129,7 +129,7 @@ namespace WarpTools.Commands
                 CLI.InputSeries = SeriesToUse;
 
                 Console.WriteLine($"Estimating the CTF for {CLI.AutoHand} tilt series to check handedness...");
-                IterateOverItems(Workers, CLI, (worker, m) =>
+                IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
                 {
                     worker.TomoProcessCTF(m.Path, OptionsCTF);
                 });
@@ -240,9 +240,9 @@ namespace WarpTools.Commands
                 #endregion
 
                 Console.WriteLine("Now running CTF estimation for all tilt series with correct defocus handedness...");
-                IterateOverItems(Workers, CLI, (worker, m) =>
+                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                 {
-                    worker.TomoProcessCTF(m.Path, OptionsCTF);
+                    worker.TomoProcessCTF(t.Path, OptionsCTF);
                 });
             }
 

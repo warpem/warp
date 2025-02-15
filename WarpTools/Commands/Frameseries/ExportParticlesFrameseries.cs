@@ -392,7 +392,7 @@ namespace WarpTools.Commands.Frameseries
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
+            IterateOverItems<Movie>(Workers, CLI, (worker, m) =>
             {
                 if (!RowGroups.ContainsKey(m.RootName))
                     return;

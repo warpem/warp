@@ -354,6 +354,13 @@ namespace Warp
                                                     range));
         }
 
+        public void TardisSegmentMembranes2D(string[] paths, ProcessingOptionsTardisSegmentMembranes2D options)
+        {
+            SendCommand(new NamedSerializableObject("MoviesTardisSegmentMembranes2D",
+                string.Join(';', paths),
+                options));
+        }
+
         public void MovieExportParticles(string path, ProcessingOptionsParticleExport options, float2[] coordinates)
         {
             SendCommand(new NamedSerializableObject("MovieExportParticles",

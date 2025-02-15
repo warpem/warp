@@ -114,10 +114,12 @@ namespace WarpTools.Commands.Frameseries
 
             #endregion
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
-            {
-                worker.MoviePickBoxNet(m.Path, OptionsPick);
-            }, CLI.NThreads);
+            IterateOverItems<Movie>(
+                Workers,
+                CLI,
+                (worker, m) => { worker.MoviePickBoxNet(m.Path, OptionsPick); },
+                oversubscribe: CLI.NThreads
+            );
 
             Console.Write("Saying goodbye to all workers...");
             foreach (var worker in Workers)

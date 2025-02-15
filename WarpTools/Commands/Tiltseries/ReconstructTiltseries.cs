@@ -124,9 +124,9 @@ namespace WarpTools.Commands
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
+            IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
             {
-                worker.TomoReconstruct(m.Path, OptionsReconstruction);
+                worker.TomoReconstruct(t.Path, OptionsReconstruction);
             });
 
             Console.Write("Saying goodbye to all workers...");

@@ -313,13 +313,15 @@ namespace WarpTools.Commands
 
                     OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.TemplatePath);
 
-                    IterateOverItems(Workers, CLI, (worker, m) =>
+                    IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                     {
-                        worker.TomoMatch(m.Path, OptionsMatch, CLI.TemplatePath);
+                        worker.TomoMatch(t.Path, OptionsMatch, CLI.TemplatePath);
 
-                        string PeakTablePath = Path.Combine(m.MatchingDir, m.RootName +
-                                                                           $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
-                                                                           "_" + OptionsMatch.TemplateName + ".star");
+                        string PeakTablePath = Path.Combine(
+                            t.MatchingDir, t.RootName +
+                                           $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
+                                           $"_{OptionsMatch.TemplateName}.star"
+                        );
                         List<float> PeakValues = Star.LoadFloat(PeakTablePath, "rlnAutopickFigureOfMerit").ToList();
                         PeakValues.Sort();
                         PeakValues = PeakValues.TakeLast(20).ToList();
@@ -337,13 +339,15 @@ namespace WarpTools.Commands
 
                     OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.FlippedTemplatePath);
 
-                    IterateOverItems(Workers, CLI, (worker, m) =>
+                    IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                     {
-                        worker.TomoMatch(m.Path, OptionsMatch, CLI.FlippedTemplatePath);
+                        worker.TomoMatch(t.Path, OptionsMatch, CLI.FlippedTemplatePath);
 
-                        string PeakTablePath = Path.Combine(m.MatchingDir, m.RootName +
-                                                                           $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
-                                                                           "_" + OptionsMatch.TemplateName + ".star");
+                        string PeakTablePath = Path.Combine(
+                            t.MatchingDir, t.RootName +
+                                           $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
+                                           $"_{OptionsMatch.TemplateName}.star"
+                        );
                         List<float> PeakValues = Star.LoadFloat(PeakTablePath, "rlnAutopickFigureOfMerit").ToList();
                         PeakValues.Sort();
                         PeakValues = PeakValues.TakeLast(20).ToList();
@@ -370,9 +374,9 @@ namespace WarpTools.Commands
 
             OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.TemplatePath);
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
+            IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
             {
-                worker.TomoMatch(m.Path, OptionsMatch, CLI.TemplatePath);
+                worker.TomoMatch(t.Path, OptionsMatch, CLI.TemplatePath);
             });
 
             Console.Write("Saying goodbye to all workers...");

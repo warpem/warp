@@ -52,7 +52,7 @@ namespace WarpTools.Commands
 
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
-            IterateOverItems(Workers, CLI, (worker, m) =>
+            IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
             {
                 worker.TomoStack(m.Path, OptionsStack);
             });
