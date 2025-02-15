@@ -44,8 +44,7 @@ namespace WarpTools.Commands
                     string ValueString;
                     if (Value is Array arr)
                     {
-                        var FormattedItems = arr.Cast<object>()
-                            .Select(item => item?.ToString() ?? "null");
+                        var FormattedItems = arr.Cast<object>().Select(item => item?.ToString() ?? "null");
                         ValueString = $"{{ {string.Join(", ", FormattedItems)} }}";
                     }
                     else
