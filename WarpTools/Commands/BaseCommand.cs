@@ -90,116 +90,18 @@ namespace WarpTools.Commands
             Queue<long> processingTimes = new Queue<long>();
             Stopwatch timerOverall = Stopwatch.StartNew();
 
-            if (typeof(T) == typeof(Movie))
+            bool isBatch = typeof(T) == typeof(Movie[]);
+            int nBatches = workers.Length * oversubscribe;
+            int itemsPerBatch = (int)Math.Ceiling(cli.InputSeries.Length / (double)nBatches);
+
+            if (!isBatch)
             {
-                // Single item processing using ForCPUGreedy
-                Helper.ForCPUGreedy(0, cli.InputSeries.Length, workers.Length * oversubscribe, null, (iitem, threadID) =>
-                {
-                    Stopwatch timer = Stopwatch.StartNew();
-
-                    WorkerWrapper processor = workers[threadID % workers.Length];
-                    T item = getBatch(iitem, iitem + 1);
-                    var movie = item as Movie;
-
-                    if (Path.GetFullPath(cli.OutputProcessing) != Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
-                    {
-                        if (string.IsNullOrEmpty(movie.DataDirectoryName))
-                            movie.DataDirectoryName = Path.GetDirectoryName(movie.Path);
-
-                        movie.Path = Path.Combine(cli.OutputProcessing, Path.GetFileName(movie.Path));
-                        movie.SaveMeta();
-                    }
-
-                    processor.Console.Clear();
-                    processor.Console.SetFileOutput(Path.Combine(logDirectory, $"{movie.RootName}.log"));
-
-                    try
-                    {
-                        body(processor, item);
-                        movie.ProcessingStatus = ProcessingStatus.Processed;
-                    }
-                    catch
-                    {
-                        movie.UnselectManual = true;
-                        movie.ProcessingStatus = ProcessingStatus.LeaveOut;
-                        movie.SaveMeta();
-
-                        lock(workers)
-                        {
-                            VirtualConsole.ClearLastLine();
-                            Console.Error.WriteLine($"Failed to process {movie.Path}, marked as unselected");
-                            Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
-                            Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
-                            nFailed++;
-                        }
-                    }
-                    finally
-                    {
-                        processor.Console.SetFileOutput("");
-
-                        jsonTasks.Add(Task.Run(() =>
-                        {
-                            List<Movie> immutableProcessed;
-                            lock(workers)
-                            {
-                                processedItems.Add(movie);
-                                immutableProcessed = processedItems.ToList();
-                            }
-
-                            JsonArray itemsJson = new JsonArray(immutableProcessed
-                                .Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix))
-                                .ToArray());
-                            File.WriteAllText(jsonFilePath + $".{iitem}",
-                                itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-
-                            bool success = false;
-                            Stopwatch watch = Stopwatch.StartNew();
-                            while(!success && watch.ElapsedMilliseconds < 10_000)
-                            {
-                                try
-                                {
-                                    lock(workers)
-                                        File.Move(jsonFilePath + $".{iitem}", jsonFilePath, true);
-                                    success = true;
-                                }
-                                catch
-                                {
-                                }
-                            }
-                        }));
-
-                        timer.Stop();
-
-                        lock(workers)
-                        {
-                            nDone++;
-                            processingTimes.Enqueue(timer.ElapsedMilliseconds);
-                            if (processingTimes.Count > 20)
-                                processingTimes.Dequeue();
-
-                            long averageTime = (long)Math.Max(1, processingTimes.Average() / (workers.Length * oversubscribe));
-                            long remainingTime = (cli.InputSeries.Length - nDone) * averageTime;
-                            TimeSpan remainingTimeSpan = TimeSpan.FromMilliseconds(remainingTime);
-
-                            string failedString = nFailed > 0 ? $", {nFailed} failed" : "";
-                            string timeString = remainingTimeSpan.ToString(
-                                (int)remainingTimeSpan.TotalDays > 0
-                                    ? @"dd\.hh\:mm\:ss"
-                                    : ((int)remainingTimeSpan.TotalHours > 0
-                                        ? @"hh\:mm\:ss"
-                                        : @"mm\:ss"));
-
-                            VirtualConsole.ClearLastLine();
-                            Console.Write($"{nDone}/{cli.InputSeries.Length}{failedString}, {timeString} remaining");
-                        }
-                    }
-                }, null);
+                // single-item processing
+                Helper.ForCPUGreedy(0, cli.InputSeries.Length, workers.Length * oversubscribe, null, (iitem, threadID) => { ProcessItem(iitem, threadID, iitem); }, null);
             }
             else
             {
-                // Batch processing logic
-                int nBatches = workers.Length * oversubscribe;
-                int itemsPerBatch = (int)Math.Ceiling(cli.InputSeries.Length / (double)nBatches);
+                // batch processing
                 List<Task> batchTasks = new List<Task>();
 
                 for (int batchIndex = 0; batchIndex < nBatches; batchIndex++)
@@ -209,117 +111,11 @@ namespace WarpTools.Commands
                         break;
 
                     int endIndex = Math.Min(startIndex + itemsPerBatch, cli.InputSeries.Length);
-                    T batchOrItem = getBatch(startIndex, endIndex);
-                    WorkerWrapper worker = workers[batchIndex % workers.Length];
 
-                    Console.WriteLine($"Submitted {getBatchSize(batchOrItem)} items in batch {batchIndex} to worker process {batchIndex % workers.Length}");
+                    Console.WriteLine($"Submitted {endIndex - startIndex} items in batch {batchIndex} to worker process {batchIndex % workers.Length}");
 
-                    batchTasks.Add(Task.Run(() =>
-                    {
-                        Stopwatch timer = Stopwatch.StartNew();
-
-                        try
-                        {
-                            foreach (var movie in (Movie[])((object)batchOrItem))
-                            {
-                                if (Path.GetFullPath(cli.OutputProcessing) != Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
-                                {
-                                    if (string.IsNullOrEmpty(movie.DataDirectoryName))
-                                        movie.DataDirectoryName = Path.GetDirectoryName(movie.Path);
-
-                                    movie.Path = Path.Combine(cli.OutputProcessing, Path.GetFileName(movie.Path));
-                                    movie.SaveMeta();
-                                }
-                            }
-
-                            var logFile = Path.Combine(logDirectory, $"batch{batchIndex}.log");
-                            worker.Console.Clear();
-                            worker.Console.SetFileOutput(logFile);
-
-                            body(worker, batchOrItem);
-
-                            foreach (var movie in (Movie[])((object)batchOrItem))
-                                movie.ProcessingStatus = ProcessingStatus.Processed;
-                        }
-                        catch
-                        {
-                            foreach (var movie in (Movie[])((object)batchOrItem))
-                            {
-                                movie.UnselectManual = true;
-                                movie.ProcessingStatus = ProcessingStatus.LeaveOut;
-                                movie.SaveMeta();
-                            }
-
-                            lock(workers)
-                            {
-                                VirtualConsole.ClearLastLine();
-                                Console.Error.WriteLine($"Failed to process batch {batchIndex}, marked as unselected");
-                                Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
-                                Console.Error.WriteLine("Use the change_selection WarpTool to reactivate these items if required.");
-                                nFailed += getBatchSize(batchOrItem);
-                            }
-                        }
-                        finally
-                        {
-                            worker.Console.SetFileOutput("");
-
-                            jsonTasks.Add(Task.Run(() =>
-                            {
-                                List<Movie> immutableProcessed;
-                                lock(workers)
-                                {
-                                    processedItems.AddRange((Movie[])((object)batchOrItem));
-                                    immutableProcessed = processedItems.ToList();
-                                }
-
-                                JsonArray itemsJson = new JsonArray(immutableProcessed
-                                    .Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix))
-                                    .ToArray());
-                                File.WriteAllText(jsonFilePath + $".{batchIndex}",
-                                    itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-
-                                bool success = false;
-                                Stopwatch watch = Stopwatch.StartNew();
-                                while(!success && watch.ElapsedMilliseconds < 10_000)
-                                {
-                                    try
-                                    {
-                                        lock(workers)
-                                            File.Move(jsonFilePath + $".{batchIndex}", jsonFilePath, true);
-                                        success = true;
-                                    }
-                                    catch
-                                    {
-                                    }
-                                }
-                            }));
-
-                            timer.Stop();
-
-                            lock(workers)
-                            {
-                                nDone += getBatchSize(batchOrItem);
-                                processingTimes.Enqueue(timer.ElapsedMilliseconds);
-                                if (processingTimes.Count > 20)
-                                    processingTimes.Dequeue();
-
-                                long averageTime = (long)Math.Max(1, processingTimes.Average() / nBatches);
-                                long remainingTime = (cli.InputSeries.Length - nDone) * averageTime;
-                                TimeSpan remainingTimeSpan = TimeSpan.FromMilliseconds(remainingTime);
-
-                                string failedString = nFailed > 0 ? $", {nFailed} failed" : "";
-                                string timeString = remainingTimeSpan.ToString(
-                                    (int)remainingTimeSpan.TotalDays > 0
-                                        ? @"dd\.hh\:mm\:ss"
-                                        : ((int)remainingTimeSpan.TotalHours > 0
-                                            ? @"hh\:mm\:ss"
-                                            : @"mm\:ss"));
-
-                                VirtualConsole.ClearLastLine();
-                                Console.Write($"{nDone}/{cli.InputSeries.Length}{failedString}, {timeString} remaining");
-                            }
-                        }
-                    }));
+                    int currentBatch = batchIndex;
+                    batchTasks.Add(Task.Run(() => ProcessItem(currentBatch, currentBatch, currentBatch)));
                 }
 
                 Task.WaitAll(batchTasks.ToArray());
@@ -327,6 +123,7 @@ namespace WarpTools.Commands
 
             timerOverall.Stop();
 
+            // write out full Json one last time
             Task.WaitAll(jsonTasks.ToArray());
             JsonArray finalItemsJson = new JsonArray(processedItems
                 .Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix))
@@ -336,26 +133,126 @@ namespace WarpTools.Commands
 
             Console.WriteLine(
                 $"\nFinished processing in {TimeSpan.FromMilliseconds(timerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
-        }
 
-        private void HandleMovieFailure(Movie movie)
-        {
-            movie.UnselectManual = true;
-            movie.ProcessingStatus = ProcessingStatus.LeaveOut;
-            movie.SaveMeta();
-        }
-
-        private void EnsureCorrectPaths(Movie movie, BaseOptions cli)
-        {
-            if (Path.GetFullPath(cli.OutputProcessing) !=
-                Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
+            // close for processing individual item
+            void ProcessItem(int index, int threadID, int jsonIndex)
             {
-                if (string.IsNullOrEmpty(movie.DataDirectoryName))
-                    movie.DataDirectoryName = Path.GetDirectoryName(movie.Path);
+                Stopwatch timer = Stopwatch.StartNew();
+                WorkerWrapper processor = workers[threadID % workers.Length];
 
-                movie.Path = Path.Combine(cli.OutputProcessing,
-                    Path.GetFileName(movie.Path));
-                movie.SaveMeta();
+                T item = getBatch(index, isBatch ? Math.Min(index + itemsPerBatch, cli.InputSeries.Length) : index + 1);
+                Movie[] moviesToProcess = isBatch ? (Movie[])((object)item) : new[] { (Movie)((object)item) };
+
+                // Path correction (identical to original)
+                foreach (var movie in moviesToProcess)
+                {
+                    if (Path.GetFullPath(cli.OutputProcessing) != Path.GetFullPath(Path.GetDirectoryName(movie.DataPath)))
+                    {
+                        if (string.IsNullOrEmpty(movie.DataDirectoryName))
+                            movie.DataDirectoryName = Path.GetDirectoryName(movie.Path);
+
+                        movie.Path = Path.Combine(cli.OutputProcessing, Path.GetFileName(movie.Path));
+                        movie.SaveMeta();
+                    }
+                }
+
+                // Log file setup (differs slightly for batches)
+                processor.Console.Clear();
+                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{index}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
+                processor.Console.SetFileOutput(logFile);
+
+                try
+                {
+                    body(processor, item);
+
+                    foreach (var movie in moviesToProcess)
+                        movie.ProcessingStatus = ProcessingStatus.Processed;
+                }
+                catch
+                {
+                    foreach (var movie in moviesToProcess)
+                    {
+                        movie.UnselectManual = true;
+                        movie.ProcessingStatus = ProcessingStatus.LeaveOut;
+                        movie.SaveMeta();
+                    }
+
+                    lock(workers)
+                    {
+                        VirtualConsole.ClearLastLine();
+                        // Error message differs slightly for batches
+                        if (isBatch)
+                            Console.Error.WriteLine($"Failed to process batch {index}, marked as unselected");
+                        else
+                            Console.Error.WriteLine($"Failed to process {moviesToProcess[0].Path}, marked as unselected");
+
+                        Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
+                        Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
+                        nFailed += moviesToProcess.Length;
+                    }
+                }
+                finally
+                {
+                    processor.Console.SetFileOutput("");
+
+                    jsonTasks.Add(Task.Run(() =>
+                    {
+                        List<Movie> immutableProcessed;
+                        lock(workers)
+                        {
+                            processedItems.AddRange(moviesToProcess);
+                            immutableProcessed = processedItems.ToList();
+                        }
+
+                        JsonArray itemsJson = new JsonArray(immutableProcessed
+                            .Select(series => series.ToMiniJson(cli.Options.Filter.ParticlesSuffix))
+                            .ToArray());
+                        File.WriteAllText(jsonFilePath + $".{jsonIndex}",
+                            itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+                        bool success = false;
+                        Stopwatch watch = Stopwatch.StartNew();
+                        while(!success && watch.ElapsedMilliseconds < 10_000)
+                        {
+                            try
+                            {
+                                lock(workers)
+                                    File.Move(jsonFilePath + $".{jsonIndex}", jsonFilePath, true);
+                                success = true;
+                            }
+                            catch
+                            {
+                            }
+                        }
+                    }));
+
+                    timer.Stop();
+
+                    lock(workers)
+                    {
+                        nDone += moviesToProcess.Length;
+                        processingTimes.Enqueue(timer.ElapsedMilliseconds);
+                        if (processingTimes.Count > 20)
+                            processingTimes.Dequeue();
+
+                        // Time calculation differs slightly for batches
+                        long averageTime = (long)Math.Max(1, processingTimes.Average() /
+                                                             (isBatch ? workers.Length * oversubscribe : (workers.Length * oversubscribe)));
+                        long remainingTime = (cli.InputSeries.Length - nDone) * averageTime;
+                        TimeSpan remainingTimeSpan = TimeSpan.FromMilliseconds(remainingTime);
+
+                        string failedString = nFailed > 0 ? $", {nFailed} failed" : "";
+                        string timeString = remainingTimeSpan.ToString(
+                            (int)remainingTimeSpan.TotalDays > 0
+                                ? @"dd\.hh\:mm\:ss"
+                                : ((int)remainingTimeSpan.TotalHours > 0
+                                    ? @"hh\:mm\:ss"
+                                    : @"mm\:ss"));
+
+                        VirtualConsole.ClearLastLine();
+                        Console.Write($"{nDone}/{cli.InputSeries.Length}{failedString}, {timeString} remaining");
+                    }
+                }
             }
         }
     }
