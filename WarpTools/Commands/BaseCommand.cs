@@ -65,13 +65,11 @@ namespace WarpTools.Commands
             BaseOptions cli,
             Action<WorkerWrapper, T> body,
             Func<int, int, T> getBatch = null,
-            Func<T, int> getBatchSize = null,
             int oversubscribe = 1
         ) where T : class
         {
-            // Default implementations for single item processing
+            // Default implementation for single item processing
             getBatch ??= (start, _) => (T)(object)cli.InputSeries[start];
-            getBatchSize ??= _ => 1;
 
             string logDirectory = Path.Combine(cli.OutputProcessing, "logs");
             Directory.CreateDirectory(logDirectory);
