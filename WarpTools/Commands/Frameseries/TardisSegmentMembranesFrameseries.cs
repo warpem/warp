@@ -40,8 +40,7 @@ namespace WarpTools.Commands
                     var paths = movies.Select(m => m.Path).ToArray();
                     worker.TardisSegmentMembranes2D(paths, OptionsTardis);
                 },
-                getBatch: (start, end) => CLI.InputSeries[start..end],
-                getBatchSize: batch => batch.Length
+                getBatch: (start, end) => CLI.InputSeries[start..end]
             );
 
             Console.Write("Saying goodbye to all workers...");
