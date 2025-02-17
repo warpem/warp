@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
 
+using ProcessingOptionsMovieCTF = Warp.Movie.ProcessingOptionsMovieCTF;
+
+
 namespace WarpTools.Commands
 {
     [VerbGroup("Frame series")]
