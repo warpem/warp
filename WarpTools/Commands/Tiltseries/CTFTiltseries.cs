@@ -112,7 +112,7 @@ namespace WarpTools.Commands
 
             #endregion
 
-            ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
+            var OptionsCTF = Options.GetProcessingMovieCTF();
 
             if (CLI.AutoHand == 0)
             {
