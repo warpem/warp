@@ -4,11 +4,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Headers;
 using Warp.Tools;
+using ProcessingOptionsParticleExport = Warp.Movie.ProcessingOptionsParticleExport;
+
 
 namespace WarpTools.Commands.Frameseries
 {
