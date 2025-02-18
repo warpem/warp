@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
-using ProcessingOptionsBoxNet = Warp.Movie.ProcessingOptionsBoxNet;
+
 
 namespace WarpTools.Commands.Frameseries
 {

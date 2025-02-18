@@ -22,7 +22,6 @@ using System.Reflection;
 using Warp.Sociology;
 using Microsoft.Extensions.Options;
 
-using ProcessingOptionsMPARefine = Warp.Movie.ProcessingOptionsMPARefine;
 
 namespace MCore
 {

@@ -547,82 +547,57 @@ public partial class TiltSeries
 
         IsCanceled = progressCallback(Grid, (int)Grid.Elements(), "Done.");
     }
-    
-    [Serializable]
-    public class ProcessingOptionsTomoFullReconstruction : TomoProcessingOptionsBase
+}
+
+[Serializable]
+public class ProcessingOptionsTomoFullReconstruction : TomoProcessingOptionsBase
+{
+    [WarpSerializable] public bool OverwriteFiles { get; set; }
+    [WarpSerializable] public bool Invert { get; set; }
+    [WarpSerializable] public bool Normalize { get; set; }
+    [WarpSerializable] public bool DoDeconv { get; set; }
+    [WarpSerializable] public decimal DeconvStrength { get; set; }
+    [WarpSerializable] public decimal DeconvFalloff { get; set; }
+    [WarpSerializable] public decimal DeconvHighpass { get; set; }
+    [WarpSerializable] public int SubVolumeSize { get; set; }
+    [WarpSerializable] public decimal SubVolumePadding { get; set; }
+    [WarpSerializable] public bool PrepareDenoising { get; set; }
+    [WarpSerializable] public bool PrepareDenoisingFrames { get; set; }
+    [WarpSerializable] public bool PrepareDenoisingTilts { get; set; }
+    [WarpSerializable] public bool KeepOnlyFullVoxels { get; set; }
+
+    public override bool Equals(object obj)
     {
-        [WarpSerializable]
-        public bool OverwriteFiles { get; set; }
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((ProcessingOptionsTomoFullReconstruction)obj);
+    }
 
-        [WarpSerializable]
-        public bool Invert { get; set; }
+    protected bool Equals(ProcessingOptionsTomoFullReconstruction other)
+    {
+        return base.Equals(other) &&
+               Invert == other.Invert &&
+               Normalize == other.Normalize &&
+               DoDeconv == other.DoDeconv &&
+               DeconvStrength == other.DeconvStrength &&
+               DeconvFalloff == other.DeconvFalloff &&
+               DeconvHighpass == other.DeconvHighpass &&
+               SubVolumeSize == other.SubVolumeSize &&
+               SubVolumePadding == other.SubVolumePadding &&
+               PrepareDenoising == other.PrepareDenoising &&
+               PrepareDenoisingFrames == other.PrepareDenoisingFrames &&
+               PrepareDenoisingTilts == other.PrepareDenoisingTilts &&
+               KeepOnlyFullVoxels == other.KeepOnlyFullVoxels;
+    }
 
-        [WarpSerializable]
-        public bool Normalize { get; set; }
+    public static bool operator ==(ProcessingOptionsTomoFullReconstruction left, ProcessingOptionsTomoFullReconstruction right)
+    {
+        return Equals(left, right);
+    }
 
-        [WarpSerializable]
-        public bool DoDeconv { get; set; }
-
-        [WarpSerializable]
-        public decimal DeconvStrength { get; set; }
-
-        [WarpSerializable]
-        public decimal DeconvFalloff { get; set; }
-
-        [WarpSerializable]
-        public decimal DeconvHighpass { get; set; }
-
-        [WarpSerializable]
-        public int SubVolumeSize { get; set; }
-
-        [WarpSerializable]
-        public decimal SubVolumePadding { get; set; }
-
-        [WarpSerializable]
-        public bool PrepareDenoising { get; set; }
-
-        [WarpSerializable]
-        public bool PrepareDenoisingFrames { get; set; }
-
-        [WarpSerializable]
-        public bool PrepareDenoisingTilts { get; set; }
-
-        [WarpSerializable]
-        public bool KeepOnlyFullVoxels { get; set; }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((ProcessingOptionsTomoFullReconstruction)obj);
-        }
-
-        protected bool Equals(ProcessingOptionsTomoFullReconstruction other)
-        {
-            return base.Equals(other) &&
-                   Invert == other.Invert &&
-                   Normalize == other.Normalize &&
-                   DoDeconv == other.DoDeconv &&
-                   DeconvStrength == other.DeconvStrength &&
-                   DeconvFalloff == other.DeconvFalloff &&
-                   DeconvHighpass == other.DeconvHighpass &&
-                   SubVolumeSize == other.SubVolumeSize &&
-                   SubVolumePadding == other.SubVolumePadding &&
-                   PrepareDenoising == other.PrepareDenoising &&
-                   PrepareDenoisingFrames == other.PrepareDenoisingFrames &&
-                   PrepareDenoisingTilts == other.PrepareDenoisingTilts &&
-                   KeepOnlyFullVoxels == other.KeepOnlyFullVoxels;
-        }
-
-        public static bool operator ==(ProcessingOptionsTomoFullReconstruction left, ProcessingOptionsTomoFullReconstruction right)
-        {
-            return Equals(left, right);
-        }
-
-        public static bool operator !=(ProcessingOptionsTomoFullReconstruction left, ProcessingOptionsTomoFullReconstruction right)
-        {
-            return !Equals(left, right);
-        }
+    public static bool operator !=(ProcessingOptionsTomoFullReconstruction left, ProcessingOptionsTomoFullReconstruction right)
+    {
+        return !Equals(left, right);
     }
 }

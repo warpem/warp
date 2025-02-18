@@ -12,16 +12,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.IO.Pipes;
 using System.Threading.Tasks;
-using ProcessingOptionsMovieExport = Warp.Movie.ProcessingOptionsMovieExport;
-using ProcessingOptionsMovieMovement = Warp.Movie.ProcessingOptionsMovieMovement;
-using ProcessingOptionsMovieCTF = Warp.Movie.ProcessingOptionsMovieCTF;
-using ProcessingOptionsParticleExport = Warp.Movie.ProcessingOptionsParticleExport;
-using ProcessingOptionsBoxNet = Warp.Movie.ProcessingOptionsBoxNet;
-using ProcessingOptionsMPARefine = Warp.Movie.ProcessingOptionsMPARefine;
-using ProcessingOptionsTomoFullReconstruction = Warp.TiltSeries.ProcessingOptionsTomoFullReconstruction;
-using ProcessingOptionsTomoFullMatch = Warp.TiltSeries.ProcessingOptionsTomoFullMatch;
-using ProcessingOptionsTomoSubReconstruction = Warp.TiltSeries.ProcessingOptionsTomoSubReconstruction;
-using ProcessingOptionsTomoStack = Warp.TiltSeries.ProcessingOptionsTomoStack;
+
 
 namespace Warp
 {

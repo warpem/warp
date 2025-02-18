@@ -6,17 +6,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Tools;
-using ProcessingOptionsTomoFullReconstruction = Warp.TiltSeries.ProcessingOptionsTomoFullReconstruction;
-using ProcessingOptionsTomoFullMatch = Warp.TiltSeries.ProcessingOptionsTomoFullMatch;
-using ProcessingOptionsTomoSubReconstruction = Warp.TiltSeries.ProcessingOptionsTomoSubReconstruction;
 
-
-using ProcessingOptionsMovieExport = Warp.Movie.ProcessingOptionsMovieExport;
-using ProcessingOptionsMovieMovement = Warp.Movie.ProcessingOptionsMovieMovement;
-using ProcessingOptionsMovieCTF = Warp.Movie.ProcessingOptionsMovieCTF;
-using ProcessingOptionsParticleExport = Warp.Movie.ProcessingOptionsParticleExport;
-using ProcessingOptionsFullMatch = Warp.Movie.ProcessingOptionsFullMatch;
-using ProcessingOptionsBoxNet = Warp.Movie.ProcessingOptionsBoxNet;
 
 namespace Warp
 {

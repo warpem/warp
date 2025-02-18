@@ -795,71 +795,58 @@ public partial class Movie
         //            }
         //}
     }
-    
-    [Serializable]
-    public class ProcessingOptionsMovieCTF : ProcessingOptionsBase
+}
+
+[Serializable]
+public class ProcessingOptionsMovieCTF : ProcessingOptionsBase
+{
+    [WarpSerializable] public int Window { get; set; }
+    [WarpSerializable] public decimal RangeMin { get; set; }
+    [WarpSerializable] public decimal RangeMax { get; set; }
+    [WarpSerializable] public int Voltage { get; set; }
+    [WarpSerializable] public decimal Cs { get; set; }
+    [WarpSerializable] public decimal Cc { get; set; }
+    [WarpSerializable] public decimal Amplitude { get; set; }
+    [WarpSerializable] public bool DoPhase { get; set; }
+    [WarpSerializable] public bool UseMovieSum { get; set; }
+    [WarpSerializable] public decimal ZMin { get; set; }
+    [WarpSerializable] public decimal ZMax { get; set; }
+    [WarpSerializable] public int3 GridDims { get; set; }
+    [WarpSerializable] public decimal DosePerAngstromFrame { get; set; }
+
+    public override bool Equals(object obj)
     {
-        [WarpSerializable]
-        public int Window { get; set; }
-        [WarpSerializable]
-        public decimal RangeMin { get; set; }
-        [WarpSerializable]
-        public decimal RangeMax { get; set; }
-        [WarpSerializable]
-        public int Voltage { get; set; }
-        [WarpSerializable]
-        public decimal Cs { get; set; }
-        [WarpSerializable]
-        public decimal Cc { get; set; }
-        [WarpSerializable]
-        public decimal Amplitude { get; set; }
-        [WarpSerializable]
-        public bool DoPhase { get; set; }
-        [WarpSerializable]
-        public bool UseMovieSum { get; set; }
-        [WarpSerializable]
-        public decimal ZMin { get; set; }
-        [WarpSerializable]
-        public decimal ZMax { get; set; }
-        [WarpSerializable]
-        public int3 GridDims { get; set; }
-        [WarpSerializable]
-        public decimal DosePerAngstromFrame { get; set; }
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((ProcessingOptionsMovieCTF)obj);
+    }
 
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((ProcessingOptionsMovieCTF)obj);
-        }
+    protected bool Equals(ProcessingOptionsMovieCTF other)
+    {
+        return base.Equals(other) &&
+               Window == other.Window &&
+               RangeMin == other.RangeMin &&
+               RangeMax == other.RangeMax &&
+               Voltage == other.Voltage &&
+               Cs == other.Cs &&
+               Cc == other.Cc &&
+               Amplitude == other.Amplitude &&
+               DoPhase == other.DoPhase &&
+               UseMovieSum == other.UseMovieSum &&
+               ZMin == other.ZMin &&
+               ZMax == other.ZMax &&
+               GridDims == other.GridDims &&
+               DosePerAngstromFrame == other.DosePerAngstromFrame;
+    }
 
-        protected bool Equals(ProcessingOptionsMovieCTF other)
-        {
-            return base.Equals(other) &&
-                   Window == other.Window &&
-                   RangeMin == other.RangeMin &&
-                   RangeMax == other.RangeMax &&
-                   Voltage == other.Voltage &&
-                   Cs == other.Cs &&
-                   Cc == other.Cc &&
-                   Amplitude == other.Amplitude &&
-                   DoPhase == other.DoPhase &&
-                   UseMovieSum == other.UseMovieSum &&
-                   ZMin == other.ZMin &&
-                   ZMax == other.ZMax &&
-                   GridDims == other.GridDims &&
-                   DosePerAngstromFrame == other.DosePerAngstromFrame;
-        }
+    public static bool operator ==(ProcessingOptionsMovieCTF left, ProcessingOptionsMovieCTF right)
+    {
+        return Equals(left, right);
+    }
 
-        public static bool operator ==(ProcessingOptionsMovieCTF left, ProcessingOptionsMovieCTF right)
-        {
-            return Equals(left, right);
-        }
-
-        public static bool operator !=(ProcessingOptionsMovieCTF left, ProcessingOptionsMovieCTF right)
-        {
-            return !Equals(left, right);
-        }
+    public static bool operator !=(ProcessingOptionsMovieCTF left, ProcessingOptionsMovieCTF right)
+    {
+        return !Equals(left, right);
     }
 }

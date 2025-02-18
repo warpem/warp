@@ -451,47 +451,42 @@ public partial class Movie
 
         IsProcessing = false;
     }
-    
-    [Serializable]
-    public class ProcessingOptionsMovieMovement : ProcessingOptionsBase
+}
+
+[Serializable]
+public class ProcessingOptionsMovieMovement : ProcessingOptionsBase
+{
+    [WarpSerializable] public decimal RangeMin { get; set; }
+    [WarpSerializable] public decimal RangeMax { get; set; }
+    [WarpSerializable] public decimal Bfactor { get; set; }
+    [WarpSerializable] public int3 GridDims { get; set; }
+    [WarpSerializable] public decimal DosePerAngstromFrame { get; set; }
+
+    public override bool Equals(object obj)
     {
-        [WarpSerializable]
-        public decimal RangeMin { get; set; }
-        [WarpSerializable]
-        public decimal RangeMax { get; set; }
-        [WarpSerializable]
-        public decimal Bfactor { get; set; }
-        [WarpSerializable]
-        public int3 GridDims { get; set; }
-        [WarpSerializable]
-        public decimal DosePerAngstromFrame { get; set; }
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((ProcessingOptionsMovieMovement)obj);
+    }
 
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((ProcessingOptionsMovieMovement)obj);
-        }
+    protected bool Equals(ProcessingOptionsMovieMovement other)
+    {
+        return base.Equals(other) &&
+               RangeMin == other.RangeMin &&
+               RangeMax == other.RangeMax &&
+               Bfactor == other.Bfactor &&
+               GridDims == other.GridDims &&
+               DosePerAngstromFrame == other.DosePerAngstromFrame;
+    }
 
-        protected bool Equals(ProcessingOptionsMovieMovement other)
-        {
-            return base.Equals(other) &&
-                   RangeMin == other.RangeMin &&
-                   RangeMax == other.RangeMax &&
-                   Bfactor == other.Bfactor &&
-                   GridDims == other.GridDims &&
-                   DosePerAngstromFrame == other.DosePerAngstromFrame;
-        }
+    public static bool operator ==(ProcessingOptionsMovieMovement left, ProcessingOptionsMovieMovement right)
+    {
+        return Equals(left, right);
+    }
 
-        public static bool operator ==(ProcessingOptionsMovieMovement left, ProcessingOptionsMovieMovement right)
-        {
-            return Equals(left, right);
-        }
-
-        public static bool operator !=(ProcessingOptionsMovieMovement left, ProcessingOptionsMovieMovement right)
-        {
-            return !Equals(left, right);
-        }
+    public static bool operator !=(ProcessingOptionsMovieMovement left, ProcessingOptionsMovieMovement right)
+    {
+        return !Equals(left, right);
     }
 }

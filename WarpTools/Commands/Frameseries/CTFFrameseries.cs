@@ -4,7 +4,6 @@ using System.IO;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
-using ProcessingOptionsMovieCTF = Warp.Movie.ProcessingOptionsMovieCTF;
 
 
 namespace WarpTools.Commands

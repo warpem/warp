@@ -489,50 +489,23 @@ public partial class Movie
 
         #endregion
     }
-    
-    [Serializable]
-    public class ProcessingOptionsFullMatch : ProcessingOptionsBase
-    {
-        [WarpSerializable]
-        public bool OverwriteFiles { get; set; }
+}
 
-        [WarpSerializable]
-        public bool Invert { get; set; }
-
-        [WarpSerializable]
-        public int SubPatchSize { get; set; }
-
-        [WarpSerializable]
-        public string TemplateName { get; set; }
-
-        [WarpSerializable]
-        public decimal TemplatePixel { get; set; }
-
-        [WarpSerializable]
-        public decimal TemplateDiameter { get; set; }
-
-        [WarpSerializable]
-        public decimal TemplateFraction { get; set; }
-
-        [WarpSerializable]
-        public bool WhitenSpectrum { get; set; }
-
-        [WarpSerializable]
-        public decimal DosePerAngstromFrame { get; set; }
-
-        [WarpSerializable]
-        public int Voltage { get; set; }
-
-        [WarpSerializable]
-        public string Symmetry { get; set; }
-
-        [WarpSerializable]
-        public int HealpixOrder { get; set; }
-
-        [WarpSerializable]
-        public int Supersample { get; set; }
-
-        [WarpSerializable]
-        public int NResults { get; set; }
-    }
+[Serializable]
+public class ProcessingOptionsFullMatch : ProcessingOptionsBase
+{
+    [WarpSerializable] public bool OverwriteFiles { get; set; }
+    [WarpSerializable] public bool Invert { get; set; }
+    [WarpSerializable] public int SubPatchSize { get; set; }
+    [WarpSerializable] public string TemplateName { get; set; }
+    [WarpSerializable] public decimal TemplatePixel { get; set; }
+    [WarpSerializable] public decimal TemplateDiameter { get; set; }
+    [WarpSerializable] public decimal TemplateFraction { get; set; }
+    [WarpSerializable] public bool WhitenSpectrum { get; set; }
+    [WarpSerializable] public decimal DosePerAngstromFrame { get; set; }
+    [WarpSerializable] public int Voltage { get; set; }
+    [WarpSerializable] public string Symmetry { get; set; }
+    [WarpSerializable] public int HealpixOrder { get; set; }
+    [WarpSerializable] public int Supersample { get; set; }
+    [WarpSerializable] public int NResults { get; set; }
 }

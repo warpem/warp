@@ -37,11 +37,10 @@ public partial class TiltSeries
 
         File.WriteAllLines(AngleFilePath, UsedAngles.Select(a => a.ToString("F2", CultureInfo.InvariantCulture)));
     }
-    
-    [Serializable]
-    public class ProcessingOptionsTomoStack : TomoProcessingOptionsBase
-    {
-        [WarpSerializable]
-        public bool ApplyMask { get; set; }
-    }
+}
+
+[Serializable]
+public class ProcessingOptionsTomoStack : TomoProcessingOptionsBase
+{
+    [WarpSerializable] public bool ApplyMask { get; set; }
 }
