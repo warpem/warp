@@ -3817,272 +3817,528 @@ public partial class Movie
 
         return Result;
     }
-    
-    [Serializable]
-    public class ProcessingOptionsMPARefine : WarpBase
+}
+
+[Serializable]
+public class ProcessingOptionsMPARefine : WarpBase
+{
+    private int _NIterations = 3;
+
+    [WarpSerializable]
+    public int NIterations
     {
-        private int _NIterations = 3;
-        [WarpSerializable]
-        public int NIterations
+        get { return _NIterations; }
+        set
         {
-            get { return _NIterations; }
-            set { if (value != _NIterations) { _NIterations = value; OnPropertyChanged(); } }
+            if (value != _NIterations)
+            {
+                _NIterations = value;
+                OnPropertyChanged();
+            }
         }
-
-        private decimal _BFactorWeightingThreshold = 0.25M;
-        [WarpSerializable]
-        public decimal BFactorWeightingThreshold
-        {
-            get { return _BFactorWeightingThreshold; }
-            set { if (value != _BFactorWeightingThreshold) { _BFactorWeightingThreshold = value; OnPropertyChanged(); } }
-        }
-
-        private int _BatchSize = 16;
-        [WarpSerializable]
-        public int BatchSize
-        {
-            get { return _BatchSize; }
-            set { if (value != _BatchSize) { _BatchSize = value; OnPropertyChanged(); } }
-        }
-
-        private int _InitialResolutionPercent = 80;
-        [WarpSerializable]
-        public int InitialResolutionPercent
-        {
-            get { return _InitialResolutionPercent; }
-            set { if (value != _InitialResolutionPercent) { _InitialResolutionPercent = value; OnPropertyChanged(); } }
-        }
-
-        private int _MinParticlesPerItem = 10;
-        [WarpSerializable]
-        public int MinParticlesPerItem
-        {
-            get { return _MinParticlesPerItem; }
-            set { if (value != _MinParticlesPerItem) { _MinParticlesPerItem = value; OnPropertyChanged(); } }
-        }
-
-        private bool _UseHostMemory = true;
-        [WarpSerializable]
-        public bool UseHostMemory
-        {
-            get { return _UseHostMemory; }
-            set { if (value != _UseHostMemory) { _UseHostMemory = value; OnPropertyChanged(); } }
-        }
-
-        #region Geometry
-
-        private bool _DoImageWarp = true;
-        [WarpSerializable]
-        public bool DoImageWarp
-        {
-            get { return _DoImageWarp; }
-            set { if (value != _DoImageWarp) { _DoImageWarp = value; OnPropertyChanged(); } }
-        }
-
-        private int _ImageWarpWidth = 3;
-        [WarpSerializable]
-        public int ImageWarpWidth
-        {
-            get { return _ImageWarpWidth; }
-            set { if (value != _ImageWarpWidth) { _ImageWarpWidth = value; OnPropertyChanged(); } }
-        }
-
-        private int _ImageWarpHeight = 3;
-        [WarpSerializable]
-        public int ImageWarpHeight
-        {
-            get { return _ImageWarpHeight; }
-            set { if (value != _ImageWarpHeight) { _ImageWarpHeight = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoVolumeWarp = false;
-        [WarpSerializable]
-        public bool DoVolumeWarp
-        {
-            get { return _DoVolumeWarp; }
-            set { if (value != _DoVolumeWarp) { _DoVolumeWarp = value; OnPropertyChanged(); } }
-        }
-
-        private int _VolumeWarpWidth = 3;
-        [WarpSerializable]
-        public int VolumeWarpWidth
-        {
-            get { return _VolumeWarpWidth; }
-            set { if (value != _VolumeWarpWidth) { _VolumeWarpWidth = value; OnPropertyChanged(); } }
-        }
-
-        private int _VolumeWarpHeight = 3;
-        [WarpSerializable]
-        public int VolumeWarpHeight
-        {
-            get { return _VolumeWarpHeight; }
-            set { if (value != _VolumeWarpHeight) { _VolumeWarpHeight = value; OnPropertyChanged(); } }
-        }
-
-        private int _VolumeWarpDepth = 2;
-        [WarpSerializable]
-        public int VolumeWarpDepth
-        {
-            get { return _VolumeWarpDepth; }
-            set { if (value != _VolumeWarpDepth) { _VolumeWarpDepth = value; OnPropertyChanged(); } }
-        }
-
-        private int _VolumeWarpLength = 10;
-        [WarpSerializable]
-        public int VolumeWarpLength
-        {
-            get { return _VolumeWarpLength; }
-            set { if (value != _VolumeWarpLength) { _VolumeWarpLength = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoAxisAngles = false;
-        [WarpSerializable]
-        public bool DoAxisAngles
-        {
-            get { return _DoAxisAngles; }
-            set { if (value != _DoAxisAngles) { _DoAxisAngles = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoParticlePoses = true;
-        [WarpSerializable]
-        public bool DoParticlePoses
-        {
-            get { return _DoParticlePoses; }
-            set { if (value != _DoParticlePoses) { _DoParticlePoses = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoMagnification = false;
-        [WarpSerializable]
-        public bool DoMagnification
-        {
-            get { return _DoMagnification; }
-            set { if (value != _DoMagnification) { _DoMagnification = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoZernike13 = false;
-        [WarpSerializable]
-        public bool DoZernike13
-        {
-            get { return _DoZernike13; }
-            set { if (value != _DoZernike13) { _DoZernike13 = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoZernike5 = false;
-        [WarpSerializable]
-        public bool DoZernike5
-        {
-            get { return _DoZernike5; }
-            set { if (value != _DoZernike5) { _DoZernike5 = value; OnPropertyChanged(); } }
-        }
-
-        private decimal _GeometryHighPass = 20;
-        [WarpSerializable]
-        public decimal GeometryHighPass
-        {
-            get { return _GeometryHighPass; }
-            set { if (value != _GeometryHighPass) { _GeometryHighPass = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoTiltMovies = false;
-        [WarpSerializable]
-        public bool DoTiltMovies
-        {
-            get { return _DoTiltMovies; }
-            set { if (value != _DoTiltMovies) { _DoTiltMovies = value; OnPropertyChanged(); } }
-        }
-
-        #endregion
-
-        #region CTF
-
-        private bool _DoDefocus = false;
-        [WarpSerializable]
-        public bool DoDefocus
-        {
-            get { return _DoDefocus; }
-            set { if (value != _DoDefocus) { _DoDefocus = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoAstigmatismDelta = false;
-        [WarpSerializable]
-        public bool DoAstigmatismDelta
-        {
-            get { return _DoAstigmatismDelta; }
-            set { if (value != _DoAstigmatismDelta) { _DoAstigmatismDelta = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoAstigmatismAngle = false;
-        [WarpSerializable]
-        public bool DoAstigmatismAngle
-        {
-            get { return _DoAstigmatismAngle; }
-            set { if (value != _DoAstigmatismAngle) { _DoAstigmatismAngle = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoPhaseShift = false;
-        [WarpSerializable]
-        public bool DoPhaseShift
-        {
-            get { return _DoPhaseShift; }
-            set { if (value != _DoPhaseShift) { _DoPhaseShift = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoCs = false;
-        [WarpSerializable]
-        public bool DoCs
-        {
-            get { return _DoCs; }
-            set { if (value != _DoCs) { _DoCs = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoDoming = false;
-        [WarpSerializable]
-        public bool DoDoming
-        {
-            get { return _DoDoming; }
-            set { if (value != _DoDoming) { _DoDoming = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoZernike2 = false;
-        [WarpSerializable]
-        public bool DoZernike2
-        {
-            get { return _DoZernike2; }
-            set { if (value != _DoZernike2) { _DoZernike2 = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoZernike4 = false;
-        [WarpSerializable]
-        public bool DoZernike4
-        {
-            get { return _DoZernike4; }
-            set { if (value != _DoZernike4) { _DoZernike4 = value; OnPropertyChanged(); } }
-        }
-
-        private bool _DoDefocusGridSearch = false;
-        [WarpSerializable]
-        public bool DoDefocusGridSearch
-        {
-            get { return _DoDefocusGridSearch; }
-            set { if (value != _DoDefocusGridSearch) { _DoDefocusGridSearch = value; OnPropertyChanged(); } }
-        }
-
-        private decimal _MinimumCTFRefinementResolution = 7;
-        [WarpSerializable]
-        public decimal MinimumCTFRefinementResolution
-        {
-            get { return _MinimumCTFRefinementResolution; }
-            set { if (value != _MinimumCTFRefinementResolution) { _MinimumCTFRefinementResolution = value; OnPropertyChanged(); } }
-        }
-
-        private decimal _CTFHighPass = 20;
-        [WarpSerializable]
-        public decimal CTFHighPass
-        {
-            get { return _CTFHighPass; }
-            set { if (value != _CTFHighPass) { _CTFHighPass = value; OnPropertyChanged(); } }
-        }
-
-        #endregion
     }
+
+    private decimal _BFactorWeightingThreshold = 0.25M;
+
+    [WarpSerializable]
+    public decimal BFactorWeightingThreshold
+    {
+        get { return _BFactorWeightingThreshold; }
+        set
+        {
+            if (value != _BFactorWeightingThreshold)
+            {
+                _BFactorWeightingThreshold = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _BatchSize = 16;
+
+    [WarpSerializable]
+    public int BatchSize
+    {
+        get { return _BatchSize; }
+        set
+        {
+            if (value != _BatchSize)
+            {
+                _BatchSize = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _InitialResolutionPercent = 80;
+
+    [WarpSerializable]
+    public int InitialResolutionPercent
+    {
+        get { return _InitialResolutionPercent; }
+        set
+        {
+            if (value != _InitialResolutionPercent)
+            {
+                _InitialResolutionPercent = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _MinParticlesPerItem = 10;
+
+    [WarpSerializable]
+    public int MinParticlesPerItem
+    {
+        get { return _MinParticlesPerItem; }
+        set
+        {
+            if (value != _MinParticlesPerItem)
+            {
+                _MinParticlesPerItem = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _UseHostMemory = true;
+
+    [WarpSerializable]
+    public bool UseHostMemory
+    {
+        get { return _UseHostMemory; }
+        set
+        {
+            if (value != _UseHostMemory)
+            {
+                _UseHostMemory = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    #region Geometry
+
+    private bool _DoImageWarp = true;
+
+    [WarpSerializable]
+    public bool DoImageWarp
+    {
+        get { return _DoImageWarp; }
+        set
+        {
+            if (value != _DoImageWarp)
+            {
+                _DoImageWarp = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _ImageWarpWidth = 3;
+
+    [WarpSerializable]
+    public int ImageWarpWidth
+    {
+        get { return _ImageWarpWidth; }
+        set
+        {
+            if (value != _ImageWarpWidth)
+            {
+                _ImageWarpWidth = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _ImageWarpHeight = 3;
+
+    [WarpSerializable]
+    public int ImageWarpHeight
+    {
+        get { return _ImageWarpHeight; }
+        set
+        {
+            if (value != _ImageWarpHeight)
+            {
+                _ImageWarpHeight = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoVolumeWarp = false;
+
+    [WarpSerializable]
+    public bool DoVolumeWarp
+    {
+        get { return _DoVolumeWarp; }
+        set
+        {
+            if (value != _DoVolumeWarp)
+            {
+                _DoVolumeWarp = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _VolumeWarpWidth = 3;
+
+    [WarpSerializable]
+    public int VolumeWarpWidth
+    {
+        get { return _VolumeWarpWidth; }
+        set
+        {
+            if (value != _VolumeWarpWidth)
+            {
+                _VolumeWarpWidth = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _VolumeWarpHeight = 3;
+
+    [WarpSerializable]
+    public int VolumeWarpHeight
+    {
+        get { return _VolumeWarpHeight; }
+        set
+        {
+            if (value != _VolumeWarpHeight)
+            {
+                _VolumeWarpHeight = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _VolumeWarpDepth = 2;
+
+    [WarpSerializable]
+    public int VolumeWarpDepth
+    {
+        get { return _VolumeWarpDepth; }
+        set
+        {
+            if (value != _VolumeWarpDepth)
+            {
+                _VolumeWarpDepth = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private int _VolumeWarpLength = 10;
+
+    [WarpSerializable]
+    public int VolumeWarpLength
+    {
+        get { return _VolumeWarpLength; }
+        set
+        {
+            if (value != _VolumeWarpLength)
+            {
+                _VolumeWarpLength = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoAxisAngles = false;
+
+    [WarpSerializable]
+    public bool DoAxisAngles
+    {
+        get { return _DoAxisAngles; }
+        set
+        {
+            if (value != _DoAxisAngles)
+            {
+                _DoAxisAngles = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoParticlePoses = true;
+
+    [WarpSerializable]
+    public bool DoParticlePoses
+    {
+        get { return _DoParticlePoses; }
+        set
+        {
+            if (value != _DoParticlePoses)
+            {
+                _DoParticlePoses = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoMagnification = false;
+
+    [WarpSerializable]
+    public bool DoMagnification
+    {
+        get { return _DoMagnification; }
+        set
+        {
+            if (value != _DoMagnification)
+            {
+                _DoMagnification = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoZernike13 = false;
+
+    [WarpSerializable]
+    public bool DoZernike13
+    {
+        get { return _DoZernike13; }
+        set
+        {
+            if (value != _DoZernike13)
+            {
+                _DoZernike13 = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoZernike5 = false;
+
+    [WarpSerializable]
+    public bool DoZernike5
+    {
+        get { return _DoZernike5; }
+        set
+        {
+            if (value != _DoZernike5)
+            {
+                _DoZernike5 = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private decimal _GeometryHighPass = 20;
+
+    [WarpSerializable]
+    public decimal GeometryHighPass
+    {
+        get { return _GeometryHighPass; }
+        set
+        {
+            if (value != _GeometryHighPass)
+            {
+                _GeometryHighPass = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoTiltMovies = false;
+
+    [WarpSerializable]
+    public bool DoTiltMovies
+    {
+        get { return _DoTiltMovies; }
+        set
+        {
+            if (value != _DoTiltMovies)
+            {
+                _DoTiltMovies = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    #endregion
+
+    #region CTF
+
+    private bool _DoDefocus = false;
+
+    [WarpSerializable]
+    public bool DoDefocus
+    {
+        get { return _DoDefocus; }
+        set
+        {
+            if (value != _DoDefocus)
+            {
+                _DoDefocus = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoAstigmatismDelta = false;
+
+    [WarpSerializable]
+    public bool DoAstigmatismDelta
+    {
+        get { return _DoAstigmatismDelta; }
+        set
+        {
+            if (value != _DoAstigmatismDelta)
+            {
+                _DoAstigmatismDelta = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoAstigmatismAngle = false;
+
+    [WarpSerializable]
+    public bool DoAstigmatismAngle
+    {
+        get { return _DoAstigmatismAngle; }
+        set
+        {
+            if (value != _DoAstigmatismAngle)
+            {
+                _DoAstigmatismAngle = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoPhaseShift = false;
+
+    [WarpSerializable]
+    public bool DoPhaseShift
+    {
+        get { return _DoPhaseShift; }
+        set
+        {
+            if (value != _DoPhaseShift)
+            {
+                _DoPhaseShift = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoCs = false;
+
+    [WarpSerializable]
+    public bool DoCs
+    {
+        get { return _DoCs; }
+        set
+        {
+            if (value != _DoCs)
+            {
+                _DoCs = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoDoming = false;
+
+    [WarpSerializable]
+    public bool DoDoming
+    {
+        get { return _DoDoming; }
+        set
+        {
+            if (value != _DoDoming)
+            {
+                _DoDoming = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoZernike2 = false;
+
+    [WarpSerializable]
+    public bool DoZernike2
+    {
+        get { return _DoZernike2; }
+        set
+        {
+            if (value != _DoZernike2)
+            {
+                _DoZernike2 = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoZernike4 = false;
+
+    [WarpSerializable]
+    public bool DoZernike4
+    {
+        get { return _DoZernike4; }
+        set
+        {
+            if (value != _DoZernike4)
+            {
+                _DoZernike4 = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool _DoDefocusGridSearch = false;
+
+    [WarpSerializable]
+    public bool DoDefocusGridSearch
+    {
+        get { return _DoDefocusGridSearch; }
+        set
+        {
+            if (value != _DoDefocusGridSearch)
+            {
+                _DoDefocusGridSearch = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private decimal _MinimumCTFRefinementResolution = 7;
+
+    [WarpSerializable]
+    public decimal MinimumCTFRefinementResolution
+    {
+        get { return _MinimumCTFRefinementResolution; }
+        set
+        {
+            if (value != _MinimumCTFRefinementResolution)
+            {
+                _MinimumCTFRefinementResolution = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private decimal _CTFHighPass = 20;
+
+    [WarpSerializable]
+    public decimal CTFHighPass
+    {
+        get { return _CTFHighPass; }
+        set
+        {
+            if (value != _CTFHighPass)
+            {
+                _CTFHighPass = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    #endregion
 }

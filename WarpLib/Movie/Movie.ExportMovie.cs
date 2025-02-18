@@ -465,64 +465,53 @@ public partial class Movie
                     Console.WriteLine(timer.Name + ": " + timer.GetAverageMilliseconds(100).ToString("F0"));
         }
     }
+}
 
-    [Serializable]
-    public class ProcessingOptionsMovieExport : ProcessingOptionsBase
+[Serializable]
+public class ProcessingOptionsMovieExport : ProcessingOptionsBase
+{
+    [WarpSerializable] public bool DoAverage { get; set; }
+    [WarpSerializable] public bool DoStack { get; set; }
+    [WarpSerializable] public bool DoDeconv { get; set; }
+    [WarpSerializable] public bool DoDenoise { get; set; }
+    [WarpSerializable] public bool DoDenoiseDeconv { get; set; }
+    [WarpSerializable] public decimal DeconvolutionStrength { get; set; }
+    [WarpSerializable] public decimal DeconvolutionFalloff { get; set; }
+    [WarpSerializable] public int StackGroupSize { get; set; }
+    [WarpSerializable] public int SkipFirstN { get; set; }
+    [WarpSerializable] public int SkipLastN { get; set; }
+    [WarpSerializable] public decimal DosePerAngstromFrame { get; set; }
+
+    public override bool Equals(object obj)
     {
-        [WarpSerializable]
-        public bool DoAverage { get; set; }
-        [WarpSerializable]
-        public bool DoStack { get; set; }
-        [WarpSerializable]
-        public bool DoDeconv { get; set; }
-        [WarpSerializable]
-        public bool DoDenoise { get; set; }
-        [WarpSerializable]
-        public bool DoDenoiseDeconv { get; set; }
-        [WarpSerializable]
-        public decimal DeconvolutionStrength { get; set; }
-        [WarpSerializable]
-        public decimal DeconvolutionFalloff { get; set; }
-        [WarpSerializable]
-        public int StackGroupSize { get; set; }
-        [WarpSerializable]
-        public int SkipFirstN { get; set; }
-        [WarpSerializable]
-        public int SkipLastN { get; set; }
-        [WarpSerializable]
-        public decimal DosePerAngstromFrame { get; set; }
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((ProcessingOptionsMovieExport)obj);
+    }
 
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((ProcessingOptionsMovieExport)obj);
-        }
+    protected bool Equals(ProcessingOptionsMovieExport other)
+    {
+        return base.Equals(other) &&
+               DoAverage == other.DoAverage &&
+               DoStack == other.DoStack &&
+               DoDeconv == other.DoDeconv &&
+               DoDenoise == other.DoDenoise &&
+               DeconvolutionStrength == other.DeconvolutionStrength &&
+               DeconvolutionFalloff == other.DeconvolutionFalloff &&
+               StackGroupSize == other.StackGroupSize &&
+               SkipFirstN == other.SkipFirstN &&
+               SkipLastN == other.SkipLastN &&
+               DosePerAngstromFrame == other.DosePerAngstromFrame;
+    }
 
-        protected bool Equals(ProcessingOptionsMovieExport other)
-        {
-            return base.Equals(other) &&
-                   DoAverage == other.DoAverage &&
-                   DoStack == other.DoStack &&
-                   DoDeconv == other.DoDeconv &&
-                   DoDenoise == other.DoDenoise &&
-                   DeconvolutionStrength == other.DeconvolutionStrength &&
-                   DeconvolutionFalloff == other.DeconvolutionFalloff &&
-                   StackGroupSize == other.StackGroupSize &&
-                   SkipFirstN == other.SkipFirstN &&
-                   SkipLastN == other.SkipLastN &&
-                   DosePerAngstromFrame == other.DosePerAngstromFrame;
-        }
+    public static bool operator ==(ProcessingOptionsMovieExport left, ProcessingOptionsMovieExport right)
+    {
+        return Equals(left, right);
+    }
 
-        public static bool operator ==(ProcessingOptionsMovieExport left, ProcessingOptionsMovieExport right)
-        {
-            return Equals(left, right);
-        }
-
-        public static bool operator !=(ProcessingOptionsMovieExport left, ProcessingOptionsMovieExport right)
-        {
-            return !Equals(left, right);
-        }
+    public static bool operator !=(ProcessingOptionsMovieExport left, ProcessingOptionsMovieExport right)
+    {
+        return !Equals(left, right);
     }
 }

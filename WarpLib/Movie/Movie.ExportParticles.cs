@@ -397,77 +397,62 @@ public partial class Movie
 
         IsProcessing = false;
     }
-    
-    [Serializable]
-    public class ProcessingOptionsParticleExport : ProcessingOptionsBase
+}
+
+[Serializable]
+public class ProcessingOptionsParticleExport : ProcessingOptionsBase
+{
+    [WarpSerializable] public string Suffix { get; set; }
+    [WarpSerializable] public int BoxSize { get; set; }
+    [WarpSerializable] public int BoxSizeResample { get; set; }
+    [WarpSerializable] public int Diameter { get; set; }
+    [WarpSerializable] public bool Invert { get; set; }
+    [WarpSerializable] public bool Normalize { get; set; }
+    [WarpSerializable] public bool DoAverage { get; set; }
+    [WarpSerializable] public bool DoDenoisingPairs { get; set; }
+    [WarpSerializable] public int StackGroupSize { get; set; }
+    [WarpSerializable] public int SkipFirstN { get; set; }
+    [WarpSerializable] public int SkipLastN { get; set; }
+    [WarpSerializable] public decimal DosePerAngstromFrame { get; set; }
+    [WarpSerializable] public int Voltage { get; set; }
+    [WarpSerializable] public bool CorrectAnisotropy { get; set; }
+    [WarpSerializable] public bool PreflipPhases { get; set; }
+
+    public override bool Equals(object obj)
     {
-        [WarpSerializable]
-        public string Suffix { get; set; }
-        [WarpSerializable]
-        public int BoxSize { get; set; }
-        [WarpSerializable]
-        public int BoxSizeResample { get; set; }
-        [WarpSerializable]
-        public int Diameter { get; set; }
-        [WarpSerializable]
-        public bool Invert { get; set; }
-        [WarpSerializable]
-        public bool Normalize { get; set; }
-        [WarpSerializable]
-        public bool DoAverage { get; set; }
-        [WarpSerializable]
-        public bool DoDenoisingPairs { get; set; }
-        [WarpSerializable]
-        public int StackGroupSize { get; set; }
-        [WarpSerializable]
-        public int SkipFirstN { get; set; }
-        [WarpSerializable]
-        public int SkipLastN { get; set; }
-        [WarpSerializable]
-        public decimal DosePerAngstromFrame { get; set; }
-        [WarpSerializable]
-        public int Voltage { get; set; }
-        [WarpSerializable]
-        public bool CorrectAnisotropy { get; set; }
-        [WarpSerializable]
-        public bool PreflipPhases { get; set; }
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((ProcessingOptionsParticleExport)obj);
+    }
 
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((ProcessingOptionsParticleExport)obj);
-        }
+    protected bool Equals(ProcessingOptionsParticleExport other)
+    {
+        return base.Equals(other) &&
+               Suffix == other.Suffix &&
+               BoxSize == other.BoxSize &&
+               BoxSizeResample == other.BoxSizeResample &&
+               Diameter == other.Diameter &&
+               Invert == other.Invert &&
+               Normalize == other.Normalize &&
+               DoAverage == other.DoAverage &&
+               DoDenoisingPairs == other.DoDenoisingPairs &&
+               StackGroupSize == other.StackGroupSize &&
+               SkipFirstN == other.SkipFirstN &&
+               SkipLastN == other.SkipLastN &&
+               DosePerAngstromFrame == other.DosePerAngstromFrame &&
+               Voltage == other.Voltage &&
+               CorrectAnisotropy == other.CorrectAnisotropy &&
+               PreflipPhases == other.PreflipPhases;
+    }
 
-        protected bool Equals(ProcessingOptionsParticleExport other)
-        {
-            return base.Equals(other) &&
-                   Suffix == other.Suffix &&
-                   BoxSize == other.BoxSize &&
-                   BoxSizeResample == other.BoxSizeResample &&
-                   Diameter == other.Diameter &&
-                   Invert == other.Invert &&
-                   Normalize == other.Normalize &&
-                   DoAverage == other.DoAverage &&
-                   DoDenoisingPairs == other.DoDenoisingPairs &&
-                   StackGroupSize == other.StackGroupSize &&
-                   SkipFirstN == other.SkipFirstN &&
-                   SkipLastN == other.SkipLastN &&
-                   DosePerAngstromFrame == other.DosePerAngstromFrame &&
-                   Voltage == other.Voltage &&
-                   CorrectAnisotropy == other.CorrectAnisotropy &&
-                   PreflipPhases == other.PreflipPhases;
-        }
+    public static bool operator ==(ProcessingOptionsParticleExport left, ProcessingOptionsParticleExport right)
+    {
+        return Equals(left, right);
+    }
 
-        public static bool operator ==(ProcessingOptionsParticleExport left, ProcessingOptionsParticleExport right)
-        {
-            return Equals(left, right);
-        }
-
-        public static bool operator !=(ProcessingOptionsParticleExport left, ProcessingOptionsParticleExport right)
-        {
-            return !Equals(left, right);
-        }
+    public static bool operator !=(ProcessingOptionsParticleExport left, ProcessingOptionsParticleExport right)
+    {
+        return !Equals(left, right);
     }
 }

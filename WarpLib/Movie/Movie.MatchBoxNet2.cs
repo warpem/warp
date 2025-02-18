@@ -450,76 +450,53 @@ public partial class Movie
 
         IsProcessing = false;
     }
-    
-    [Serializable]
-    public class ProcessingOptionsBoxNet : ProcessingOptionsBase
+}
+
+[Serializable]
+public class ProcessingOptionsBoxNet : ProcessingOptionsBase
+{
+    [WarpSerializable] public string ModelName { get; set; }
+    [WarpSerializable] public bool OverwriteFiles { get; set; }
+    [WarpSerializable] public bool PickingInvert { get; set; }
+    [WarpSerializable] public decimal ExpectedDiameter { get; set; }
+    [WarpSerializable] public decimal MinimumScore { get; set; }
+    [WarpSerializable] public decimal MinimumMaskDistance { get; set; }
+    [WarpSerializable] public bool ExportParticles { get; set; }
+    [WarpSerializable] public int ExportBoxSize { get; set; }
+    [WarpSerializable] public bool ExportInvert { get; set; }
+    [WarpSerializable] public bool ExportNormalize { get; set; }
+    [WarpSerializable] public string OverrideImagePath { get; set; }
+    [WarpSerializable] public string OverrideStarSuffix { get; set; }
+
+    public override bool Equals(object obj)
     {
-        [WarpSerializable]
-        public string ModelName { get; set; }
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((ProcessingOptionsBoxNet)obj);
+    }
 
-        [WarpSerializable]
-        public bool OverwriteFiles { get; set; }
+    protected bool Equals(ProcessingOptionsBoxNet other)
+    {
+        return ModelName == other.ModelName &&
+               OverwriteFiles == other.OverwriteFiles &&
+               PickingInvert == other.PickingInvert &&
+               ExpectedDiameter == other.ExpectedDiameter &&
+               MinimumScore == other.MinimumScore &&
+               ExportParticles == other.ExportParticles &&
+               ExportBoxSize == other.ExportBoxSize &&
+               ExportInvert == other.ExportInvert &&
+               ExportNormalize == other.ExportNormalize &&
+               OverrideImagePath == other.OverrideImagePath;
+    }
 
-        [WarpSerializable]
-        public bool PickingInvert { get; set; }
+    public static bool operator ==(ProcessingOptionsBoxNet left, ProcessingOptionsBoxNet right)
+    {
+        return Equals(left, right);
+    }
 
-        [WarpSerializable]
-        public decimal ExpectedDiameter { get; set; }
-
-        [WarpSerializable]
-        public decimal MinimumScore { get; set; }
-
-        [WarpSerializable]
-        public decimal MinimumMaskDistance { get; set; }
-
-        [WarpSerializable]
-        public bool ExportParticles { get; set; }
-
-        [WarpSerializable]
-        public int ExportBoxSize { get; set; }
-
-        [WarpSerializable]
-        public bool ExportInvert { get; set; }
-
-        [WarpSerializable]
-        public bool ExportNormalize { get; set; }
-
-        [WarpSerializable]
-        public string OverrideImagePath { get; set; }
-
-        [WarpSerializable]
-        public string OverrideStarSuffix { get; set; }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((ProcessingOptionsBoxNet)obj);
-        }
-
-        protected bool Equals(ProcessingOptionsBoxNet other)
-        {
-            return ModelName == other.ModelName &&
-                   OverwriteFiles == other.OverwriteFiles &&
-                   PickingInvert == other.PickingInvert &&
-                   ExpectedDiameter == other.ExpectedDiameter &&
-                   MinimumScore == other.MinimumScore &&
-                   ExportParticles == other.ExportParticles &&
-                   ExportBoxSize == other.ExportBoxSize &&
-                   ExportInvert == other.ExportInvert &&
-                   ExportNormalize == other.ExportNormalize &&
-                   OverrideImagePath == other.OverrideImagePath;
-        }
-
-        public static bool operator ==(ProcessingOptionsBoxNet left, ProcessingOptionsBoxNet right)
-        {
-            return Equals(left, right);
-        }
-
-        public static bool operator !=(ProcessingOptionsBoxNet left, ProcessingOptionsBoxNet right)
-        {
-            return !Equals(left, right);
-        }
+    public static bool operator !=(ProcessingOptionsBoxNet left, ProcessingOptionsBoxNet right)
+    {
+        return !Equals(left, right);
     }
 }
