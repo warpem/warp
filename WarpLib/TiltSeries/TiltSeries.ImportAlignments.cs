@@ -231,4 +231,14 @@ public partial class TiltSeries
 
         #endregion
     }
+    
+    [Serializable]
+    public class ProcessingOptionsTomoImportAlignments : TomoProcessingOptionsBase
+    {
+        [WarpSerializable]
+        public decimal MinFOV { get; set; }
+
+        [WarpSerializable]
+        public string OverrideResultsDir { get; set; }
+    }
 }

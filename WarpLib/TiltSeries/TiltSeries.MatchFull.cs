@@ -901,4 +901,65 @@ public partial class TiltSeries
 
         #endregion
     }
+    
+    [Serializable]
+    public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
+    {
+        [WarpSerializable]
+        public bool OverwriteFiles { get; set; }
+
+        [WarpSerializable]
+        public int SubVolumeSize { get; set; }
+
+        [WarpSerializable]
+        public string TemplateName { get; set; }
+
+        [WarpSerializable]
+        public decimal TemplatePixel { get; set; }
+
+        [WarpSerializable]
+        public decimal TemplateDiameter { get; set; }
+
+        [WarpSerializable]
+        public decimal PeakDistance { get; set; }
+
+        [WarpSerializable]
+        public decimal TemplateFraction { get; set; }
+
+        [WarpSerializable]
+        public int MaxMissingTilts { get; set; }
+
+        [WarpSerializable]
+        public bool WhitenSpectrum { get; set; }
+
+        [WarpSerializable]
+        public decimal Lowpass { get; set; }
+
+        [WarpSerializable]
+        public decimal LowpassSigma { get; set; }
+
+        [WarpSerializable]
+        public string Symmetry { get; set; }
+
+        [WarpSerializable]
+        public int HealpixOrder { get; set; }
+
+        [WarpSerializable]
+        public decimal TiltRange { get; set; }
+
+        [WarpSerializable]
+        public int BatchAngles { get; set; }
+
+        [WarpSerializable]
+        public int Supersample { get; set; }
+
+        [WarpSerializable]
+        public int NResults { get; set; }
+
+        [WarpSerializable]
+        public bool NormalizeScores { get; set; }
+
+        [WarpSerializable]
+        public bool ReuseCorrVolumes { get; set; }
+    }
 }

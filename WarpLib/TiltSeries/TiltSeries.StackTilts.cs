@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -35,5 +36,12 @@ public partial class TiltSeries
         Stack.WriteMRC(TiltStackPath, (float)options.BinnedPixelSizeMean, true);
 
         File.WriteAllLines(AngleFilePath, UsedAngles.Select(a => a.ToString("F2", CultureInfo.InvariantCulture)));
+    }
+    
+    [Serializable]
+    public class ProcessingOptionsTomoStack : TomoProcessingOptionsBase
+    {
+        [WarpSerializable]
+        public bool ApplyMask { get; set; }
     }
 }

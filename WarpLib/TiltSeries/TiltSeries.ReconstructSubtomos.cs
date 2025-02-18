@@ -327,4 +327,31 @@ public partial class TiltSeries
 
         #endregion
     }
+    
+    [Serializable]
+    public class ProcessingOptionsTomoSubReconstruction : TomoProcessingOptionsBase
+    {
+        [WarpSerializable]
+        public string Suffix { get; set; }
+        [WarpSerializable]
+        public int BoxSize { get; set; }
+        [WarpSerializable]
+        public int ParticleDiameter { get; set; }
+        [WarpSerializable]
+        public bool Invert { get; set; }
+        [WarpSerializable]
+        public bool NormalizeInput { get; set; }
+        [WarpSerializable]
+        public bool NormalizeOutput { get; set; }
+        [WarpSerializable]
+        public bool PrerotateParticles { get; set; }
+        [WarpSerializable]
+        public bool DoLimitDose { get; set; }
+        [WarpSerializable]
+        public int NTilts { get; set; }
+        [WarpSerializable]
+        public bool MakeSparse { get; set; }
+        [WarpSerializable]
+        public bool UseCPU { get; set; }
+    }
 }
