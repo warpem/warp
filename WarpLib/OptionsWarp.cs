@@ -1,16 +1,18 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Diagnostics.Contracts;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Tools;
+
+using ProcessingOptionsMovieExport = Warp.Movie.ProcessingOptionsMovieExport;
+using ProcessingOptionsMovieMovement = Warp.Movie.ProcessingOptionsMovieMovement;
+using ProcessingOptionsMovieCTF = Warp.Movie.ProcessingOptionsMovieCTF;
+using ProcessingOptionsParticleExport = Warp.Movie.ProcessingOptionsParticleExport;
+using ProcessingOptionsFullMatch = Warp.Movie.ProcessingOptionsFullMatch;
+using ProcessingOptionsBoxNet = Warp.Movie.ProcessingOptionsBoxNet;
 
 namespace Warp
 {

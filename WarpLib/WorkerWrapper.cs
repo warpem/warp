@@ -13,6 +13,14 @@ using System.Runtime.InteropServices;
 using System.IO.Pipes;
 using System.Threading.Tasks;
 
+using ProcessingOptionsMovieExport = Warp.Movie.ProcessingOptionsMovieExport;
+using ProcessingOptionsMovieMovement = Warp.Movie.ProcessingOptionsMovieMovement;
+using ProcessingOptionsMovieCTF = Warp.Movie.ProcessingOptionsMovieCTF;
+using ProcessingOptionsParticleExport = Warp.Movie.ProcessingOptionsParticleExport;
+using ProcessingOptionsBoxNet = Warp.Movie.ProcessingOptionsBoxNet;
+using ProcessingOptionsMPARefine = Warp.Movie.ProcessingOptionsMPARefine;
+
+
 namespace Warp
 {
     public class WorkerWrapper : IDisposable

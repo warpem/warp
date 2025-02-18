@@ -9,6 +9,8 @@ using System.Xml;
 using System.Xml.XPath;
 using Warp.Tools;
 
+using ProcessingOptionsMPARefine = Warp.Movie.ProcessingOptionsMPARefine;
+
 namespace Warp.Sociology
 {
     public class Population : WarpBase
