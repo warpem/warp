@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Warp;
 using Warp.Tools;
 
@@ -156,7 +157,7 @@ public static class TraceMembranesHelper
 
         return length;
     }
-    
+
     public static List<List<(int x, int y)>> FindConnectedComponents(Image ridgeMask)
     {
         int width = ridgeMask.Dims.X;
@@ -165,7 +166,7 @@ public static class TraceMembranesHelper
 
         bool[,] visited = new bool[height, width];
         List<List<(int x, int y)>> components = new();
-        
+
         // Neighbor offsets for 8-connectivity
         int[] dx = [-1, 0, 1, -1, 1, -1, 0, 1];
         int[] dy = [-1, -1, -1, 0, 0, 1, 1, 1];
@@ -182,7 +183,7 @@ public static class TraceMembranesHelper
                     queue.Enqueue((x, y));
                     visited[y, x] = true;
 
-                    while (queue.Count > 0)
+                    while(queue.Count > 0)
                     {
                         (int cx, int cy) = queue.Dequeue();
                         component.Add((cx, cy));
@@ -207,5 +208,115 @@ public static class TraceMembranesHelper
         }
 
         return components;
+    }
+
+    public static SplinePath2D FitSplineToComponent(List<(int x, int y)> componentPixels)
+    {
+        if (componentPixels == null || componentPixels.Count < 3)
+            throw new ArgumentException("Component must have at least three pixels to fit a spline.");
+
+        // Convert pixel coordinates to float2 points for spline fitting
+        List<float2> points = componentPixels.Select(p => new float2(p.x, p.y)).ToList();
+
+        // Check if the component forms a closed loop
+        bool isClosed = points.First().Equals(points.Last());
+
+        // Determine the number of control points based on component length
+        int pointSpacing = 15;
+        int numControlPoints = (int)MathF.Ceiling(points.Count / (float)pointSpacing) + 1;
+        if (isClosed)
+            numControlPoints = Math.Max(numControlPoints, 3);
+
+        // Fit a spline to the extracted points
+        SplinePath2D spline = SplinePath2D.Fit(points.ToArray(), isClosed, numControlPoints);
+
+        // Ensure correct orientation (clockwise convention)
+        if (spline.IsClockwise())
+            spline = spline.AsReversed();
+
+        return spline;
+    }
+
+    public static float[] ReconstructMembraneProfile(Image lowpassImage, SplinePath2D spline)
+    {
+        int maxDistance = 60; // Assumed membrane width in pixels
+        int recDim = maxDistance * 2;
+        float[] recData = new float[recDim];
+        float[] recWeights = new float[recDim];
+
+        // Compute distance map along the spline
+        Image traceImage = new Image(lowpassImage.Dims);
+        float[] traceData = traceImage.GetHost(Intent.ReadWrite)[0];
+
+        List<float2> points = spline.GetInterpolated(Helper.ArrayOfFunction(i => (float)i / (spline.Points.Count - 1), spline.Points.Count)).ToList();
+
+        // Rasterize spline onto the image
+        for (int i = 0; i < points.Count - 1; i++)
+        {
+            float2 p0 = points[i];
+            float2 p1 = points[i + 1];
+
+            int x0 = (int)MathF.Round(p0.X);
+            int y0 = (int)MathF.Round(p0.Y);
+            int x1 = (int)MathF.Round(p1.X);
+            int y1 = (int)MathF.Round(p1.Y);
+
+            if (x0 < 0 || x0 >= traceImage.Dims.X || y0 < 0 || y0 >= traceImage.Dims.Y) continue;
+            if (x1 < 0 || x1 >= traceImage.Dims.X || y1 < 0 || y1 >= traceImage.Dims.Y) continue;
+
+            int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+            int dy = -Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+            int err = dx + dy, e2;
+
+            while(true)
+            {
+                traceData[y0 * traceImage.Dims.X + x0] = 1;
+                if (x0 == x1 && y0 == y1) break;
+                e2 = 2 * err;
+                if (e2 >= dy)
+                {
+                    err += dy;
+                    x0 += sx;
+                }
+
+                if (e2 <= dx)
+                {
+                    err += dx;
+                    y0 += sy;
+                }
+            }
+        }
+
+        Image distanceMap = traceImage.AsDistanceMapExact(maxDistance);
+        float[] distanceMapData = distanceMap.GetHost(Intent.Read)[0];
+
+        // Compute membrane profile by accumulating intensities
+        for (int i = 0; i < distanceMapData.Length; i++)
+        {
+            if (distanceMapData[i] < maxDistance)
+            {
+                float coord = distanceMapData[i] + maxDistance;
+                coord = Math.Clamp(coord, 0, recDim - 1);
+                int coord0 = (int)coord;
+                int coord1 = Math.Min(recDim - 1, coord0 + 1);
+                float weight1 = coord - coord0;
+                float weight0 = 1 - weight1;
+
+                float val = lowpassImage.GetHost(Intent.Read)[0][i];
+
+                recData[coord0] += val * weight0;
+                recData[coord1] += val * weight1;
+                recWeights[coord0] += weight0;
+                recWeights[coord1] += weight1;
+            }
+        }
+
+        for (int i = 0; i < recDim; i++)
+            recData[i] /= Math.Max(1e-6f, recWeights[i]); // Avoid division by zero
+
+        traceImage.Dispose();
+        distanceMap.Dispose();
+
+        return recData;
     }
 }
