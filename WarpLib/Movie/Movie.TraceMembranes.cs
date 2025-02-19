@@ -327,7 +327,7 @@ public static class TraceMembranesHelper
     {
         if (spline == null || spline.Points == null || spline.Points.Count < 3)
             throw new ArgumentException("Spline must have at least three control points for refinement.");
-        
+
         float2[] controlPoints = spline.Points.ToArray();
         float2[] normals = spline.GetControlPointNormals();
 
@@ -408,5 +408,28 @@ public static class TraceMembranesHelper
             controlPoints[controlPoints.Length - 1] = controlPoints[0];
 
         return new SplinePath2D(controlPoints, spline.IsClosed);
+    }
+
+
+    public static void SaveControlPoints(string path, List<SplinePath2D> splines)
+    {
+        using (StreamWriter writer = new StreamWriter(path))
+        {
+            foreach (var (spline, index) in splines.Select((s, i) => (s, i)))
+            {
+                writer.WriteLine($"data_path{index:D3}");
+                writer.WriteLine();
+                writer.WriteLine("loop_");
+                writer.WriteLine("_wrpControlPointXAngst");
+                writer.WriteLine("_wrpControlPointYAngst");
+
+                foreach (var point in spline.Points)
+                {
+                    writer.WriteLine($"{point.X.ToString(CultureInfo.InvariantCulture)} {point.Y.ToString(CultureInfo.InvariantCulture)}");
+                }
+
+                writer.WriteLine();
+            }
+        }
     }
 }
