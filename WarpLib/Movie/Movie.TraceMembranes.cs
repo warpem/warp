@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using Accord.Math.Optimization;
 using Warp;
 using Warp.Tools;
 
@@ -318,5 +321,92 @@ public static class TraceMembranesHelper
         distanceMap.Dispose();
 
         return recData;
+    }
+
+    public static SplinePath2D RefineSplineControlPoints(Image lowpassImage, SplinePath2D spline, int iterations)
+    {
+        if (spline == null || spline.Points == null || spline.Points.Count < 3)
+            throw new ArgumentException("Spline must have at least three control points for refinement.");
+        
+        float2[] controlPoints = spline.Points.ToArray();
+        float2[] normals = spline.GetControlPointNormals();
+
+        int maxDistance = 60;
+        float softEdge = 30;
+
+        double[] optimizationInput = new double[controlPoints.Length];
+        double[] optimizationFallback = optimizationInput.ToArray();
+
+        Func<double[], double> Eval = (input) =>
+        {
+            float2[] newControlPoints = new float2[controlPoints.Length];
+            for (int i = 0; i < controlPoints.Length; i++)
+                newControlPoints[i] = controlPoints[i] + normals[i] * (float)input[i];
+
+            if (spline.IsClosed)
+                newControlPoints[newControlPoints.Length - 1] = newControlPoints[0];
+
+            SplinePath2D newSpline = new SplinePath2D(newControlPoints, spline.IsClosed);
+            List<float2> points = newSpline.GetInterpolated(
+                Helper.ArrayOfFunction(i => (float)i / (controlPoints.Length - 1), controlPoints.Length)
+            ).ToList();
+
+            float[] imageData = lowpassImage.GetHost(Intent.Read)[0];
+            float2 imageDims = new float2(lowpassImage.Dims.X, lowpassImage.Dims.Y);
+
+            double error = 0;
+            foreach (var point in points)
+            {
+                int x = Math.Clamp((int)MathF.Round(point.X), 0, (int)imageDims.X - 1);
+                int y = Math.Clamp((int)MathF.Round(point.Y), 0, (int)imageDims.Y - 1);
+                float value = imageData[y * lowpassImage.Dims.X + x];
+
+                error += value * value;
+            }
+
+            return Math.Sqrt(error / points.Count);
+        };
+
+        Func<double[], double[]> Grad = (input) =>
+        {
+            double[] gradient = new double[input.Length];
+            for (int i = 0; i < input.Length - (spline.IsClosed ? 1 : 0); i++)
+            {
+                double[] inputPlus = input.ToArray();
+                inputPlus[i] += 1e-3;
+                double[] inputMinus = input.ToArray();
+                inputMinus[i] -= 1e-3;
+
+                gradient[i] = (Eval(inputPlus) - Eval(inputMinus)) / 2e-3;
+            }
+
+            return gradient;
+        };
+
+        for (int iter = 0; iter < iterations; iter++)
+        {
+            try
+            {
+                BroydenFletcherGoldfarbShanno optimizer = new BroydenFletcherGoldfarbShanno(optimizationInput.Length, Eval, Grad);
+                optimizer.MaxIterations = 10;
+                optimizer.MaxLineSearch = 5;
+                optimizer.Minimize(optimizationInput);
+                optimizationFallback = optimizationInput.ToArray();
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine($"Optimization failed at iteration {iter}: {e.Message}");
+                optimizationInput = optimizationFallback.ToArray();
+                Eval(optimizationInput);
+            }
+        }
+
+        for (int i = 0; i < controlPoints.Length; i++)
+            controlPoints[i] += normals[i] * (float)optimizationInput[i];
+
+        if (spline.IsClosed)
+            controlPoints[controlPoints.Length - 1] = controlPoints[0];
+
+        return new SplinePath2D(controlPoints, spline.IsClosed);
     }
 }
