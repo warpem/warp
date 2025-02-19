@@ -11,12 +11,56 @@ namespace Warp
 {
     public partial class Movie
     {
-        public void TraceMembranes()
+        public void TraceMembranes(ProcessingOptionsTraceMembranes options)
         {
-        }
+            Console.WriteLine("Starting membrane tracing...");
 
-        public void SubtractMembranes()
-        {
+            // Load necessary input files
+            Image maskRaw = Image.FromFile(AveragePath);
+            Image imageRaw = Image.FromFile(MembraneSegmentationPath);
+
+            // Apply bandpass filtering
+            Image imageLowpass = imageRaw.GetCopyGPU();
+            imageLowpass.Bandpass(options.BandpassLow, options.BandpassHigh, false);
+
+            // Skeletonize the mask
+            Image ridgeMask = TraceMembranesHelper.Skeletonize(maskRaw, 2.0f);
+
+            // Detect connected components (membranes)
+            var components = TraceMembranesHelper.FindConnectedComponents(ridgeMask);
+            ridgeMask.Dispose();
+
+            int totalMembranes = components.Count;
+
+            if (totalMembranes == 0)
+                throw new Exception("No valid membrane components detected.");
+
+            List<SplinePath2D> splines = new List<SplinePath2D>();
+
+            for (int i = 0; i < totalMembranes; i++)
+            {
+                Console.WriteLine($"Tracing membrane {i + 1} of {totalMembranes} (0%)");
+
+                var component = components[i];
+                var spline = TraceMembranesHelper.FitSplineToComponent(component);
+
+                Console.WriteLine($"Tracing membrane {i + 1} of {totalMembranes} (50%)");
+
+
+                spline = TraceMembranesHelper.RefineSplineControlPoints(imageLowpass, spline, 10);
+                Console.WriteLine($"Refining membrane {i + 1} of {totalMembranes} (100%)");
+
+                splines.Add(spline);
+            }
+
+            // Save output
+            TraceMembranesHelper.SaveControlPoints(MembraneControlPointsPath, splines);
+            Console.WriteLine("Membrane tracing completed.");
+
+            // Cleanup
+            imageRaw.Dispose();
+            imageLowpass.Dispose();
+            maskRaw.Dispose();
         }
     }
 
@@ -27,7 +71,6 @@ namespace Warp
         [WarpSerializable] public int MinComponentSize { get; set; } = 20; // px
         [WarpSerializable] public float BandpassLow { get; set; } = 0.002f;
         [WarpSerializable] public float BandpassHigh { get; set; } = 0.05f;
-        [WarpSerializable] public bool EnableSplineRefinement { get; set; } = true;
     }
 }
 
@@ -50,8 +93,10 @@ public static class TraceMembranesHelper
         return distanceMap;
     }
 
-    public static Image DetectRidges(Image distanceMap, float minDistanceThreshold)
+    public static Image Skeletonize(Image mask, float minDistanceThreshold)
     {
+        Image distanceMap = ComputeDistanceMap(mask);
+        
         int width = distanceMap.Dims.X;
         int height = distanceMap.Dims.Y;
         Image ridgeMask = new Image(distanceMap.Dims);
@@ -126,7 +171,7 @@ public static class TraceMembranesHelper
                 }
             }
         }
-
+        distanceMap.Dispose();
         return ridgeMask;
     }
 
