@@ -59,6 +59,23 @@ namespace Warp.Tools
 
             return Helper.Zip(ResultX, ResultY);
         }
+        
+        public float2[] GetNormals(float[] t)
+        {
+            // Get points slightly before and after each t value
+            float2[] resultPlus = GetInterpolated(t.Select(v => v + 1e-3f).ToArray());
+            float2[] resultMinus = GetInterpolated(t.Select(v => v - 1e-3f).ToArray());
+
+            // Calculate normals for each point
+            float2[] normals = new float2[t.Length];
+            for (int i = 0; i < t.Length; i++)
+            {
+                float2 tangent = (resultPlus[i] - resultMinus[i]).Normalized();
+                normals[i] = new float2(tangent.Y, -tangent.X);
+            }
+
+            return normals;
+        }
 
         public float2[] GetControlPointNormals()
         {
