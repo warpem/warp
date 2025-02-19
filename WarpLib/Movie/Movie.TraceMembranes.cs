@@ -156,4 +156,56 @@ public static class TraceMembranesHelper
 
         return length;
     }
+    
+    public static List<List<(int x, int y)>> FindConnectedComponents(Image ridgeMask)
+    {
+        int width = ridgeMask.Dims.X;
+        int height = ridgeMask.Dims.Y;
+        float[] data = ridgeMask.GetHost(Intent.Read)[0];
+
+        bool[,] visited = new bool[height, width];
+        List<List<(int x, int y)>> components = new();
+        
+        // Neighbor offsets for 8-connectivity
+        int[] dx = [-1, 0, 1, -1, 1, -1, 0, 1];
+        int[] dy = [-1, -1, -1, 0, 0, 1, 1, 1];
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                if (data[y * width + x] == 1 && !visited[y, x])
+                {
+                    List<(int x, int y)> component = new();
+                    Queue<(int x, int y)> queue = new();
+
+                    queue.Enqueue((x, y));
+                    visited[y, x] = true;
+
+                    while (queue.Count > 0)
+                    {
+                        (int cx, int cy) = queue.Dequeue();
+                        component.Add((cx, cy));
+
+                        for (int i = 0; i < 8; i++)
+                        {
+                            int nx = cx + dx[i];
+                            int ny = cy + dy[i];
+
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height &&
+                                data[ny * width + nx] == 1 && !visited[ny, nx])
+                            {
+                                queue.Enqueue((nx, ny));
+                                visited[ny, nx] = true;
+                            }
+                        }
+                    }
+
+                    components.Add(component);
+                }
+            }
+        }
+
+        return components;
+    }
 }
