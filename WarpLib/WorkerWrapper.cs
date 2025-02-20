@@ -364,7 +364,7 @@ namespace Warp
         
         public void MovieTraceMembranes(string path, ProcessingOptionsTraceMembranes options)
         {
-            SendCommand(new NamedSerializableObject("MoviesTraceMembranes",
+            SendCommand(new NamedSerializableObject("MovieTraceMembranes",
                 path,
                 options));
         }
