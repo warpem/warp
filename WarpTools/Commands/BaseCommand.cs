@@ -163,12 +163,17 @@ namespace WarpTools.Commands
                     body(processor, item);
 
                     foreach (var movie in moviesToProcess)
+                    {
+                        movie.LoadMeta();
                         movie.ProcessingStatus = ProcessingStatus.Processed;
+                        movie.SaveMeta();
+                    }
                 }
                 catch
                 {
                     foreach (var movie in moviesToProcess)
                     {
+                        movie.LoadMeta();
                         movie.UnselectManual = true;
                         movie.ProcessingStatus = ProcessingStatus.LeaveOut;
                         movie.SaveMeta();
