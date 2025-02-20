@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Accord;
 using Accord.Math.Optimization;
 using Warp;
 using Warp.Tools;
+using IOPath = System.IO.Path;
 
 namespace Warp
 {
@@ -13,468 +15,670 @@ namespace Warp
     {
         public void TraceMembranes(ProcessingOptionsTraceMembranes options)
         {
-            Console.WriteLine("Starting membrane tracing...");
-
-            // Load necessary input files
-            Image maskRaw = Image.FromFile(AveragePath);
-            Image imageRaw = Image.FromFile(MembraneSegmentationPath);
-
-            // Apply bandpass filtering
-            Image imageLowpass = imageRaw.GetCopyGPU();
-            imageLowpass.Bandpass(options.BandpassLow, options.BandpassHigh, false);
-
-            // Skeletonize the mask
-            Image ridgeMask = TraceMembranesHelper.Skeletonize(maskRaw, 2.0f);
-
-            // Detect connected components (membranes)
-            var components = TraceMembranesHelper.FindConnectedComponents(ridgeMask);
-            ridgeMask.Dispose();
-
-            int totalMembranes = components.Count;
-
-            if (totalMembranes == 0)
-                throw new Exception("No valid membrane components detected.");
-
-            List<SplinePath2D> splines = new List<SplinePath2D>();
-
-            for (int i = 0; i < totalMembranes; i++)
+            List<Image> toDispose = new();
+            try
             {
-                Console.WriteLine($"Tracing membrane {i + 1} of {totalMembranes} (0%)");
+                #region read inputs
 
-                var component = components[i];
-                var spline = TraceMembranesHelper.FitSplineToComponent(component);
+                // Validate file inputs
+                if (!File.Exists(AveragePath) || !File.Exists(MembraneSegmentationPath))
+                    throw new FileNotFoundException("Required input files not found");
 
-                Console.WriteLine($"Tracing membrane {i + 1} of {totalMembranes} (50%)");
+                // Load and prepare images
+                Image MaskRaw = Image.FromFile(MembraneSegmentationPath);
+                toDispose.Add(MaskRaw);
+                Image ImageRaw = Image.FromFile(AveragePath);
+                toDispose.Add(ImageRaw);
 
+                #endregion
 
-                spline = TraceMembranesHelper.RefineSplineControlPoints(imageLowpass, spline, 10);
-                Console.WriteLine($"Refining membrane {i + 1} of {totalMembranes} (100%)");
+                #region lowpass
 
-                splines.Add(spline);
-            }
+                ImageRaw.SubtractMeanGrid(new int2(1));
+                Image ImageLowpass = ImageRaw.GetCopyGPU();
+                toDispose.Add(ImageLowpass);
 
-            // Save output
-            TraceMembranesHelper.SaveControlPoints(MembraneControlPointsPath, splines);
-            Console.WriteLine("Membrane tracing completed.");
+                float pixelSize = ImageRaw.PixelSize;
+                ImageRaw.Bandpass(pixelSize * 2 / (float)options.HighResolutionLimit,
+                    1,
+                    false,
+                    pixelSize * 2 / (float)options.RolloffWidth);
 
-            // Cleanup
-            imageRaw.Dispose();
-            imageLowpass.Dispose();
-            maskRaw.Dispose();
-        }
-    }
+                ImageLowpass.Bandpass(pixelSize * 2 / (float)options.HighResolutionLimit,
+                    pixelSize * 2 / (float)options.LowResolutionLimit,
+                    false,
+                    pixelSize * 2 / (float)options.RolloffWidth);
 
-    [Serializable]
-    public class ProcessingOptionsTraceMembranes : ProcessingOptionsBase
-    {
-        // Placeholder properties for future use
-        [WarpSerializable] public int MinComponentSize { get; set; } = 20; // px
-        [WarpSerializable] public float BandpassLow { get; set; } = 0.002f;
-        [WarpSerializable] public float BandpassHigh { get; set; } = 0.05f;
-    }
-}
+                #endregion lowpass
 
-public static class TraceMembranesHelper
-{
-    public static Image ComputeDistanceMap(Image binaryMask)
-    {
-        int width = binaryMask.Dims.X;
-        int height = binaryMask.Dims.Y;
+                #region find connected components
 
-        Image maskInv = new Image(IntPtr.Zero, new int3(width, height, 1));
-        Image distanceMap = new Image(IntPtr.Zero, new int3(width, height, 1));
+                var Components = MaskRaw.GetConnectedComponents()
+                    .Where(c => c.ComponentIndices.Length >= options.MinimumComponentPixels)
+                    .ToArray();
 
-        maskInv.Fill(1f);
-        maskInv.Subtract(binaryMask);
+                if (Components.Length == 0)
+                    throw new Exception("No valid membrane components found");
 
-        GPU.DistanceMapExact(maskInv.GetDevice(Intent.Read), distanceMap.GetDevice(Intent.Write), new int3(width, height, 1), 20);
+                #endregion
 
-        maskInv.Dispose();
-        return distanceMap;
-    }
+                #region calculate distance map
 
-    public static Image Skeletonize(Image mask, float minDistanceThreshold)
-    {
-        Image distanceMap = ComputeDistanceMap(mask);
-        
-        int width = distanceMap.Dims.X;
-        int height = distanceMap.Dims.Y;
-        Image ridgeMask = new Image(distanceMap.Dims);
+                // Create Images for inverse mask and distance map
+                Image MaskInv = new Image(IntPtr.Zero, MaskRaw.Dims);
+                Image DistanceMap = new Image(IntPtr.Zero, MaskRaw.Dims);
+                toDispose.Add(MaskInv);
+                toDispose.Add(DistanceMap);
 
-        float[] distanceData = distanceMap.GetHost(Intent.Read)[0];
-        float[] ridgeData = ridgeMask.GetHost(Intent.ReadWrite)[0];
+                MaskInv.Fill(1f);
+                MaskInv.Subtract(MaskRaw);
 
-        for (int y = 1; y < height - 1; y++)
-        {
-            for (int x = 1; x < width - 1; x++)
-            {
-                int index = y * width + x;
-                float centerValue = distanceData[index];
+                // Calculate exact distance map
+                GPU.DistanceMapExact(MaskInv.GetDevice(Intent.Read),
+                    DistanceMap.GetDevice(Intent.Write),
+                    MaskRaw.Dims,
+                    20);
 
-                if (centerValue < minDistanceThreshold)
-                    continue;
+                float[] MaskInvData = MaskInv.GetHost(Intent.ReadWrite)[0];
+                float[] DistanceData = DistanceMap.GetHost(Intent.Read)[0];
 
-                // Check local maxima in principal directions
-                bool isRidge =
-                    (distanceData[index - 1] < centerValue && distanceData[index + 1] < centerValue) || // Horizontal
-                    (distanceData[index - width] < centerValue && distanceData[index + width] < centerValue) || // Vertical
-                    (distanceData[index - width - 1] < centerValue && distanceData[index + width + 1] < centerValue) || // Diagonal 1
-                    (distanceData[index - width + 1] < centerValue && distanceData[index + width - 1] < centerValue); // Diagonal 2
+                MaskInv.Fill(0f);
 
-                if (isRidge)
-                    ridgeData[index] = 1.0f;
-            }
-        }
+                #endregion
 
-        // Process junctions: Keep only the two longest branches
-        for (int y = 1; y < height - 1; y++)
-        {
-            for (int x = 1; x < width - 1; x++)
-            {
-                int index = y * width + x;
-                if (ridgeData[index] != 1.0f)
-                    continue;
+                #region trace ridges
 
-                int[] neighbors =
+                // Trace ridges as points at which the local gradient peaks in at least one direction
+                for (int i = MaskRaw.Dims.X + 1; i < DistanceData.Length - MaskRaw.Dims.X - 1; i++)
                 {
-                    index - 1, index + 1, index - width, index + width,
-                    index - width - 1, index - width + 1, index + width - 1, index + width + 1
-                };
+                    float Center = DistanceData[i];
 
-                List<int> connected = new List<int>();
-                foreach (int neighbor in neighbors)
-                {
-                    if (ridgeData[neighbor] == 1.0f)
-                        connected.Add(neighbor);
-                }
+                    // Only consider points with significant thickness (>2 pixels)
+                    if (Center < 2)
+                        continue;
 
-                if (connected.Count <= 2)
-                    continue;
-
-                // Trace each branch and determine its length
-                List<(int start, int length)> branches = new List<(int, int)>();
-                foreach (int start in connected)
-                {
-                    HashSet<int> visited = new HashSet<int>();
-                    int length = TraceBranch(start, ridgeData, width, height, visited);
-                    branches.Add((start, length));
-                }
-
-                // Keep only the two longest branches
-                branches.Sort((a, b) => b.length.CompareTo(a.length));
-                HashSet<int> keep = new HashSet<int> { branches[0].start, branches[1].start };
-
-                foreach (int start in connected)
-                {
-                    if (!keep.Contains(start))
-                        ridgeData[start] = 0.0f;
-                }
-            }
-        }
-        distanceMap.Dispose();
-        return ridgeMask;
-    }
-
-    private static int TraceBranch(int start, float[] ridgeData, int width, int height, HashSet<int> visited)
-    {
-        Queue<int> queue = new Queue<int>();
-        queue.Enqueue(start);
-        int length = 0;
-
-        while(queue.Count > 0)
-        {
-            int index = queue.Dequeue();
-            if (visited.Contains(index) || ridgeData[index] != 1.0f)
-                continue;
-
-            visited.Add(index);
-            length++;
-
-            int[] neighbors =
-            {
-                index - 1, index + 1, index - width, index + width,
-                index - width - 1, index - width + 1, index + width - 1, index + width + 1
-            };
-
-            foreach (int neighbor in neighbors)
-            {
-                if (!visited.Contains(neighbor) && ridgeData[neighbor] == 1.0f)
-                    queue.Enqueue(neighbor);
-            }
-        }
-
-        return length;
-    }
-
-    public static List<List<(int x, int y)>> FindConnectedComponents(Image ridgeMask)
-    {
-        int width = ridgeMask.Dims.X;
-        int height = ridgeMask.Dims.Y;
-        float[] data = ridgeMask.GetHost(Intent.Read)[0];
-
-        bool[,] visited = new bool[height, width];
-        List<List<(int x, int y)>> components = new();
-
-        // Neighbor offsets for 8-connectivity
-        int[] dx = [-1, 0, 1, -1, 1, -1, 0, 1];
-        int[] dy = [-1, -1, -1, 0, 0, 1, 1, 1];
-
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                if (data[y * width + x] == 1 && !visited[y, x])
-                {
-                    List<(int x, int y)> component = new();
-                    Queue<(int x, int y)> queue = new();
-
-                    queue.Enqueue((x, y));
-                    visited[y, x] = true;
-
-                    while(queue.Count > 0)
+                    // Check for 1-pixel thick ridge - peak in any of 4 directions
+                    if (DistanceData[i - 1] < Center && DistanceData[i + 1] < Center)
                     {
-                        (int cx, int cy) = queue.Dequeue();
-                        component.Add((cx, cy));
+                        MaskInvData[i] = 1;
+                        continue;
+                    }
 
-                        for (int i = 0; i < 8; i++)
+                    if (DistanceData[i - MaskRaw.Dims.X] < Center && DistanceData[i + MaskRaw.Dims.X] < Center)
+                    {
+                        MaskInvData[i] = 1;
+                        continue;
+                    }
+
+                    if (DistanceData[i - 1 - MaskRaw.Dims.X] < Center && DistanceData[i + 1 + MaskRaw.Dims.X] < Center)
+                    {
+                        MaskInvData[i] = 1;
+                        continue;
+                    }
+
+                    if (DistanceData[i - 1 + MaskRaw.Dims.X] < Center && DistanceData[i + 1 - MaskRaw.Dims.X] < Center)
+                    {
+                        MaskInvData[i] = 1;
+                        continue;
+                    }
+
+                    // Handle 2-pixel thick ridges by checking for flat gradients
+                    if (DistanceData[i - 1] == DistanceData[i + 1])
+                    {
+                        if (DistanceData[i - MaskRaw.Dims.X] < Center && DistanceData[i + MaskRaw.Dims.X] <= Center)
                         {
-                            int nx = cx + dx[i];
-                            int ny = cy + dy[i];
-
-                            if (nx >= 0 && nx < width && ny >= 0 && ny < height &&
-                                data[ny * width + nx] == 1 && !visited[ny, nx])
-                            {
-                                queue.Enqueue((nx, ny));
-                                visited[ny, nx] = true;
-                            }
+                            MaskInvData[i] = 1;
+                            continue;
                         }
                     }
 
-                    components.Add(component);
+                    if (DistanceData[i - MaskRaw.Dims.X] == DistanceData[i + MaskRaw.Dims.X])
+                    {
+                        if (DistanceData[i - 1] < Center && DistanceData[i + 1] <= Center)
+                        {
+                            MaskInvData[i] = 1;
+                            continue;
+                        }
+                    }
+
+                    if (DistanceData[i - 1 - MaskRaw.Dims.X] == DistanceData[i + 1 + MaskRaw.Dims.X])
+                    {
+                        if (DistanceData[i - 1 + MaskRaw.Dims.X] < Center && DistanceData[i + 1 - MaskRaw.Dims.X] <= Center)
+                        {
+                            MaskInvData[i] = 1;
+                            continue;
+                        }
+                    }
+
+                    if (DistanceData[i - 1 + MaskRaw.Dims.X] == DistanceData[i + 1 - MaskRaw.Dims.X])
+                    {
+                        if (DistanceData[i - 1 - MaskRaw.Dims.X] < Center && DistanceData[i + 1 + MaskRaw.Dims.X] <= Center)
+                        {
+                            MaskInvData[i] = 1;
+                            continue;
+                        }
+                    }
                 }
-            }
-        }
 
-        return components;
-    }
-
-    public static SplinePath2D FitSplineToComponent(List<(int x, int y)> componentPixels)
-    {
-        if (componentPixels == null || componentPixels.Count < 3)
-            throw new ArgumentException("Component must have at least three pixels to fit a spline.");
-
-        // Convert pixel coordinates to float2 points for spline fitting
-        List<float2> points = componentPixels.Select(p => new float2(p.x, p.y)).ToList();
-
-        // Check if the component forms a closed loop
-        bool isClosed = points.First().Equals(points.Last());
-
-        // Determine the number of control points based on component length
-        int pointSpacing = 15;
-        int numControlPoints = (int)MathF.Ceiling(points.Count / (float)pointSpacing) + 1;
-        if (isClosed)
-            numControlPoints = Math.Max(numControlPoints, 3);
-
-        // Fit a spline to the extracted points
-        SplinePath2D spline = SplinePath2D.Fit(points.ToArray(), isClosed, numControlPoints);
-
-        // Ensure correct orientation (clockwise convention)
-        if (spline.IsClockwise())
-            spline = spline.AsReversed();
-
-        return spline;
-    }
-
-    public static float[] ReconstructMembraneProfile(Image lowpassImage, SplinePath2D spline)
-    {
-        int maxDistance = 60; // Assumed membrane width in pixels
-        int recDim = maxDistance * 2;
-        float[] recData = new float[recDim];
-        float[] recWeights = new float[recDim];
-
-        // Compute distance map along the spline
-        Image traceImage = new Image(lowpassImage.Dims);
-        float[] traceData = traceImage.GetHost(Intent.ReadWrite)[0];
-
-        List<float2> points = spline.GetInterpolated(Helper.ArrayOfFunction(i => (float)i / (spline.Points.Count - 1), spline.Points.Count)).ToList();
-
-        // Rasterize spline onto the image
-        for (int i = 0; i < points.Count - 1; i++)
-        {
-            float2 p0 = points[i];
-            float2 p1 = points[i + 1];
-
-            int x0 = (int)MathF.Round(p0.X);
-            int y0 = (int)MathF.Round(p0.Y);
-            int x1 = (int)MathF.Round(p1.X);
-            int y1 = (int)MathF.Round(p1.Y);
-
-            if (x0 < 0 || x0 >= traceImage.Dims.X || y0 < 0 || y0 >= traceImage.Dims.Y) continue;
-            if (x1 < 0 || x1 >= traceImage.Dims.X || y1 < 0 || y1 >= traceImage.Dims.Y) continue;
-
-            int dx = Math.Abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-            int dy = -Math.Abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-            int err = dx + dy, e2;
-
-            while(true)
-            {
-                traceData[y0 * traceImage.Dims.X + x0] = 1;
-                if (x0 == x1 && y0 == y1) break;
-                e2 = 2 * err;
-                if (e2 >= dy)
+                // Change 45deg stairs from pattern "0 1, 1 1" to "0 1, 1 0"
+                for (int i = MaskRaw.Dims.X + 1; i < DistanceData.Length - MaskRaw.Dims.X - 1; i++)
                 {
-                    err += dy;
-                    x0 += sx;
+                    if (MaskInvData[i] != 1)
+                        continue;
+
+                    if (MaskInvData[i + 1] == 1 && MaskInvData[i + MaskRaw.Dims.X] == 1)
+                    {
+                        MaskInvData[i] = 0;
+                    }
+                    else if (MaskInvData[i + 1] == 1 && MaskInvData[i - MaskRaw.Dims.X] == 1)
+                    {
+                        MaskInvData[i] = 0;
+                    }
+                    else if (MaskInvData[i - 1] == 1 && MaskInvData[i + MaskRaw.Dims.X] == 1)
+                    {
+                        MaskInvData[i] = 0;
+                    }
+                    else if (MaskInvData[i - 1] == 1 && MaskInvData[i - MaskRaw.Dims.X] == 1)
+                    {
+                        MaskInvData[i] = 0;
+                    }
                 }
 
-                if (e2 <= dx)
+                // Fill 1-pixel gaps in horizontal and vertical lines
+                for (int i = MaskRaw.Dims.X + 1; i < DistanceData.Length - MaskRaw.Dims.X - 1; i++)
                 {
-                    err += dx;
-                    y0 += sy;
+                    if (MaskInvData[i] != 0)
+                        continue;
+
+                    int[] Neighbors = new[]
+                    {
+                        i - 1,
+                        i + 1,
+                        i - MaskRaw.Dims.X,
+                        i + MaskRaw.Dims.X,
+                        i - MaskRaw.Dims.X - 1,
+                        i - MaskRaw.Dims.X + 1,
+                        i + MaskRaw.Dims.X - 1,
+                        i + MaskRaw.Dims.X + 1
+                    };
+
+                    if (Neighbors.Count(n => MaskInvData[n] == 1) == 2)
+                    {
+                        if (MaskInvData[i - 1] == 1 && MaskInvData[i + 1] == 1)
+                        {
+                            MaskInvData[i] = 1;
+                        }
+                        else if (MaskInvData[i - MaskRaw.Dims.X] == 1 && MaskInvData[i + MaskRaw.Dims.X] == 1)
+                        {
+                            MaskInvData[i] = 1;
+                        }
+                    }
                 }
-            }
-        }
 
-        Image distanceMap = traceImage.AsDistanceMapExact(maxDistance);
-        float[] distanceMapData = distanceMap.GetHost(Intent.Read)[0];
+                // Remove ridge pixels in gaps that are too wide to be a single bilayer
+                for (int i = 0; i < DistanceData.Length; i++)
+                    if (DistanceData[i] > 4)
+                        MaskInvData[i] = 0;
 
-        // Compute membrane profile by accumulating intensities
-        for (int i = 0; i < distanceMapData.Length; i++)
-        {
-            if (distanceMapData[i] < maxDistance)
-            {
-                float coord = distanceMapData[i] + maxDistance;
-                coord = Math.Clamp(coord, 0, recDim - 1);
-                int coord0 = (int)coord;
-                int coord1 = Math.Min(recDim - 1, coord0 + 1);
-                float weight1 = coord - coord0;
-                float weight0 = 1 - weight1;
+                DistanceMap.Dispose();
 
-                float val = lowpassImage.GetHost(Intent.Read)[0][i];
+                // Find connected components with at least MinimumComponentPixels pixels
+                Components = MaskInv.GetConnectedComponents()
+                    .Where(c => c.ComponentIndices.Length >= options.MinimumComponentPixels)
+                    .ToArray();
 
-                recData[coord0] += val * weight0;
-                recData[coord1] += val * weight1;
-                recWeights[coord0] += weight0;
-                recWeights[coord1] += weight1;
-            }
-        }
+                #endregion
 
-        for (int i = 0; i < recDim; i++)
-            recData[i] /= Math.Max(1e-6f, recWeights[i]); // Avoid division by zero
+                Dictionary<string, Star> PathTables = new();
 
-        traceImage.Dispose();
-        distanceMap.Dispose();
-
-        return recData;
-    }
-
-    public static SplinePath2D RefineSplineControlPoints(Image lowpassImage, SplinePath2D spline, int iterations)
-    {
-        if (spline == null || spline.Points == null || spline.Points.Count < 3)
-            throw new ArgumentException("Spline must have at least three control points for refinement.");
-
-        float2[] controlPoints = spline.Points.ToArray();
-        float2[] normals = spline.GetControlPointNormals();
-
-        int maxDistance = 60;
-        float softEdge = 30;
-
-        double[] optimizationInput = new double[controlPoints.Length];
-        double[] optimizationFallback = optimizationInput.ToArray();
-
-        Func<double[], double> Eval = (input) =>
-        {
-            float2[] newControlPoints = new float2[controlPoints.Length];
-            for (int i = 0; i < controlPoints.Length; i++)
-                newControlPoints[i] = controlPoints[i] + normals[i] * (float)input[i];
-
-            if (spline.IsClosed)
-                newControlPoints[newControlPoints.Length - 1] = newControlPoints[0];
-
-            SplinePath2D newSpline = new SplinePath2D(newControlPoints, spline.IsClosed);
-            List<float2> points = newSpline.GetInterpolated(
-                Helper.ArrayOfFunction(i => (float)i / (controlPoints.Length - 1), controlPoints.Length)
-            ).ToList();
-
-            float[] imageData = lowpassImage.GetHost(Intent.Read)[0];
-            float2 imageDims = new float2(lowpassImage.Dims.X, lowpassImage.Dims.Y);
-
-            double error = 0;
-            foreach (var point in points)
-            {
-                int x = Math.Clamp((int)MathF.Round(point.X), 0, (int)imageDims.X - 1);
-                int y = Math.Clamp((int)MathF.Round(point.Y), 0, (int)imageDims.Y - 1);
-                float value = imageData[y * lowpassImage.Dims.X + x];
-
-                error += value * value;
-            }
-
-            return Math.Sqrt(error / points.Count);
-        };
-
-        Func<double[], double[]> Grad = (input) =>
-        {
-            double[] gradient = new double[input.Length];
-            for (int i = 0; i < input.Length - (spline.IsClosed ? 1 : 0); i++)
-            {
-                double[] inputPlus = input.ToArray();
-                inputPlus[i] += 1e-3;
-                double[] inputMinus = input.ToArray();
-                inputMinus[i] -= 1e-3;
-
-                gradient[i] = (Eval(inputPlus) - Eval(inputMinus)) / 2e-3;
-            }
-
-            return gradient;
-        };
-
-        for (int iter = 0; iter < iterations; iter++)
-        {
-            try
-            {
-                BroydenFletcherGoldfarbShanno optimizer = new BroydenFletcherGoldfarbShanno(optimizationInput.Length, Eval, Grad);
-                optimizer.MaxIterations = 10;
-                optimizer.MaxLineSearch = 5;
-                optimizer.Minimize(optimizationInput);
-                optimizationFallback = optimizationInput.ToArray();
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine($"Optimization failed at iteration {iter}: {e.Message}");
-                optimizationInput = optimizationFallback.ToArray();
-                Eval(optimizationInput);
-            }
-        }
-
-        for (int i = 0; i < controlPoints.Length; i++)
-            controlPoints[i] += normals[i] * (float)optimizationInput[i];
-
-        if (spline.IsClosed)
-            controlPoints[controlPoints.Length - 1] = controlPoints[0];
-
-        return new SplinePath2D(controlPoints, spline.IsClosed);
-    }
-
-
-    public static void SaveControlPoints(string path, List<SplinePath2D> splines)
-    {
-        using (StreamWriter writer = new StreamWriter(path))
-        {
-            foreach (var (spline, index) in splines.Select((s, i) => (s, i)))
-            {
-                writer.WriteLine($"data_path{index:D3}");
-                writer.WriteLine();
-                writer.WriteLine("loop_");
-                writer.WriteLine("_wrpControlPointXAngst");
-                writer.WriteLine("_wrpControlPointYAngst");
-
-                foreach (var point in spline.Points)
+                // Process each component
+                for (int ic = 0; ic < Components.Length; ic++)
                 {
-                    writer.WriteLine($"{point.X.ToString(CultureInfo.InvariantCulture)} {point.Y.ToString(CultureInfo.InvariantCulture)}");
-                }
+                    Console.WriteLine($"Refining membrane {ic + 1} of {Components.Length}");
+                    List<int> IDsRemain = new List<int>(Components[ic].ComponentIndices);
 
-                writer.WriteLine();
+                    #region Junctions
+
+                    // Find all junction points that have more than 2 branches
+                    List<int> Junctions = new List<int>();
+                    foreach (int id in IDsRemain)
+                    {
+                        int[] Neighbors = new int[]
+                        {
+                            id - 1,
+                            id + 1,
+                            id - MaskRaw.Dims.X,
+                            id + MaskRaw.Dims.X,
+                            id - MaskRaw.Dims.X - 1,
+                            id - MaskRaw.Dims.X + 1,
+                            id + MaskRaw.Dims.X - 1,
+                            id + MaskRaw.Dims.X + 1
+                        };
+
+                        int NeighborCount = 0;
+                        foreach (int n in Neighbors)
+                            if (IDsRemain.Contains(n))
+                                NeighborCount++;
+
+                        if (NeighborCount > 2)
+                            Junctions.Add(id);
+                    }
+
+                    // Process each junction - keep only 2 longest branches
+                    foreach (var junction in Junctions)
+                    {
+                        int[] Neighbors = new int[]
+                        {
+                            junction - 1,
+                            junction + 1,
+                            junction - MaskRaw.Dims.X,
+                            junction + MaskRaw.Dims.X,
+                            junction - MaskRaw.Dims.X - 1,
+                            junction - MaskRaw.Dims.X + 1,
+                            junction + MaskRaw.Dims.X - 1,
+                            junction + MaskRaw.Dims.X + 1
+                        };
+
+                        List<List<int>> Branches = new List<List<int>>();
+                        List<int> IDsRemainNoJunc = new List<int>(IDsRemain);
+                        IDsRemainNoJunc.Remove(junction);
+
+                        foreach (var neighbor in Neighbors)
+                            if (IDsRemainNoJunc.Contains(neighbor))
+                                Branches.Add(TraceMembranesHelper.TraceLine(IDsRemainNoJunc, new(), IDsRemainNoJunc.IndexOf(neighbor), 1, MaskRaw.Dims.X));
+
+                        // Sort branches by length and remove all but the longest two
+                        Branches.Sort((a, b) => a.Count.CompareTo(b.Count));
+                        foreach (var branch in Branches.Take(Branches.Count - 2))
+                            IDsRemain.RemoveAll(i => branch.Contains(i));
+                    }
+
+                    // Find endpoints 
+                    List<int> Endpoints = new List<int>();
+                    foreach (int id in IDsRemain)
+                    {
+                        int[] Neighbors = new int[]
+                        {
+                            id - 1,
+                            id + 1,
+                            id - MaskRaw.Dims.X,
+                            id + MaskRaw.Dims.X,
+                            id - MaskRaw.Dims.X - 1,
+                            id - MaskRaw.Dims.X + 1,
+                            id + MaskRaw.Dims.X - 1,
+                            id + MaskRaw.Dims.X + 1
+                        };
+
+                        int NeighborCount = 0;
+                        foreach (int n in Neighbors)
+                            if (IDsRemain.Contains(n))
+                                NeighborCount++;
+
+                        if (NeighborCount == 1)
+                            Endpoints.Add(id);
+                    }
+
+                    if (Endpoints.Count > 2)
+                    {
+                        Console.WriteLine($"Found a path with more than 2 endpoints in {IOPath.GetFileName(MembraneSegmentationPath)}");
+                        continue;
+                    }
+
+                    // Trace the final path
+                    List<int> FinalPath;
+                    if (Endpoints.Count == 2)
+                    {
+                        // Open path - trace from one endpoint to the other
+                        FinalPath = TraceMembranesHelper.TraceLine(IDsRemain, new(), IDsRemain.IndexOf(Endpoints[0]), 1, MaskRaw.Dims.X);
+                    }
+                    else
+                    {
+                        // Closed path - trace from arbitrary point and close the loop
+                        FinalPath = TraceMembranesHelper.TraceLine(IDsRemain, new(), 0, 1, MaskRaw.Dims.X);
+                        FinalPath.Add(FinalPath.First()); // Close the loop
+                    }
+
+                    // Convert path to line segments
+                    List<int2> LineSegments = new();
+                    for (int i = 0; i < FinalPath.Count - 1; i++)
+                        LineSegments.Add(new int2(FinalPath[i], FinalPath[i + 1]));
+
+                    #endregion
+
+                    #region Spline Fitting
+
+// Create scaled trace image and get image data
+                    Image TraceScaled = new Image(ImageRaw.Dims);
+                    float[] ImageData = ImageRaw.GetHost(Intent.ReadWrite)[0];
+                    float[] ImageLowpassData = ImageLowpass.GetHost(Intent.ReadWrite)[0];
+                    toDispose.Add(TraceScaled);
+
+// Calculate scale factor between mask and image dimensions
+                    float2 ScaleFactor = new float2(ImageRaw.Dims.X / (float)MaskRaw.Dims.X,
+                        ImageRaw.Dims.Y / (float)MaskRaw.Dims.Y);
+
+// Convert line segments to points in image coordinates
+                    List<float2> Points = new List<float2>();
+                    foreach (var line in LineSegments)
+                        Points.Add(new float2(line.X % MaskRaw.Dims.X, line.X / MaskRaw.Dims.X) * ScaleFactor);
+                    Points.Add(new float2(LineSegments.Last().Y % MaskRaw.Dims.X,
+                        LineSegments.Last().Y / MaskRaw.Dims.X) * ScaleFactor);
+
+                    bool IsClosed = Points.First() == Points.Last();
+
+                    TraceScaled.Fill(0);
+                    float[] TraceScaledData = TraceScaled.GetHost(Intent.ReadWrite)[0];
+
+// Calculate number of control points based on spacing
+                    float PointSpacing = (float)options.SplinePointSpacing;
+                    int NControlPoints = (int)MathF.Ceiling(Points.Count / PointSpacing) + 1;
+                    if (IsClosed)
+                        NControlPoints = Math.Max(NControlPoints, 3);
+
+// Fit spline to points
+                    SplinePath2D Spline = SplinePath2D.Fit(Points.ToArray(), IsClosed, NControlPoints);
+                    if (Spline.IsClockwise())
+                        Spline = Spline.AsReversed();
+
+                    float2[] ControlPoints = Spline.Points.ToArray();
+                    float2[] Normals = Spline.GetControlPointNormals();
+
+// Create intensity spline
+                    SplinePath1D IntensitySpline = new SplinePath1D(Helper.ArrayOfConstant(1f, 4), IsClosed);
+
+// Get interpolated points and intensity scale factors
+                    Points = Spline.GetInterpolated(Helper.ArrayOfFunction(i => (float)i / (Points.Count - 1),
+                        Points.Count)).ToList();
+                    List<float> ScaleFactors = IntensitySpline.GetInterpolated(
+                        Helper.ArrayOfFunction(i => (float)i / (Points.Count - 1), Points.Count)).ToList();
+
+                    #endregion
+
+                    #region Profile Reconstruction
+
+// Calculate membrane parameters in pixels
+                    int MaxDistance = (int)MathF.Round((float)options.MembraneHalfWidth / ImageRaw.PixelSize);
+                    float SoftEdge = (float)options.MembraneEdgeSoftness / ImageRaw.PixelSize;
+
+// Create distance map from traced points
+                    DistanceMap = TraceScaled.AsDistanceMapExact(MaxDistance);
+                    float[] DistanceMapData = DistanceMap.GetHost(Intent.Read)[0];
+
+// Initialize lists for membrane data
+                    List<float> MembraneRefVals = new();
+                    List<int2> MembranePixels = new();
+                    List<int> MembraneClosestPoints = new();
+                    List<float> MembraneSegmentLengths = new();
+                    List<float2> MembraneTangents = new();
+                    List<float2> MembraneNormals = new();
+                    List<float> MembraneWeights = new();
+
+// Populate per-pixel helper data
+                    for (int i = 0; i < DistanceMapData.Length; i++)
+                    {
+                        if (DistanceMapData[i] < MaxDistance)
+                        {
+                            int2 iPoint = new int2(i % DistanceMap.Dims.X, i / DistanceMap.Dims.X);
+
+                            MembraneRefVals.Add(ImageLowpassData[iPoint.Y * ImageRaw.Dims.X + iPoint.X]);
+                            MembranePixels.Add(iPoint);
+
+                            float2 Point = new(iPoint);
+
+                            // Find closest point from Points
+                            List<float> PointDistances = Points.Select(p => (p - Point).LengthSq()).ToList();
+                            List<int> ClosestIDs = Helper.ArrayOfSequence(0, Points.Count, 1).ToList();
+                            ClosestIDs.Sort((a, b) => PointDistances[a].CompareTo(PointDistances[b]));
+
+                            // Handle special case where points are identical
+                            if (Points[ClosestIDs[0]] == Points[ClosestIDs[1]])
+                                ClosestIDs.RemoveAt(1);
+
+                            int ID0 = ClosestIDs[0] < ClosestIDs[1] ? ClosestIDs[0] : ClosestIDs[1];
+                            int ID1 = ClosestIDs[0] < ClosestIDs[1] ? ClosestIDs[1] : ClosestIDs[0];
+
+                            float2 ClosestPoint0 = Points[ID0];
+                            float2 ClosestPoint1 = Points[ID1];
+
+                            MembraneClosestPoints.Add(ID0);
+                            MembraneSegmentLengths.Add((ClosestPoint1 - ClosestPoint0).Length());
+
+                            float2 Tangent = (ClosestPoint1 - ClosestPoint0).Normalized();
+                            MembraneTangents.Add(Tangent);
+
+                            float2 Normal = new(Tangent.Y, -Tangent.X);
+                            MembraneNormals.Add(Normal);
+                        }
+                    }
+
+                    DistanceMap.Dispose();
+
+                    #endregion
+
+                    #region Membrane Refinement
+
+// Define membrane coordinate calculation
+                    Func<int, float> GetMembraneCoord = (i) =>
+                    {
+                        float2 Location = new float2(MembranePixels[i]);
+                        float2 ClosestPoint = Points[MembraneClosestPoints[i]];
+
+                        float2 Delta = Location - ClosestPoint;
+                        float LineCoord = Math.Clamp(float2.Dot(Delta, MembraneTangents[i]),
+                            0,
+                            MembraneSegmentLengths[i]);
+                        ClosestPoint = ClosestPoint + MembraneTangents[i] * LineCoord;
+                        Delta = Location - ClosestPoint;
+
+                        float Coord = MathF.Sign(float2.Dot(Delta, MembraneNormals[i])) *
+                            Delta.Length() + MaxDistance;
+                        return Coord;
+                    };
+
+// Calculate membrane weights for soft edges
+                    for (int i = 0; i < MembranePixels.Count; i++)
+                    {
+                        float Coord = (MathF.Abs(GetMembraneCoord(i) - MaxDistance) -
+                                       (MaxDistance - SoftEdge)) / SoftEdge;
+                        float Weight = MathF.Cos(Math.Clamp(Coord, 0, 1) * MathF.PI) * 0.5f + 0.5f;
+                        MembraneWeights.Add(Weight);
+                    }
+
+// Setup profile reconstruction dimensions and data
+                    int RecDim = MaxDistance * 2;
+                    float[] RecData = new float[RecDim];
+                    float[] RecWeights = new float[RecDim];
+                    double[] OptimizationInput = new double[Spline.Points.Count + IntensitySpline.Points.Count];
+                    double[] OptimizationFallback = OptimizationInput.ToArray();
+
+// Perform membrane refinement iterations
+                    for (int iiter = 0; iiter < options.RefinementIterations; iiter++)
+                    {
+                        // Progress?.Report($"Refining membrane {ic + 1} of {Components.Length}");
+
+                        RecData = new float[RecDim];
+                        RecWeights = new float[RecDim];
+
+                        // Reconstruct membrane profile
+                        for (int i = 0; i < MembranePixels.Count; i++)
+                        {
+                            float Coord = GetMembraneCoord(i);
+                            float Val = ImageLowpassData[MembranePixels[i].Y * ImageRaw.Dims.X +
+                                                         MembranePixels[i].X];
+
+                            Coord = Math.Clamp(Coord, 0, RecDim - 1);
+                            int Coord0 = (int)Coord;
+                            int Coord1 = Math.Min(RecDim - 1, Coord0 + 1);
+                            float Weight1 = (Coord - Coord0);
+                            float Weight0 = 1 - Weight1;
+
+                            RecData[Coord0] += Val * Weight0;
+                            RecData[Coord1] += Val * Weight1;
+                            RecWeights[Coord0] += Weight0;
+                            RecWeights[Coord1] += Weight1;
+                        }
+
+                        for (int i = 0; i < RecDim; i++)
+                            RecData[i] /= Math.Max(1e-16f, RecWeights[i]);
+
+                        // Define optimization functions
+                        Func<double[], double> Eval = (input) =>
+                        {
+                            // Update control points
+                            float2[] NewControlPoints = new float2[ControlPoints.Length];
+                            for (int i = 0; i < ControlPoints.Length; i++)
+                                NewControlPoints[i] = ControlPoints[i] + Normals[i] * (float)input[i];
+
+                            if (IsClosed)
+                                NewControlPoints[NewControlPoints.Length - 1] = NewControlPoints[0];
+
+                            Spline = new SplinePath2D(NewControlPoints, IsClosed);
+                            Points = Spline.GetInterpolated(Helper.ArrayOfFunction(
+                                i => (float)i / (Points.Count - 1), Points.Count)).ToList();
+
+                            // Update intensities
+                            float[] NewIntensityControlPoints = new float[IntensitySpline.Points.Count];
+                            for (int i = 0; i < NewIntensityControlPoints.Length; i++)
+                                NewIntensityControlPoints[i] = MathF.Exp((float)input[NewControlPoints.Length + i]);
+
+                            if (IsClosed)
+                                NewIntensityControlPoints[NewIntensityControlPoints.Length - 1] =
+                                    NewIntensityControlPoints[0];
+
+                            IntensitySpline = new SplinePath1D(NewIntensityControlPoints, IsClosed);
+                            ScaleFactors = IntensitySpline.GetInterpolated(Helper.ArrayOfFunction(
+                                i => (float)i / (Points.Count - 1), Points.Count)).ToList();
+
+                            // Calculate RMSD
+                            double Result = 0;
+                            for (int i = 0; i < MembranePixels.Count; i++)
+                            {
+                                float Coord = GetMembraneCoord(i);
+                                Coord = Math.Clamp(Coord, 0, RecDim - 1);
+
+                                int Coord0 = (int)Coord;
+                                int Coord1 = Math.Min(RecDim - 1, Coord0 + 1);
+                                float Weight1 = (Coord - Coord0);
+                                float Weight0 = 1 - Weight1;
+
+                                float Val = RecData[Coord0] * Weight0 + RecData[Coord1] * Weight1;
+                                float Intensity = ScaleFactors[MembraneClosestPoints[i]];
+                                Val *= Intensity;
+
+                                Result += (MembraneRefVals[i] - Val) * (MembraneRefVals[i] - Val) *
+                                          MembraneWeights[i];
+                            }
+
+                            return Math.Sqrt(Result / MembranePixels.Count);
+                        };
+
+                        // Run optimization
+                        try
+                        {
+                            BroydenFletcherGoldfarbShanno Optimizer =
+                                new BroydenFletcherGoldfarbShanno(OptimizationInput.Length, Eval, null);
+                            Optimizer.MaxIterations = 10;
+                            Optimizer.MaxLineSearch = 5;
+                            Optimizer.Minimize(OptimizationInput);
+                            OptimizationFallback = OptimizationInput.ToArray();
+                        }
+                        catch(Exception e)
+                        {
+                            OptimizationInput = OptimizationFallback.ToArray();
+                            Eval(OptimizationInput);
+                        }
+                    }
+
+                    #endregion
+
+                    #region Save Results
+
+                    // Update control points with final optimization results
+                    for (int i = 0; i < ControlPoints.Length; i++)
+                        ControlPoints[i] = ControlPoints[i] + Normals[i] * (float)OptimizationInput[i];
+                    if (IsClosed)
+                        ControlPoints[ControlPoints.Length - 1] = ControlPoints[0];
+
+                    // Create and add path table
+                    PathTables.Add($"path{ic:D3}", new Star(
+                        ControlPoints.Select(v => v * ImageRaw.PixelSize).ToArray(),
+                        "wrpControlPointXAngst",
+                        "wrpControlPointYAngst"));
+
+                    // Save final tables
+                    Star.SaveMultitable(MembraneControlPointsPath, PathTables);
+
+                    #endregion
+                }
+            }
+            finally
+            {
+                // Clean up all allocated images
+                foreach (var image in toDispose)
+                    image.Dispose();
             }
         }
+    }
+}
+
+
+[Serializable]
+public class ProcessingOptionsTraceMembranes : ProcessingOptionsBase
+{
+    [WarpSerializable] public decimal HighResolutionLimit { get; set; } = 300;
+    [WarpSerializable] public decimal LowResolutionLimit { get; set; } = 20;
+    [WarpSerializable] public decimal RolloffWidth { get; set; } = 600;
+    [WarpSerializable] public decimal MembraneHalfWidth { get; set; } = 60;
+    [WarpSerializable] public decimal MembraneEdgeSoftness { get; set; } = 30;
+    [WarpSerializable] public decimal SplinePointSpacing { get; set; } = 15;
+    [WarpSerializable] public int RefinementIterations { get; set; } = 2;
+    [WarpSerializable] public int MinimumComponentPixels { get; set; } = 20;
+}
+
+
+public static class TraceMembranesHelper
+{
+    public static List<int> TraceLine(List<int> Indices, List<int> Visited, int StartIndex, int Direction, int DimsX)
+    {
+        List<int> Result = new List<int>();
+        int Current = Indices[StartIndex];
+        Result.Add(Current);
+        Visited.Add(Current);
+
+        while(true)
+        {
+            int[] Neighbors = new int[]
+            {
+                Current - 1,
+                Current + 1,
+                Current - DimsX,
+                Current + DimsX,
+                Current - DimsX - 1,
+                Current - DimsX + 1,
+                Current + DimsX - 1,
+                Current + DimsX + 1
+            };
+
+            bool Found = false;
+            foreach (int n in Neighbors)
+            {
+                if (Indices.Contains(n) && !Visited.Contains(n))
+                {
+                    Current = n;
+                    Result.Add(Current);
+                    Visited.Add(Current);
+                    Found = true;
+                    break;
+                }
+            }
+
+            if (!Found)
+                break;
+        }
+
+        if (Direction < 0)
+            Result.Reverse();
+
+        return Result;
     }
 }

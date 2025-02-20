@@ -361,6 +361,13 @@ namespace Warp
                 string.Join(';', paths),
                 options));
         }
+        
+        public void MovieTraceMembranes(string path, ProcessingOptionsTraceMembranes options)
+        {
+            SendCommand(new NamedSerializableObject("MoviesTraceMembranes",
+                path,
+                options));
+        }
 
         public void MovieExportParticles(string path, ProcessingOptionsParticleExport options, float2[] coordinates)
         {

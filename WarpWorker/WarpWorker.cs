@@ -18,7 +18,6 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Hosting.Server;
 using System.Runtime.InteropServices;
 
-
 namespace WarpWorker
 {
     static class WarpWorker
@@ -438,6 +437,16 @@ namespace WarpWorker
                     // remove all files recursively from temp dir
                     Directory.Delete(tempDir, recursive: true);
                     Console.WriteLine($"Segmented membranes using TARDIS");
+                }
+                else if (Command.Name == "MovieTraceMembranes")
+                {
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTraceMembranes Options = (ProcessingOptionsTraceMembranes)Command.Content[1];
+                    Movie M = new Movie(Path);
+                    M.TraceMembranes(Options);
+                    M.SaveMeta();
+
+                    Console.WriteLine($"Traced membranes for {Path}");
                 }
                 else if (Command.Name == "TomoStack")
                 {
