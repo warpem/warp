@@ -605,7 +605,8 @@ namespace Warp
                         "wrpControlPointXAngst",
                         "wrpControlPointYAngst"));
 
-                    // Save final tables
+                    // Save final control points
+                    Directory.CreateDirectory(MembraneModelsDir);
                     Star.SaveMultitable(MembraneControlPointsPath, PathTables);
 
                     #endregion
