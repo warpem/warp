@@ -9,7 +9,7 @@ using Warp.Tools;
 namespace WarpTools.Commands
 {
     [VerbGroup("Frame series")]
-    [Verb("trace_membranes", HelpText = "Model membranes in images")]
+    [Verb("fs_trace_membranes", HelpText = "Model membranes in images")]
     [CommandRunner(typeof(TraceMembranesCommand))]
     class TraceMembranesOptions : DistributedOptions
     {
