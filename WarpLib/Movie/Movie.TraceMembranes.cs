@@ -31,8 +31,16 @@ namespace Warp
                 toDispose.Add(ImageRaw);
 
                 #endregion
+                
+                #region rescale mask
 
-                #region lowpass
+                Image MaskRescaled = MaskRaw.AsScaled(newDims: ImageRaw.Dims);
+                MaskRescaled.Binarize(0.5f);
+                MaskRescaled.WriteMRC16b("ab_mask_rescaled_binarized.mrc");
+                
+                #endregion
+
+                #region lowpass image
 
                 ImageRaw.SubtractMeanGrid(new int2(1));
                 Image ImageLowpass = ImageRaw.GetCopyGPU();
@@ -48,12 +56,15 @@ namespace Warp
                     pixelSize * 2 / (float)options.LowResolutionLimit,
                     false,
                     pixelSize * 2 / (float)options.RolloffWidth);
+                
+                ImageRaw.WriteMRC16b("ab_imageraw_bp.mrc");
+                ImageLowpass.WriteMRC16b("ab_image_lowpass.mrc");
 
                 #endregion lowpass
 
                 #region find connected components
 
-                var Components = MaskRaw.GetConnectedComponents()
+                var Components = MaskRescaled.GetConnectedComponents()
                     .Where(c => c.ComponentIndices.Length >= options.MinimumComponentPixels)
                     .ToArray();
 
@@ -65,28 +76,36 @@ namespace Warp
                 #region calculate distance map
 
                 // Create Images for inverse mask and distance map
-                Image MaskInv = new Image(IntPtr.Zero, MaskRaw.Dims);
-                Image DistanceMap = new Image(IntPtr.Zero, MaskRaw.Dims);
+                Image MaskInv = new Image(IntPtr.Zero, MaskRescaled.Dims);
+                Image DistanceMap = new Image(IntPtr.Zero, MaskRescaled.Dims);
                 toDispose.Add(MaskInv);
                 toDispose.Add(DistanceMap);
 
                 MaskInv.Fill(1f);
-                MaskInv.Subtract(MaskRaw);
+                MaskInv.Subtract(MaskRescaled);
 
-                // Calculate exact distance map
+                // Calculate distance map (in angstroms)
                 GPU.DistanceMapExact(MaskInv.GetDevice(Intent.Read),
                     DistanceMap.GetDevice(Intent.Write),
-                    MaskRaw.Dims,
-                    20);
+                    MaskRescaled.Dims,
+                    50);
+                DistanceMap.Multiply(pixelSize);
+                
+                MaskInv.WriteMRC16b("ab_maskinv.mrc");
+                DistanceMap.WriteMRC16b("ab_distance.mrc");
+                
+                // zero out MaskInv and use for ridges
+                MaskInv.Fill(0f);
 
                 float[] MaskInvData = MaskInv.GetHost(Intent.ReadWrite)[0];
                 float[] DistanceData = DistanceMap.GetHost(Intent.Read)[0];
-
-                MaskInv.Fill(0f);
-
+                
+                
                 #endregion
 
                 #region trace ridges
+
+                float bilayer_thickness_angstroms = 50;
 
                 // Trace ridges as points at which the local gradient peaks in at least one direction
                 for (int i = MaskRaw.Dims.X + 1; i < DistanceData.Length - MaskRaw.Dims.X - 1; i++)
@@ -217,7 +236,7 @@ namespace Warp
 
                 // Remove ridge pixels in gaps that are too wide to be a single bilayer
                 for (int i = 0; i < DistanceData.Length; i++)
-                    if (DistanceData[i] > 4)
+                    if (DistanceData[i] > bilayer_thickness_angstroms)
                         MaskInvData[i] = 0;
 
                 DistanceMap.Dispose();
