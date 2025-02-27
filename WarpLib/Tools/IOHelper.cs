@@ -209,6 +209,10 @@ namespace Warp.Tools
                 {
                     Data = ((HeaderTiff)Header).ReadData(stream, layers);
                 }
+
+                if (reuseBuffer != null)
+                    for (int i = 0; i < Data.Length; i++)
+                        Array.Copy(Data[i], reuseBuffer[i], Data[i].Length);
             }
 
             return Data;
