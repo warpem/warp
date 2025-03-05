@@ -2337,7 +2337,7 @@ namespace Warp
             return Result;
         }
 
-        public JsonNode ToMiniJson(string particleSuffix)
+        public virtual JsonNode ToMiniJson(string particleSuffix = null)
         {
             JsonNode Json = new JsonObject();
 
@@ -2364,15 +2364,15 @@ namespace Warp
                 Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
             }
 
-            // Motion
-            Json["Mtn"] = MeanFrameMovement <= 0 ? null : MathF.Round((float)MeanFrameMovement, 2);
-
             // 💩 percentage
             Json["Jnk"] = MaskPercentage < 0 ? null : MathF.Round((float)MaskPercentage, 1);
 
             // Particle count for given suffix
-            int ParticleCount = GetParticleCount(particleSuffix);
-            Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+            if (particleSuffix != null)
+            {
+                int ParticleCount = GetParticleCount(particleSuffix);
+                Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+            }
 
             return Json;
         }

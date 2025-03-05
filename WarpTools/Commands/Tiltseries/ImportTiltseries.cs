@@ -132,7 +132,7 @@ namespace WarpTools.Commands
                         Console.Write($"{NDone}/{ParsedMovies.Length}");
                     }
                 }, null);
-                Console.WriteLine("");
+                Console.WriteLine();
 
                 Movies = ParsedMovies.ToDictionary(m => m.RootName);
             }
@@ -143,13 +143,18 @@ namespace WarpTools.Commands
 
             Directory.CreateDirectory(CLI.OutputPath);
 
-            Console.WriteLine("Parsing MDOCs and creating .tomostar files...");
+            Dictionary<string, string> TomostarPaths = new();
+            Dictionary<string, string> FailedTomostarPaths = new();
 
+            Console.WriteLine("Parsing MDOCs and creating .tomostar files...");
+            Console.Write($"0/{MdocPaths.Count}");
             {
                 int NDone = 0;
                 int NFailed = 0;
-                Parallel.ForEach(MdocPaths, mdocPath =>
+                Parallel.ForEach(MdocPaths, new ParallelOptions { MaxDegreeOfParallelism = 4 }, mdocPath =>
                 {
+                    string OutputPath = Path.Combine(CLI.OutputPath, Path.GetFileNameWithoutExtension(mdocPath.Replace(".mrc.mdoc", ".mdoc")) + ".tomostar");
+                    
                     try
                     {
                         float AxisAngle = 0;
@@ -282,30 +287,30 @@ namespace WarpTools.Commands
 
                         if (SortedAngle.Count == 0)
                         {
-                            Console.WriteLine($"No images left for {Path.GetFileName(mdocPath)} after removing tilts based on selection status, max tilt angle and masked fraction criteria");
+                            Console.Error.WriteLine($"No images left for {Path.GetFileName(mdocPath)} after removing tilts based on selection status, max tilt angle and masked fraction criteria");
                             return;
                         }
 
                         #region Determine average intensity in each tilt
-                        
+
                         {
                             var SortedAbsoluteAngle = new List<MdocEntry>(SortedAngle);
                             SortedAbsoluteAngle.Sort((a, b) => Math.Abs(a.TiltAngle).CompareTo(Math.Abs(b.TiltAngle)));
-                        
+
                             MapHeader Header = MapHeader.ReadFromFile(Movies[Path.GetFileNameWithoutExtension(SortedAbsoluteAngle[0].Name)].AveragePath);
                             var AverageReadBuffer = new float[Header.Dimensions.ElementsSlice()];
                             var AverageSparse = new float[AverageReadBuffer.Length / 10];
-                        
+
                             foreach (var entry in SortedAngle)
                             {
                                 IOHelper.ReadMapFloat(Movies[Path.GetFileNameWithoutExtension(entry.Name)].AveragePath, new[] { 0 }, null, new float[][] { AverageReadBuffer });
-                                                                
+
                                 for (int i = 0; i < AverageReadBuffer.Length / 10; i++)
                                     AverageSparse[i] = AverageReadBuffer[i * 10];
-                        
+
                                 entry.AverageIntensity = MathHelper.Median(AverageSparse);
                             }
-                        
+
                             float MaxAverage = Helper.ArrayOfFunction(i => SortedAbsoluteAngle[i].AverageIntensity, Math.Min(10, SortedAbsoluteAngle.Count)).Max();
                             MdocEntry ZeroAngleEntry = SortedAbsoluteAngle.Where(e => e.AverageIntensity == MaxAverage).First();
                             int ZeroAngleId = SortedAngle.IndexOf(ZeroAngleEntry);
@@ -321,7 +326,7 @@ namespace WarpTools.Commands
 
                             int LowestAngleId = ZeroAngleId;
                             int HighestAngleId = ZeroAngleId;
-                        
+
                             bool[] Passed = SortedAngle.Select(e => e.AverageIntensity >= CLI.MinIntensity * MathF.Cos(e.TiltAngle * Helper.ToRad) * MaxAverage * 0.999f).ToArray();
                             for (int i = ZeroAngleId - 1; i >= 0; i--)
                             {
@@ -329,18 +334,19 @@ namespace WarpTools.Commands
                                     break;
                                 LowestAngleId = i;
                             }
+
                             for (int i = ZeroAngleId + 1; i < SortedAngle.Count; i++)
                             {
                                 if (!Passed[i])
                                     break;
                                 HighestAngleId = i;
                             }
-                        
+
                             SortedAngle = SortedAngle.GetRange(LowestAngleId, HighestAngleId - LowestAngleId + 1);
                         }
-                        
+
                         #endregion
-                        
+
                         // #region check if tilt axis seems reasonable in each tilt series
                         // commented out as appears unreliable in some cases...
                         // // calculate plane normal from spatially resolved defocus estimates for each tilt image
@@ -420,8 +426,6 @@ namespace WarpTools.Commands
                             "wrpMaskedFraction"
                         });
 
-                        string OutputPath = Path.Combine(CLI.OutputPath, Path.GetFileNameWithoutExtension(mdocPath.Replace(".mrc.mdoc", ".mdoc")) + ".tomostar");
-
                         for (int i = 0; i < SortedAngle.Count; i++)
                         {
                             //if (CreateStacks)
@@ -444,11 +448,15 @@ namespace WarpTools.Commands
                         }
 
                         Table.Save(OutputPath);
-
+                        
                         lock (MdocPaths)
                         {
-                            NDone++;
-                            Console.WriteLine($"Successfully parsed {Path.GetFileName(mdocPath)}, {SortedAngle.Count} tilts");
+                            TomostarPaths.Add(OutputPath, mdocPath);
+
+                            List<string> SortedTomostarPaths = TomostarPaths.Keys.ToList();
+                            SortedTomostarPaths.Sort((a, b) => MdocPaths.IndexOf(TomostarPaths[a]).CompareTo(MdocPaths.IndexOf(TomostarPaths[b])));
+                            
+                            WriteMiniJson(Path.Combine(CLI.OutputPath, "processed_items.json"), SortedTomostarPaths.Select(p => new TiltSeries(p)));
                         }
                     }
                     catch (Exception exc)
@@ -456,11 +464,29 @@ namespace WarpTools.Commands
                         lock (MdocPaths)
                         {
                             NFailed++;
-                            Console.WriteLine($"Failed to parse {Path.GetFileName(mdocPath)}: {exc.Message}");
+                            Console.Error.WriteLine($"Failed to parse {Path.GetFileName(mdocPath)}: {exc.Message}");
+                            
+                            FailedTomostarPaths.Add(OutputPath, mdocPath);
+
+                            List<string> SortedTomostarPaths = TomostarPaths.Keys.ToList();
+                            SortedTomostarPaths.Sort((a, b) => MdocPaths.IndexOf(TomostarPaths[a]).CompareTo(MdocPaths.IndexOf(TomostarPaths[b])));
+                            
+                            WriteMiniJson(Path.Combine(CLI.OutputPath, "failed_items.json"), SortedTomostarPaths.Select(p => new TiltSeries(p)));
+                        }
+                    }
+                    finally
+                    {
+                        lock (MdocPaths)
+                        {
+                            NDone++;
+                            string failedString = NFailed > 0 ? $", {NFailed} failed" : "";
+                            VirtualConsole.ClearLastLine();
+                            Console.Write($"{NDone}/{MdocPaths.Count}{failedString}");
                         }
                     }
                 });
 
+                Console.WriteLine();
                 Console.WriteLine($"Successfully parsed {NDone} MDOC files, {NFailed} failed");
             }
 

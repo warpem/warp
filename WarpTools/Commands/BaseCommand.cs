@@ -217,12 +217,10 @@ namespace WarpTools.Commands
                         if (isBatch)
                             Console.Error.WriteLine($"Failed to process batch {index}, marked as unselected");
                         else
-                            Console.Error
-                                   .WriteLine($"Failed to process {itemsToProcess[0].Path}, marked as unselected");
+                            Console.Error.WriteLine($"Failed to process {itemsToProcess[0].Path}, marked as unselected");
 
                         Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
-                        Console.Error
-                               .WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
+                        Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
 
                         Console.Error.WriteLine("Exception details: " + ex);
 
@@ -303,7 +301,7 @@ namespace WarpTools.Commands
             }
         }
 
-        private void WriteMiniJson<T>(string path, IEnumerable<T> items) where T : Movie
+        protected void WriteMiniJson<T>(string path, IEnumerable<T> items) where T : Movie
         {
             JsonArray itemsJson = new JsonArray(items.Select(series => series.ToMiniJson(""))
                                                      .ToArray());
