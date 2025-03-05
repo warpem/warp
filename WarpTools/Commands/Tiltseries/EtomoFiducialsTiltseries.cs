@@ -117,22 +117,21 @@ namespace WarpTools.Commands
             
             Console.WriteLine("Performing fiducial tracking on all tilt-series...");
             IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                {
-                    worker.TomoStack(t.Path, OptionsStack);
-                    worker.TomoEtomoFiducials(t.Path, OptionsEtomo);
-                    
-                    try
-                    {
-                        t.ImportAlignments(OptionsImport);
-                    }
-                    catch (Exception exc)
-                    {
-                        Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
-                    }
+            {
+                worker.TomoStack(t.Path, OptionsStack);
+                worker.TomoEtomoFiducials(t.Path, OptionsEtomo);
 
-                    t.SaveMeta();
+                try
+                {
+                    t.ImportAlignments(OptionsImport);
                 }
-            );
+                catch (Exception exc)
+                {
+                    Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
+                }
+
+                t.SaveMeta();
+            });
             
             // second iteration, calculate new alignments with average tilt axis angle from full dataset
             if (CLI.DoAxisAngleSearch) // only update alignments if it was requested

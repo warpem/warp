@@ -58,12 +58,14 @@ namespace WarpTools.Commands.Tiltseries
 
                 var Correlations = new List<float>();
 
-                foreach (var series in CLI.InputSeries.Select(m => (TiltSeries)m))
+                IterateOverItems<TiltSeries>(null, CLI, (_, series) =>
                 {
                     bool OriginalFlip = series.AreAnglesInverted;
                     series.AreAnglesInverted = false;
 
-                    Movie[] TiltMovies = series.TiltMoviePaths.Select(s => new Movie(Path.Combine(series.DataOrProcessingDirectoryName, s))).ToArray();
+                    Movie[] TiltMovies = series.TiltMoviePaths
+                                               .Select(s => new Movie(Path.Combine(series.DataOrProcessingDirectoryName,
+                                                                                   s))).ToArray();
 
                     if (TiltMovies.Any(m => m.GridCTFDefocus.Values.Length < 2))
                         throw new Exception("One or more tilt movies don't have local defocus information. " +
@@ -71,25 +73,38 @@ namespace WarpTools.Commands.Tiltseries
 
                     series.VolumeDimensionsPhysical = new float3((float)Options.Tomo.DimensionsX,
                                                                  (float)Options.Tomo.DimensionsY,
-                                                                 (float)Options.Tomo.DimensionsZ) * (float)Options.Import.PixelSize;
-                    series.ImageDimensionsPhysical = new float2(series.VolumeDimensionsPhysical.X, series.VolumeDimensionsPhysical.Y);
+                                                                 (float)Options.Tomo.DimensionsZ) *
+                                                      (float)Options.Import.PixelSize;
+                    series.ImageDimensionsPhysical =
+                        new float2(series.VolumeDimensionsPhysical.X, series.VolumeDimensionsPhysical.Y);
 
                     float[] GradientsEstimated = new float[series.NTilts];
                     float[] GradientsAssumed = new float[series.NTilts];
 
                     float3[] Points =
-                    {
+                    [
                         new float3(0, series.VolumeDimensionsPhysical.Y / 2, series.VolumeDimensionsPhysical.Z / 2),
-                        new float3(series.VolumeDimensionsPhysical.X, series.VolumeDimensionsPhysical.Y / 2, series.VolumeDimensionsPhysical.Z / 2)
-                    };
+                        new float3(series.VolumeDimensionsPhysical.X, series.VolumeDimensionsPhysical.Y / 2,
+                                   series.VolumeDimensionsPhysical.Z / 2)
+                    ];
 
-                    float3[] Projected0 = series.GetPositionInAllTilts(Points[0]).Select(v => v / new float3(series.ImageDimensionsPhysical.X, series.ImageDimensionsPhysical.Y, 1)).ToArray();
-                    float3[] Projected1 = series.GetPositionInAllTilts(Points[1]).Select(v => v / new float3(series.ImageDimensionsPhysical.X, series.ImageDimensionsPhysical.Y, 1)).ToArray();
+                    float3[] Projected0 = series.GetPositionInAllTilts(Points[0])
+                                                .Select(v => v / new float3(series.ImageDimensionsPhysical.X,
+                                                                            series.ImageDimensionsPhysical.Y, 1))
+                                                .ToArray();
+                    float3[] Projected1 = series.GetPositionInAllTilts(Points[1])
+                                                .Select(v => v / new float3(series.ImageDimensionsPhysical.X,
+                                                                            series.ImageDimensionsPhysical.Y, 1))
+                                                .ToArray();
 
                     for (int t = 0; t < series.NTilts; t++)
                     {
-                        float Interp0 = TiltMovies[t].GridCTFDefocus.GetInterpolated(new float3(Projected0[t].X, Projected0[0].Y, 0.5f));
-                        float Interp1 = TiltMovies[t].GridCTFDefocus.GetInterpolated(new float3(Projected1[t].X, Projected1[0].Y, 0.5f));
+                        float Interp0 = TiltMovies[t].GridCTFDefocus
+                                                     .GetInterpolated(new float3(Projected0[t].X, Projected0[0].Y,
+                                                                                 0.5f));
+                        float Interp1 = TiltMovies[t].GridCTFDefocus
+                                                     .GetInterpolated(new float3(Projected1[t].X, Projected1[0].Y,
+                                                                                 0.5f));
                         GradientsEstimated[t] = Interp1 - Interp0;
 
                         GradientsAssumed[t] = Projected1[t].Z - Projected0[t].Z;
@@ -106,15 +121,12 @@ namespace WarpTools.Commands.Tiltseries
                         GradientsAssumed[0] = Math.Sign(GradientsAssumed[0]);
                     }
 
-                    float Correlation = MathHelper.DotProduct(GradientsEstimated, GradientsAssumed) / GradientsEstimated.Length;
+                    float Correlation = MathHelper.DotProduct(GradientsEstimated, GradientsAssumed) /
+                                        GradientsEstimated.Length;
                     Correlations.Add(Correlation);
 
-                    VirtualConsole.ClearLastLine();
-                    Console.Write($"{Correlations.Count}/{CLI.InputSeries.Length}, {Correlations.Average():F3}");
-
                     series.AreAnglesInverted = OriginalFlip;
-                }
-                Console.WriteLine("");
+                }, crashOnFail: true);
 
                 CorrelationAll = Correlations.Average();
 

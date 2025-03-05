@@ -1,4 +1,4 @@
-﻿using CommandLine;
+using CommandLine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,52 +67,16 @@ namespace WarpTools.Commands
                 throw new Exception("--top_series must be positive");
 
             #endregion
-            
-            #region Create symbolic link to matching dir if necessary
-            
-            if (!string.IsNullOrEmpty(CLI.InputProcessing) && !string.IsNullOrEmpty(CLI.OutputProcessing))
-            {
-                string inputMatchingDir = Path.Combine(CLI.InputProcessing, "matching");
-                string outputMatchingDir = Path.Combine(CLI.OutputProcessing, "matching");
-                
-                Console.WriteLine($"Both --input_processing and --output_processing are set, attempting to link matching results from {inputMatchingDir} to {outputMatchingDir}...");
-
-                if (!Directory.Exists(inputMatchingDir))
-                    throw new Exception($"No matching directory found at {inputMatchingDir}");
-                
-                if (Directory.Exists(outputMatchingDir))
-                {
-                    DirectoryInfo dirInfo = new DirectoryInfo(outputMatchingDir);
-                    bool outputReconstructionDirIsSymbolicLink = dirInfo.LinkTarget != null;
-
-                    if (outputReconstructionDirIsSymbolicLink)
-                        Directory.Delete(outputMatchingDir);
-                    else
-                        throw new Exception("Matching directory exists and is not a symbolic link, cannot replace");
-                }
-
-                if (!Directory.Exists(CLI.OutputProcessing))
-                    Directory.CreateDirectory(CLI.OutputProcessing);
-                
-                Directory.CreateSymbolicLink(outputMatchingDir, pathToTarget: inputMatchingDir);
-                Console.WriteLine("Matching directory successfully linked.");
-            }
-            
-            #endregion
 
             var TablesIn = new Dictionary<Movie, Star>();
             int ParticlesIn = 0;
             int ParticlesOut = 0;
             var AverageScores = new Dictionary<Movie, float>();
 
-            int NDone = 0;
             string FullSuffix = "";  // store the full suffix for use when writing output files
-            Console.Write($"0/{CLI.InputSeries.Length}");
-            foreach (var item in CLI.InputSeries)
+            IterateOverItems<Movie>(null, CLI, (_, item) =>
             {
-                var MatchingFiles = Directory.EnumerateFiles(
-                    path: item.MatchingDir, searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star"
-                );
+                var MatchingFiles = Directory.EnumerateFiles(path: item.MatchingDir, searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star");
                 if (MatchingFiles.Count() > 1)
                 {
                     Console.WriteLine($"found multiple files matching {item.RootName}_*{CLI.InSuffix}.star");
@@ -123,6 +87,7 @@ namespace WarpTools.Commands
                 }
                 else if (MatchingFiles.Count() == 0)
                     throw new Exception($"No files found matching {item.RootName}_*{CLI.InSuffix}.star");
+
                 string PathTable = MatchingFiles.First();
                 FullSuffix = Path.GetFileNameWithoutExtension(PathTable).Substring(startIndex: item.RootName.Length + 1);
 
@@ -156,12 +121,8 @@ namespace WarpTools.Commands
 
                 AverageScores.Add(item, Rows.Count() > 0 ? Helper.IndexedSubset(Scores, Rows.ToArray()).Average() : 0);
                 if (Rows.Count() == 0)
-                    Console.WriteLine($"\nWarning: {item.RootName} has no particles left after thresholding");
-
-                VirtualConsole.ClearLastLine();
-                Console.Write($"{++NDone}/{CLI.InputSeries.Length} parsed");
-            }
-            Console.WriteLine("");
+                    Console.Error.WriteLine($"\nWarning: {item.RootName} has no particles left after thresholding");
+            });
             Console.WriteLine($"{ParticlesIn} particles found");
             Console.WriteLine($"{ParticlesOut} particles left after thresholding");
 
@@ -188,7 +149,7 @@ namespace WarpTools.Commands
             }
             else
             {
-                NDone = 0;
+                int NDone = 0;
                 Console.Write($"0/{TablesIn.Count} saved");
                 foreach (var item in TablesIn)
                 {

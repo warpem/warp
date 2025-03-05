@@ -172,14 +172,7 @@ namespace WarpTools.Commands
 
                     worker.TomoAretomo(t.Path, OptionsAretomo);
 
-                    try
-                    {
-                        t.ImportAlignments(OptionsImport);
-                    }
-                    catch (Exception exc)
-                    {
-                        Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
-                    }
+                    t.ImportAlignments(OptionsImport);
 
                     if (LastIter)
                         t.SaveMeta();

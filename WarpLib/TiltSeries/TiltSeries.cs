@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -2323,6 +2324,46 @@ namespace Warp
                 Writer.WriteEndElement();
                 Writer.WriteEndDocument();
             }
+        }
+
+        public override JsonNode ToMiniJson(string particleSuffix = null)
+        {
+            JsonNode Json = new JsonObject();
+
+            // Path relative to processing folder, i.e. just the file name
+            // Full path to data (including if it's in a nested folder) is stored in XML metadata
+            Json["Path"] = Helper.PathToNameWithExtension(Path);
+
+            // ProcessingStatus enum
+            Json["Stat"] = (int)ProcessingStatus;
+
+            // CTF
+            {
+                // Defocus
+                Json["Def"] = CTF == null ? null : MathF.Round((float)CTF.Defocus, 4);
+
+                // Phase shift
+                Json["Phs"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
+
+                // Estimated resolution
+                Json["Rsn"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
+
+                // Astigmatism plot X and Y
+                Json["AsX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+                Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+            }
+
+            // Tilt count
+            Json["Tlts"] = NTilts;
+
+            // Particle count for given suffix
+            if (particleSuffix != null)
+            {
+                int ParticleCount = GetParticleCount(particleSuffix);
+                Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+            }
+
+            return Json;
         }
 
         #endregion

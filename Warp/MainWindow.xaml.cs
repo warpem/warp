@@ -2286,7 +2286,7 @@ namespace Warp
 
             try
             {
-                JsonArray ItemsJson = new JsonArray(Items.Select(m => m.ToMiniJson(Options.Filter.ParticlesSuffix)).ToArray());
+                JsonArray ItemsJson = new JsonArray(Items.Select(m => m.ToMiniJson()).ToArray());
                 File.WriteAllText(Path.Join(Options.Import.ProcessingOrDataFolder, "items.json"), ItemsJson.ToJsonString(new JsonSerializerOptions() { WriteIndented = true }));
             }
             catch { }
