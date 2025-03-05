@@ -16,6 +16,23 @@ namespace Warp.Tools
         private List<float2> PointsExtended;
 
         public bool IsClosed { get; set; }
+        public float EstimatedLength
+        {
+            get
+            {
+                var t = Helper.ArrayOfFunction(i => (float)i / 10000f, n: 10000);
+                var points = this.GetInterpolated(t);
+                float length = 0f;
+                for (int i = 0; i < t.Length - 1; i++)
+                {
+                    float2 current = points[i];
+                    float2 next = points[i + 1];
+                    float2 diff = next - current;
+                    length += MathF.Sqrt(diff.X * diff.X + diff.Y * diff.Y);
+                }
+                return length;
+            }
+        }
 
         public ReadOnlyCollection<float2> Points { get; }
 
