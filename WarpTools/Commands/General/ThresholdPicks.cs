@@ -1,4 +1,4 @@
-﻿using CommandLine;
+using CommandLine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,38 +67,6 @@ namespace WarpTools.Commands
                 throw new Exception("--top_series must be positive");
 
             #endregion
-            
-            #region Create symbolic link to matching dir if necessary
-            
-            if (!string.IsNullOrEmpty(CLI.InputProcessing) && !string.IsNullOrEmpty(CLI.OutputProcessing))
-            {
-                string inputMatchingDir = Path.Combine(CLI.InputProcessing, "matching");
-                string outputMatchingDir = Path.Combine(CLI.OutputProcessing, "matching");
-                
-                Console.WriteLine($"Both --input_processing and --output_processing are set, attempting to link matching results from {inputMatchingDir} to {outputMatchingDir}...");
-
-                if (!Directory.Exists(inputMatchingDir))
-                    throw new Exception($"No matching directory found at {inputMatchingDir}");
-                
-                if (Directory.Exists(outputMatchingDir))
-                {
-                    DirectoryInfo dirInfo = new DirectoryInfo(outputMatchingDir);
-                    bool outputReconstructionDirIsSymbolicLink = dirInfo.LinkTarget != null;
-
-                    if (outputReconstructionDirIsSymbolicLink)
-                        Directory.Delete(outputMatchingDir);
-                    else
-                        throw new Exception("Matching directory exists and is not a symbolic link, cannot replace");
-                }
-
-                if (!Directory.Exists(CLI.OutputProcessing))
-                    Directory.CreateDirectory(CLI.OutputProcessing);
-                
-                Directory.CreateSymbolicLink(outputMatchingDir, pathToTarget: inputMatchingDir);
-                Console.WriteLine("Matching directory successfully linked.");
-            }
-            
-            #endregion
 
             var TablesIn = new Dictionary<Movie, Star>();
             int ParticlesIn = 0;
@@ -108,8 +76,7 @@ namespace WarpTools.Commands
             string FullSuffix = "";  // store the full suffix for use when writing output files
             IterateOverItems<Movie>(null, CLI, (_, item) =>
             {
-                var MatchingFiles = Directory.EnumerateFiles(path: item.MatchingDir,
-                                                             searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star");
+                var MatchingFiles = Directory.EnumerateFiles(path: item.MatchingDir, searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star");
                 if (MatchingFiles.Count() > 1)
                 {
                     Console.WriteLine($"found multiple files matching {item.RootName}_*{CLI.InSuffix}.star");
@@ -122,8 +89,7 @@ namespace WarpTools.Commands
                     throw new Exception($"No files found matching {item.RootName}_*{CLI.InSuffix}.star");
 
                 string PathTable = MatchingFiles.First();
-                FullSuffix = Path.GetFileNameWithoutExtension(PathTable)
-                                 .Substring(startIndex: item.RootName.Length + 1);
+                FullSuffix = Path.GetFileNameWithoutExtension(PathTable).Substring(startIndex: item.RootName.Length + 1);
 
                 Star TableIn = new Star(PathTable);
 
@@ -134,8 +100,7 @@ namespace WarpTools.Commands
 
                 ParticlesIn += TableIn.RowCount;
 
-                float[] Scores = TableIn.GetColumn("rlnAutopickFigureOfMerit")
-                                        .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+                float[] Scores = TableIn.GetColumn("rlnAutopickFigureOfMerit").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
                 var Rows = Enumerable.Range(0, Scores.Length);
 
                 if (CLI.Minimum.HasValue)
