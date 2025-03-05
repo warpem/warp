@@ -31,6 +31,9 @@ namespace WarpTools.Commands
 
         [Option("input_norawdata", HelpText = "Ignore the existence of raw data and look for XML metadata in the processing directory instead.")]
         public bool InputNoRawData { get; set; }
+        
+        [Option("strict", HelpText = "Ensures that progress report formatting stays the same across all tools.")]
+        public bool StrictFormatting { get; set; }
 
         public OptionsWarp Options { get; set; }
 

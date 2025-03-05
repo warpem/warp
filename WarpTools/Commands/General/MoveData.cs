@@ -31,34 +31,17 @@ namespace WarpTools.Commands.General
 
             OptionsWarp OldOptions = new OptionsWarp();
             OldOptions.Load(CLI.SettingsPath);
-
-            OldOptions.Import.DataFolder = CLI.To;
-
+            {
+                OldOptions.Import.DataFolder = CLI.To;
+            }
             OldOptions.Save(CLI.NewSettings);
 
             CLI.Evaluate();
 
-            Console.WriteLine("Saving updated metadata...");
-            Console.Write($"0/{CLI.InputSeries.Length}");
-            int NDone = 0;
-
-            Helper.ForCPUGreedy(0, CLI.InputSeries.Length, 8, null, (i, threadID) =>
+            IterateOverItems<Movie>(null, CLI, (_, movie) =>
             {
-                CLI.InputSeries[i].SaveMeta();
-
-                lock (CLI.InputSeries)
-                {
-                    NDone++;
-
-                    if (NDone % 10 == 0 || NDone == CLI.InputSeries.Length)
-                    {
-                        VirtualConsole.ClearLastLine();
-                        Console.Write($"{NDone}/{CLI.InputSeries.Length}");
-                    }
-                }
-            }, null);     
-
-            Console.WriteLine();
+                movie.SaveMeta();
+            }, oversubscribe: 8);
         }
     }
 }

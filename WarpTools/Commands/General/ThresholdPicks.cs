@@ -105,14 +105,11 @@ namespace WarpTools.Commands
             int ParticlesOut = 0;
             var AverageScores = new Dictionary<Movie, float>();
 
-            int NDone = 0;
             string FullSuffix = "";  // store the full suffix for use when writing output files
-            Console.Write($"0/{CLI.InputSeries.Length}");
-            foreach (var item in CLI.InputSeries)
+            IterateOverItems<Movie>(null, CLI, (_, item) =>
             {
-                var MatchingFiles = Directory.EnumerateFiles(
-                    path: item.MatchingDir, searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star"
-                );
+                var MatchingFiles = Directory.EnumerateFiles(path: item.MatchingDir,
+                                                             searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star");
                 if (MatchingFiles.Count() > 1)
                 {
                     Console.WriteLine($"found multiple files matching {item.RootName}_*{CLI.InSuffix}.star");
@@ -123,8 +120,10 @@ namespace WarpTools.Commands
                 }
                 else if (MatchingFiles.Count() == 0)
                     throw new Exception($"No files found matching {item.RootName}_*{CLI.InSuffix}.star");
+
                 string PathTable = MatchingFiles.First();
-                FullSuffix = Path.GetFileNameWithoutExtension(PathTable).Substring(startIndex: item.RootName.Length + 1);
+                FullSuffix = Path.GetFileNameWithoutExtension(PathTable)
+                                 .Substring(startIndex: item.RootName.Length + 1);
 
                 Star TableIn = new Star(PathTable);
 
@@ -135,7 +134,8 @@ namespace WarpTools.Commands
 
                 ParticlesIn += TableIn.RowCount;
 
-                float[] Scores = TableIn.GetColumn("rlnAutopickFigureOfMerit").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+                float[] Scores = TableIn.GetColumn("rlnAutopickFigureOfMerit")
+                                        .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
                 var Rows = Enumerable.Range(0, Scores.Length);
 
                 if (CLI.Minimum.HasValue)
@@ -156,12 +156,8 @@ namespace WarpTools.Commands
 
                 AverageScores.Add(item, Rows.Count() > 0 ? Helper.IndexedSubset(Scores, Rows.ToArray()).Average() : 0);
                 if (Rows.Count() == 0)
-                    Console.WriteLine($"\nWarning: {item.RootName} has no particles left after thresholding");
-
-                VirtualConsole.ClearLastLine();
-                Console.Write($"{++NDone}/{CLI.InputSeries.Length} parsed");
-            }
-            Console.WriteLine("");
+                    Console.Error.WriteLine($"\nWarning: {item.RootName} has no particles left after thresholding");
+            });
             Console.WriteLine($"{ParticlesIn} particles found");
             Console.WriteLine($"{ParticlesOut} particles left after thresholding");
 
@@ -188,7 +184,7 @@ namespace WarpTools.Commands
             }
             else
             {
-                NDone = 0;
+                int NDone = 0;
                 Console.Write($"0/{TablesIn.Count} saved");
                 foreach (var item in TablesIn)
                 {

@@ -148,34 +148,33 @@ namespace WarpTools.Commands.Tiltseries
             int NDone = 0;
             Console.Write($"Processing tilt series: {NDone}/{CLI.InputSeries.Length}");
 
-            Helper.ForCPUGreedy(0, CLI.InputSeries.Length, 8, null, (iseries, threadID) =>
+            IterateOverItems<TiltSeries>(null, CLI, (_, series) =>
             {
-                TiltSeries S = CLI.InputSeries[iseries] as TiltSeries;
-                S.VolumeDimensionsPhysical = TomogramDims;
-                var ImageHeader = MapHeader.ReadFromFile(new Movie(Path.Combine(S.DataOrProcessingDirectoryName, S.TiltMoviePaths.First())).DataPath);
-                S.ImageDimensionsPhysical = new float2(new int2(ImageHeader.Dimensions)) * (float)Options.Import.PixelSize;
-                float2 ImageCenter = S.ImageDimensionsPhysical * 0.5f;
+                series.VolumeDimensionsPhysical = TomogramDims;
+                var ImageHeader = MapHeader.ReadFromFile(new Movie(Path.Combine(series.DataOrProcessingDirectoryName, series.TiltMoviePaths.First())).DataPath);
+                series.ImageDimensionsPhysical = new float2(new int2(ImageHeader.Dimensions)) * (float)Options.Import.PixelSize;
+                float2 ImageCenter = series.ImageDimensionsPhysical * 0.5f;
 
                 List<float2> AllPositions = new();
                 List<float3> AllAngles = new();
                 List<float3> AllDefocus = new();
 
-                int NTiltsValid = S.UseTilt.Count(b => b);
+                int NTiltsValid = series.UseTilt.Count(b => b);
 
                 foreach (var pos in InputPositionsDecentered)
                 {
-                    var Positions = S.GetPositionInAllTilts(pos);
-                    var Angles = S.GetAngleInAllTilts(pos);
+                    var Positions = series.GetPositionInAllTilts(pos);
+                    var Angles = series.GetAngleInAllTilts(pos);
 
-                    for (int t = 0; t < S.NTilts; t++)
+                    for (int t = 0; t < series.NTilts; t++)
                     {
-                        if (!S.UseTilt[t])
+                        if (!series.UseTilt[t])
                             continue;
 
                         AllPositions.Add(new float2(Positions[t].X, Positions[t].Y) - ImageCenter);
                         AllAngles.Add(Angles[t] * Helper.ToDeg);
 
-                        CTF CTF = S.GetCTFParamsForOneTilt(1, [Positions[t].Z], [pos], t, false).First();
+                        CTF CTF = series.GetCTFParamsForOneTilt(1, [Positions[t].Z], [pos], t, false).First();
                         AllDefocus.Add(new float3((float)(CTF.Defocus + CTF.DefocusDelta / 2) * 1e4f,
                                                   (float)(CTF.Defocus - CTF.DefocusDelta / 2) * 1e4f,
                                                   (float)CTF.DefocusAngle));
@@ -210,19 +209,19 @@ namespace WarpTools.Commands.Tiltseries
                                                 AllDefocus[ipoint * NTiltsValid + t].Z.ToString("F4", CultureInfo.InvariantCulture)]);
 
                 Star TableOutTilts = new Star(["tiltID", "imageName", "voltage", "cs", "phaseShift"]);
-                for (int t = 0, tValid = 0; t < S.NTilts; t++)
+                for (int t = 0, tValid = 0; t < series.NTilts; t++)
                 {
-                    if (!S.UseTilt[t])
+                    if (!series.UseTilt[t])
                         continue;
 
                     TableOutTilts.AddRow([(++tValid).ToString(),
-                                          S.TiltMoviePaths[t],
-                                          S.CTF.Voltage.ToString("F2", CultureInfo.InvariantCulture),
-                                          S.CTF.Cs.ToString("F4", CultureInfo.InvariantCulture),
-                                          (S.GetTiltPhase(t) * 180).ToString("F2", CultureInfo.InvariantCulture)]);
+                                          series.TiltMoviePaths[t],
+                                          series.CTF.Voltage.ToString("F2", CultureInfo.InvariantCulture),
+                                          series.CTF.Cs.ToString("F4", CultureInfo.InvariantCulture),
+                                          (series.GetTiltPhase(t) * 180).ToString("F2", CultureInfo.InvariantCulture)]);
                 }
 
-                Star.SaveMultitable(Path.Combine(CLI.OutputFolder, $"{S.RootName}.star"),
+                Star.SaveMultitable(Path.Combine(CLI.OutputFolder, $"{series.RootName}.star"),
                                     new Dictionary<string, Star>() { { "points", TableOutInputs },
                                                                      { "tilts", TableOutTilts},
                                                                      { "mappings", TableOutMappings } });
@@ -232,7 +231,7 @@ namespace WarpTools.Commands.Tiltseries
                     VirtualConsole.ClearLastLine();
                     Console.Write($"Processing tilt series: {++NDone}/{CLI.InputSeries.Length}");
                 }
-            }, null);
+            }, null, 8);
 
             Console.WriteLine();
         }

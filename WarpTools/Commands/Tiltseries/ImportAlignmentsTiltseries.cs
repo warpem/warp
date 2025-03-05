@@ -50,29 +50,16 @@ namespace WarpTools.Commands
             
             OptionsImport.MinFOV = (decimal)CLI.MinFOV;
             OptionsImport.BinTimes = (decimal)Math.Log(CLI.AlignmentAngPix / (double)Options.Import.PixelSize, 2.0);
+            
+            if (Helper.IsDebug && !CLI.StrictFormatting)
+                Console.WriteLine($"override results dir: {OptionsImport.OverrideResultsDir}");
 
-            int NDone = 0;
-            int NFailed = 0;
-            foreach (var series in CLI.InputSeries.Select(m => (TiltSeries)m))
+            IterateOverItems<TiltSeries>(null, CLI, (_, series) =>
             {
-                try
-                {
-                    OptionsImport.OverrideResultsDir = Path.Combine(CLI.AlignmentPath, series.RootName);
-                    if (Helper.IsDebug)
-                        Console.WriteLine($"override results dir: {OptionsImport.OverrideResultsDir}");
-                    series.ImportAlignments(OptionsImport);
-                    series.SaveMeta();
-
-                    NDone++;
-                    Console.WriteLine($"Successfully imported alignments for {series.Name}, {series.UseTilt.Count(v => v)}/{series.NTilts} tilts remaining");
-                }
-                catch (Exception exc)
-                {
-                    NFailed++;
-                    Console.WriteLine($"Failed to import alignments for {series.Name}: {exc.Message}");
-                }
-                
-            }
+                OptionsImport.OverrideResultsDir = Path.Combine(CLI.AlignmentPath, series.RootName);
+                series.ImportAlignments(OptionsImport);
+                series.SaveMeta();
+            });
         }
     }
 }

@@ -129,9 +129,9 @@ namespace WarpTools.Commands
                 CLI.InputSeries = SeriesToUse;
 
                 Console.WriteLine($"Estimating the CTF for {CLI.AutoHand} tilt series to check handedness...");
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
+                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                 {
-                    worker.TomoProcessCTF(m.Path, OptionsCTF);
+                    worker.TomoProcessCTF(t.Path, OptionsCTF);
                 });
 
                 #region Calculate correlation

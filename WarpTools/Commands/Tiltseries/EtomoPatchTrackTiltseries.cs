@@ -160,7 +160,6 @@ namespace WarpTools.Commands
 
                     t.SaveMeta();
                 });
-
             }
             
             if (CLI.DeleteIntermediate)
