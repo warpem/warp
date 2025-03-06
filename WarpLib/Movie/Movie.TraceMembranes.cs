@@ -78,9 +78,7 @@ namespace Warp
                 // trace 1px thick ridges through each membrane, prune any extra branches in the resulting skeleton
                 var skeleton = TraceMembranesHelper.Skeletonize(maskRaw);
                 TraceMembranesHelper.PruneBranchesInPlace(skeleton);
-                Image skeletonScaled = skeleton.AsScaled(new int3(4096, 4096, 1));
-                skeletonScaled.Binarize(0.5f);
-                skeletonScaled.WriteMRC16b("ab_skeleton_pruned.mrc");
+                skeleton.WriteMRC16b("ab_skeleton_pruned.mrc");
 
                 // find each individual 1px thick membrane in preprocessed skeleton
                 components = skeleton.GetConnectedComponents()
@@ -631,6 +629,8 @@ public static class TraceMembranesHelper
                 float val = recData[coord0] * weight0 + recData[coord1] * weight1;
                 int i = iPixel.Y * initialMembraneImage.Dims.X + iPixel.X;
                 initialMembraneImageData[i] = val;
+
+                membraneRefVals[p] = imageData[i];
             }
 
             string outputPath = $"ab_initialmembrane.mrc";
@@ -692,6 +692,8 @@ public static class TraceMembranesHelper
                 return Math.Sqrt(result / membranePixels.Length);
             };
 
+            int gradIteration = 0;
+
             // Calculate gradient for optimization
             Func<double[], double[]> grad = (input) =>
             {
@@ -707,14 +709,55 @@ public static class TraceMembranesHelper
                     result[i] = (eval(inputPlus) - eval(inputMinus)) / 2e-3;
                 }
 
+                Console.WriteLine(eval(input));
+
+                if (false)
+                {
+                    Image alteredMembraneImage = new Image(image.Dims);
+                    alteredMembraneImage.Fill(0f);
+                    float[] initialMembraneImageData = alteredMembraneImage.GetHost(Intent.ReadWrite)[0];
+
+                    Image alteredOriginalImage = new Image(image.Dims);
+                    alteredOriginalImage.Fill(0f);
+                    float[] initialOriginalImageData = alteredOriginalImage.GetHost(Intent.ReadWrite)[0];
+
+                    for (int p = 0; p < membranePixels.Length; p++)
+                    {
+                        iPixel = membranePixels[p];
+                        float coord = GetSignedDistanceFromMembrane(
+                            pixelLocation: new float2(iPixel),
+                            closestPointOnSpline: points[membraneClosestPointIdx[p]],
+                            tangent: membraneTangents[p],
+                            normal: membraneNormals[p],
+                            segmentLength: membraneSegmentLengths[p]
+                        );
+                        coord += maxDistance;
+                        coord = Math.Clamp(coord, 0, recDim - 1);
+
+                        int coord0 = (int)coord;
+                        int coord1 = Math.Min(recDim - 1, coord0 + 1);
+                        float weight1 = (coord - coord0);
+                        float weight0 = 1 - weight1;
+
+                        float val = recData[coord0] * weight0 + recData[coord1] * weight1;
+                        int i = iPixel.Y * alteredMembraneImage.Dims.X + iPixel.X;
+                        initialMembraneImageData[i] = val;
+
+                        initialOriginalImageData[i] = membraneRefVals[p];
+                    }
+
+                    alteredMembraneImage.WriteMRC16b($"d_alteredmembrane_it{gradIteration:D3}.mrc", true);
+                    alteredOriginalImage.WriteMRC16b($"d_alteredoriginal_it{gradIteration:D3}.mrc", true);
+                    gradIteration++;
+                }
+
                 return result;
             };
 
             // Perform optimization
             try
             {
-                BroydenFletcherGoldfarbShanno optimizer =
-                    new BroydenFletcherGoldfarbShanno(optimizationInput.Length, eval, grad);
+                BroydenFletcherGoldfarbShanno optimizer = new BroydenFletcherGoldfarbShanno(optimizationInput.Length, eval, grad);
                 optimizer.MaxIterations = 10;
                 optimizer.MaxLineSearch = 5;
                 optimizer.Minimize(optimizationInput);
