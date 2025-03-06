@@ -56,6 +56,9 @@ namespace WarpTools.Commands
 
         [Option('o', "output", Required = true, HelpText = "Path to a folder where the created .tomostar files will be saved")]
         public string OutputPath { get; set; }
+        
+        [Option("strict", HelpText = "Ensures that progress report formatting stays the same across all tools.")]
+        public bool StrictFormatting { get; set; }
     }
 
     class ImportTiltseries : BaseCommand
