@@ -331,29 +331,29 @@ public static class TraceMembranesHelper
                 skeletonData[i] = 0;
             }
         }
-        
+
         // set values to 0 at image borders
         // Top and bottom rows
         for (int x = 0; x < width; x++)
         {
             // Top row
             skeletonData[x] = 0;
-        
+
             // Bottom row
             skeletonData[(height - 1) * width + x] = 0;
         }
-    
+
         // Left and right columns (excluding the corners which were already handled)
         for (int y = 1; y < height - 1; y++)
         {
             // Left column
             skeletonData[y * width] = 0;
-        
+
             // Right column
             skeletonData[y * width + (width - 1)] = 0;
         }
-        
-        
+
+
         return skeleton;
     }
 
@@ -369,7 +369,7 @@ public static class TraceMembranesHelper
 
         // Fit spline to component pixels
         SplinePath2D spline = ComponentToSpline(componentIndices, skeleton, controlPointSpacing);
-            
+
         // Rescale control points to unbinned image pixel space
         var rescaledControlPoints = spline.Points.ToArray();
         for (int i = 0; i < rescaledControlPoints.Length; i++)
@@ -543,6 +543,7 @@ public static class TraceMembranesHelper
         double[] optimizationInput = new double[controlPoints.Length + intensitySpline.Points.Count];
         double[] optimizationFallback = optimizationInput.ToArray();
         int recDim = maxDistance * 2;
+        
         // Pre-calculate 1D profile once per iteration
         float[] recData = new float[recDim];
         float[] recWeights = new float[recDim];
@@ -590,7 +591,7 @@ public static class TraceMembranesHelper
 
             for (int i = 0; i < recDim; i++)
                 recData[i] /= Math.Max(1e-16f, recWeights[i]);
-            
+
             // Make a diagnostic image of the 1D profile for comparison with python
             Image profile2d = new Image(new int3(recDim, 200, 1));
             float[] profileData = profile2d.GetHost(Intent.ReadWrite)[0];
@@ -601,6 +602,7 @@ public static class TraceMembranesHelper
                     profileData[y * recDim + x] = recData[x];
                 }
             }
+
             profile2d.WriteMRC16b("ab_profile_2d.mrc");
 
             // Make a diagnostic image of the initial reconstruction of this membrane from the 1d profile
@@ -745,7 +747,7 @@ public static class TraceMembranesHelper
             finalIntensityControls[finalIntensityControls.Length - 1] = finalIntensityControls[0];
 
         SplinePath1D finalIntensitySpline = new SplinePath1D(finalIntensityControls, initialSpline.IsClosed);
-        
+
         // Make a diagnostic image of the initial reconstruction of this membrane from the 1d profile
         Image finalMembraneImage = new Image(image.Dims);
         finalMembraneImage.Fill(0f);
@@ -908,9 +910,9 @@ public static class TraceMembranesHelper
         List<int> junctions = new List<int>();
         List<int> endpoints = new List<int>();
 
-        for (int y = 1; y < height - 1; y++)
+        for (int y = 0; y < height; y++)
         {
-            for (int x = 1; x < width - 1; x++)
+            for (int x = 0; x < width; x++)
             {
                 int i = y * width + x;
 
@@ -948,22 +950,25 @@ public static class TraceMembranesHelper
             }
         }
 
-        // Trace from each endpoint to find branches...
-        foreach (int endpoint in endpoints)
+        // Process each junction to keep only the two longest branches
+        foreach (int junction in junctions)
         {
-            List<int> branch = TraceFromEndpoint(skeletonData, endpoint, width);
+            // Get all branches starting from this junction
+            List<List<int>> branches = FindBranchesFromJunction(skeletonData, junction, width);
 
-            // Find if this branch connects to a junction
-            int lastPixel = branch[branch.Count - 1];
-            bool connectsToJunction = junctions.Contains(lastPixel);
+            // Sort branches by length (longest first)
+            branches.Sort((a, b) => b.Count.CompareTo(a.Count));
 
-            // Remove branch if it connects to a junction
-            if (connectsToJunction)
+            // Remove all but the two longest branches
+            for (int i = 2; i < branches.Count; i++)
             {
-                // Remove all pixels in branch except the junction point
-                for (int i = 0; i < branch.Count - 1; i++)
+                foreach (int pixel in branches[i])
                 {
-                    skeletonData[branch[i]] = 0;
+                    // Don't remove the junction point itself
+                    if (pixel != junction)
+                    {
+                        skeletonData[pixel] = 0;
+                    }
                 }
             }
         }
@@ -971,73 +976,109 @@ public static class TraceMembranesHelper
         return skeleton;
     }
 
-    private static List<int> TraceFromEndpoint(float[] imageData, int startPixel, int width)
+    private static List<List<int>> FindBranchesFromJunction(float[] imageData, int junctionPixel, int width)
     {
-        List<int> branch = new List<int>();
-        branch.Add(startPixel);
+        List<List<int>> branches = new List<List<int>>();
 
-        int currentPixel = startPixel;
-        bool continueTracing = true;
-
-        while (continueTracing)
+        // Find initial neighbors of the junction
+        int[] offsets = new int[]
         {
-            // Find the next pixel in the branch
-            int[] offsets = new int[]
+            -1, // Left
+            -width - 1, // TopLeft
+            -width, // Top
+            -width + 1, // TopRight
+            1, // Right
+            width + 1, // BottomRight
+            width, // Bottom
+            width - 1 // BottomLeft
+        };
+
+        // Create a temporary copy of the image data to work with
+        float[] tempData = new float[imageData.Length];
+        Array.Copy(imageData, tempData, imageData.Length);
+
+        // Mark the junction as visited
+        tempData[junctionPixel] = 2;
+
+        // Find all initial branch pixels (neighbors of the junction)
+        List<int> initialBranchPixels = new List<int>();
+        foreach (int offset in offsets)
+        {
+            int neighborPixel = junctionPixel + offset;
+
+            // No bounds checking needed as guaranteed by caller
+
+            // Check if this is a valid branch pixel
+            if (tempData[neighborPixel] == 1)
             {
-                -1, // Left
-                -width - 1, // TopLeft
-                -width, // Top
-                -width + 1, // TopRight
-                1, // Right
-                width + 1, // BottomRight
-                width, // Bottom
-                width - 1 // BottomLeft
-            };
-
-            bool foundNext = false;
-            foreach (int offset in offsets)
-            {
-                int nextPixel = currentPixel + offset;
-
-                // Make sure nextPixel is within bounds
-                if (nextPixel < 0 || nextPixel >= imageData.Length) continue;
-
-                // Check if this is a valid next pixel
-                if (imageData[nextPixel] > 0 && !branch.Contains(nextPixel))
-                {
-                    branch.Add(nextPixel);
-                    currentPixel = nextPixel;
-                    foundNext = true;
-
-                    // Check if this is a junction (has more than 2 neighbors)
-                    int neighborCount = 0;
-                    foreach (int neighborOffset in offsets)
-                    {
-                        int neighbor = nextPixel + neighborOffset;
-                        if (neighbor >= 0 && neighbor < imageData.Length && imageData[neighbor] > 0)
-                        {
-                            neighborCount++;
-                        }
-                    }
-
-                    // Stop if we've reached a junction or another endpoint
-                    if (neighborCount > 2 || neighborCount == 1)
-                    {
-                        continueTracing = false;
-                    }
-
-                    break;
-                }
-            }
-
-            // Stop if we can't find a next pixel
-            if (!foundNext)
-            {
-                continueTracing = false;
+                initialBranchPixels.Add(neighborPixel);
             }
         }
 
-        return branch;
+        // Trace each branch starting from the initial branch pixels
+        foreach (int startPixel in initialBranchPixels)
+        {
+            // Start a new branch with the junction point and initial branch pixel
+            List<int> branch = new List<int>();
+            branch.Add(junctionPixel);
+            branch.Add(startPixel);
+
+            // Mark the initial branch pixel as visited
+            tempData[startPixel] = 2;
+
+            int currentPixel = startPixel;
+            bool continueTracing = true;
+
+            while (continueTracing)
+            {
+                // Find the next pixel in the branch
+                bool foundNext = false;
+                foreach (int offset in offsets)
+                {
+                    int nextPixel = currentPixel + offset;
+
+                    // No bounds checking needed as guaranteed by caller
+
+                    // Check if this is a valid next pixel (not visited and part of the skeleton)
+                    if (tempData[nextPixel] == 1)
+                    {
+                        branch.Add(nextPixel);
+                        tempData[nextPixel] = 2; // Mark as visited
+                        currentPixel = nextPixel;
+                        foundNext = true;
+
+                        // Check if this is a junction (has more than 2 neighbors)
+                        int neighborCount = 0;
+                        foreach (int neighborOffset in offsets)
+                        {
+                            int neighbor = nextPixel + neighborOffset;
+                            if (tempData[neighbor] > 0)
+                            {
+                                neighborCount++;
+                            }
+                        }
+
+                        // Stop if we've reached another junction or an endpoint
+                        if (neighborCount > 2 || neighborCount == 1)
+                        {
+                            continueTracing = false;
+                        }
+
+                        break;
+                    }
+                }
+
+                // Stop if we can't find a next pixel
+                if (!foundNext)
+                {
+                    continueTracing = false;
+                }
+            }
+
+            branches.Add(branch);
+        }
+
+        return branches;
     }
 
     public static List<int> FindEndpoints(Image skeleton, List<int> componentIndices)
