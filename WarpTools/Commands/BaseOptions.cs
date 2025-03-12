@@ -96,7 +96,7 @@ namespace WarpTools.Commands
                 string[] InputFiles = Directory.EnumerateFiles(InputNoRawData ? InputProcessing : SettingsDataDirectory,
                                                                InputNoRawData ? "*.xml" : Options.Import.Extension,
                                                                Options.Import.DoRecursiveSearch ? SearchOption.AllDirectories :
-                                                                                                  SearchOption.TopDirectoryOnly).ToArray();
+                                                                                                  SearchOption.TopDirectoryOnly).Order().ToArray();
 
                 InputData = InputFiles;
             }
@@ -121,7 +121,11 @@ namespace WarpTools.Commands
                         string PatternFile = Path.GetFileName(pattern);
 
                         // Find all matching files based on the pattern
-                        AllInputFiles.AddRange(Directory.EnumerateFiles(Helper.PathCombine(WorkingDataDirectory, PatternDir), PatternFile, InputDataRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly));
+                        AllInputFiles.AddRange(Directory.EnumerateFiles(Helper.PathCombine(WorkingDataDirectory, PatternDir),
+                                                                        PatternFile,
+                                                                        InputDataRecursive ?
+                                                                            SearchOption.AllDirectories :
+                                                                            SearchOption.TopDirectoryOnly));
                     }
                     else
                     {
@@ -129,7 +133,7 @@ namespace WarpTools.Commands
                     }
                 }
 
-                InputData = AllInputFiles.ToArray();
+                InputData = AllInputFiles.Order().ToArray();
             }
 
             // Check for duplicate file names in the input list
