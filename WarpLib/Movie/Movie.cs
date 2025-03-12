@@ -2364,6 +2364,11 @@ namespace Warp
                 Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
             }
 
+            // Motion
+            {
+                Json["Mtn"] = OptionsMovement == null ? null : (double)MeanFrameMovement;
+            }
+
             // 💩 percentage
             Json["Jnk"] = MaskPercentage < 0 ? null : MathF.Round((float)MaskPercentage, 1);
 
