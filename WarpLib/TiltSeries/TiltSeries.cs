@@ -2355,7 +2355,7 @@ namespace Warp
             }
 
             // Tilt count
-            Json["Tlts"] = JsonSerializer.Serialize(TiltMoviePaths);
+            Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths);
 
             // Particle count for given suffix
             if (particleSuffix != null)

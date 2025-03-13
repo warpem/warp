@@ -474,7 +474,7 @@ namespace WarpTools.Commands
                             List<string> SortedTomostarPaths = TomostarPaths.Keys.ToList();
                             SortedTomostarPaths.Sort((a, b) => MdocPaths.IndexOf(TomostarPaths[a]).CompareTo(MdocPaths.IndexOf(TomostarPaths[b])));
                             
-                            WriteMiniJson(Path.Combine(CLI.OutputPath, "failed_items.json"), SortedTomostarPaths.Select(p => new TiltSeries(p)));
+                            WriteMiniJson(Path.Combine(CLI.OutputPath, "failed_items.json"), FailedTomostarPaths.Select(kvp => new TiltSeries(kvp.Key)));
                         }
                     }
                     finally
