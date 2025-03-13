@@ -62,50 +62,104 @@ namespace Warp
 
         public string DataOrProcessingDirectoryName => string.IsNullOrEmpty(DataDirectoryName) ? ProcessingDirectoryName : DataDirectoryName;
 
-        public string PowerSpectrumDir => IOPath.Combine(ProcessingDirectoryName, "powerspectrum");
-        public string MotionTrackDir => IOPath.Combine(ProcessingDirectoryName, "motion");
-        public string AverageDir => IOPath.Combine(ProcessingDirectoryName, "average");
-        public string AverageOddDir => IOPath.Combine(AverageDir, "odd");
-        public string AverageEvenDir => IOPath.Combine(AverageDir, "even");
-        public string AverageDenoisedDir => IOPath.Combine(AverageDir, "denoised");
-        public string DeconvolvedDir => IOPath.Combine(ProcessingDirectoryName, "deconv");
-        public string DenoiseTrainingDir => IOPath.Combine(ProcessingDirectoryName, "denoising");
-        public string DenoiseTrainingDirOdd => IOPath.Combine(DenoiseTrainingDir, "odd");
-        public string DenoiseTrainingDirEven => IOPath.Combine(DenoiseTrainingDir, "even");
-        public string DenoiseTrainingDirCTF => IOPath.Combine(DenoiseTrainingDir, "ctf");
-        public string DenoiseTrainingDirModel => IOPath.Combine(DenoiseTrainingDir, "model.pt");
-        public string ShiftedStackDir => IOPath.Combine(ProcessingDirectoryName, "stack");
-        public string MaskDir => IOPath.Combine(ProcessingDirectoryName, "mask");
-        public string SegmentationDir => IOPath.Combine(ProcessingDirectoryName, "segmentation");
-        public string MembraneSegmentationDir => IOPath.Combine(SegmentationDir, "membranes");
-        public string ParticlesDir => IOPath.Combine(ProcessingDirectoryName, "particles");
-        public string ParticlesDenoisingOddDir => IOPath.Combine(ProcessingDirectoryName, "particles", "odd");
-        public string ParticlesDenoisingEvenDir => IOPath.Combine(ProcessingDirectoryName, "particles", "even");
-        public string ParticleTiltsDir => IOPath.Combine(ProcessingDirectoryName, "particletilts");
-        public string ParticleCTFDir => IOPath.Combine(ProcessingDirectoryName, "particlectf");
-        public string ParticleTiltsCTFDir => IOPath.Combine(ProcessingDirectoryName, "particletiltsctf");
-        public string ParticleMoviesCTFDir => IOPath.Combine(ProcessingDirectoryName, "particlemoviesctf");
-        public string MatchingDir => IOPath.Combine(ProcessingDirectoryName, "matching");
-        public string ThumbnailsDir => IOPath.Combine(ProcessingDirectoryName, "thumbnails");
-
+        public static readonly string PowerSpectrumDirName = "powerspectrum";
+        public string PowerSpectrumDir => IOPath.Combine(ProcessingDirectoryName, PowerSpectrumDirName);
+        
+        public static readonly string MotionTrackDirName = "motion";
+        public string MotionTrackDir => IOPath.Combine(ProcessingDirectoryName, MotionTrackDirName);
+        
+        public static readonly string AverageDirName = "average";
+        public string AverageDir => IOPath.Combine(ProcessingDirectoryName, AverageDirName);
+        
+        public static string AverageOddDirName => IOPath.Combine(AverageDirName, "odd");
+        public string AverageOddDir => IOPath.Combine(ProcessingDirectoryName, AverageOddDirName);
+        
+        public static string AverageEvenDirName => IOPath.Combine(AverageDirName, "even");
+        public string AverageEvenDir => IOPath.Combine(ProcessingDirectoryName, AverageEvenDirName);
+        
+        public static string AverageDenoisedDirName => IOPath.Combine(AverageDirName, "denoised");
+        public string AverageDenoisedDir => IOPath.Combine(ProcessingDirectoryName, AverageDenoisedDirName);
+        
+        public static readonly string DeconvolvedDirName = "deconv"; 
+        public string DeconvolvedDir => IOPath.Combine(ProcessingDirectoryName, DeconvolvedDirName);
+        
+        public static readonly string DenoiseTrainingDirName = "denoising";
+        public string DenoiseTrainingDir => IOPath.Combine(ProcessingDirectoryName, DenoiseTrainingDirName);
+        
+        public static string DenoiseTrainingOddDirName => IOPath.Combine(DenoiseTrainingDirName, "odd");
+        public string DenoiseTrainingDirOdd => IOPath.Combine(ProcessingDirectoryName, DenoiseTrainingOddDirName);
+        
+        public static string DenoiseTrainingEvenDirName => IOPath.Combine(DenoiseTrainingDirName, "even");
+        public string DenoiseTrainingDirEven => IOPath.Combine(ProcessingDirectoryName, DenoiseTrainingEvenDirName);
+        
+        public static string DenoiseTrainingCTFDirName => IOPath.Combine(DenoiseTrainingDirName, "ctf");
+        public string DenoiseTrainingDirCTF => IOPath.Combine(ProcessingDirectoryName, DenoiseTrainingCTFDirName);
+        
+        public static string DenoiseTrainingModelName => IOPath.Combine(DenoiseTrainingDirName, "model.pt");
+        public string DenoiseTrainingDirModel => IOPath.Combine(ProcessingDirectoryName, DenoiseTrainingModelName);
+        
+        public static readonly string MaskDirName = "mask";
+        public string MaskDir => IOPath.Combine(ProcessingDirectoryName, MaskDirName);
+        
+        public static readonly string SegmentationDirName = "segmentation";
+        public string SegmentationDir => IOPath.Combine(ProcessingDirectoryName, SegmentationDirName);
+        
+        public static string MembraneSegmentationDirName => IOPath.Combine(SegmentationDirName, "membranes");
+        public string MembraneSegmentationDir => IOPath.Combine(ProcessingDirectoryName, MembraneSegmentationDirName);
+        
+        public static readonly string ParticlesDirName = "particles";
+        public string ParticlesDir => IOPath.Combine(ProcessingDirectoryName, ParticlesDirName);
+        
+        public static string ParticlesDenoisingOddDirName => IOPath.Combine(ParticlesDirName, "odd");
+        public string ParticlesDenoisingOddDir => IOPath.Combine(ProcessingDirectoryName, ParticlesDenoisingOddDirName);
+        
+        public static string ParticlesDenoisingEvenDirName => IOPath.Combine(ParticlesDirName, "even");
+        public string ParticlesDenoisingEvenDir => IOPath.Combine(ProcessingDirectoryName, ParticlesDenoisingEvenDirName);
+        
+        public static readonly string MatchingDirName = "matching";
+        public string MatchingDir => IOPath.Combine(ProcessingDirectoryName, MatchingDirName);
+        
+        public static readonly string ThumbnailsDirName = "thumbnails";
+        public string ThumbnailsDir => IOPath.Combine(ProcessingDirectoryName, ThumbnailsDirName);
+        
+        public static string ToPowerSpectrumPath(string name) => IOPath.Combine(PowerSpectrumDirName, Helper.PathToName(name) + ".mrc");
         public string PowerSpectrumPath => IOPath.Combine(PowerSpectrumDir, RootName + ".mrc");
+        
+        public static string ToAveragePath(string name) => IOPath.Combine(AverageDirName, Helper.PathToName(name) + ".mrc");
         public string AveragePath => IOPath.Combine(AverageDir, RootName + ".mrc");
+        
+        public static string ToAverageOddPath(string name) => IOPath.Combine(AverageOddDirName, Helper.PathToName(name) + ".mrc");
         public string AverageOddPath => IOPath.Combine(AverageOddDir, RootName + ".mrc");
+        
+        public static string ToAverageEvenPath(string name) => IOPath.Combine(AverageEvenDirName, Helper.PathToName(name) + ".mrc");
         public string AverageEvenPath => IOPath.Combine(AverageEvenDir, RootName + ".mrc");
+        
+        public static string ToAverageDenoisedPath(string name) => IOPath.Combine(AverageDenoisedDirName, Helper.PathToName(name) + ".mrc");
         public string AverageDenoisedPath => IOPath.Combine(AverageDenoisedDir, RootName + ".mrc");
+        
+        public static string ToDeconvolvedPath(string name) => IOPath.Combine(DeconvolvedDirName, Helper.PathToName(name) + ".mrc");
         public string DeconvolvedPath => IOPath.Combine(DeconvolvedDir, RootName + ".mrc");
+        
+        public static string ToDenoiseTrainingOddPath(string name) => IOPath.Combine(DenoiseTrainingOddDirName, Helper.PathToName(name) + ".mrc");
         public string DenoiseTrainingOddPath => IOPath.Combine(DenoiseTrainingDirOdd, RootName + ".mrc");
+        
+        public static string ToDenoiseTrainingEvenPath(string name) => IOPath.Combine(DenoiseTrainingEvenDirName, Helper.PathToName(name) + ".mrc");
         public string DenoiseTrainingEvenPath => IOPath.Combine(DenoiseTrainingDirEven, RootName + ".mrc");
+        
+        public static string ToDenoiseTrainingCTFPath(string name) => IOPath.Combine(DenoiseTrainingCTFDirName, Helper.PathToName(name) + ".mrc");
         public string DenoiseTrainingCTFPath => IOPath.Combine(DenoiseTrainingDirCTF, RootName + ".mrc");
-        public string ShiftedStackPath => IOPath.Combine(ShiftedStackDir, RootName + "_movie.mrcs");
+        
+        public static string ToMaskPath(string name) => IOPath.Combine(MaskDirName, Helper.PathToName(name) + ".tif");
         public string MaskPath => IOPath.Combine(MaskDir, RootName + ".tif");
-        public string ParticlesPath => IOPath.Combine(ParticlesDir, RootName + "_particles.mrcs");
-        public string ParticleCTFPath => IOPath.Combine(ParticleCTFDir, RootName + "_particlesctf.mrcs");
-        public string ParticleMoviesCTFPath => IOPath.Combine(ParticleMoviesCTFDir, RootName + "_particlemoviesctf.mrcs");
+        
+        public static string ToThumbnailsPath(string name) => IOPath.Combine(ThumbnailsDirName, Helper.PathToName(name) + ".png");
         public string ThumbnailsPath => IOPath.Combine(ThumbnailsDir, RootName + ".png");
+        
+        public static string ToMotionTracksPath(string name) => IOPath.Combine(AverageDirName, Helper.PathToName(name) + "_motion.json");
         public string MotionTracksPath => IOPath.Combine(AverageDir, RootName + "_motion.json");
 
         public string XMLName => RootName + ".xml";
+        public static string ToXMLPath(string name) => Helper.PathToName(name) + ".xml";
         public string XMLPath => IOPath.Combine(ProcessingDirectoryName, XMLName);
 
         #endregion

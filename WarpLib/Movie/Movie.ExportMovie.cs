@@ -32,8 +32,6 @@ public partial class Movie
             //Directory.CreateDirectory(DenoiseTrainingDirCTF);
         }
 
-        if (options.DoStack)
-            Directory.CreateDirectory(ShiftedStackDir);
         if (options.DoDeconv)
             Directory.CreateDirectory(DeconvolvedDir);
 
