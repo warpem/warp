@@ -78,7 +78,8 @@ namespace Warp
         public string MaskDir => IOPath.Combine(ProcessingDirectoryName, "mask");
         public string SegmentationDir => IOPath.Combine(ProcessingDirectoryName, "segmentation");
         public string MembraneSegmentationDir => IOPath.Combine(SegmentationDir, "membranes");
-        public string MembraneModelsDir => IOPath.Combine(ProcessingDirectoryName, "membranes");
+        public string MembranesDir => IOPath.Combine(ProcessingDirectoryName, "membranes");
+        public string MembraneModelsDir => IOPath.Combine(MembranesDir, RootName);
         public string ParticlesDir => IOPath.Combine(ProcessingDirectoryName, "particles");
         public string ParticlesDenoisingOddDir => IOPath.Combine(ProcessingDirectoryName, "particles", "odd");
         public string ParticlesDenoisingEvenDir => IOPath.Combine(ProcessingDirectoryName, "particles", "even");
@@ -101,8 +102,7 @@ namespace Warp
         public string ShiftedStackPath => IOPath.Combine(ShiftedStackDir, RootName + "_movie.mrcs");
         public string MaskPath => IOPath.Combine(MaskDir, RootName + ".tif");
         public string MembraneSegmentationPath => IOPath.Combine(MembraneSegmentationDir, RootName + ".mrc");
-        public string MembraneControlPointsPath => IOPath.Combine(MembraneModelsDir, RootName + "_control_points.star");
-        public string MembraneProfilesPath => IOPath.Combine(MembraneModelsDir, RootName + "_profiles.star");
+        public string MembraneReconstructionPath => IOPath.Combine(MembranesDir, RootName + "_membranes.mrc");
         public string ParticlesPath => IOPath.Combine(ParticlesDir, RootName + "_particles.mrcs");
         public string ParticleCTFPath => IOPath.Combine(ParticleCTFDir, RootName + "_particlesctf.mrcs");
         public string ParticleMoviesCTFPath => IOPath.Combine(ParticleMoviesCTFDir, RootName + "_particlemoviesctf.mrcs");

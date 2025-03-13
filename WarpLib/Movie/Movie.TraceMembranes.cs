@@ -27,9 +27,6 @@ namespace Warp
                 // Load image and mask
                 Image average = Image.FromFile(AveragePath);
                 Image maskRaw = Image.FromFile(MembraneSegmentationPath);
-                // Image mask = maskRaw.AsScaled(new int3(4096, 4096, 1));
-                // mask.Binarize(0.5f);
-                // mask.WriteMRC16b("ab_maskfull.mrc");
 
                 float angPixMic = average.PixelSize;
                 float angPixMask = maskRaw.PixelSize;
@@ -38,40 +35,47 @@ namespace Warp
                 toDispose.Add(maskRaw);
 
                 #region preprocessing
-
-                // // rescale mask to 8A/px
-                // float targetAngPixMask = 8;
-                // float scaleFactor = angPixMask / targetAngPixMask;
-                // int3 dimsMaskScaled = new int3((int)Math.Round(maskRaw.Dims.X * scaleFactor / 2) * 2,
-                //     (int)Math.Round(maskRaw.Dims.Y * scaleFactor / 2) * 2,
-                //     1);
-                // Image MaskRescaled = maskRaw.AsScaled(newDims: dimsMaskScaled);
-                // MaskRescaled.Binarize(0.5f);
-
+                
                 // early exit if no membranes found
                 var components = maskRaw.GetConnectedComponents().ToArray();
                 if (components.Length == 0)
                     throw new Exception("No membranes found");
-
-                float lowPassFrequency = angPixMic * 2 / 300f; // ~1/300 Å
-                float highPassFrequencyRaw = 1f; // Nyquist frequency
-                float highPassFrequencyLowpass = angPixMic * 2 / 20f; // ~1/20 Å
-                float rolloffWidth = angPixMic * 2 / 600f; // ~1/600 Å
 
                 // Mean subtraction
                 average.SubtractMeanGrid(new int2(1));
 
                 // 2x padding
                 average = average.AsPadded(average.DimsSlice * 2).AndDisposeParent();
-                Image averageLowpass = average.GetCopyGPU();
-
-                // Bandpass filtering
-                average.Bandpass(lowPassFrequency, highPassFrequencyRaw, false, rolloffWidth);
-                averageLowpass.Bandpass(lowPassFrequency, highPassFrequencyLowpass, false, rolloffWidth);
+                
+                // filtering
+                average.Bandpass(
+                    nyquistLow: angPixMic * 2 / 300f, // 1/300 Å
+                    nyquistHigh: 1f, // nyquist
+                    nyquistsoftedge: angPixMic * 2 / 600f,  // 1/600 Å
+                    isVolume: false
+                );
+                
+                
+                Image averageLowpass20 = average.GetCopyGPU();
+                averageLowpass20.Bandpass(
+                    nyquistLow: angPixMic * 2 / 300f, // 1/300 Å
+                    nyquistHigh: angPixMic * 2 / 20f, // 1/20 Å
+                    nyquistsoftedge: angPixMic * 2 / 600f, // 1/600 Å
+                    isVolume: false
+                );
+                
+                Image averageLowpass50 = average.GetCopyGPU();
+                averageLowpass50.Bandpass(
+                    nyquistLow: angPixMic * 2 / 300f, // 1/300 Å
+                    nyquistHigh: angPixMic * 2 / 50f,  // 1/50 Å
+                    nyquistsoftedge: angPixMic * 2 / 600f,  // 1/600 Å
+                    isVolume: true
+                );
 
                 // Reducing back to original size
                 average = average.AsPadded(average.DimsSlice / 2).AndDisposeParent();
-                averageLowpass = averageLowpass.AsPadded(averageLowpass.DimsSlice / 2).AndDisposeParent();
+                averageLowpass20 = averageLowpass20.AsPadded(averageLowpass20.DimsSlice / 2).AndDisposeParent();
+                averageLowpass50 = averageLowpass50.AsPadded(averageLowpass50.DimsSlice / 2).AndDisposeParent();
 
                 #endregion
 
@@ -84,10 +88,11 @@ namespace Warp
                 components = skeleton.GetConnectedComponents()
                     .Where(c => c.ComponentIndices.Length >= options.MinimumComponentPixels)
                     .ToArray();
-
+                
+                // create output dir
+                Directory.CreateDirectory(MembraneModelsDir);
+                
                 // process each membrane one by one
-                Dictionary<string, Star> outputTables = new();
-
                 for (int ic = 0; ic < components.Length; ic++)
                 {
                     Console.WriteLine($"Refining membrane {ic + 1} of {components.Length}");
@@ -104,26 +109,55 @@ namespace Warp
                         controlPointSpacingAngst: (float)options.SplinePointSpacing
                     );
 
-                    // Optimize control points and intensities based on image data
-                    var (optimizedPath, intensitySpline) = TraceMembranesHelper.OptimizeMembrane(
+                    // Optimize control points and intensities based on image data, first at low res
+                    var (profile1D, refinedPath, intensitySpline) = TraceMembranesHelper.RefineMembrane(
                         initialSpline: initialPath,
-                        image: averageLowpass,
-                        maxDistanceAngst: 60f, // consider pixels up to this distance from the membrane
+                        image: averageLowpass50,
+                        maxDistanceAngst: 100f, //
                         softEdgeWidthAngst: 30f,
-                        refinementIterations: 2
+                        refinementIterations: 1
+                    );
+                    
+                    // then at higher res
+                    (profile1D, refinedPath, intensitySpline) = TraceMembranesHelper.RefineMembrane(
+                        initialSpline: refinedPath,
+                        image: averageLowpass20,
+                        maxDistanceAngst: 60f,
+                        softEdgeWidthAngst: 30f,
+                        refinementIterations: options.RefinementIterations
                     );
 
-                    #region Save Results
+                    #region write output file
+                    
+                    // Create a table with path control point coordinates
+                    var controlPointsTable = new Star(
+                        values: refinedPath.Points.ToArray(),
+                        nameColumn1: "wrpPathControlPointXAngst",
+                        nameColumn2: "wrpPathControlPointYAngst"
+                    );
 
-                    // Create a table with control point coordinates
-                    // outputTables.Add($"path{ic:D3}", new Star(
-                    //     controlPoints.Select(v => v * angPixMic).ToArray(),
-                    //     "wrpControlPointXAngst",
-                    //     "wrpControlPointYAngst"));
+                    // Create a table containing membrane intensity spline control points information
+                    var intensitySplineTable = new Star(
+                        values: intensitySpline.Points.ToArray(),
+                        nameColumn1: "wrpIntensitySplineControlPoints"
+                    );
+                    
+                    // create a table containing 1d profile data
+                    var profileTable = new Star(
+                        values: profile1D,
+                        nameColumn1: "wrpMembraneProfile"
+                    );
+                    
+                    // add tables to output
+                    var outputTables = new Dictionary<string, Star>();
+                    outputTables.Add(key: "profile1d", value: profileTable);
+                    outputTables.Add(key: "path", value: controlPointsTable);
+                    outputTables.Add(key: "intensity", value:  intensitySplineTable);
+                    
+                    // write output file
+                    string outputFile = IOPath.Combine(MembraneModelsDir, $"{RootName}_membrane{ic:D3}.star");
+                    Star.SaveMultitable(outputFile, outputTables);
 
-                    // Store membrane intensity information
-                    // PathTables[$"path{ic:D3}"].AddColumn("wrpIntensity",
-                    //     FinalIntensityControls.Take(controlPoints.Length).Select(v => v.ToString()).ToArray());
 
                     // // Store metadata about the membrane
                     // PathTables[$"path{ic:D3}"].SetValueFloat("wrpIsClosed", IsClosed ? 1.0f : 0.0f);
@@ -165,10 +199,7 @@ namespace Warp
 
 [Serializable]
 public class ProcessingOptionsTraceMembranes : ProcessingOptionsBase
-{
-    [WarpSerializable] public decimal HighResolutionLimit { get; set; } = 300;
-    [WarpSerializable] public decimal LowResolutionLimit { get; set; } = 20;
-    [WarpSerializable] public decimal RolloffWidth { get; set; } = 600;
+{ 
     [WarpSerializable] public decimal MembraneHalfWidth { get; set; } = 60;
     [WarpSerializable] public decimal MembraneEdgeSoftness { get; set; } = 30;
     [WarpSerializable] public decimal SplinePointSpacing { get; set; } = 200; // angstroms
@@ -451,7 +482,7 @@ public static class TraceMembranesHelper
         return sign * dist1D;
     }
 
-    public static (SplinePath2D Spline, SplinePath1D IntensitySpline) OptimizeMembrane(
+    public static (float[] profile1D, SplinePath2D path, SplinePath1D intensitySpline) RefineMembrane(
         SplinePath2D initialSpline,
         Image image,
         float maxDistanceAngst,
@@ -460,6 +491,8 @@ public static class TraceMembranesHelper
     {
         // get image data
         float[] imageData = image.GetHost(Intent.Read)[0];
+        
+        image.WriteMRC16b("ab_average_lowpass.mrc");
 
         // convert distances from angstroms to pixels
         int maxDistance = (int)(maxDistanceAngst / image.PixelSize);
@@ -477,7 +510,7 @@ public static class TraceMembranesHelper
 
         // find pixels up to maximum distance away from membrane
         int2[] membranePixels = FindMembranePixels(
-            spline: initialSpline, imageDims: image.Dims, maxDistancePx: maxDistance
+            path: initialSpline, imageDims: image.Dims, maxDistancePx: maxDistance
         );
         int nMembranePixels = membranePixels.Length;
         Console.WriteLine($"{nMembranePixels}px in membrane");
@@ -493,7 +526,11 @@ public static class TraceMembranesHelper
         // calculate cached per-pixel data
         for (int p = 0; p < nMembranePixels; p++)
         {
+            // grab pixel coords and linear index
             int2 iPixel = membranePixels[p];
+            int i = iPixel.Y * image.Dims.X + iPixel.X;
+            
+            // calculate per pixel data
             float2 pixel = new float2(iPixel);
             var (idx0, idx1) = FindClosestLineSegment(queryPoint: pixel, pathPoints: points);
             var (p0, p1) = (points[idx0], points[idx1]);
@@ -512,6 +549,8 @@ public static class TraceMembranesHelper
                 maxDistance: maxDistance,
                 softEdgeWidth: softEdgeWidth
             );
+            
+            membraneRefVals[p] = imageData[i];
             membraneClosestPointIdx[p] = idx0;
             membraneSegmentLengths[p] = length;
             membraneTangents[p] = tangent;
@@ -530,6 +569,8 @@ public static class TraceMembranesHelper
         // }
         // weightsImage.WriteMRC16b("ab_weights.mrc");
         // Console.WriteLine("ab_weights.mrc");
+        
+        
 
         // Create intensity spline (initially flat)
         SplinePath1D intensitySpline = new SplinePath1D(
@@ -558,10 +599,12 @@ public static class TraceMembranesHelper
 
             for (int p = 0; p < membranePixels.Length; p++)
             {
-                // get image value for current pixel
+                // get image pixel position and linear index
                 iPixel = membranePixels[p];
                 pixel = new float2(iPixel);
                 int i = iPixel.Y * image.Dims.X + iPixel.X;
+                
+                // get image value for current pixel
                 float val = imageData[i];
 
                 // get coord in 1D reconstruction
@@ -589,53 +632,42 @@ public static class TraceMembranesHelper
 
             for (int i = 0; i < recDim; i++)
                 recData[i] /= Math.Max(1e-16f, recWeights[i]);
-
-            // Make a diagnostic image of the 1D profile for comparison with python
-            Image profile2d = new Image(new int3(recDim, 200, 1));
-            float[] profileData = profile2d.GetHost(Intent.ReadWrite)[0];
-            for (int x = 0; x < recDim; x++)
+            
+            // make diagnostic image of simulated membrane in first iteration
+            if (iter == 0)
             {
-                for (int y = 0; y < 200; y++)
+                // Make a diagnostic image of the final reconstruction of this membrane from the 1d profile
+                Image initialMembraneImage = new Image(image.Dims);
+                initialMembraneImage.Fill(0f);
+                float[] initialMembraneImageData = initialMembraneImage.GetHost(Intent.ReadWrite)[0];
+
+                for (int p = 0; p < membranePixels.Length; p++)
                 {
-                    profileData[y * recDim + x] = recData[x];
+                    iPixel = membranePixels[p];
+                    float coord = GetSignedDistanceFromMembrane(
+                        pixelLocation: new float2(iPixel),
+                        closestPointOnSpline: points[membraneClosestPointIdx[p]],
+                        tangent: membraneTangents[p],
+                        normal: membraneNormals[p],
+                        segmentLength: membraneSegmentLengths[p]
+                    );
+                    coord += maxDistance;
+                    coord = Math.Clamp(coord, 0, recDim - 1);
+
+                    int coord0 = (int)coord;
+                    int coord1 = Math.Min(recDim - 1, coord0 + 1);
+                    float weight1 = (coord - coord0);
+                    float weight0 = 1 - weight1;
+
+                    float val = recData[coord0] * weight0 + recData[coord1] * weight1;
+                    int i = iPixel.Y * initialMembraneImage.Dims.X + iPixel.X;
+                    initialMembraneImageData[i] = val;
                 }
+                
+                initialMembraneImage.WriteMRC("d_initial_membrane.mrc");
+                Console.WriteLine("d_initial_membrane.mrc");
             }
-
-            profile2d.WriteMRC16b("ab_profile_2d.mrc");
-
-            // Make a diagnostic image of the initial reconstruction of this membrane from the 1d profile
-            Image initialMembraneImage = new Image(image.Dims);
-            initialMembraneImage.Fill(0f);
-            float[] initialMembraneImageData = initialMembraneImage.GetHost(Intent.ReadWrite)[0];
-
-            for (int p = 0; p < membranePixels.Length; p++)
-            {
-                iPixel = membranePixels[p];
-                float coord = GetSignedDistanceFromMembrane(
-                    pixelLocation: new float2(iPixel),
-                    closestPointOnSpline: points[membraneClosestPointIdx[p]],
-                    tangent: membraneTangents[p],
-                    normal: membraneNormals[p],
-                    segmentLength: membraneSegmentLengths[p]
-                );
-                coord += maxDistance;
-                coord = Math.Clamp(coord, 0, recDim - 1);
-
-                int coord0 = (int)coord;
-                int coord1 = Math.Min(recDim - 1, coord0 + 1);
-                float weight1 = (coord - coord0);
-                float weight0 = 1 - weight1;
-
-                float val = recData[coord0] * weight0 + recData[coord1] * weight1;
-                int i = iPixel.Y * initialMembraneImage.Dims.X + iPixel.X;
-                initialMembraneImageData[i] = val;
-
-                membraneRefVals[p] = imageData[i];
-            }
-
-            string outputPath = $"ab_initialmembrane.mrc";
-            initialMembraneImage.WriteMRC(outputPath);
-            Console.WriteLine(outputPath);
+            
 
             // Define optimization function
             Func<double[], double> eval = (input) =>
@@ -711,45 +743,45 @@ public static class TraceMembranesHelper
 
                 Console.WriteLine(eval(input));
 
-                if (false)
-                {
-                    Image alteredMembraneImage = new Image(image.Dims);
-                    alteredMembraneImage.Fill(0f);
-                    float[] initialMembraneImageData = alteredMembraneImage.GetHost(Intent.ReadWrite)[0];
-
-                    Image alteredOriginalImage = new Image(image.Dims);
-                    alteredOriginalImage.Fill(0f);
-                    float[] initialOriginalImageData = alteredOriginalImage.GetHost(Intent.ReadWrite)[0];
-
-                    for (int p = 0; p < membranePixels.Length; p++)
-                    {
-                        iPixel = membranePixels[p];
-                        float coord = GetSignedDistanceFromMembrane(
-                            pixelLocation: new float2(iPixel),
-                            closestPointOnSpline: points[membraneClosestPointIdx[p]],
-                            tangent: membraneTangents[p],
-                            normal: membraneNormals[p],
-                            segmentLength: membraneSegmentLengths[p]
-                        );
-                        coord += maxDistance;
-                        coord = Math.Clamp(coord, 0, recDim - 1);
-
-                        int coord0 = (int)coord;
-                        int coord1 = Math.Min(recDim - 1, coord0 + 1);
-                        float weight1 = (coord - coord0);
-                        float weight0 = 1 - weight1;
-
-                        float val = recData[coord0] * weight0 + recData[coord1] * weight1;
-                        int i = iPixel.Y * alteredMembraneImage.Dims.X + iPixel.X;
-                        initialMembraneImageData[i] = val;
-
-                        initialOriginalImageData[i] = membraneRefVals[p];
-                    }
-
-                    alteredMembraneImage.WriteMRC16b($"d_alteredmembrane_it{gradIteration:D3}.mrc", true);
-                    alteredOriginalImage.WriteMRC16b($"d_alteredoriginal_it{gradIteration:D3}.mrc", true);
-                    gradIteration++;
-                }
+                // if (true)
+                // {
+                //     Image alteredMembraneImage = new Image(image.Dims);
+                //     alteredMembraneImage.Fill(0f);
+                //     float[] initialMembraneImageData = alteredMembraneImage.GetHost(Intent.ReadWrite)[0];
+                //
+                //     Image alteredOriginalImage = new Image(image.Dims);
+                //     alteredOriginalImage.Fill(0f);
+                //     float[] initialOriginalImageData = alteredOriginalImage.GetHost(Intent.ReadWrite)[0];
+                //
+                //     for (int p = 0; p < membranePixels.Length; p++)
+                //     {
+                //         iPixel = membranePixels[p];
+                //         float coord = GetSignedDistanceFromMembrane(
+                //             pixelLocation: new float2(iPixel),
+                //             closestPointOnSpline: points[membraneClosestPointIdx[p]],
+                //             tangent: membraneTangents[p],
+                //             normal: membraneNormals[p],
+                //             segmentLength: membraneSegmentLengths[p]
+                //         );
+                //         coord += maxDistance;
+                //         coord = Math.Clamp(coord, 0, recDim - 1);
+                //
+                //         int coord0 = (int)coord;
+                //         int coord1 = Math.Min(recDim - 1, coord0 + 1);
+                //         float weight1 = (coord - coord0);
+                //         float weight0 = 1 - weight1;
+                //
+                //         float val = recData[coord0] * weight0 + recData[coord1] * weight1;
+                //         int i = iPixel.Y * alteredMembraneImage.Dims.X + iPixel.X;
+                //         initialMembraneImageData[i] = val;
+                //
+                //         initialOriginalImageData[i] = membraneRefVals[p];
+                //     }
+                //
+                //     alteredMembraneImage.WriteMRC16b($"d_alteredmembrane_it{gradIteration:D3}.mrc", true);
+                //     alteredOriginalImage.WriteMRC16b($"d_alteredoriginal_it{gradIteration:D3}.mrc", true);
+                //     gradIteration++;
+                // }
 
                 return result;
             };
@@ -791,7 +823,7 @@ public static class TraceMembranesHelper
 
         SplinePath1D finalIntensitySpline = new SplinePath1D(finalIntensityControls, initialSpline.IsClosed);
 
-        // Make a diagnostic image of the initial reconstruction of this membrane from the 1d profile
+        // Make a diagnostic image of the final reconstruction of this membrane from the 1d profile
         Image finalMembraneImage = new Image(image.Dims);
         finalMembraneImage.Fill(0f);
         float[] finalMembraneImageData = finalMembraneImage.GetHost(Intent.ReadWrite)[0];
@@ -819,11 +851,11 @@ public static class TraceMembranesHelper
             finalMembraneImageData[i] = val;
         }
 
-        string outputPathfinal = $"ab_finalmembrane.mrc";
+        string outputPathfinal = $"d_final_membrane.mrc";
         finalMembraneImage.WriteMRC(outputPathfinal);
         Console.WriteLine(outputPathfinal);
 
-        return (finalSpline, finalIntensitySpline);
+        return (recData, finalSpline, finalIntensitySpline);
     }
 
     public static Image SplineToCoarseDistanceMap(SplinePath2D spline, int3 imageDims, int maxDistance)
@@ -1305,11 +1337,10 @@ public static class TraceMembranesHelper
         return (id0, id1);
     }
 
-    public static int2[] FindMembranePixels(SplinePath2D spline, int3 imageDims, int maxDistancePx)
+    public static int2[] FindMembranePixels(SplinePath2D path, int3 imageDims, int maxDistancePx)
     {
         List<int2> membranePixels = new List<int2>();
-        Image distanceMap = SplineToCoarseDistanceMap(spline, imageDims, maxDistancePx);
-        distanceMap.WriteMRC16b("ab_dist_to_mem.mrc");
+        Image distanceMap = SplineToCoarseDistanceMap(path, imageDims, maxDistancePx);
         float[] distanceMapData = distanceMap.GetHost(Intent.Read)[0];
 
         for (int i = 0; i < distanceMapData.Length; i++)
