@@ -57,16 +57,12 @@ public partial class Movie
             // reconstruct each membrane
             for (int ic = 0; ic < nMembranes; ic++)
             {
-                Console.WriteLine($"Subtracting membrane {ic + 1} of {nMembranes}");
+                Console.WriteLine($"Reconstructing membrane {ic + 1} of {nMembranes}");
 
                 var (profile1D, path, intensitySpline) = SubtractMembranesHelper.LoadMembrane(movie: this, index: ic);
                 
                 // get max distance away from membrane to reconstruct from profile data
                 int maxDistance = profile1D.Length / 2;
-                
-                // Get control points and normals
-                float2[] controlPoints = path.Points.ToArray();
-                float2[] normals = path.GetControlPointNormals();
 
                 // sample points along spline
                 int nPoints = (int)path.EstimatedLength;
@@ -81,21 +77,18 @@ public partial class Movie
                 int2 iPixel;
                 
                 // allocate arrays for cached per-pixel data
-                float[] membraneRefVals = new float[nMembranePixels];
                 int[] membraneClosestPointIdx = new int[nMembranePixels];
                 float[] membraneSegmentLengths = new float[nMembranePixels];
                 float2[] membraneTangents = new float2[nMembranePixels];
                 float2[] membraneNormals = new float2[nMembranePixels];
                 float[] membraneWeights = new float[nMembranePixels];
+                bool[] excludePixel = new bool[nMembranePixels];
                 
                 // calculate cached per-pixel data
                 for (int p = 0; p < nMembranePixels; p++)
                 {
-                    // grab pixel coords and linear index
+                    // grab pixel coords and calculate per pixel data
                     iPixel = membranePixels[p];
-                    int i = iPixel.Y * average.Dims.X + iPixel.X;
-            
-                    // calculate per pixel data
                     float2 pixel = new float2(iPixel);
                     var (idx0, idx1) = TraceMembranesHelper.FindClosestLineSegment(queryPoint: pixel, pathPoints: points);
                     var (p0, p1) = (points[idx0], points[idx1]);
@@ -114,12 +107,14 @@ public partial class Movie
                         maxDistance: maxDistance,
                         softEdgeWidth: (int)(30f / average.PixelSize)
                     );
+                    float projectedLength = float2.Dot(pixel - p0, tangent);
                     
                     membraneClosestPointIdx[p] = idx0;
                     membraneSegmentLengths[p] = length;
                     membraneTangents[p] = tangent;
                     membraneNormals[p] = normal;
                     membraneWeights[p] = weight;
+                    excludePixel[p] = projectedLength < 0 || projectedLength > length;
                 }
 
                 int recDim = profile1D.Length;
@@ -128,6 +123,13 @@ public partial class Movie
                 for (int p = 0; p < membranePixels.Length; p++)
                 {
                     iPixel = membranePixels[p];
+                    float2 pixel = new float2(iPixel);
+                    
+                    // early exit if pixel is not 'within' line segment
+                    // temporarily switched off because of artifacts
+                    // if (excludePixel[p])
+                    //     continue;
+                    
                     float coord = TraceMembranesHelper.GetSignedDistanceFromMembrane(
                         pixelLocation: new float2(iPixel),
                         closestPointOnSpline: points[membraneClosestPointIdx[p]],
@@ -145,7 +147,7 @@ public partial class Movie
 
                     float val = profile1D[coord0] * weight0 + profile1D[coord1] * weight1;
                     int i = iPixel.Y * average.Dims.X + iPixel.X;
-                    allMembranesData[i] = val * membraneWeights[p];
+                    allMembranesData[i] += val * membraneWeights[p];
                 }
                 
                 // Rasterize lines so we can compute the distance map
@@ -179,12 +181,14 @@ public partial class Movie
                 }
                 
             }
+            // write out all membranes image (for diagnostics)
+            allMembranes.WriteMRC16b(MembraneReconstructionPath);
             
-            // Save output
-            // imageRaw.WriteMRC16b(outputPath);
-            allMembranes.WriteMRC16b("d_allmembranes.mrc");
+            // Subtract membranes
+            Directory.CreateDirectory(AverageMembraneSubtractedDir);
+            allMembranes.Multiply((float)options.MembraneSubtractionFactor);
             average.Subtract(allMembranes);
-            average.WriteMRC16b("d_subtracted.mrc");
+            average.WriteMRC16b(AverageMembraneSubtractedPath);
         }
         finally
         {
@@ -198,7 +202,7 @@ public partial class Movie
 [Serializable]
 public class ProcessingOptionsSubtractMembranes : ProcessingOptionsBase
 {
-    [WarpSerializable] public decimal NoiseStdDevScale { get; set; } = 0.25M;
+    [WarpSerializable] public decimal MembraneSubtractionFactor { get; set; } = 0.75M;
 }
 
 public static class SubtractMembranesHelper

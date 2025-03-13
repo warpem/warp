@@ -68,6 +68,8 @@ namespace Warp
         public string AverageOddDir => IOPath.Combine(AverageDir, "odd");
         public string AverageEvenDir => IOPath.Combine(AverageDir, "even");
         public string AverageDenoisedDir => IOPath.Combine(AverageDir, "denoised");
+
+        public string AverageMembraneSubtractedDir => IOPath.Combine(AverageDir, "nomembranes");
         public string DeconvolvedDir => IOPath.Combine(ProcessingDirectoryName, "deconv");
         public string DenoiseTrainingDir => IOPath.Combine(ProcessingDirectoryName, "denoising");
         public string DenoiseTrainingDirOdd => IOPath.Combine(DenoiseTrainingDir, "odd");
@@ -95,6 +97,8 @@ namespace Warp
         public string AverageOddPath => IOPath.Combine(AverageOddDir, RootName + ".mrc");
         public string AverageEvenPath => IOPath.Combine(AverageEvenDir, RootName + ".mrc");
         public string AverageDenoisedPath => IOPath.Combine(AverageDenoisedDir, RootName + ".mrc");
+
+        public string AverageMembraneSubtractedPath => IOPath.Combine(AverageMembraneSubtractedDir, RootName + ".mrc");
         public string DeconvolvedPath => IOPath.Combine(DeconvolvedDir, RootName + ".mrc");
         public string DenoiseTrainingOddPath => IOPath.Combine(DenoiseTrainingDirOdd, RootName + ".mrc");
         public string DenoiseTrainingEvenPath => IOPath.Combine(DenoiseTrainingDirEven, RootName + ".mrc");
@@ -102,7 +106,7 @@ namespace Warp
         public string ShiftedStackPath => IOPath.Combine(ShiftedStackDir, RootName + "_movie.mrcs");
         public string MaskPath => IOPath.Combine(MaskDir, RootName + ".tif");
         public string MembraneSegmentationPath => IOPath.Combine(MembraneSegmentationDir, RootName + ".mrc");
-        public string MembraneReconstructionPath => IOPath.Combine(MembranesDir, RootName + "_membranes.mrc");
+        public string MembraneReconstructionPath => IOPath.Combine(MembranesDir, RootName + ".mrc");
         public string ParticlesPath => IOPath.Combine(ParticlesDir, RootName + "_particles.mrcs");
         public string ParticleCTFPath => IOPath.Combine(ParticleCTFDir, RootName + "_particlesctf.mrcs");
         public string ParticleMoviesCTFPath => IOPath.Combine(ParticleMoviesCTFDir, RootName + "_particlemoviesctf.mrcs");

@@ -522,6 +522,7 @@ public static class TraceMembranesHelper
         float2[] membraneTangents = new float2[nMembranePixels];
         float2[] membraneNormals = new float2[nMembranePixels];
         float[] membraneWeights = new float[nMembranePixels];
+        bool[] excludePixel = new bool[nMembranePixels];
 
         // calculate cached per-pixel data
         for (int p = 0; p < nMembranePixels; p++)
@@ -549,6 +550,7 @@ public static class TraceMembranesHelper
                 maxDistance: maxDistance,
                 softEdgeWidth: softEdgeWidth
             );
+            float projectedLength = float2.Dot(pixel - p0, tangent);
             
             membraneRefVals[p] = imageData[i];
             membraneClosestPointIdx[p] = idx0;
@@ -556,6 +558,7 @@ public static class TraceMembranesHelper
             membraneTangents[p] = tangent;
             membraneNormals[p] = normal;
             membraneWeights[p] = weight;
+            excludePixel[p] = projectedLength < 0 || projectedLength > length;
         }
 
         // Image weightsImage = new Image(image.Dims);
@@ -594,15 +597,22 @@ public static class TraceMembranesHelper
             recData = new float[recDim];
             recWeights = new float[recDim];
 
+            int i;
             int2 iPixel;
             float2 pixel;
+            float projection;
 
             for (int p = 0; p < membranePixels.Length; p++)
             {
                 // get image pixel position and linear index
                 iPixel = membranePixels[p];
                 pixel = new float2(iPixel);
-                int i = iPixel.Y * image.Dims.X + iPixel.X;
+                i = iPixel.Y * image.Dims.X + iPixel.X;
+                
+                // early exit if pixel not within line segment
+                // temporarily switched off due to artifacts
+                // if (excludePixel[p])
+                //     continue;
                 
                 // get image value for current pixel
                 float val = imageData[i];
@@ -630,7 +640,7 @@ public static class TraceMembranesHelper
                 recWeights[ceil] += weight1;
             }
 
-            for (int i = 0; i < recDim; i++)
+            for (i = 0; i < recDim; i++)
                 recData[i] /= Math.Max(1e-16f, recWeights[i]);
             
             // make diagnostic image of simulated membrane in first iteration
@@ -660,7 +670,7 @@ public static class TraceMembranesHelper
                     float weight0 = 1 - weight1;
 
                     float val = recData[coord0] * weight0 + recData[coord1] * weight1;
-                    int i = iPixel.Y * initialMembraneImage.Dims.X + iPixel.X;
+                    i = iPixel.Y * initialMembraneImage.Dims.X + iPixel.X;
                     initialMembraneImageData[i] = val;
                 }
                 
