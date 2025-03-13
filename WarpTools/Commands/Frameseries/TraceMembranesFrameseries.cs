@@ -18,9 +18,6 @@ namespace WarpTools.Commands
 
         [Option("min_pixels", Default = 20, HelpText = "Minimum component size in pixels")]
         public int MinimumComponentPixels { get; set; }
-
-        [Option("threads", Default = 8, HelpText = "Number of threads per worker process")]
-        public int NThreadsPerWorker { get; set; }
     }
 
     class TraceMembranesCommand : BaseCommand
@@ -62,8 +59,7 @@ namespace WarpTools.Commands
                     {
                         Console.WriteLine($"Error processing {m.Path}: {ex.Message}");
                     }
-                },
-                oversubscribe: CLI.NThreadsPerWorker
+                }
             );
 
             Console.Write("Saying goodbye to all workers...");

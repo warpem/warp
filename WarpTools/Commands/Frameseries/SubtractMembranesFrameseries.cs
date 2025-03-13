@@ -16,9 +16,6 @@ namespace WarpTools.Commands
     {
         [Option("membrane_subtraction_factor", Default = 0.75, HelpText = "subtract this fraction of the modelled membrane signal from the images")]
         public decimal MembraneSubtractionFactor { get; set; }
-
-        [Option("threads", Default = 8, HelpText = "Number of threads per worker process")]
-        public int NThreadsPerWorker { get; set; }
     }
 
     class SubtractMembranesCommand : BaseCommand
@@ -61,8 +58,7 @@ namespace WarpTools.Commands
                     {
                         Console.WriteLine($"Error processing {m.Path}: {ex.Message}");
                     }
-                },
-                oversubscribe: CLI.NThreadsPerWorker
+                }
             );
 
             Console.Write("Saying goodbye to all workers...");
