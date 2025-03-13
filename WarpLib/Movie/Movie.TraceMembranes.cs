@@ -1,11 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using Accord;
 using Accord.Math.Optimization;
 using Warp;
 using Warp.Tools;
@@ -36,10 +32,12 @@ namespace Warp
 
                 #region preprocessing
                 
+                Console.WriteLine("preprocessing...");
                 // early exit if no membranes found
                 var components = maskRaw.GetConnectedComponents().ToArray();
                 if (components.Length == 0)
                     throw new Exception("No membranes found");
+                Console.WriteLine("got connected components");
 
                 // Mean subtraction
                 average.SubtractMeanGrid(new int2(1));
@@ -76,18 +74,23 @@ namespace Warp
                 average = average.AsPadded(average.DimsSlice / 2).AndDisposeParent();
                 averageLowpass20 = averageLowpass20.AsPadded(averageLowpass20.DimsSlice / 2).AndDisposeParent();
                 averageLowpass50 = averageLowpass50.AsPadded(averageLowpass50.DimsSlice / 2).AndDisposeParent();
-
+                
+                Console.WriteLine("finished preprocessing");
                 #endregion
 
                 // trace 1px thick ridges through each membrane, prune any extra branches in the resulting skeleton
                 var skeleton = TraceMembranesHelper.Skeletonize(maskRaw);
                 TraceMembranesHelper.PruneBranchesInPlace(skeleton);
                 skeleton.WriteMRC16b("ab_skeleton_pruned.mrc");
+                Console.WriteLine("skeletonized");
 
                 // find each individual 1px thick membrane in preprocessed skeleton
-                components = skeleton.GetConnectedComponents()
+                components = skeleton.GetConnectedComponents();
+                Console.WriteLine($"found {components.Length} connected components");
+                components = components
                     .Where(c => c.ComponentIndices.Length >= options.MinimumComponentPixels)
                     .ToArray();
+                Console.WriteLine($"{components.Length} components left after filtering (min: {options.MinimumComponentPixels}px)");
                 
                 // create output dir
                 Directory.CreateDirectory(MembraneModelsDir);
@@ -99,8 +102,10 @@ namespace Warp
 
                     // Extract pixel indices for this membrane
                     List<int> componentIndices = new List<int>(components[ic].ComponentIndices);
+                    Console.WriteLine($"extracted pixel locations for membrane {ic + 1}");
 
                     // Fit control points of a 2D spline path to these pixel positions
+                    Console.WriteLine("fitting initial spline...");
                     SplinePath2D initialPath = TraceMembranesHelper.FitInitialSpline(
                         componentIndices: componentIndices,
                         skeleton: skeleton,
@@ -108,8 +113,10 @@ namespace Warp
                         pixelSizeAverage: angPixMic,
                         controlPointSpacingAngst: (float)options.SplinePointSpacing
                     );
+                    Console.WriteLine("initial spline fit");
 
                     // Optimize control points and intensities based on image data, first at low res
+                    Console.WriteLine("optimizing control points at 50A");
                     var (profile1D, refinedPath, intensitySpline) = TraceMembranesHelper.RefineMembrane(
                         initialSpline: initialPath,
                         image: averageLowpass50,
@@ -119,6 +126,7 @@ namespace Warp
                     );
                     
                     // then at higher res
+                    Console.WriteLine("optimizing control points at 20A");
                     (profile1D, refinedPath, intensitySpline) = TraceMembranesHelper.RefineMembrane(
                         initialSpline: refinedPath,
                         image: averageLowpass20,
@@ -129,6 +137,7 @@ namespace Warp
 
                     #region write output file
                     
+                    Console.WriteLine("writing output");
                     // Create a table with path control point coordinates
                     var controlPointsTable = new Star(
                         values: refinedPath.Points.ToArray(),
@@ -157,31 +166,7 @@ namespace Warp
                     // write output file
                     string outputFile = IOPath.Combine(MembraneModelsDir, $"{RootName}_membrane{ic:D3}.star");
                     Star.SaveMultitable(outputFile, outputTables);
-
-
-                    // // Store metadata about the membrane
-                    // PathTables[$"path{ic:D3}"].SetValueFloat("wrpIsClosed", IsClosed ? 1.0f : 0.0f);
-                    // PathTables[$"path{ic:D3}"].SetValueFloat("wrpPixelSize", pixelSize);
-                    // PathTables[$"path{ic:D3}"].SetValueFloat("wrpMembraneHalfWidth", (float)options.MembraneHalfWidth);
-
-                    // Subtract this membrane from the original image
-                    // for (int i = 0; i < MembranePixels.Count; i++)
-                    // {
-                    //     float Coord = GetMembraneCoord(i);
-                    //     Coord = Math.Clamp(Coord, 0, RecDim - 1);
-                    //
-                    //     int Coord0 = (int)Coord;
-                    //     int Coord1 = Math.Min(RecDim - 1, Coord0 + 1);
-                    //     float Weight1 = (Coord - Coord0);
-                    //     float Weight0 = 1 - Weight1;
-                    //
-                    //     float Val = RecData[Coord0] * Weight0 + RecData[Coord1] * Weight1;
-                    //     float Intensity = ScaleFactors[MembraneClosestPoints[i]];
-                    //     Val *= Intensity;
-                    //
-                    //     int pixelIndex = MembranePixels[i].Y * ImageRaw.Dims.X + MembranePixels[i].X;
-                    //     ImageRaw.GetHost(Intent.ReadWrite)[0][pixelIndex] -= Val * MembraneWeights[i];
-                    // }
+                    Console.WriteLine($"output saved to {outputFile}");
 
                     #endregion
                 }
@@ -204,7 +189,7 @@ public class ProcessingOptionsTraceMembranes : ProcessingOptionsBase
     [WarpSerializable] public decimal MembraneEdgeSoftness { get; set; } = 30;
     [WarpSerializable] public decimal SplinePointSpacing { get; set; } = 200; // angstroms
     [WarpSerializable] public int RefinementIterations { get; set; } = 2;
-    [WarpSerializable] public int MinimumComponentPixels { get; set; } = 50;
+    [WarpSerializable] public int MinimumComponentPixels { get; set; } = 20;
 }
 
 
