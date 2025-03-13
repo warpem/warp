@@ -436,7 +436,7 @@ namespace WarpWorker
                     
                     // remove all files recursively from temp dir
                     Directory.Delete(tempDir, recursive: true);
-                    Console.WriteLine($"Segmented membranes using TARDIS");
+                    Console.WriteLine($"Segmented membranes using TARDIS for {paths}");
                 }
                 else if (Command.Name == "MovieTraceMembranes")
                 {
@@ -447,6 +447,16 @@ namespace WarpWorker
                     M.SaveMeta();
 
                     Console.WriteLine($"Traced membranes for {Path}");
+                }
+                else if (Command.Name == "MovieSubtractMembranes")
+                {
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsSubtractMembranes Options = (ProcessingOptionsSubtractMembranes)Command.Content[1];
+                    Movie M = new Movie(Path);
+                    M.SubtractMembranes(Options);
+                    M.SaveMeta();
+
+                    Console.WriteLine($"Subtracted membranes for {Path}");
                 }
                 else if (Command.Name == "TomoStack")
                 {

@@ -368,6 +368,13 @@ namespace Warp
                 path,
                 options));
         }
+        
+        public void MovieSubtractMembranes(string path, ProcessingOptionsSubtractMembranes options)
+        {
+            SendCommand(new NamedSerializableObject("MovieSubtractMembranes",
+                path,
+                options));
+        }
 
         public void MovieExportParticles(string path, ProcessingOptionsParticleExport options, float2[] coordinates)
         {
