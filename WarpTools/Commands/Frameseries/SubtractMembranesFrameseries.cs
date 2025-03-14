@@ -14,8 +14,8 @@ namespace WarpTools.Commands
     [CommandRunner(typeof(SubtractMembranesCommand))]
     class SubtractMembranesOptions : DistributedOptions
     {
-        [Option("membrane_subtraction_factor", Default = 0.75, HelpText = "subtract this fraction of the modelled membrane signal from the images")]
-        public decimal MembraneSubtractionFactor { get; set; }
+        [Option("membrane_subtraction_factor", Default = 0.75f, HelpText = "subtract this fraction of the modelled membrane signal from the images")]
+        public float MembraneSubtractionFactor { get; set; }
     }
 
     class SubtractMembranesCommand : BaseCommand
@@ -32,7 +32,7 @@ namespace WarpTools.Commands
 
             var processingOptions = new ProcessingOptionsSubtractMembranes()
             {
-                MembraneSubtractionFactor = CLI.MembraneSubtractionFactor,
+                MembraneSubtractionFactor = (decimal)CLI.MembraneSubtractionFactor,
             };
 
             #endregion

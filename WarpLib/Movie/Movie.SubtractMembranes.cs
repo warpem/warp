@@ -210,7 +210,7 @@ public static class SubtractMembranesHelper
     public static (float[] profile1D, SplinePath2D path, SplinePath1D intensitySpline) LoadMembrane(Movie movie, int index)
     {
         // load file
-        string filename = IOPath.Combine(movie.MembraneModelsDir, $"{movie.RootName}_membrane_{index:D3}.star");
+        string filename = IOPath.Combine(movie.MembraneModelsDir, $"{movie.RootName}_membrane{index:D3}.star");
         Dictionary<string, Star> membraneData = Star.FromMultitable(
             path: filename,
             names: new[]
