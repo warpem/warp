@@ -351,21 +351,17 @@ namespace WarpWorker
                     foreach (var (movie, outputPath) in movies.Zip(downsampledImagePaths))
                     {
                         // load average
-                        Image average = Image.FromFile(movie.AveragePath);
+                        using Image average = Image.FromFile(movie.AveragePath);
                         
                         // downsample to 15Apx
                         float averagePixelSize = average.PixelSize;
                         float targetPixelSize = 15;
                         int2 dimsOut = (new int2(average.Dims * averagePixelSize / targetPixelSize) + 1) / 2 * 2;
-                        Image scaled = average.AsScaled(dimsOut);
+                        using Image scaled = average.AsScaled(dimsOut);
                         
                         // write out downsampled image, force header pixel size to 15.00
                         scaled.PixelSize = (float)15.00;
                         scaled.WriteMRC(outputPath);
-                        
-                        // dispose
-                        average.Dispose();
-                        scaled.Dispose();
                     }
                     
                     // run tardis in tempdir
