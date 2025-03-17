@@ -204,12 +204,15 @@ public partial class TiltSeries
                 }
             }
 
-            float[] FOVFractions = new float[NTilts];
+            FOVFraction = new float[NTilts];
 
             for (int t = 0; t < NTilts; t++)
             {
                 if (!UseTilt[t])
+                {
+                    FOVFraction[t] = 0;
                     continue;
+                }
 
                 float3[] ImagePositions = GetPositionsInOneTilt(Positions, t);
                 int NContained = 0;
@@ -219,14 +222,14 @@ public partial class TiltSeries
                         pos.Y <= ImageDimensionsPhysical.Y - 1)
                         NContained++;
 
-                FOVFractions[t] = (float)NContained / ImagePositions.Length;
+                FOVFraction[t] = (float)NContained / ImagePositions.Length;
             }
 
-            float FractionAt0 = Helper.ArrayOfFunction(i => FOVFractions[IndicesSortedAbsoluteAngle[i]], Math.Min(5, FOVFractions.Length)).Max();
-            if (FractionAt0 > 0)
-                FOVFractions = FOVFractions.Select(v => v / FractionAt0).ToArray();
+            // float FractionAt0 = Helper.ArrayOfFunction(i => FOVFractions[IndicesSortedAbsoluteAngle[i]], Math.Min(5, FOVFractions.Length)).Max();
+            // if (FractionAt0 > 0)
+            //     FOVFractions = FOVFractions.Select(v => v / FractionAt0).ToArray();
 
-            UseTilt = UseTilt.Select((v, t) => v && FOVFractions[t] >= (float)options.MinFOV).ToArray();
+            UseTilt = UseTilt.Select((v, t) => v && FOVFraction[t] >= (float)options.MinFOV).ToArray();
         }
 
         #endregion

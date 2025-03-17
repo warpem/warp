@@ -164,7 +164,6 @@ namespace WarpTools.Commands
                         t.SaveMeta();
                     }
                 );
-
             }
             
             if (CLI.DeleteIntermediate)
@@ -172,7 +171,14 @@ namespace WarpTools.Commands
                 Console.Write("Deleting intermediate stacks... ");
 
                 foreach (var t in CLI.InputSeries)
-                    Directory.Delete((t as TiltSeries).TiltStackDir, true);
+                {
+                    foreach (var dir in Directory.GetDirectories((t as TiltSeries).TiltStackDir))
+                        if (!dir.EndsWith("thumbnails"))
+                            Directory.Delete(dir, true);
+                    
+                    foreach (var file in Directory.GetFiles((t as TiltSeries).TiltStackDir))
+                        File.Delete(file);
+                }
 
                 Console.WriteLine("Done");
             }

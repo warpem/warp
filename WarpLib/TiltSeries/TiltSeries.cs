@@ -67,7 +67,6 @@ namespace Warp
         public string SubtomoDir => IOPath.Combine(ProcessingDirectoryName, SubtomoDirName, RootName);
 
         public static readonly string ParticleSeriesDirName = "particleseries";
-
         public static string ToParticleSeriesDirPath(string name) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(name));
         public string ParticleSeriesDir => IOPath.Combine(ProcessingDirectoryName, ParticleSeriesDirName, RootName);
 
@@ -219,6 +218,8 @@ namespace Warp
         public float[] TiltAxisOffsetX = { 0 };
         public float[] TiltAxisOffsetY = { 0 };
         public string[] TiltMoviePaths = { "" };
+        
+        public float[] FOVFraction = { 1 };
 
         public int[] IndicesSortedAngle
         {
@@ -1999,6 +2000,14 @@ namespace Warp
                             TiltMoviePaths = new[] { "" };
                     }
 
+                    {
+                        XPathNavigator Nav = Reader.SelectSingleNode("//FOVFraction");
+                        if (Nav != null)
+                            FOVFraction = Nav.InnerXml.Split('\n').Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
+                        else
+                            FOVFraction = Helper.ArrayOfConstant(1f, Angles.Length);
+                    }
+
                     #endregion
 
                     #region CTF fitting-related
@@ -2212,6 +2221,10 @@ namespace Warp
                 Writer.WriteString(string.Join("\n", TiltMoviePaths.Select(v => v.ToString())));
                 Writer.WriteEndElement();
 
+                Writer.WriteStartElement("FOVFraction");
+                Writer.WriteString(string.Join("\n", FOVFraction.Select(v => v.ToString())));
+                Writer.WriteEndElement();
+
                 #endregion
 
                 #region CTF fitting-related
@@ -2373,8 +2386,24 @@ namespace Warp
                 Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
             }
 
-            // Tilt count
+            // Tilts
             Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths);
+
+            // Angles
+            Json["MinTilt"] = Angles.Min();
+            Json["MaxTilt"] = Angles.Max();
+            
+            Json["MinAxis"] = TiltAxisAngles.Min();
+            Json["MeanAxis"] = TiltAxisAngles.Mean();
+            Json["MaxAxis"] = TiltAxisAngles.Max();
+            
+            // Shifts
+            Json["MinShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Min();
+            Json["MeanShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Mean();
+            Json["MaxShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Max();
+            Json["MinShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Min();
+            Json["MeanShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Mean();
+            Json["MaxShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Max();
 
             // Particle count for given suffix
             if (particleSuffix != null)
