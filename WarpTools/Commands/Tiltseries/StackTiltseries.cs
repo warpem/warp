@@ -20,6 +20,9 @@ namespace WarpTools.Commands
 
         [Option("mask", HelpText = "Apply mask to each image if available; masked areas will be filled with Gaussian noise")]
         public bool ApplyMask { get; set; }
+
+        [Option("thumbnails", HelpText = "Create thumbnails for each tilt image using the same pixel size as the stack")]
+        public bool CreateThumbnails { get; set; }
     }
 
     class StackTiltseries : BaseCommand
@@ -44,6 +47,7 @@ namespace WarpTools.Commands
             var OptionsStack = (ProcessingOptionsTomoStack)Options.FillTomoProcessingBase(new ProcessingOptionsTomoStack());
 
             OptionsStack.ApplyMask = CLI.ApplyMask;
+            OptionsStack.CreateThumbnails = CLI.CreateThumbnails;
 
             if (CLI.AngPix.HasValue)
                 OptionsStack.BinTimes = (decimal)Math.Log(CLI.AngPix.Value / (double)Options.Import.PixelSize, 2.0);

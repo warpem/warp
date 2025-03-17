@@ -30,27 +30,46 @@ namespace Warp
     {
         #region Directories
 
-        public string TiltStackDir => IOPath.Combine(ProcessingDirectoryName, "tiltstack", RootName);
+        public static readonly string TiltStackDirName = "tiltstack";
+        public string TiltStackDir => IOPath.Combine(ProcessingDirectoryName, TiltStackDirName, RootName);
 
+        public static string ToTiltStackPath (string name) => IOPath.Combine(TiltStackDirName, Helper.PathToName(name) + ".st");
+        public string TiltStackThumbnailPath (string tiltName) => IOPath.Combine(TiltStackDir, 
+                                                                                 RootName, 
+                                                                                 "thumbnails",
+                                                                                 Helper.PathToName(tiltName) + ".png");
+        public static string ToTiltStackThumbnailPath (string seriesName, string tiltName) => IOPath.Combine(TiltStackDirName, 
+                                                                                                             Helper.PathToName(seriesName), 
+                                                                                                             "thumbnails",
+                                                                                                             Helper.PathToName(tiltName) + ".png");
         public string TiltStackPath => IOPath.Combine(TiltStackDir, RootName + ".st");
 
+        public static string ToAngleFilePath (string name) => IOPath.Combine(TiltStackDirName, Helper.PathToName(name) + ".rawtlt");
         public string AngleFilePath => IOPath.Combine(TiltStackDir, RootName + ".rawtlt");
 
-        public string ReconstructionDir => IOPath.Combine(ProcessingDirectoryName, "reconstruction");
+        public static readonly string ReconstructionDirName = "reconstruction";
+        public string ReconstructionDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDirName);
 
-        public string ReconstructionDeconvDir => IOPath.Combine(ReconstructionDir, "deconv");
+        public static readonly string ReconstructionDeconvDirName = "deconv";
+        public string ReconstructionDeconvDir => IOPath.Combine(ReconstructionDir, ReconstructionDeconvDirName);
 
-        public string ReconstructionOddDir => IOPath.Combine(ReconstructionDir, "odd");
+        public static readonly string ReconstructionOddDirName = IOPath.Combine(ReconstructionDirName, "odd");
+        public string ReconstructionOddDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionOddDirName);
 
-        public string ReconstructionEvenDir => IOPath.Combine(ReconstructionDir, "even");
+        public static readonly string ReconstructionEvenDirName = IOPath.Combine(ReconstructionDirName, "even");
+        public string ReconstructionEvenDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionEvenDirName);
 
-        public string ReconstructionCTFDir => IOPath.Combine(ReconstructionDir, "ctf");
+        public static readonly string ReconstructionCTFDirName = IOPath.Combine(ReconstructionDirName, "ctf");
+        public string ReconstructionCTFDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionCTFDirName);
 
-        public string SubtomoDir => IOPath.Combine(ProcessingDirectoryName, "subtomo", RootName);
+        public static readonly string SubtomoDirName = "subtomo"; 
+        public static string ToSubtomoDirPath(string name) => IOPath.Combine(SubtomoDirName, Helper.PathToName(name));
+        public string SubtomoDir => IOPath.Combine(ProcessingDirectoryName, SubtomoDirName, RootName);
 
-        public string ParticleSeriesDir => IOPath.Combine(ProcessingDirectoryName, "particleseries", RootName);
+        public static readonly string ParticleSeriesDirName = "particleseries";
 
-        public string WeightOptimizationDir => IOPath.Combine(ProcessingDirectoryName, "weightoptimization");
+        public static string ToParticleSeriesDirPath(string name) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(name));
+        public string ParticleSeriesDir => IOPath.Combine(ProcessingDirectoryName, ParticleSeriesDirName, RootName);
 
         #endregion
 

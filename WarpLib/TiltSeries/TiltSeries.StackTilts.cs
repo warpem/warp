@@ -29,13 +29,29 @@ public partial class TiltSeries
             TiltData[z].FreeDevice();
         }
 
-        var UsedTilts = TiltData.Where((d, i) => UseTilt[i]).ToArray();
-        var UsedAngles = Angles.Where((d, i) => UseTilt[i]).ToArray();
+        var UsedIndices = Enumerable.Range(0, NTilts).Where(i => UseTilt[i]).ToArray();
+        var UsedTilts = UsedIndices.Select(i => TiltData[i]).ToArray();
+        var UsedAngles = UsedIndices.Select(i => Angles[i]).ToArray();
 
-        Image Stack = new Image(UsedTilts.Select(i => i.GetHost(Intent.Read)[0]).ToArray(), new int3(UsedTilts[0].Dims.X, UsedTilts[0].Dims.Y, UsedTilts.Length));
-        Stack.WriteMRC(TiltStackPath, (float)options.BinnedPixelSizeMean, true);
+        using (Image stack = new Image(UsedTilts.Select(i => i.GetHost(Intent.Read)[0]).ToArray(), new int3(UsedTilts[0].Dims.X, UsedTilts[0].Dims.Y, UsedTilts.Length)))
+            stack.WriteMRC(TiltStackPath, (float)options.BinnedPixelSizeMean, true);
 
         File.WriteAllLines(AngleFilePath, UsedAngles.Select(a => a.ToString("F2", CultureInfo.InvariantCulture)));
+        
+        #region Make thumbnails
+
+        foreach (var t in UsedIndices)
+            using (Image center = TiltData[t].AsPadded(new int2(TiltData[t].Dims) / 2))
+            {
+                float2 MeanStd = MathHelper.MedianAndStd(center.GetHost(Intent.Read)[0]);
+                float Min = MeanStd.X;
+                float Range = 0.5f / (MeanStd.Y * 3);
+
+                TiltData[t].TransformValues(v => ((v - Min) * Range + 0.5f) * 255);
+                TiltData[t].WritePNG(TiltStackThumbnailPath(TiltMoviePaths[t]));
+            }
+        
+        #endregion
     }
 }
 
@@ -43,4 +59,5 @@ public partial class TiltSeries
 public class ProcessingOptionsTomoStack : TomoProcessingOptionsBase
 {
     [WarpSerializable] public bool ApplyMask { get; set; }
+    [WarpSerializable] public bool CreateThumbnails { get; set; }
 }

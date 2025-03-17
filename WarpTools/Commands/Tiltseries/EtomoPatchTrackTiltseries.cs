@@ -37,6 +37,9 @@ namespace WarpTools.Commands
 
         [Option("delete_intermediate", HelpText = "Delete tilt series stacks generated for Etomo")]
         public bool DeleteIntermediate { get; set; }
+
+        [Option("thumbnails", HelpText = "Create thumbnails for each tilt image using the same pixel size as the stack; only makes sense without delete_intermediate")]
+        public bool CreateThumbnails { get; set; }
     }
 
     class EtomoPatchTrackTiltseries : BaseCommand
@@ -71,6 +74,7 @@ namespace WarpTools.Commands
 
             var OptionsStack = (ProcessingOptionsTomoStack)Options.FillTomoProcessingBase(new ProcessingOptionsTomoStack());
             OptionsStack.ApplyMask = CLI.ApplyMask;
+            OptionsStack.CreateThumbnails = CLI.CreateThumbnails;
             OptionsStack.BinTimes = (decimal)Math.Log(CLI.AngPix.Value / (double)Options.Import.PixelSize, 2.0);
 
             var OptionsImport = (ProcessingOptionsTomoImportAlignments)Options.FillTomoProcessingBase(new ProcessingOptionsTomoImportAlignments());

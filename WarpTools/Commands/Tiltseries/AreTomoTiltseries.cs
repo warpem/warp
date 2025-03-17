@@ -42,6 +42,9 @@ namespace WarpTools.Commands
         [Option("delete_intermediate", HelpText = "Delete tilt series stacks generated for AreTomo")]
         public bool DeleteIntermediate { get; set; }
 
+        [Option("thumbnails", HelpText = "Create thumbnails for each tilt image using the same pixel size as the stack")]
+        public bool CreateThumbnails { get; set; }
+
         [Option("exe", Default = "AreTomo2", HelpText = "Name of the AreTomo2 executable; must be in $PATH")]
         public string Executable { get; set; }
     }
@@ -86,6 +89,7 @@ namespace WarpTools.Commands
 
             var OptionsStack = (ProcessingOptionsTomoStack)Options.FillTomoProcessingBase(new ProcessingOptionsTomoStack());
             OptionsStack.ApplyMask = CLI.ApplyMask;
+            OptionsStack.CreateThumbnails = CLI.CreateThumbnails;
             OptionsStack.BinTimes = (decimal)Math.Log(CLI.AngPix.Value / (double)Options.Import.PixelSize, 2.0);
 
             var OptionsImport = (ProcessingOptionsTomoImportAlignments)Options.FillTomoProcessingBase(new ProcessingOptionsTomoImportAlignments());
@@ -186,7 +190,14 @@ namespace WarpTools.Commands
                 Console.Write("Deleting intermediate stacks... ");
 
                 foreach (var t in CLI.InputSeries)
-                    Directory.Delete((t as TiltSeries).TiltStackDir, true);
+                {
+                    foreach (var dir in Directory.GetDirectories((t as TiltSeries).TiltStackDir))
+                        if (!dir.EndsWith("thumbnails"))
+                            Directory.Delete(dir, true);
+                    
+                    foreach (var file in Directory.GetFiles((t as TiltSeries).TiltStackDir))
+                        File.Delete(file);
+                }
 
                 Console.WriteLine("Done");
             }
