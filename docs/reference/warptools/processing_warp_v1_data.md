@@ -1,4 +1,4 @@
-# Moving from Warp Versions 1.X to 2.X
+# Moving Tilt Series Processing to v2.X
 
 Some people want to continue projects from Warp 1.X in Warp 2.0 to enable processing their 
 data in HPC environments using *WarpTools*. 
