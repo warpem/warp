@@ -46,6 +46,7 @@ nav:
         - Processing Tilt Series Stacks: reference/warptools/processing_tilt_series_stacks.md
         - Tomogram Denoising: reference/warptools/tomogram_denoising.md
         - Tomogram Particle File Reference: reference/warptools/tomogram_particle_files.md
+        - Desktop Warp → WarpTools: reference/warptools/processing_warp_v1_data.md
     - MTools/MCore:
         - API Reference:
           - MTools: reference/mtools/api/mtools.md
