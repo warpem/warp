@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -222,7 +223,7 @@ namespace WarpTools.Commands
                         Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
                         Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
 
-                        Console.Error.WriteLine("Exception details:\n" + ex.Message);
+                        Console.Error.WriteLine("Exception details:\n" + (ex is ExternalException ? ex.Message : ex.ToString()));
 
                         nFailed += itemsToProcess.Length;
                         failedItems.AddRange(itemsToProcess);
