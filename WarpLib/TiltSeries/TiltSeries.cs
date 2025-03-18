@@ -35,7 +35,6 @@ namespace Warp
 
         public static string ToTiltStackPath (string name) => IOPath.Combine(TiltStackDirName, Helper.PathToName(name) + ".st");
         public string TiltStackThumbnailPath (string tiltName) => IOPath.Combine(TiltStackDir, 
-                                                                                 RootName, 
                                                                                  "thumbnails",
                                                                                  Helper.PathToName(tiltName) + ".png");
         public static string ToTiltStackThumbnailPath (string seriesName, string tiltName) => IOPath.Combine(TiltStackDirName, 
@@ -312,7 +311,7 @@ namespace Warp
         public void InitializeFromTomoStar(Star table)
         {
             if (!table.HasColumn("wrpDose") || !table.HasColumn("wrpAngleTilt"))
-                throw new Exception("STAR file has no wrpDose or wrpTilt column.");
+                throw new Exception("STAR file has no wrpDose or wrpAngleTilt column.");
 
             List<float> TempAngles = new List<float>();
             List<float> TempDose = new List<float>();
