@@ -187,7 +187,7 @@ public partial class TiltSeries
 
         #region FOV fraction
 
-        if (options.MinFOV > 0)
+        //if (options.MinFOV > 0)
         {
             VolumeDimensionsPhysical = new float3((float)options.DimensionsPhysical.X, (float)options.DimensionsPhysical.Y, 1);
             LoadMovieSizes();
@@ -229,7 +229,8 @@ public partial class TiltSeries
             // if (FractionAt0 > 0)
             //     FOVFractions = FOVFractions.Select(v => v / FractionAt0).ToArray();
 
-            UseTilt = UseTilt.Select((v, t) => v && FOVFraction[t] >= (float)options.MinFOV).ToArray();
+            if (options.MinFOV > 0)
+                UseTilt = UseTilt.Select((v, t) => v && FOVFraction[t] >= (float)options.MinFOV).ToArray();
         }
 
         #endregion
