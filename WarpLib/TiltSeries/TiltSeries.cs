@@ -1813,8 +1813,8 @@ namespace Warp
             }
         }
 
-        static int[][] DirtErasureLabelsBuffer = new int[GPU.GetDeviceCount()][];
-        static Image[] DirtErasureMaskBuffer = new Image[GPU.GetDeviceCount()];
+        static int[][] DirtErasureLabelsBuffer = null;
+        static Image[] DirtErasureMaskBuffer = null;
         public static void EraseDirt(Image tiltImage, Image tiltMask, float noiseScale = 0.1f)
         {
             if (tiltMask == null)
@@ -1825,9 +1825,15 @@ namespace Warp
             int CurrentDevice = GPU.GetDevice();
 
             #region Make sure reusable buffers are there and correctly sized
+            
+            if (DirtErasureLabelsBuffer == null || DirtErasureLabelsBuffer.Length != GPU.GetDeviceCount())
+                DirtErasureLabelsBuffer = new int[GPU.GetDeviceCount()][];
 
             if (DirtErasureLabelsBuffer[CurrentDevice] == null || DirtErasureLabelsBuffer[CurrentDevice].Length != ImageData.Length)
                 DirtErasureLabelsBuffer[CurrentDevice] = new int[ImageData.Length];
+            
+            if (DirtErasureMaskBuffer == null || DirtErasureMaskBuffer.Length != GPU.GetDeviceCount())
+                DirtErasureMaskBuffer = new Image[GPU.GetDeviceCount()];
 
             if (DirtErasureMaskBuffer[CurrentDevice] == null || DirtErasureMaskBuffer[CurrentDevice].Dims != tiltMask.Dims)
             {
