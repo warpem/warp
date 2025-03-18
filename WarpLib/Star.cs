@@ -30,15 +30,15 @@ namespace Warp
                 if (!string.IsNullOrEmpty(tableName))
                 {
                     tableName = "data_" + tableName;
-                    while ((Line = Reader.ReadLine()) != null && !Line.StartsWith(tableName)) ;
-                    
+                    while((Line = Reader.ReadLine()) != null && !Line.StartsWith(tableName)) ;
+
                     if (Line == null)
                         throw new Exception($"Table {tableName} not found in {path}");
                 }
 
-                while ((Line = Reader.ReadLine()) != null && !Line.Contains("loop_")) ;
+                while((Line = Reader.ReadLine()) != null && !Line.Contains("loop_")) ;
 
-                while (true)
+                while(true)
                 {
                     Line = Reader.ReadLine();
 
@@ -57,7 +57,7 @@ namespace Warp
 
                 if (onlyColumns == null)
                 {
-                    ReadOnlySpan<char> LineSpan = Line.AsSpan();    // First line has already been read
+                    ReadOnlySpan<char> LineSpan = Line.AsSpan(); // First line has already been read
 
                     do
                     {
@@ -69,7 +69,7 @@ namespace Warp
 
                         if (nrows > 0 && Rows.Count >= nrows)
                             break;
-                    } while (Reader.TryReadLineSpan(out LineSpan));
+                    } while(Reader.TryReadLineSpan(out LineSpan));
                 }
                 else
                 {
@@ -91,7 +91,7 @@ namespace Warp
                     foreach (var p in OnlyPositions)
                         ReadMask[p] = true;
 
-                    ReadOnlySpan<char> LineSpan = Line.AsSpan();    // First line has already been read
+                    ReadOnlySpan<char> LineSpan = Line.AsSpan(); // First line has already been read
                     string[] PartsBuffer = new string[OverallColumns];
                     do
                     {
@@ -103,7 +103,7 @@ namespace Warp
 
                         if (nrows > 0 && Rows.Count >= nrows)
                             break;
-                    } while (Reader.TryReadLineSpan(out LineSpan));
+                    } while(Reader.TryReadLineSpan(out LineSpan));
                 }
             }
         }
@@ -184,12 +184,49 @@ namespace Warp
         }
 
         public Star()
-        { 
+        {
         }
 
         public static Dictionary<string, Star> FromMultitable(string path, IEnumerable<string> names)
         {
             return names.Where(name => ContainsTable(path, name)).ToDictionary(name => name, name => new Star(path, name));
+        }
+
+        public static Dictionary<string, Star> ReadAllTables(string path)
+        {
+            Dictionary<string, Star> result = new Dictionary<string, Star>();
+            List<string> tableNames = new List<string>();
+
+            // discover all table names in the file
+            using TextReader reader = File.OpenText(path);
+            string line;
+            while((line = reader.ReadLine()) != null)
+            {
+                if (line.StartsWith("data_") && line.Length > "data_".Length)
+                {
+                    string tableName = line.Substring("data_".Length).Trim();
+                    if (!string.IsNullOrEmpty(tableName))
+                    {
+                        tableNames.Add(tableName);
+                    }
+                }
+            }
+
+            // create Star instances for each table
+            foreach (string tableName in tableNames)
+            {
+                try
+                {
+                    Star table = new Star(path, tableName);
+                    result.Add(tableName, table);
+                }
+                catch(Exception ex)
+                {
+                    throw new Exception($"Error loading table '{tableName}' from {path}: {ex.Message}");
+                }
+            }
+
+            return result;
         }
 
         public static bool IsMultiTable(string path)
@@ -199,7 +236,7 @@ namespace Warp
             using (TextReader Reader = File.OpenText(path))
             {
                 string Line;
-                while ((Line = Reader.ReadLine()) != null)
+                while((Line = Reader.ReadLine()) != null)
                     if (Line.StartsWith("data_"))
                     {
                         if (Line.Replace("\n", "").Replace("\r", "").Length > "data_".Length)
@@ -219,7 +256,7 @@ namespace Warp
             using (TextReader Reader = File.OpenText(path))
             {
                 string Line;
-                while ((Line = Reader.ReadLine()) != null)
+                while((Line = Reader.ReadLine()) != null)
                     if (Line.StartsWith(name))
                     {
                         Found = true;
@@ -229,7 +266,6 @@ namespace Warp
 
             return Found;
         }
-
 
 
         public static (Star table, bool is3) LoadRelion3Particles(string path)
@@ -323,9 +359,9 @@ namespace Warp
                         ColumnWidths[threadID][i] = Math.Max(ColumnWidths[threadID][i], row[i].Length);
                 }, null);
                 for (int c = 0; c < ColumnCount; c++)
-                    for (int t = 1; t < NThreads; t++)
-                        ColumnWidths[0][c] = Math.Max(ColumnWidths[0][c], ColumnWidths[t][c]);
-                
+                for (int t = 1; t < NThreads; t++)
+                    ColumnWidths[0][c] = Math.Max(ColumnWidths[0][c], ColumnWidths[t][c]);
+
                 int RowLength = ColumnWidths[0].Select(v => v + 2).Sum();
 
                 char[] RowBuilderBuffer = new char[RowLength + 1];
@@ -357,9 +393,9 @@ namespace Warp
             {
                 string Line;
 
-                while ((Line = Reader.ReadLine()) != null && !Line.Contains("loop_")) ;
+                while((Line = Reader.ReadLine()) != null && !Line.Contains("loop_")) ;
 
-                while (true)
+                while(true)
                 {
                     Line = Reader.ReadLine();
 
@@ -378,8 +414,7 @@ namespace Warp
 
                     if (Line.Length > 3)
                         Result++;
-
-                } while ((Line = Reader.ReadLine()) != null);
+                } while((Line = Reader.ReadLine()) != null);
             }
 
             return Result;
@@ -455,9 +490,9 @@ namespace Warp
         public float GetRowValueFloat(int row, int column)
         {
             return float.Parse(Rows[row][column].Replace("inf", "Infinity")
-                                                .Replace("-nan", "NaN")
-                                                .Replace("nan", "NaN"), 
-                               CultureInfo.InvariantCulture);
+                    .Replace("-nan", "NaN")
+                    .Replace("nan", "NaN"),
+                CultureInfo.InvariantCulture);
         }
 
         public int GetRowValueInt(int row, string column)
@@ -703,12 +738,9 @@ namespace Warp
 
         public float3[] GetRelionOffsets()
         {
-            float[] X = HasColumn("rlnOriginXAngst") ? GetColumn("rlnOriginXAngst").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : 
-                        (HasColumn("rlnOriginX") ? GetColumn("rlnOriginX").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount]);
-            float[] Y = HasColumn("rlnOriginYAngst") ? GetColumn("rlnOriginYAngst").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() :
-                        (HasColumn("rlnOriginY") ? GetColumn("rlnOriginY").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount]);
-            float[] Z = HasColumn("rlnOriginZAngst") ? GetColumn("rlnOriginZAngst").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() :
-                        (HasColumn("rlnOriginZ") ? GetColumn("rlnOriginZ").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount]);
+            float[] X = HasColumn("rlnOriginXAngst") ? GetColumn("rlnOriginXAngst").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : (HasColumn("rlnOriginX") ? GetColumn("rlnOriginX").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount]);
+            float[] Y = HasColumn("rlnOriginYAngst") ? GetColumn("rlnOriginYAngst").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : (HasColumn("rlnOriginY") ? GetColumn("rlnOriginY").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount]);
+            float[] Z = HasColumn("rlnOriginZAngst") ? GetColumn("rlnOriginZAngst").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : (HasColumn("rlnOriginZ") ? GetColumn("rlnOriginZ").Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray() : new float[RowCount]);
 
             return Helper.Zip(X, Y, Z);
         }
@@ -783,9 +815,7 @@ namespace Warp
 
         public float[] GetFloatRobust(string name1 = null)
         {
-            return (name1 == null ? GetColumn(0) : GetColumn(name1)).Select(v => float.Parse(v.Replace("inf", "Infinity").
-                                                                                               Replace("-nan", "NaN").
-                                                                                               Replace("nan", "NaN"), CultureInfo.InvariantCulture)).ToArray();
+            return (name1 == null ? GetColumn(0) : GetColumn(name1)).Select(v => float.Parse(v.Replace("inf", "Infinity").Replace("-nan", "NaN").Replace("nan", "NaN"), CultureInfo.InvariantCulture)).ToArray();
         }
 
         public float2[] GetFloat2(string name1 = null, string name2 = null)
@@ -904,10 +934,9 @@ namespace Warp
 
     public class StarParameters : Star
     {
-        public StarParameters(string[] parameterNames, string[] parameterValues) : 
-            base(parameterValues.Select(v => new string[] { v}).ToArray(), parameterNames)
+        public StarParameters(string[] parameterNames, string[] parameterValues) :
+            base(parameterValues.Select(v => new string[] { v }).ToArray(), parameterNames)
         {
-            
         }
 
         public StarParameters(string path, string tableName = "", int nrows = -1)
@@ -919,14 +948,14 @@ namespace Warp
                 if (!string.IsNullOrEmpty(tableName))
                 {
                     tableName = "data_" + tableName;
-                    while ((Line = Reader.ReadLine()) != null && !Line.StartsWith(tableName)) ;
+                    while((Line = Reader.ReadLine()) != null && !Line.StartsWith(tableName)) ;
                 }
 
-                while ((Line = Reader.ReadLine()) != null && !Line.StartsWith("_")) ;
+                while((Line = Reader.ReadLine()) != null && !Line.StartsWith("_")) ;
 
                 List<string> OnlyRow = new List<string>();
 
-                while (true)
+                while(true)
                 {
                     if (Line == null)
                         break;
@@ -935,7 +964,7 @@ namespace Warp
                         string[] Parts = Line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
                         if (Parts.Length < 2)
                             throw new Exception("STAR file is poorly formatted, expected at least a column name and a value in this line: " + Line);
-                        
+
                         string ColumnName = Parts[0].Substring(1);
                         string ColumnValue = Parts[1];
                         int ColumnIndex = NameMapping.Count;
@@ -943,7 +972,7 @@ namespace Warp
 
                         OnlyRow.Add(ColumnValue);
                     }
-                    
+
                     Line = Reader.ReadLine();
                     if (Line == null || !Line.StartsWith("_"))
                         break;
@@ -989,7 +1018,7 @@ namespace Warp
 
     public class SpanLineReader : IDisposable
     {
-        private const int DefaultBufferSize = 1 << 16;  // 64 KB should be enough for anybody
+        private const int DefaultBufferSize = 1 << 16; // 64 KB should be enough for anybody
         private readonly Stream Stream;
         private byte[] Buffer;
         private int BufferEnd = 0;
@@ -1003,7 +1032,7 @@ namespace Warp
             LineBuffer = new char[bufferSize];
         }
 
-        public void Dispose() 
+        public void Dispose()
         {
             Stream?.Dispose();
         }
@@ -1020,7 +1049,7 @@ namespace Warp
 
         public bool TryReadLineSpan(out ReadOnlySpan<char> line)
         {
-            while (true)
+            while(true)
             {
                 int newLineIndex = Array.IndexOf(Buffer, (byte)'\n', BufferStart, BufferEnd - BufferStart);
                 if (newLineIndex >= 0)
