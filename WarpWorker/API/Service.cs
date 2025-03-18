@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Warp;
 using Warp.Tools;
 
@@ -47,7 +48,11 @@ namespace WarpWorker.API
             }
             catch (Exception ex) 
             { 
-                return BadRequest(ex.Message);
+                return Problem(ex.ToString(), 
+                               null, 
+                               StatusCodes.Status500InternalServerError, 
+                               "Command execution failed", 
+                               "Processing error");
             }
 
             return Ok();

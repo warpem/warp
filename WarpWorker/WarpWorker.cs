@@ -877,7 +877,7 @@ namespace WarpWorker
             {
                 Console.WriteLine(e.ToString());
 
-                File.WriteAllText($"worker_{Port}_crash.txt", e.ToString());
+                //File.AppendAllText($"worker_{Port}_crash.txt", e.ToString());
 
                 throw;
             }

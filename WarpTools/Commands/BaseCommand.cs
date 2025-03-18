@@ -222,7 +222,7 @@ namespace WarpTools.Commands
                         Console.Error.WriteLine($"Check logs in {logDirectory} for more info.");
                         Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
 
-                        Console.Error.WriteLine("Exception details: " + ex);
+                        Console.Error.WriteLine("Exception details:\n" + ex.Message);
 
                         nFailed += itemsToProcess.Length;
                         failedItems.AddRange(itemsToProcess);
