@@ -40,7 +40,7 @@ public partial class TiltSeries
         
         #region Make thumbnails
 
-        Directory.CreateDirectory(TiltStackDir);
+        Directory.CreateDirectory(TiltStackThumbnailDir);
 
         foreach (var t in UsedIndices)
             using (Image center = TiltData[t].AsPadded(new int2(TiltData[t].Dims) / 2))

@@ -229,7 +229,15 @@ namespace Warp
                 HttpResponseMessage Response = httpClient.PostAsync("v1/Service/EvaluateCommand", Content).GetAwaiter().GetResult();
 
                 if (!Response.IsSuccessStatusCode)
-                    throw new ExternalException(Response.Content.ReadAsStringAsync().Result);
+                {
+                    var responseContent = Response.Content.ReadAsStringAsync().Result;
+                    var jsonDocument = JsonDocument.Parse(responseContent);
+                    
+                    if (jsonDocument.RootElement.TryGetProperty("details", out var details))
+                        throw new ExternalException(details.GetRawText());
+
+                    throw new ExternalException(responseContent);
+                }
             }
         }
 

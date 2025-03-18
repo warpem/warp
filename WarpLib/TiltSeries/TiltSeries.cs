@@ -34,12 +34,14 @@ namespace Warp
         public string TiltStackDir => IOPath.Combine(ProcessingDirectoryName, TiltStackDirName, RootName);
 
         public static string ToTiltStackPath (string name) => IOPath.Combine(TiltStackDirName, Helper.PathToName(name) + ".st");
-        public string TiltStackThumbnailPath (string tiltName) => IOPath.Combine(TiltStackDir, 
-                                                                                 "thumbnails",
+        
+        public static readonly string TiltStackThumbnailDirName = "thumbnails";
+        public string TiltStackThumbnailDir => IOPath.Combine(TiltStackDir, TiltStackThumbnailDirName);
+        public string TiltStackThumbnailPath (string tiltName) => IOPath.Combine(TiltStackThumbnailDir,
                                                                                  Helper.PathToName(tiltName) + ".png");
         public static string ToTiltStackThumbnailPath (string seriesName, string tiltName) => IOPath.Combine(TiltStackDirName, 
                                                                                                              Helper.PathToName(seriesName), 
-                                                                                                             "thumbnails",
+                                                                                                             TiltStackThumbnailDirName,
                                                                                                              Helper.PathToName(tiltName) + ".png");
         public string TiltStackPath => IOPath.Combine(TiltStackDir, RootName + ".st");
 
