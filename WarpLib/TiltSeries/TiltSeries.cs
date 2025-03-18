@@ -2394,7 +2394,7 @@ namespace Warp
             }
 
             // Tilts
-            Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths);
+            Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths.Where((p, t) => UseTilt[t]).ToArray());
 
             // Angles
             Json["MinTilt"] = Angles.Min();
