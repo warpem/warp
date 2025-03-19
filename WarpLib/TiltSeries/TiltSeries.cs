@@ -2391,6 +2391,15 @@ namespace Warp
                 // Astigmatism plot X and Y
                 Json["AsX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
                 Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+                
+                // Defocus distribution
+                if (GridCTFDefocus != null)
+                {
+                    var defoci = Enumerable.Range(0, NTilts).Select(i => GetTiltDefocus(i));
+                    Json["MinDef"] = defoci.Min();
+                    Json["MeanDef"] = defoci.Mean();
+                    Json["MaxDef"] = defoci.Max();
+                }
             }
 
             // Tilts
