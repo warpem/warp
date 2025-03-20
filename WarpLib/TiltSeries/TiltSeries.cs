@@ -2377,31 +2377,6 @@ namespace Warp
             // ProcessingStatus enum
             Json["Stat"] = (int)ProcessingStatus;
 
-            // CTF
-            {
-                // Defocus
-                Json["Def"] = CTF == null ? null : MathF.Round((float)CTF.Defocus, 4);
-
-                // Phase shift
-                Json["Phs"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
-
-                // Estimated resolution
-                Json["Rsn"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
-
-                // Astigmatism plot X and Y
-                Json["AsX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
-                Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
-                
-                // Defocus distribution
-                if (GridCTFDefocus != null)
-                {
-                    var defoci = Enumerable.Range(0, NTilts).Select(i => GetTiltDefocus(i));
-                    Json["MinDef"] = defoci.Min();
-                    Json["MeanDef"] = defoci.Mean();
-                    Json["MaxDef"] = defoci.Max();
-                }
-            }
-
             // Tilts
             Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths.Where((p, t) => UseTilt[t]).ToArray());
 
@@ -2420,6 +2395,28 @@ namespace Warp
             Json["MinShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Min();
             Json["MeanShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Mean();
             Json["MaxShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Max();
+
+            // CTF
+            if (OptionsCTF != null)
+            {
+                if (GridCTFDefocus != null)
+                {
+                    var defoci = Enumerable.Range(0, NTilts).Select(i => GetTiltDefocus(i)).ToArray();
+                    Json["MinDefocus"] = defoci.Min();
+                    Json["MeanDefocus"] = defoci.Mean();
+                    Json["MaxDefocus"] = defoci.Max();
+                }
+
+                Json["Astigmatism"] = Math.Abs(CTF.DefocusDelta);
+                
+                Json["MinPhase"] = GridCTFPhase.Values.Min();
+                Json["MeanPhase"] = GridCTFPhase.Values.Mean();
+                Json["MaxPhase"] = GridCTFPhase.Values.Max();
+                
+                Json["CtfResolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
+
+                Json["CtfInclination"] = MathF.Acos(PlaneNormal.Z) * Helper.ToDeg;
+            }
 
             // Particle count for given suffix
             if (particleSuffix != null)
