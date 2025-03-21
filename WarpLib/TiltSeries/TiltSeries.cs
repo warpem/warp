@@ -48,20 +48,28 @@ namespace Warp
         public static string ToAngleFilePath (string name) => IOPath.Combine(TiltStackDirName, Helper.PathToName(name) + ".rawtlt");
         public string AngleFilePath => IOPath.Combine(TiltStackDir, RootName + ".rawtlt");
 
+        public string ToTomogramWithPixelSize(string name, decimal pixelSize) => $"{Helper.PathToName(name)}_{pixelSize:F2}Apx";
+        
         public static readonly string ReconstructionDirName = "reconstruction";
         public string ReconstructionDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDirName);
+        public string ToReconstructionTomogramPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
+        public string ToReconstructionThumbnailPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDirName, ToTomogramWithPixelSize(name, pixelSize) + ".png");
 
-        public static readonly string ReconstructionDeconvDirName = "deconv";
-        public string ReconstructionDeconvDir => IOPath.Combine(ReconstructionDir, ReconstructionDeconvDirName);
+        public static readonly string ReconstructionDeconvDirName = IOPath.Combine(ReconstructionDirName, "deconv");
+        public string ReconstructionDeconvDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDeconvDirName);
+        public string ToReconstructionDeconvPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDeconvDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
 
         public static readonly string ReconstructionOddDirName = IOPath.Combine(ReconstructionDirName, "odd");
         public string ReconstructionOddDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionOddDirName);
+        public string ToReconstructionOddPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionOddDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
 
         public static readonly string ReconstructionEvenDirName = IOPath.Combine(ReconstructionDirName, "even");
         public string ReconstructionEvenDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionEvenDirName);
+        public string ToReconstructionEvenPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionEvenDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
 
         public static readonly string ReconstructionCTFDirName = IOPath.Combine(ReconstructionDirName, "ctf");
         public string ReconstructionCTFDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionCTFDirName);
+        public string ToReconstructionCTFPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionCTFDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
 
         public static readonly string SubtomoDirName = "subtomo"; 
         public static string ToSubtomoDirPath(string name) => IOPath.Combine(SubtomoDirName, Helper.PathToName(name));

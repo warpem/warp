@@ -13,7 +13,7 @@ public partial class TiltSeries
         int GPUID = GPU.GetDevice();
 
         bool IsCanceled = false;
-        string NameWithRes = RootName + $"_{options.BinnedPixelSizeMean:F2}Apx";
+        string NameWithRes = ToTomogramWithPixelSize(Path, options.BinnedPixelSizeMean);
 
         Directory.CreateDirectory(ReconstructionDir);
 
