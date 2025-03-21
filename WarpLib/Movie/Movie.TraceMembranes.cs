@@ -81,7 +81,6 @@ namespace Warp
                 // trace 1px thick ridges through each membrane, prune any extra branches in the resulting skeleton
                 var skeleton = TraceMembranesHelper.Skeletonize(maskRaw);
                 TraceMembranesHelper.PruneBranchesInPlace(skeleton);
-                skeleton.WriteMRC16b("ab_skeleton_pruned.mrc");
                 Console.WriteLine("skeletonized");
 
                 // find each individual 1px thick membrane in preprocessed skeleton
@@ -476,8 +475,6 @@ public static class TraceMembranesHelper
     {
         // get image data
         float[] imageData = image.GetHost(Intent.Read)[0];
-        
-        image.WriteMRC16b("ab_average_lowpass.mrc");
 
         // convert distances from angstroms to pixels
         int maxDistance = (int)(maxDistanceAngst / image.PixelSize);
@@ -658,9 +655,6 @@ public static class TraceMembranesHelper
                     i = iPixel.Y * initialMembraneImage.Dims.X + iPixel.X;
                     initialMembraneImageData[i] = val;
                 }
-                
-                initialMembraneImage.WriteMRC("d_initial_membrane.mrc");
-                Console.WriteLine("d_initial_membrane.mrc");
             }
             
 
@@ -845,11 +839,6 @@ public static class TraceMembranesHelper
             int i = iPixel.Y * finalMembraneImage.Dims.X + iPixel.X;
             finalMembraneImageData[i] = val;
         }
-
-        string outputPathfinal = $"d_final_membrane.mrc";
-        finalMembraneImage.WriteMRC(outputPathfinal);
-        Console.WriteLine(outputPathfinal);
-
         return (recData, finalSpline, finalIntensitySpline);
     }
 
@@ -1155,7 +1144,6 @@ public static class TraceMembranesHelper
     {
         List<int> endpoints = new List<int>();
         float[] skeletonData = skeleton.GetHost(Intent.ReadWrite)[0];
-        skeleton.WriteMRC16b("ab_skeleton_endpoints.mrc");
         int width = skeleton.Dims.X;
 
         foreach (int idx in componentIndices)
