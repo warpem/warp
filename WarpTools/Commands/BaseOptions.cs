@@ -96,7 +96,10 @@ namespace WarpTools.Commands
                 string[] InputFiles = Directory.EnumerateFiles(InputNoRawData ? InputProcessing : SettingsDataDirectory,
                                                                InputNoRawData ? "*.xml" : Options.Import.Extension,
                                                                Options.Import.DoRecursiveSearch ? SearchOption.AllDirectories :
-                                                                                                  SearchOption.TopDirectoryOnly).Order().ToArray();
+                                                                                                  SearchOption.TopDirectoryOnly)
+                                               .Where(path => !path.StartsWith('.'))
+                                               .Order()
+                                               .ToArray();
 
                 InputData = InputFiles;
             }
