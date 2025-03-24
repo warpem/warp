@@ -156,7 +156,7 @@ namespace WarpTools.Commands
 
                 // Log file setup (differs slightly for batches)
                 processor.Console.Clear();
-                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{batchIdx}_{workerIdx}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
+                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{batchIdx}_worker{workerIdx}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
                 processor.Console.SetFileOutput(logFile);
 
                 try
