@@ -132,12 +132,13 @@ namespace WarpTools.Commands
                 $"\nFinished processing in {TimeSpan.FromMilliseconds(timerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
 
             // close for processing individual item
-            void ProcessItem(int index, int threadID, int jsonIndex)
+            void ProcessItem(int batchIdx, int threadID, int jsonIndex)
             {
                 Stopwatch timer = Stopwatch.StartNew();
-                WorkerWrapper processor = workers[threadID % workers.Length];
+                int workerIdx = threadID % workers.Length;
+                WorkerWrapper processor = workers[workerIdx];
 
-                T item = getBatch(index, isBatch ? Math.Min(index + itemsPerBatch, cli.InputSeries.Length) : index + 1);
+                T item = getBatch(batchIdx, isBatch ? Math.Min(batchIdx + itemsPerBatch, cli.InputSeries.Length) : batchIdx + 1);
                 Movie[] moviesToProcess = isBatch ? (Movie[])((object)item) : new[] { (Movie)((object)item) };
 
                 // Path correction (identical to original)
@@ -155,7 +156,7 @@ namespace WarpTools.Commands
 
                 // Log file setup (differs slightly for batches)
                 processor.Console.Clear();
-                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{index}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
+                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{batchIdx}_{workerIdx}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
                 processor.Console.SetFileOutput(logFile);
 
                 try
@@ -184,7 +185,7 @@ namespace WarpTools.Commands
                         VirtualConsole.ClearLastLine();
                         // Error message differs slightly for batches
                         if (isBatch)
-                            Console.Error.WriteLine($"Failed to process batch {index}, marked as unselected");
+                            Console.Error.WriteLine($"Failed to process batch {batchIdx}, marked as unselected");
                         else
                             Console.Error.WriteLine($"Failed to process {moviesToProcess[0].Path}, marked as unselected");
 
