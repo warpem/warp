@@ -43,10 +43,12 @@ namespace WarpTools.Commands
         [Option("subdivisions", Default = 3, HelpText = "Number of subdivisions defining the angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on")]
         public int HealpixOrder { get; set; }
 
-        [Option("tilt_range", HelpText = "Limit the range of angles between the reference's Z axis and the tomogram's XY plane to plus/minus this value, in °; useful for matching filaments lying flat in the XY plane")]
+        [Option("tilt_range", HelpText = "Limit the range of angles between the reference's Z axis and the tomogram's XY plane to plus/minus this value, in °; " +
+                                         "useful for matching filaments lying flat in the XY plane")]
         public double? TiltRange { get; set; }
 
-        [Option("batch_angles", Default = 32, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; higher than 32 probably won't lead to speed-ups")]
+        [Option("batch_angles", Default = 32, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; " +
+                                                         "higher than 32 probably won't lead to speed-ups")]
         public int BatchAngles { get; set; }
 
         [Option("peak_distance", HelpText = "Minimum distance (in Angstrom) between peaks; leave empty to use template diameter")]
@@ -58,16 +60,20 @@ namespace WarpTools.Commands
         [Option("dont_normalize", HelpText = "Don't set score distribution to median = 0, stddev = 1")]
         public bool DontNormalizeScores { get; set; }
 
-        [Option("whiten", HelpText = "Perform spectral whitening to give higher-resolution information more weight; this can help when the alignments are already good and you need more selective matching")]
+        [Option("whiten", HelpText = "Perform spectral whitening to give higher-resolution information more weight; " +
+                                     "this can help when the alignments are already good and you need more selective matching")]
         public bool Whiten { get; set; }
 
-        [Option("lowpass", Default = 1.0, HelpText = "Gaussian low-pass filter to be applied to template and tomogram, in fractions of Nyquist; 1.0 = no low-pass, <1.0 = low-pass")]
+        [Option("lowpass", Default = 1.0, HelpText = "Gaussian low-pass filter to be applied to template and tomogram, in fractions of Nyquist; " +
+                                                     "1.0 = no low-pass, <1.0 = low-pass")]
         public double Lowpass { get; set; }
 
-        [Option("lowpass_sigma", Default = 0.1, HelpText = "Sigma (i.e. fall-off) of the Gaussian low-pass filter, in fractions of Nyquist; larger value = slower fall-off")]
+        [Option("lowpass_sigma", Default = 0.1, HelpText = "Sigma (i.e. fall-off) of the Gaussian low-pass filter, in fractions of Nyquist; " +
+                                                           "larger value = slower fall-off")]
         public double LowpassSigma { get; set; }
 
-        [Option("max_missing_tilts", Default = 2, HelpText = "Dismiss positions not covered by at least this many tilts; set to -1 to disable position culling")]
+        [Option("max_missing_tilts", Default = 2, HelpText = "Dismiss positions not covered by at least this many tilts; " +
+                                                             "set to -1 to disable position culling")]
         public int MaxMissingTilts { get; set; }
 
         [Option("reuse_results", HelpText = "Reuse correlation volumes from a previous run if available, only extract peak positions")]
@@ -78,6 +84,10 @@ namespace WarpTools.Commands
 
         [Option("subvolume_size", Default = 192, HelpText = "Matching is performed locally using sub-volumes of this size in pixel")]
         public int SubVolumeSize { get; set; }
+
+        [Option("override_suffix", HelpText = "Override the default STAR file suffix derived from the template name; " +
+                                              "must include the leading underscore if you want to have it")]
+        public string OverrideSuffix { get; set; } = "";
     }
 
     class TemplateMatchTiltseries : BaseCommand
@@ -182,6 +192,8 @@ namespace WarpTools.Commands
             OptionsMatch.NormalizeScores = !CLI.DontNormalizeScores;
             OptionsMatch.Lowpass = (decimal)CLI.Lowpass;
             OptionsMatch.LowpassSigma = (decimal)CLI.LowpassSigma;
+            
+            OptionsMatch.OverrideSuffix = CLI.OverrideSuffix ?? "";
 
             #endregion
 
