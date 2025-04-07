@@ -27,6 +27,9 @@ namespace WarpTools.Commands
 
         [Option("skip_last", Default = 0, HelpText = "Skip last N frames when exporting averages")]
         public int SkipLast { get; set; }
+
+        [Option("bin_angpix", HelpText = "Downsample the output to have this pixel size; leave empty to use value specified in settings")]
+        public double? BinAngpix { get; set; }
     }
 
     class ExportMicrographsFrameseries : BaseCommand
@@ -45,6 +48,9 @@ namespace WarpTools.Commands
             Options.Export.DoDenoise = CLI.AverageHalves;
             Options.Export.SkipFirstN = CLI.SkipFirst;
             Options.Export.SkipLastN = CLI.SkipLast;
+            
+            if (CLI.BinAngpix.HasValue && CLI.BinAngpix.Value > 0)
+                Options.Import.BinnedPixelSize = (decimal)CLI.BinAngpix.Value;
 
             if (!CLI.Averages && !CLI.AverageHalves)
                 throw new Exception("No output types requested");
