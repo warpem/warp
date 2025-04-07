@@ -290,7 +290,17 @@ public partial class Movie
         {
             Average = AverageFT.AsIFFT(false, 0, true, true);
 
-            // Previous division by weight sum brought values to stack average, multiply by number of frame to go back to sum
+            if (options.HighpassAngstrom > 0)
+            {
+                Average = Average.AsPaddedClampedSoft(new int2(Average.Dims) * 2, 16).AndDisposeParent();
+                Average.Bandpass(2f * ((float)options.BinnedPixelSizeMean) / (float)options.HighpassAngstrom, 
+                                 1, 
+                                 false, 
+                                 2f * ((float)options.BinnedPixelSizeMean) / (float)options.HighpassAngstrom);
+                Average = Average.AsPadded(new int2(Average.Dims) / 2).AndDisposeParent();
+            }
+
+            // Previous division by weight sum brought values to stack average, multiply by number of frames to go back to sum
             Average.Multiply(Dims.Z);
             Average.FreeDevice();
 
@@ -475,6 +485,7 @@ public class ProcessingOptionsMovieExport : ProcessingOptionsBase
     [WarpSerializable] public bool DoDenoiseDeconv { get; set; }
     [WarpSerializable] public decimal DeconvolutionStrength { get; set; }
     [WarpSerializable] public decimal DeconvolutionFalloff { get; set; }
+    [WarpSerializable] public decimal HighpassAngstrom { get; set; }
     [WarpSerializable] public int StackGroupSize { get; set; }
     [WarpSerializable] public int SkipFirstN { get; set; }
     [WarpSerializable] public int SkipLastN { get; set; }

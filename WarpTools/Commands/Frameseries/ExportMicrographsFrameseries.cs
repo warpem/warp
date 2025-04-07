@@ -30,6 +30,9 @@ namespace WarpTools.Commands
 
         [Option("bin_angpix", HelpText = "Downsample the output to have this pixel size; leave empty to use value specified in settings")]
         public double? BinAngpix { get; set; }
+
+        [Option("highpass", HelpText = "Optional high-pass filter to be applied to averages, in Angstroms")]
+        public double? Highpass { get; set; }
     }
 
     class ExportMicrographsFrameseries : BaseCommand
@@ -70,6 +73,9 @@ namespace WarpTools.Commands
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
+            
+            if (CLI.Highpass.HasValue && CLI.Highpass.Value > 0)
+                OptionsMovieExport.HighpassAngstrom = (decimal)CLI.Highpass.Value;
 
             IterateOverItems<Movie>(
                 Workers, 
