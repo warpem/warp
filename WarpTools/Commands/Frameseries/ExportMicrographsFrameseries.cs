@@ -53,7 +53,7 @@ namespace WarpTools.Commands
             Options.Export.SkipLastN = CLI.SkipLast;
             
             if (CLI.BinAngpix.HasValue && CLI.BinAngpix.Value > 0)
-                Options.Import.BinnedPixelSize = (decimal)CLI.BinAngpix.Value;
+                Options.Import.BinTimes = (decimal)Math.Log2((double)CLI.BinAngpix / (double)Options.Import.PixelSize);
 
             if (!CLI.Averages && !CLI.AverageHalves)
                 throw new Exception("No output types requested");
