@@ -334,7 +334,8 @@ namespace WarpWorker
                 else if (Command.Name == "MoviesTardisSegmentMembranes2D")
                 {
                     string[] paths = Command.Content[0].ToString().Split(';');
-                    Console.WriteLine(string.Join(';', paths));
+                    if (Helper.IsDebug)
+                        Console.WriteLine(string.Join('\n', paths.Select(p => Path.GetFileName(p))));
                     ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
                     Movie[] movies = paths.Select(p => new Movie(p)).ToArray();
@@ -368,74 +369,74 @@ namespace WarpWorker
                     string Arguments = $"--path {tempDir} --output_format mrc_None --device {DeviceID} --patch_size 64";
                     Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
                     File.WriteAllText(Path.Combine(tempDir, "command.txt"), $"tardis_mem2d {Arguments}");
-                    //
-                    // Process Tardis = new Process
-                    // {
-                    //     StartInfo =
-                    //     {
-                    //         FileName = "tardis_mem2d",
-                    //         CreateNoWindow = false,
-                    //         WindowStyle = ProcessWindowStyle.Minimized,
-                    //         WorkingDirectory = tempDir,
-                    //         Arguments = Arguments,
-                    //         RedirectStandardOutput = true,
-                    //         RedirectStandardError = true
-                    //     }
-                    // };
-                    //
-                    // using (var stdout = File.CreateText(Path.Combine(tempDir, "run.out")))
-                    // using (var stderr = File.CreateText(Path.Combine(tempDir, "run.err")))
-                    // {
-                    //     Tardis.OutputDataReceived += (sender, args) => 
-                    //     {
-                    //         if (args.Data != null) stdout.WriteLine(args.Data);
-                    //     };
-                    //
-                    //     Tardis.ErrorDataReceived += (sender, args) => 
-                    //     {
-                    //         if (args.Data != null) stderr.WriteLine(args.Data);
-                    //     };
-                    //
-                    //     DataReceivedEventHandler toConsole = (sender, args) =>
-                    //     {
-                    //         if (args.Data != null) Console.WriteLine(args.Data);
-                    //     };
-                    //     Tardis.OutputDataReceived += toConsole;
-                    //     Tardis.ErrorDataReceived += toConsole;
-                    //
-                    //     Tardis.Start();
-                    //     Tardis.BeginOutputReadLine();
-                    //     Tardis.BeginErrorReadLine();
-                    //     Tardis.WaitForExit();
-                    // }
-                    //
-                    // // copy files to correct directory
-                    // string[] membraneImageFiles = downsampledImagePaths.Select(
-                    //     p =>
-                    //     {
-                    //         var dir = Path.Combine(tempDir, "Predictions");
-                    //         var filename = Path.GetFileName(p).Replace(".mrc", "_semantic.mrc");
-                    //         return Path.Combine(dir, filename);
-                    //     }).ToArray();
-                    //
-                    // Directory.CreateDirectory(movies.First().MembraneSegmentationDir);
-                    // foreach (var (movie, membraneImageFile) in movies.Zip(membraneImageFiles))
-                    // {
-                    //     try
-                    //     {
-                    //         var destFile = Path.Combine(movie.MembraneSegmentationDir,
-                    //             Path.GetFileName(membraneImageFile).Replace("_15.00Apx_semantic", ""));
-                    //         File.WriteAllText(Path.Combine(tempDir, Path.GetFileName(destFile)), $"{membraneImageFile}");
-                    //         File.Copy(membraneImageFile, destFile, overwrite: true);
-                    //     }
-                    //     catch (IOException ex)
-                    //     {
-                    //         Console.WriteLine($"Error occurred copying file {membraneImageFile}: {ex.Message}");
-                    //     }
-                    // }
-                    //
-                    // // remove all files recursively from temp dir
-                    // Directory.Delete(tempDir, recursive: true);
+                    
+                    Process Tardis = new Process
+                    {
+                        StartInfo =
+                        {
+                            FileName = "tardis_mem2d",
+                            CreateNoWindow = false,
+                            WindowStyle = ProcessWindowStyle.Minimized,
+                            WorkingDirectory = tempDir,
+                            Arguments = Arguments,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        }
+                    };
+                    
+                    using (var stdout = File.CreateText(Path.Combine(tempDir, "run.out")))
+                    using (var stderr = File.CreateText(Path.Combine(tempDir, "run.err")))
+                    {
+                        Tardis.OutputDataReceived += (sender, args) => 
+                        {
+                            if (args.Data != null) stdout.WriteLine(args.Data);
+                        };
+                    
+                        Tardis.ErrorDataReceived += (sender, args) => 
+                        {
+                            if (args.Data != null) stderr.WriteLine(args.Data);
+                        };
+                    
+                        DataReceivedEventHandler toConsole = (sender, args) =>
+                        {
+                            if (args.Data != null) Console.WriteLine(args.Data);
+                        };
+                        Tardis.OutputDataReceived += toConsole;
+                        Tardis.ErrorDataReceived += toConsole;
+                    
+                        Tardis.Start();
+                        Tardis.BeginOutputReadLine();
+                        Tardis.BeginErrorReadLine();
+                        Tardis.WaitForExit();
+                    }
+                    
+                    // copy files to correct directory
+                    string[] membraneImageFiles = downsampledImagePaths.Select(
+                        p =>
+                        {
+                            var dir = Path.Combine(tempDir, "Predictions");
+                            var filename = Path.GetFileName(p).Replace(".mrc", "_semantic.mrc");
+                            return Path.Combine(dir, filename);
+                        }).ToArray();
+                    
+                    Directory.CreateDirectory(movies.First().MembraneSegmentationDir);
+                    foreach (var (movie, membraneImageFile) in movies.Zip(membraneImageFiles))
+                    {
+                        try
+                        {
+                            var destFile = Path.Combine(movie.MembraneSegmentationDir,
+                                Path.GetFileName(membraneImageFile).Replace("_15.00Apx_semantic", ""));
+                            File.WriteAllText(Path.Combine(tempDir, Path.GetFileName(destFile)), $"{membraneImageFile}");
+                            File.Copy(membraneImageFile, destFile, overwrite: true);
+                        }
+                        catch (IOException ex)
+                        {
+                            Console.WriteLine($"Error occurred copying file {membraneImageFile}: {ex.Message}");
+                        }
+                    }
+                    
+                    // remove all files recursively from temp dir
+                    Directory.Delete(tempDir, recursive: true);
                     Console.WriteLine($"Segmented membranes using TARDIS for {paths}");
                 }
                 else if (Command.Name == "MovieTraceMembranes")

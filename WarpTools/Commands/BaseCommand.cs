@@ -63,13 +63,9 @@ namespace WarpTools.Commands
             WorkerWrapper[] workers,
             BaseOptions cli,
             Action<WorkerWrapper, T> body,
-            Func<int, int, T> getBatch = null,
             int oversubscribe = 1
         ) where T : class
         {
-            // Default implementation for single item processing
-            getBatch ??= (start, _) => (T)(object)cli.InputSeries[start];
-
             string logDirectory = Path.Combine(cli.OutputProcessing, "logs");
             Directory.CreateDirectory(logDirectory);
 
@@ -90,6 +86,11 @@ namespace WarpTools.Commands
             bool isBatch = typeof(T) == typeof(Movie[]);
             int nBatches = workers.Length * oversubscribe;
             int itemsPerBatch = (int)Math.Ceiling(cli.InputSeries.Length / (double)nBatches);
+            
+            Func<int,int,T> getBatch = isBatch 
+                ? (start, end) => (T)(object)cli.InputSeries[start..end]
+                : (start, _) => (T)(object)cli.InputSeries[start];
+
 
             if (!isBatch)
             {
@@ -106,13 +107,11 @@ namespace WarpTools.Commands
                     int startIndex = batchIndex * itemsPerBatch;
                     if (startIndex >= cli.InputSeries.Length)
                         break;
-
+                    int idx = batchIndex;
+                    batchTasks.Add(Task.Run(() => ProcessItem(idx, idx, idx)));
                     int endIndex = Math.Min(startIndex + itemsPerBatch, cli.InputSeries.Length);
-
-                    Console.WriteLine($"Submitted {endIndex - startIndex} items in batch {batchIndex} to worker process {batchIndex % workers.Length}");
-
-                    int currentBatch = batchIndex;
-                    batchTasks.Add(Task.Run(() => ProcessItem(currentBatch, currentBatch, currentBatch)));
+                    if (Helper.IsDebug)
+                        Console.WriteLine($"\nSubmitted {endIndex - startIndex} items in batch {batchIndex} to worker process {batchIndex % workers.Length}");
                 }
 
                 Task.WaitAll(batchTasks.ToArray());
@@ -131,15 +130,32 @@ namespace WarpTools.Commands
             Console.WriteLine(
                 $"\nFinished processing in {TimeSpan.FromMilliseconds(timerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
 
-            // close for processing individual item
-            void ProcessItem(int batchIdx, int threadID, int jsonIndex)
+            // closure for processing single item or batch
+            void ProcessItem(int itemOrBatchIdx, int threadID, int jsonIndex)
             {
                 Stopwatch timer = Stopwatch.StartNew();
+                
+                // Assign worker for this item/batch
                 int workerIdx = threadID % workers.Length;
                 WorkerWrapper processor = workers[workerIdx];
+                
+                // Calculate start/end indices
+                int startIndex = isBatch ? itemOrBatchIdx * itemsPerBatch : itemOrBatchIdx;
+                int endIndex = isBatch ? Math.Min(startIndex + itemsPerBatch, cli.InputSeries.Length) : itemOrBatchIdx + 1;
+                
+                // debug output
+                if (Helper.IsDebug)
+                    Console.WriteLine($"is batch?: {isBatch} | item/batch index: {itemOrBatchIdx} | worker index: {workerIdx} | start index: {startIndex} | end index: {endIndex}");
 
-                T item = getBatch(batchIdx, isBatch ? Math.Min(batchIdx + itemsPerBatch, cli.InputSeries.Length) : batchIdx + 1);
-                Movie[] moviesToProcess = isBatch ? (Movie[])((object)item) : new[] { (Movie)((object)item) };
+                // item is passed to processor function and can be Movie or Movie[]
+                T item = isBatch
+                    ? (T)(object)cli.InputSeries[startIndex..endIndex]
+                    : (T)(object)cli.InputSeries[startIndex];
+                
+                // ensure we have a Movie[] containing items to process
+                Movie[] moviesToProcess = isBatch 
+                    ? (Movie[])((object)item) 
+                    : new[] { (Movie)((object)item) };
 
                 // Path correction (identical to original)
                 foreach (var movie in moviesToProcess)
@@ -156,7 +172,7 @@ namespace WarpTools.Commands
 
                 // Log file setup (differs slightly for batches)
                 processor.Console.Clear();
-                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{batchIdx}_worker{workerIdx}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
+                string logFile = isBatch ? Path.Combine(logDirectory, $"batch{itemOrBatchIdx}_worker{workerIdx}.log") : Path.Combine(logDirectory, $"{moviesToProcess[0].RootName}.log");
                 processor.Console.SetFileOutput(logFile);
 
                 try
@@ -185,7 +201,7 @@ namespace WarpTools.Commands
                         VirtualConsole.ClearLastLine();
                         // Error message differs slightly for batches
                         if (isBatch)
-                            Console.Error.WriteLine($"Failed to process batch {batchIdx}, marked as unselected");
+                            Console.Error.WriteLine($"Failed to process batch {itemOrBatchIdx}, marked as unselected");
                         else
                             Console.Error.WriteLine($"Failed to process {moviesToProcess[0].Path}, marked as unselected");
 
