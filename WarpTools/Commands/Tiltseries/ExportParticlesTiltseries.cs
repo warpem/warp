@@ -926,21 +926,36 @@ namespace WarpTools.Commands
                 "rlnTomoImportFractionalDose"
             });
 
-            List<int> UsedTilts = exportOptions.DoLimitDose
-                ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
-                : tiltSeries.IndicesSortedDose.ToList();
-
-            float TiltDose;
-            if (UsedTilts.Count <= 1)
+            List<int> UsedTilts = new List<int>();
+            if (exportOptions.DoLimitDose && tiltSeries.IndicesSortedDose != null && tiltSeries.IndicesSortedDose.Length > 0)
             {
-                // For single tilt, use the absolute dose value instead of a difference
-                TiltDose = UsedTilts.Count == 1 ? tiltSeries.Dose[UsedTilts[0]] : 1.0f;
-                Console.WriteLine($"Using single tilt dose: {TiltDose}");
+                UsedTilts = tiltSeries.IndicesSortedDose.Take(Math.Min(exportOptions.NTilts, tiltSeries.IndicesSortedDose.Length)).ToList();
+            }
+            else if (tiltSeries.IndicesSortedDose != null && tiltSeries.IndicesSortedDose.Length > 0)
+            {
+                UsedTilts = tiltSeries.IndicesSortedDose.ToList();
             }
             else
             {
-                // Normal case - calculate dose difference between tilts
-                TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
+                // Fallback in case IndicesSortedDose is null or empty
+                Console.WriteLine($"Warning: No tilt indices available for {tiltSeries.Name}");
+                // Add at least one index if dose array isn't empty
+                if (tiltSeries.Dose != null && tiltSeries.Dose.Length > 0)
+                    UsedTilts.Add(0);
+            }
+
+// Debug information
+            Console.WriteLine($"DEBUG: UsedTilts.Count = {UsedTilts.Count}");
+            if (UsedTilts.Count > 0)
+                Console.WriteLine($"DEBUG: First tilt index = {UsedTilts[0]}");
+
+            float TiltDose = 1.0f; // Default value
+            if (UsedTilts.Count > 0 && tiltSeries.Dose != null && UsedTilts[0] < tiltSeries.Dose.Length)
+            {
+                if (UsedTilts.Count > 1 && UsedTilts[1] < tiltSeries.Dose.Length)
+                    TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
+                else
+                    TiltDose = tiltSeries.Dose[UsedTilts[0]];
             }
             UsedTilts.Sort();
 
