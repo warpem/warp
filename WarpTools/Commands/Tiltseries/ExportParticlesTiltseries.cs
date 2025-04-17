@@ -930,12 +930,22 @@ namespace WarpTools.Commands
                 ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
                 : tiltSeries.IndicesSortedDose.ToList();
             float TiltDose;
-            if (UsedTilts.Count > 1) {
+            if (UsedTilts.Count == 0) {
+                // No tilts available, use a default value
+                TiltDose = 1.0f; // Default exposure value
+                Console.WriteLine($"Warning: No tilts available for {tiltSeries.Name}, using default dose");
+            } else if (UsedTilts.Count > 1) {
                 // Normal case - calculate dose difference between first two tilts
                 TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
             } else {
-                // Single tilt case - use a default value or the dose of the single tilt
-                TiltDose = tiltSeries.Dose[UsedTilts[0]]; // Or another appropriate value
+                // Single tilt case
+                if (tiltSeries.Dose.Length > UsedTilts[0]) {
+                    TiltDose = tiltSeries.Dose[UsedTilts[0]]; 
+                } else {
+                    // Safety check if Dose array doesn't contain this index
+                    TiltDose = 1.0f;
+                    Console.WriteLine($"Warning: Dose information missing for tilt {UsedTilts[0]} in {tiltSeries.Name}");
+                }
             }
             UsedTilts.Sort();
 
