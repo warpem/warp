@@ -926,36 +926,16 @@ namespace WarpTools.Commands
                 "rlnTomoImportFractionalDose"
             });
 
-            List<int> UsedTilts = new List<int>();
-            if (exportOptions.DoLimitDose && tiltSeries.IndicesSortedDose != null && tiltSeries.IndicesSortedDose.Length > 0)
-            {
-                UsedTilts = tiltSeries.IndicesSortedDose.Take(Math.Min(exportOptions.NTilts, tiltSeries.IndicesSortedDose.Length)).ToList();
-            }
-            else if (tiltSeries.IndicesSortedDose != null && tiltSeries.IndicesSortedDose.Length > 0)
-            {
-                UsedTilts = tiltSeries.IndicesSortedDose.ToList();
-            }
-            else
-            {
-                // Fallback in case IndicesSortedDose is null or empty
-                Console.WriteLine($"Warning: No tilt indices available for {tiltSeries.Name}");
-                // Add at least one index if dose array isn't empty
-                if (tiltSeries.Dose != null && tiltSeries.Dose.Length > 0)
-                    UsedTilts.Add(0);
-            }
-
-// Debug information
-            Console.WriteLine($"DEBUG: UsedTilts.Count = {UsedTilts.Count}");
-            if (UsedTilts.Count > 0)
-                Console.WriteLine($"DEBUG: First tilt index = {UsedTilts[0]}");
-
-            float TiltDose = 1.0f; // Default value
-            if (UsedTilts.Count > 0 && tiltSeries.Dose != null && UsedTilts[0] < tiltSeries.Dose.Length)
-            {
-                if (UsedTilts.Count > 1 && UsedTilts[1] < tiltSeries.Dose.Length)
-                    TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
-                else
-                    TiltDose = tiltSeries.Dose[UsedTilts[0]];
+            List<int> UsedTilts = exportOptions.DoLimitDose
+                ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
+                : tiltSeries.IndicesSortedDose.ToList();
+            float TiltDose;
+            if (UsedTilts.Count > 1) {
+                // Normal case - calculate dose difference between first two tilts
+                TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
+            } else {
+                // Single tilt case - use a default value or the dose of the single tilt
+                TiltDose = tiltSeries.Dose[UsedTilts[0]]; // Or another appropriate value
             }
             UsedTilts.Sort();
 
