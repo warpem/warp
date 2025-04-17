@@ -929,8 +929,14 @@ namespace WarpTools.Commands
             List<int> UsedTilts = exportOptions.DoLimitDose
                 ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
                 : tiltSeries.IndicesSortedDose.ToList();
-            float TiltDose =
-                tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
+            float TiltDose;
+            if (UsedTilts.Count > 1) {
+                // Normal case - calculate dose difference between first two tilts
+                TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
+            } else {
+                // Single tilt case - use a default value or the dose of the single tilt
+                TiltDose = tiltSeries.Dose[UsedTilts[0]]; // Or another appropriate value
+            }
             UsedTilts.Sort();
 
             tiltSeries.VolumeDimensionsPhysical = exportOptions.DimensionsPhysical;
