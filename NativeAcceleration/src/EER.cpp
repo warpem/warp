@@ -40,7 +40,47 @@ void render8K(float* image, std::vector<unsigned int>& positions, std::vector<un
 }
 void render4K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
-	for (int i = 0; i < n_electrons; i++)
+	// Process 8 elements at a time using AVX2
+	const int vec_width = 8;
+	int i = 0;
+	const __m256i x_mask = _mm256_set1_epi32(4095); // Mask for x: 0xFFF
+	const int y_shift = 12;
+	const int index_shift = 12;
+
+	// Main AVX2 loop
+	for (; i <= n_electrons - vec_width; i += vec_width)
+	{
+		// Load 8 positions (potentially unaligned)
+		// Note: symbols are not used in 4K rendering
+		__m256i pos_vec = _mm256_loadu_si256((__m256i const*)&positions[i]);
+
+		// Calculate x = positions[i] & 4095 for 8 elements
+		__m256i x_vec = _mm256_and_si256(pos_vec, x_mask);
+
+		// Calculate y = positions[i] >> 12 for 8 elements
+		__m256i y_vec = _mm256_srli_epi32(pos_vec, y_shift);
+
+		// Calculate y_shifted = y << 12 for 8 elements
+		__m256i y_shifted_vec = _mm256_slli_epi32(y_vec, index_shift);
+
+		// Calculate index = y_shifted + x for 8 elements
+		__m256i index_vec = _mm256_add_epi32(y_shifted_vec, x_vec);
+
+		// Store calculated indices to a temporary array
+		// This is necessary because AVX2 does not have float scatter instructions
+		// We then iterate through the temporary array to increment the image
+		alignas(32) int indices[vec_width]; // Align for potential faster store
+		_mm256_store_si256((__m256i*)indices, index_vec);
+
+		// Increment image elements individually using calculated indices
+		// This part is not vectorized due to lack of scatter support
+		// #pragma unroll // Suggest loop unrolling to the compiler
+		for (int j = 0; j < vec_width; ++j)
+			image[indices[j]]++;
+	}
+
+	// Handle remaining elements (less than 8) with the original scalar code
+	for (; i < n_electrons; ++i)
 	{
 		int x = positions[i] & 4095; // 4095 = 111111111111b
 		int y = positions[i] >> 12; //  4096 = 2^12
@@ -59,7 +99,10 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 	TIFFSetWarningHandler(0);
 
 	if (eer_upsampling < 1 || eer_upsampling > 3)
+	{
+		std::cout << "EERRenderer::read: eer_upsampling must be 1, 2 or 3." << std::endl;
 		throw("EERRenderer::read: eer_upsampling must be 1, 2 or 3.");
+	}
 	
 	// First of all, check the file size
 	/*FILE* fh = fopen(path, "r");
@@ -151,15 +194,7 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 		
 		int num_frames_to_read = lastFrameExclusive - firstFrameInclusive;
 		size_t estimated_size = static_cast<size_t>(first_frame_size * num_frames_to_read * 1.5);
-		try 
-		{
-			data_buffer.resize(estimated_size); // Pre-allocate memory
-		} catch (const std::bad_alloc& e) 
-		{
-			TIFFClose(ftiff);
-			std::cout << "Error: Failed to reserve memory for data buffer." << std::endl;
-			throw std::runtime_error("Failed to reserve memory for data buffer.");
-		}
+		data_buffer.resize(estimated_size); // Pre-allocate memory
 
 		size_t current_offset = 0;
 
@@ -188,13 +223,13 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 				}
 				
 				// Ensure vector has enough space; resize adds elements AND potentially reallocates
-				if (current_offset + strip_size > data_buffer.size()) 
+				if (current_offset + strip_size + 1024 > data_buffer.size()) 
 				{
 					try 
 					{
 						// Resize to fit the new strip. This might reallocate if capacity is insufficient.
 						// Using resize guarantees the memory locations [current_offset, current_offset + strip_size) are valid.
-						data_buffer.resize(current_offset + strip_size); 
+						data_buffer.resize(current_offset + strip_size + 1024); 
 					} 
 					catch (const std::bad_alloc& e) 
 					{
@@ -219,15 +254,15 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 					throw std::runtime_error("Failed to read raw strip.");
 				}
 
-				current_offset += strip_size; // Increment offset by actual bytes read
-				frame_sizes[frame] += strip_size; // Add to this frame's total size
+				current_offset += bytes_read; // Increment offset by actual bytes read
+				frame_sizes[frame] += bytes_read; // Add to this frame's total size
 			}
 		}
 
 		// We finished reading, measure time
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-		std::cout << "EER file reading took " << duration << " ms" << std::endl;
+		//std::cout << "EER file reading took " << duration << " ms" << std::endl;
 
 
 		TIFFClose(ftiff); // Close TIFF file after reading
@@ -273,13 +308,6 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 					// it is always safe to read ahead.
 
 					long long byte_offset = bit_pos >> 3;
-					if (byte_offset + sizeof(unsigned int) > current_frame_size) 
-					{
-						// Prevent reading past the end of this frame's data in the buffer
-						// This indicates a potential issue with the file or decoding logic
-						std::cerr << "Error: EER 7bit decoding attempting to read past frame boundary." << std::endl;
-						throw std::runtime_error("EER 7bit decoding attempting to read past frame boundary.");
-					}
 					const unsigned int bit_offset_in_first_byte = bit_pos & 7; // 7 = 00000111 (same as % 8)
 					const unsigned int chunk = (*(unsigned int*)(current_frame_data + byte_offset)) >> bit_offset_in_first_byte;
 
@@ -390,6 +418,6 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 
 		auto end_proc = std::chrono::high_resolution_clock::now();
 		auto duration_proc = std::chrono::duration_cast<std::chrono::milliseconds>(end_proc - start_proc);
-		std::cout << "EER processing time: " << duration_proc.count() << " ms" << std::endl;
+		//std::cout << "EER processing time: " << duration_proc.count() << " ms" << std::endl;
 	}
 }
