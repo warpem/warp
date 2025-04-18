@@ -19,7 +19,7 @@ public partial class TiltSeries
         if (!Directory.Exists(MatchingDir))
             Directory.CreateDirectory(MatchingDir);
 
-        string NameWithRes = RootName + $"_{options.BinnedPixelSizeMean:F2}Apx";
+        string NameWithRes = TiltSeries.ToTomogramWithPixelSize(Path, options.BinnedPixelSizeMean);
 
         float3[] HealpixAngles = Helper.GetHealpixAngles(options.HealpixOrder, options.Symmetry).Select(a => a * Helper.ToRad).ToArray();
         if (options.TiltRange >= 0)
@@ -895,7 +895,10 @@ public partial class TiltSeries
 
         CorrVolume?.Dispose();
 
-        TableOut.Save(System.IO.Path.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + ".star"));
+        var TableName = string.IsNullOrWhiteSpace(options.OverrideSuffix) ?
+                            $"{NameWithRes}_{options.TemplateName}.star" :
+                            $"{NameWithRes}{options.OverrideSuffix ?? ""}.star";
+        TableOut.Save(System.IO.Path.Combine(MatchingDir, TableName));
 
         progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Done.");
 
@@ -925,4 +928,5 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
     [WarpSerializable] public int NResults { get; set; }
     [WarpSerializable] public bool NormalizeScores { get; set; }
     [WarpSerializable] public bool ReuseCorrVolumes { get; set; }
+    [WarpSerializable] public string OverrideSuffix { get; set; }
 }

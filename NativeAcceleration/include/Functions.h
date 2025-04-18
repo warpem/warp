@@ -675,6 +675,8 @@ extern "C" __declspec(dllexport) void Pad(float* d_input, float* d_output, int3 
 
 extern "C" __declspec(dllexport) void PadClamped(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);
 
+extern "C" __declspec(dllexport) void PadClampedSoft(float* d_input, float* d_output, int3 olddims, int3 newdims, int softdist, uint batch);
+
 extern "C" __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch);
 
 extern "C" __declspec(dllexport) void PadFTRealValued(float* d_input, float* d_output, int3 olddims, int3 newdims, uint batch);

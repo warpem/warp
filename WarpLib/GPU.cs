@@ -572,6 +572,9 @@ namespace Warp
         [DllImport("NativeAcceleration", EntryPoint = "PadClamped")]
         public static extern void PadClamped(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
 
+        [DllImport("NativeAcceleration", EntryPoint = "PadClampedSoft")]
+        public static extern void PadClampedSoft(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, int softdist, uint batch);
+
         [DllImport("NativeAcceleration", EntryPoint = "PadFT")]
         public static extern void PadFT(IntPtr d_input, IntPtr d_output, int3 olddims, int3 newdims, uint batch);
 

@@ -27,6 +27,12 @@ namespace WarpTools.Commands
 
         [Option("skip_last", Default = 0, HelpText = "Skip last N frames when exporting averages")]
         public int SkipLast { get; set; }
+
+        [Option("bin_angpix", HelpText = "Downsample the output to have this pixel size; leave empty to use value specified in settings")]
+        public double? BinAngpix { get; set; }
+
+        [Option("highpass", HelpText = "Optional high-pass filter to be applied to averages, in Angstroms")]
+        public double? Highpass { get; set; }
     }
 
     class ExportMicrographsFrameseries : BaseCommand
@@ -45,6 +51,9 @@ namespace WarpTools.Commands
             Options.Export.DoDenoise = CLI.AverageHalves;
             Options.Export.SkipFirstN = CLI.SkipFirst;
             Options.Export.SkipLastN = CLI.SkipLast;
+            
+            if (CLI.BinAngpix.HasValue && CLI.BinAngpix.Value > 0)
+                Options.Import.BinTimes = (decimal)Math.Log2((double)CLI.BinAngpix / (double)Options.Import.PixelSize);
 
             if (!CLI.Averages && !CLI.AverageHalves)
                 throw new Exception("No output types requested");
@@ -64,6 +73,9 @@ namespace WarpTools.Commands
             WorkerWrapper[] Workers = CLI.GetWorkers();
 
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
+            
+            if (CLI.Highpass.HasValue && CLI.Highpass.Value > 0)
+                OptionsMovieExport.HighpassAngstrom = (decimal)CLI.Highpass.Value;
 
             IterateOverItems<Movie>(
                 Workers, 

@@ -31,6 +31,11 @@ __declspec(dllexport) void PadClamped(float* d_input, float* d_output, int3 oldd
 	d_Pad(d_input, d_output, olddims, newdims, T_PAD_CLAMP, 0.0f, batch);
 }
 
+__declspec(dllexport) void PadClampedSoft(float* d_input, float* d_output, int3 olddims, int3 newdims, int softdist, uint batch)
+{
+	d_PadClampSoft(d_input, d_output, olddims, newdims, softdist, batch);
+}
+
 __declspec(dllexport) void PadFT(float2* d_input, float2* d_output, int3 olddims, int3 newdims, uint batch)
 {
     d_FFTPad(d_input, d_output, olddims, newdims, batch);

@@ -1365,6 +1365,32 @@ namespace Warp
             return Padded;
         }
 
+        public Image AsPaddedClampedSoft(int3 dimensions, int softDist)
+        {
+            if (IsHalf || IsComplex || IsFT)
+                throw new Exception("Wrong data format, only real-valued non-FT supported.");
+
+            Image Padded = new Image(IntPtr.Zero, new int3(dimensions.X, dimensions.Y, dimensions.Z), false, false, false) { PixelSize = PixelSize };
+            GPU.PadClampedSoft(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims, dimensions, softDist, 1);
+
+            Padded.Parent = this;
+
+            return Padded;
+        }
+
+        public Image AsPaddedClampedSoft(int2 dimensions, int softDist)
+        {
+            if (IsHalf || IsComplex || IsFT)
+                throw new Exception("Wrong data format, only real-valued non-FT supported.");
+
+            Image Padded = new Image(IntPtr.Zero, new int3(dimensions.X, dimensions.Y, Dims.Z), false, false, false) { PixelSize = PixelSize };
+            GPU.PadClampedSoft(GetDevice(Intent.Read), Padded.GetDevice(Intent.Write), Dims.Slice(), new int3(dimensions), softDist, (uint)Dims.Z);
+
+            Padded.Parent = this;
+
+            return Padded;
+        }
+
         public Image AsPadded(int3 dimensions, bool isDecentered = false)
         {
             if (IsHalf)
