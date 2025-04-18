@@ -54,15 +54,15 @@ namespace Warp.Headers
             if (stream == null)
                 stream = File.OpenRead(path);
 
-            Tiff Image = Tiff.ClientOpen("inmemory", "r", stream, new TiffStream());
+            using (Tiff Image = Tiff.ClientOpen("inmemory", "r", stream, new TiffStream()))
             {
                 {
                     FieldValue[] value = Image.GetField(TiffTag.IMAGEWIDTH);
-                    DimensionsUngrouped.X = value[0].ToInt();
+                    DimensionsUngrouped.X = value[0].ToInt() * (int)Math.Pow(2, HeaderEER.SuperResolution - 1);
                 }
                 {
                     FieldValue[] value = Image.GetField(TiffTag.IMAGELENGTH);
-                    DimensionsUngrouped.Y = value[0].ToInt();
+                    DimensionsUngrouped.Y = value[0].ToInt() * (int)Math.Pow(2, HeaderEER.SuperResolution - 1);
                 }
                 {
                     DimensionsUngrouped.Z = Image.NumberOfDirectories();

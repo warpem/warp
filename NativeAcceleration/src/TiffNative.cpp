@@ -8,7 +8,7 @@ using namespace gtom;
 
 __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, float* h_result)
 {
-	TIFF* ftiff = TIFFOpen(path, "rm");
+	TIFF* ftiff = TIFFOpen(path, "r");
 	
 	// libtiff's types
 	uint32 width, length;
@@ -55,8 +55,6 @@ __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, flo
 	}
 
 	float* h_tempstrip = (float*)malloc(dims.x * sizeof(float));
-
-	//dims.z = 20;
 
 	for (int z = 0; z < dims.z; z++) 
 	{

@@ -64,7 +64,7 @@ namespace Warp.Headers
             if (stream == null)
                 stream = File.OpenRead(path);
 
-            Tiff Image = Tiff.ClientOpen("inmemory", "rm", stream, new TiffStream());
+            using (Tiff Image = Tiff.ClientOpen("inmemory", "r", stream, new TiffStream()))
             {
                 {
                     FieldValue[] value = Image.GetField(TiffTag.IMAGEWIDTH);
@@ -147,7 +147,7 @@ namespace Warp.Headers
 
             for (int slice = 0; slice < Slices.Length; slice++)
             {
-                using (Tiff Image = Tiff.Open(Path, "rm"))
+                using (Tiff Image = Tiff.Open(Path, "r"))
                 {
                     bool Encoded = false;
                     FieldValue[] compressionTagValue = Image.GetField(TiffTag.COMPRESSION);
