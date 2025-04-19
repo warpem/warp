@@ -983,7 +983,7 @@ namespace WarpWorker
             }
 
             int NThreads = (IsTiff || IsEER) ? maxThreads : 1;
-            int GPUThreads = 1;
+            int GPUThreads = 2;
 
             int CurrentDevice = GPU.GetDevice();
 
