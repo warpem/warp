@@ -54,7 +54,7 @@ namespace Warp.Headers
             if (stream == null)
                 stream = File.OpenRead(path);
 
-            using (Tiff Image = Tiff.ClientOpen("inmemory", "r", stream, new TiffStream()))
+            using (Tiff Image = Tiff.ClientOpen("inmemory", "rm", stream, new TiffStream()))
             {
                 {
                     FieldValue[] value = Image.GetField(TiffTag.IMAGEWIDTH);

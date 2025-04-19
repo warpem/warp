@@ -244,7 +244,7 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 	bool is_7bit = false;
 	
 	// Try reading as TIFF; this handle is kept open
-	TIFF* ftiff = TIFFOpen(path, "r");
+	TIFF* ftiff = TIFFOpen(path, "rm");
 
 	if (ftiff == NULL)
 	{
