@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <stdexcept>
+#include <immintrin.h> // Include for AVX2 intrinsics
 
 using namespace gtom;
 
@@ -22,22 +23,147 @@ const uint16_t TIFF_COMPRESSION_EER7bit = 65001;
 
 void render16K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
-	for (int i = 0; i < n_electrons; i++)
+	// Process 8 elements at a time using AVX2
+	const int vec_width = 8;
+	int i = 0;
+	const __m256i x_pos_mask = _mm256_set1_epi32(4095);  // Mask for positions[i] & 4095
+	const __m256i x_sym_mask = _mm256_set1_epi32(3);     // Mask for symbols[i] & 3
+	const __m256i y_sym_mask = _mm256_set1_epi32(12);    // Mask for symbols[i] & 12
+	const int y_pos_shift = 12;
+	const int index_shift = 14; // For y << 14
+
+	// Main AVX2 loop
+	for (; i <= n_electrons - vec_width; i += vec_width)
+	{
+		// Load 8 positions (32-bit unsigned int)
+		__m256i pos_vec = _mm256_loadu_si256((__m256i const*)&positions[i]);
+
+		// Load 8 symbols (8-bit unsigned char) and convert to 32-bit integers
+		__m128i sym_vec_8 = _mm_loadl_epi64((__m128i const*)&symbols[i]);
+		__m256i sym_vec_32 = _mm256_cvtepu8_epi32(sym_vec_8);
+
+		// --- Calculate x ---
+		// x_pos_part = (positions[i] & 4095) << 2
+		__m256i x_pos_part = _mm256_and_si256(pos_vec, x_pos_mask);
+		x_pos_part = _mm256_slli_epi32(x_pos_part, 2);
+
+		// x_sym_part = symbols[i] & 3
+		__m256i x_sym_part = _mm256_and_si256(sym_vec_32, x_sym_mask);
+
+		// x = x_pos_part | x_sym_part
+		__m256i x_vec = _mm256_or_si256(x_pos_part, x_sym_part); // 4095 = 111111111111b, 3 = 00000011b
+
+		// --- Calculate y ---
+		// y_pos_part = (positions[i] >> 12) << 2
+		__m256i y_pos_part = _mm256_srli_epi32(pos_vec, y_pos_shift);
+		y_pos_part = _mm256_slli_epi32(y_pos_part, 2);
+
+		// y_sym_part = (symbols[i] & 12) >> 2
+		__m256i y_sym_part = _mm256_and_si256(sym_vec_32, y_sym_mask);
+		y_sym_part = _mm256_srli_epi32(y_sym_part, 2);
+
+		// y = y_pos_part | y_sym_part
+		__m256i y_vec = _mm256_or_si256(y_pos_part, y_sym_part); //  4096 = 2^12, 12 = 00001100b
+
+		// --- Calculate index ---
+		// y_shifted = y << 14
+		__m256i y_shifted_vec = _mm256_slli_epi32(y_vec, index_shift);
+
+		// index = y_shifted + x
+		__m256i index_vec = _mm256_add_epi32(y_shifted_vec, x_vec);
+
+		// Store calculated indices to a temporary array
+		alignas(32) int indices[vec_width];
+		_mm256_store_si256((__m256i*)indices, index_vec);
+
+		// Increment image elements individually using calculated indices
+		#pragma unroll
+		for (int j = 0; j < vec_width; ++j)
+			image[indices[j]]++;
+	}
+
+	// Handle remaining elements (less than 8) with the original scalar code
+	for (; i < n_electrons; ++i)
 	{
 		int x = ((positions[i] & 4095) << 2) | (symbols[i] & 3); // 4095 = 111111111111b, 3 = 00000011b
 		int y = ((positions[i] >> 12) << 2) | ((symbols[i] & 12) >> 2); //  4096 = 2^12, 12 = 00001100b
-		image[(y << 14) + x]++;
+		image[(y << 14) + x]++; // y << 14 corresponds to index_shift
 	}
 }
+
 void render8K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
-	for (int i = 0; i < n_electrons; i++)
+	// Process 8 elements at a time using AVX2
+	const int vec_width = 8;
+	int i = 0;
+	const __m256i x_pos_mask = _mm256_set1_epi32(4095);  // Mask for positions[i] & 4095
+	const __m256i x_sym_mask = _mm256_set1_epi32(2);     // Mask for symbols[i] & 2
+	const __m256i y_sym_mask = _mm256_set1_epi32(8);     // Mask for symbols[i] & 8
+	const int y_pos_shift = 12;
+	const int index_shift = 13; // For y << 13
+
+	// Main AVX2 loop
+	for (; i <= n_electrons - vec_width; i += vec_width)
+	{
+		// Load 8 positions (32-bit unsigned int)
+		__m256i pos_vec = _mm256_loadu_si256((__m256i const*)&positions[i]);
+
+		// Load 8 symbols (8-bit unsigned char) and convert to 32-bit integers
+		// Load 8 bytes into the lower 64 bits of a 128-bit register
+		__m128i sym_vec_8 = _mm_loadl_epi64((__m128i const*)&symbols[i]);
+		// Zero-extend 8-bit values to 32-bit values
+		__m256i sym_vec_32 = _mm256_cvtepu8_epi32(sym_vec_8);
+
+		// --- Calculate x ---
+		// x_pos_part = (positions[i] & 4095) << 1
+		__m256i x_pos_part = _mm256_and_si256(pos_vec, x_pos_mask);
+		x_pos_part = _mm256_slli_epi32(x_pos_part, 1);
+
+		// x_sym_part = (symbols[i] & 2) >> 1
+		__m256i x_sym_part = _mm256_and_si256(sym_vec_32, x_sym_mask);
+		x_sym_part = _mm256_srli_epi32(x_sym_part, 1);
+
+		// x = x_pos_part | x_sym_part
+		__m256i x_vec = _mm256_or_si256(x_pos_part, x_sym_part); // 4095 = 111111111111b, 2 = 00000010b
+
+		// --- Calculate y ---
+		// y_pos_part = (positions[i] >> 12) << 1
+		__m256i y_pos_part = _mm256_srli_epi32(pos_vec, y_pos_shift);
+		y_pos_part = _mm256_slli_epi32(y_pos_part, 1);
+
+		// y_sym_part = (symbols[i] & 8) >> 3
+		__m256i y_sym_part = _mm256_and_si256(sym_vec_32, y_sym_mask);
+		y_sym_part = _mm256_srli_epi32(y_sym_part, 3);
+
+		// y = y_pos_part | y_sym_part
+		__m256i y_vec = _mm256_or_si256(y_pos_part, y_sym_part); //  4096 = 2^12, 8 = 00001000b
+
+		// --- Calculate index ---
+		// y_shifted = y << 13
+		__m256i y_shifted_vec = _mm256_slli_epi32(y_vec, index_shift);
+
+		// index = y_shifted + x
+		__m256i index_vec = _mm256_add_epi32(y_shifted_vec, x_vec);
+
+		// Store calculated indices to a temporary array
+		alignas(32) int indices[vec_width];
+		_mm256_store_si256((__m256i*)indices, index_vec);
+
+		// Increment image elements individually using calculated indices
+		#pragma unroll
+		for (int j = 0; j < vec_width; ++j)
+			image[indices[j]]++;
+	}
+
+	// Handle remaining elements (less than 8) with the original scalar code
+	for (; i < n_electrons; ++i)
 	{
 		int x = ((positions[i] & 4095) << 1) | ((symbols[i] & 2) >> 1); // 4095 = 111111111111b, 2 = 00000010b
 		int y = ((positions[i] >> 12) << 1) | ((symbols[i] & 8) >> 3); //  4096 = 2^12, 8 = 00001000b
-		image[(y << 13) + x]++;
+		image[(y << 13) + x]++; // y << 13 corresponds to index_shift
 	}
 }
+
 void render4K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
 	// Process 8 elements at a time using AVX2
@@ -74,7 +200,7 @@ void render4K(float* image, std::vector<unsigned int>& positions, std::vector<un
 
 		// Increment image elements individually using calculated indices
 		// This part is not vectorized due to lack of scatter support
-		// #pragma unroll // Suggest loop unrolling to the compiler
+		#pragma unroll // Suggest loop unrolling to the compiler
 		for (int j = 0; j < vec_width; ++j)
 			image[indices[j]]++;
 	}
@@ -224,26 +350,7 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 				
 				// Ensure vector has enough space; resize adds elements AND potentially reallocates
 				if (current_offset + strip_size + 1024 > data_buffer.size()) 
-				{
-					try 
-					{
-						// Resize to fit the new strip. This might reallocate if capacity is insufficient.
-						// Using resize guarantees the memory locations [current_offset, current_offset + strip_size) are valid.
 						data_buffer.resize(current_offset + strip_size + 1024); 
-					} 
-					catch (const std::bad_alloc& e) 
-					{
-						TIFFClose(ftiff);
-						std::cout << "Error: Failed to resize data buffer during strip read." << std::endl;
-						throw std::runtime_error("Failed to resize data buffer during strip read.");
-					} 
-					catch (const std::length_error& e) 
-					{
-						TIFFClose(ftiff);
-						std::cout << "Error: Data buffer size exceeds maximum allowed during strip read." << std::endl;
-						throw std::runtime_error("Data buffer size exceeds maximum allowed during strip read.");
-					}
-				}
 
 				// Read directly into the vector's memory
 				tmsize_t bytes_read = TIFFReadRawStrip(ftiff, strip, data_buffer.data() + current_offset, strip_size);
