@@ -8,7 +8,7 @@ using namespace gtom;
 
 __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, float* h_result)
 {
-	TIFF* ftiff = TIFFOpen(path, "r");
+	TIFF* ftiff = TIFFOpen(path, "rm");
 	
 	// libtiff's types
 	uint32 width, length;

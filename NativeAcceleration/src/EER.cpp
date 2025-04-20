@@ -229,16 +229,6 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 		std::cout << "EERRenderer::read: eer_upsampling must be 1, 2 or 3." << std::endl;
 		throw("EERRenderer::read: eer_upsampling must be 1, 2 or 3.");
 	}
-	
-	// First of all, check the file size
-	/*FILE* fh = fopen(path, "r");
-	if (fh == NULL)
-		throw std::runtime_error("Failed to open file");
-
-	fseek(fh, 0, SEEK_END);
-	long long file_size = ftell(fh);
-	fseek(fh, 0, SEEK_SET);
-	fclose(fh);*/
 
 	int nframes = 0;
 	bool is_7bit = false;
@@ -324,8 +314,6 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 
 		size_t current_offset = 0;
 
-		auto start_time = std::chrono::high_resolution_clock::now();
-
 		// Read everything directly into the vector
 		for (int frame = firstFrameInclusive; frame < lastFrameExclusive; frame++)
 		{
@@ -366,19 +354,11 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 			}
 		}
 
-		// We finished reading, measure time
-		auto end_time = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-		//std::cout << "EER file reading took " << duration << " ms" << std::endl;
-
-
 		TIFFClose(ftiff); // Close TIFF file after reading
 	}
 	
 
 	{
-		auto start_proc = std::chrono::high_resolution_clock::now();
-		
 		long long total_n_electron = 0;
 
 		long long supersize = 4096 << (eer_upsampling - 1);
@@ -522,9 +502,5 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 
 			total_n_electron += n_electron;
 		}
-
-		auto end_proc = std::chrono::high_resolution_clock::now();
-		auto duration_proc = std::chrono::duration_cast<std::chrono::milliseconds>(end_proc - start_proc);
-		//std::cout << "EER processing time: " << duration_proc.count() << " ms" << std::endl;
 	}
 }
