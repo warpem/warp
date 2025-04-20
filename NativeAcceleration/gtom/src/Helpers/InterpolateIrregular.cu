@@ -26,16 +26,11 @@ namespace gtom
 
 		// Cubic interpolation
 		tfloat2 samples[4];
-		tfloat factors[4];
 		int p1 = 0;
 		samples[0] = sortedpoints[max(0, p1 - 1)];
 		samples[1] = sortedpoints[p1];
 		samples[2] = sortedpoints[min((int)sortedpoints.size() - 1, p1 + 1)];
 		samples[3] = sortedpoints[min((int)sortedpoints.size() - 1, p1 + 2)];
-		factors[0] = -0.5 * samples[0].y + 1.5 * samples[1].y - 1.5 * samples[2].y + 0.5 * samples[3].y;
-		factors[1] = samples[0].y - 2.5 * samples[1].y + 2.0 * samples[2].y - 0.5 * samples[3].y;
-		factors[2] = -0.5 * samples[0].y + 0.5 * samples[2].y;
-		factors[3] = samples[1].y;
 		for (int i = max(gridstart, (int)sortedpoints[0].x); i <= gridend; i++)
 		{
 			while (i > sortedpoints[min((int)sortedpoints.size() - 1, p1 + 1)].x && p1 < sortedpoints.size() - 1)
@@ -45,10 +40,6 @@ namespace gtom
 				samples[1] = sortedpoints[p1];
 				samples[2] = sortedpoints[min((int)sortedpoints.size() - 1, p1 + 1)];
 				samples[3] = sortedpoints[min((int)sortedpoints.size() - 1, p1 + 2)];
-				factors[0] = -0.5 * samples[0].y + 1.5 * samples[1].y - 1.5 * samples[2].y + 0.5 * samples[3].y;
-				factors[1] = samples[0].y - 2.5 * samples[1].y + 2.0 * samples[2].y - 0.5 * samples[3].y;
-				factors[2] = -0.5 * samples[0].y + 0.5 * samples[2].y;
-				factors[3] = samples[1].y;
 			}
 
 			tfloat interp = ((tfloat)i - samples[1].x) / max(1.0, samples[2].x - samples[1].x);

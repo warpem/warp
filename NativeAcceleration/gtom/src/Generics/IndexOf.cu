@@ -192,11 +192,10 @@ namespace gtom
 		d_input += blockIdx.x * elements;
 
 		__shared__ tfloat indices[256];
-		__shared__ bool found, anybigger, nan;
+		__shared__ bool found, nan;
 		if (threadIdx.x == 0)
 		{
 			found = false;
-			anybigger = false;
 			nan = false;
 		}
 		__syncthreads();
