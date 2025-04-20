@@ -1,5 +1,5 @@
 #include "include/Functions.h"
-#include <device_functions.h>
+#include <cuda_runtime.h>
 using namespace gtom;
 
 #define SHIFT_THREADS 128
