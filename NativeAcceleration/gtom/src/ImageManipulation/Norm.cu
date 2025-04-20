@@ -3,6 +3,7 @@
 #include "gtom/include/Helper.cuh"
 #include "gtom/include/ImageManipulation.cuh"
 
+#pragma nv_diag_suppress 20054
 
 namespace gtom
 {
@@ -241,11 +242,9 @@ namespace gtom
 
 	template<bool outputmu> __global__ void NormMeanStdDevMonoKernel(tfloat* d_input, tfloat* d_output, tfloat2* d_mu, size_t elements)
 	{
-#pragma nv_diag_suppress 20054
 		__shared__ double s_sums1[MonoTpB];
 		__shared__ double s_sums2[MonoTpB];
 		__shared__ double s_mean, s_stddev;
-#pragma nv_diag_default 20054
 
 		d_input += elements * blockIdx.x;
 		d_output += elements * blockIdx.x;
@@ -287,12 +286,10 @@ namespace gtom
 
 	template<bool outputmu> __global__ void NormMeanStdDevMonoMaskedKernel(tfloat* d_input, tfloat* d_output, tfloat2* d_mu, tfloat* d_mask, size_t elements)
 	{
-#pragma nv_diag_suppress 20054
 		__shared__ double s_sums1[MonoTpB];
 		__shared__ double s_sums2[MonoTpB];
 		__shared__ double s_samples[MonoTpB];
 		__shared__ double s_mean, s_stddev;
-#pragma nv_diag_default 20054
 
 		d_input += elements * blockIdx.x;
 		d_output += elements * blockIdx.x;
@@ -338,11 +335,9 @@ namespace gtom
 
 	template<bool outputmu> __global__ void NormMeanStdDevWarpMonoKernel(tfloat* d_input, tfloat* d_output, tfloat2* d_mu, uchar elements, size_t n)
 	{
-#pragma nv_diag_suppress 20054
 		__shared__ double s_sums1[6][32];
 		__shared__ double s_sums2[6][32];
 		__shared__ double s_mean[6], s_stddev[6];
-#pragma nv_diag_default 20054
 
 		size_t id = blockIdx.x * 6 + threadIdx.y;
 
@@ -390,12 +385,10 @@ namespace gtom
 	
 	template<bool flipsign> __global__ void NormBackgroundMonoKernel(tfloat* d_input, tfloat* d_output, int3 dims, uint particleradius2)
 	{
-#pragma nv_diag_suppress 20054
 		__shared__ tfloat s_sums1[MonoTpB];
 		__shared__ tfloat s_sums2[MonoTpB];
 		__shared__ uint s_samples[MonoTpB];
 		__shared__ tfloat s_mean, s_stddev;
-#pragma nv_diag_default 20054
 
 		uint elements = Elements(dims);
 
@@ -516,3 +509,5 @@ namespace gtom
 			d_output[i] = d_input[i] * mean;
 	}
 }
+
+#pragma nv_diag_default 20054
