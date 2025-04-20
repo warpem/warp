@@ -982,8 +982,8 @@ namespace WarpWorker
                 header.Dimensions.Y = GainRef.Dims.Y;
             }
 
-            int NThreads = (IsTiff || IsEER) ? 1 : 1;
-            int GPUThreads = 1;
+            int NThreads = (IsTiff || IsEER) ? maxThreads : 1;
+            int GPUThreads = 2;
 
             int CurrentDevice = GPU.GetDevice();
 

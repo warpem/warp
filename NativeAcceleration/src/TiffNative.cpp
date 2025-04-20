@@ -56,8 +56,6 @@ __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, flo
 
 	float* h_tempstrip = (float*)malloc(dims.x * sizeof(float));
 
-	//dims.z = 20;
-
 	for (int z = 0; z < dims.z; z++) 
 	{
 		TIFFSetDirectory(ftiff, layer < 0 ? z : layer);
