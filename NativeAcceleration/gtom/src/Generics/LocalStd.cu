@@ -10,10 +10,10 @@ namespace gtom
 	void d_LocalStd(tfloat* d_map, int3 dimsmap, tfloat* d_fouriermask, tfloat localradius, tfloat* d_std, tfloat* d_mean, cufftHandle planforw, cufftHandle planback)
 	{
 		cufftHandle localplanforw = planforw;
-		if (planforw == NULL)
+		if (planforw == 0)
 			localplanforw = d_FFTR2CGetPlan(DimensionCount(dimsmap), dimsmap, 1);
 		cufftHandle localplanback = planback;
-		if (planback == NULL)
+		if (planback == 0)
 			localplanback = d_IFFTC2RGetPlan(DimensionCount(dimsmap), dimsmap, 1);
 
 		tcomplex* d_maskft = CudaMallocValueFilled(ElementsFFT(dimsmap), make_cuComplex(1, 1));
@@ -25,7 +25,7 @@ namespace gtom
 			d_SphereMask(d_mask, d_mask, dimsmap, &localradius, 1, NULL, false);
 			d_RemapFull2FullFFT(d_mask, d_mask, dimsmap);
 
-			if (d_fouriermask == NULL)
+			if (d_fouriermask == 0)
 			{
 				tfloat* d_sum = CudaMallocValueFilled(1, (tfloat)0);
 				d_Sum(d_mask, d_sum, Elements(dimsmap));
@@ -111,9 +111,9 @@ namespace gtom
 		cudaFree(d_mapconv);
 		cudaFree(d_map2conv);
 
-		if (planforw == NULL)
+		if (planforw == 0)
 			cufftDestroy(localplanforw);
-		if (planback == NULL)
+		if (planback == 0)
 			cufftDestroy(localplanback);
 	}
 }

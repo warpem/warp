@@ -42,20 +42,20 @@ namespace gtom
 	void d_CTFPeriodogram(tfloat* d_image, int2 dimsimage, int3* d_origins, int norigins, int2 dimsregion, int2 dimspadded, tfloat* d_output2d, bool dopost, cufftHandle planforw, tfloat* d_extracted, tcomplex* d_extractedft)
 	{
 		cufftHandle ownplanforw = planforw;
-		if (planforw == NULL)
+		if (planforw == 0)
 			ownplanforw = d_FFTR2CGetPlan(2, toInt3(dimspadded), norigins);
 
 		int memlimit = 128 << 20;
 		int batchsize = norigins; // tmin(norigins, memlimit / (int)(Elements2(dimsregion) * 2 * sizeof(tfloat)));
 
 		tfloat* d_ownextracted;
-        if (d_extracted == NULL)
+        if (d_extracted == 0)
             cudaMalloc((void**)&d_ownextracted, norigins * Elements2(dimspadded) * sizeof(tfloat));
         else
             d_ownextracted = d_extracted;
 
 		tcomplex* d_ownextractedft;
-        if (d_extractedft == NULL)
+        if (d_extractedft == 0)
             cudaMalloc((void**)&d_ownextractedft, norigins * ElementsFFT2(dimspadded) * sizeof(tcomplex));
         else
             d_ownextractedft = d_extractedft;
@@ -96,12 +96,12 @@ namespace gtom
 		//d_RemapHalfFFT2Half(d_ownextracted, d_output2d, toInt3(dimspadded), norigins);
 		//d_WriteMRC(d_output2d, toInt3(dimspadded.x / 2 + 1, dimspadded.y, norigins), "d_extractedoutput.mrc");
 
-        if (d_extractedft == NULL)            
+        if (d_extractedft == 0)            
 		    cudaFree(d_extractedft);
-        if (d_extracted == NULL)
+        if (d_extracted == 0)
 		    cudaFree(d_ownextracted);
 
-		if (planforw == NULL)
+		if (planforw == 0)
 			cufftDestroy(ownplanforw);
 	}
 }
