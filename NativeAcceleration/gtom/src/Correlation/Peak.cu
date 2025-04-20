@@ -232,8 +232,10 @@ namespace gtom
 		d_input += nsamples * blockIdx.x;
 		d_output += blockIdx.x;
 
+#pragma nv_diag_suppress 20054
 		__shared__ tfloat s_p[nsamples];
 		__shared__ tfloat2 s_best[256];
+#pragma nv_diag_default 20054
 
 		if (threadIdx.x < nsamples)
 			s_p[threadIdx.x] = d_input[threadIdx.x];
