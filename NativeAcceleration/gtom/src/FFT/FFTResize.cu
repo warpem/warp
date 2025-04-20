@@ -19,9 +19,6 @@ namespace gtom
 
 	template <class T> void d_FFTCrop(T* d_input, T* d_output, int3 olddims, int3 newdims, int batch)
 	{
-		size_t elementsnew = ElementsFFT(newdims);
-		size_t elementsold = ElementsFFT(olddims);
-
 		T* d_intermediate;
 		if (d_input == d_output)
 			cudaMalloc((void**)&d_intermediate, ElementsFFT(newdims) * batch * sizeof(T));
@@ -43,9 +40,6 @@ namespace gtom
 
 	template <class T> void d_FFTFullCrop(T* d_input, T* d_output, int3 olddims, int3 newdims, int batch)
 	{
-		size_t elementsnew = Elements(newdims);
-		size_t elementsold = Elements(olddims);
-
 		T* d_intermediate;
 		if (d_input == d_output)
 			cudaMalloc((void**)&d_intermediate, Elements(newdims) * batch * sizeof(T));
@@ -67,9 +61,6 @@ namespace gtom
 
 	template <class T> void d_FFTPad(T* d_input, T* d_output, int3 olddims, int3 newdims, int batch)
 	{
-		size_t elementsnew = ElementsFFT(newdims);
-		size_t elementsold = ElementsFFT(olddims);
-
 		T* d_intermediate;
 		if (d_input == d_output)
 			cudaMalloc((void**)&d_intermediate, ElementsFFT(newdims) * batch * sizeof(T));
@@ -91,9 +82,6 @@ namespace gtom
 
 	template <class T> void d_FFTFullPad(T* d_input, T* d_output, int3 olddims, int3 newdims, int batch)
 	{
-		size_t elementsnew = Elements(newdims);
-		size_t elementsold = Elements(olddims);
-
 		T* d_intermediate;
 		if (d_input == d_output)
 			cudaMalloc((void**)&d_intermediate, Elements(newdims) * batch * sizeof(T));

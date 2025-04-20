@@ -603,7 +603,6 @@ namespace gtom
 		d_input += blockIdx.y * elements;
 		d_output += blockIdx.y * elements;
 
-		size_t offset = elements * blockIdx.y;
 		for (size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 			id < elements;
 			id += blockDim.x * gridDim.x)
@@ -617,7 +616,6 @@ namespace gtom
 		d_input += blockIdx.y * elements;
 		d_output += blockIdx.y * elements;
 
-		size_t offset = elements * blockIdx.y;
 		for (size_t id = blockIdx.x * blockDim.x + threadIdx.x;
 			id < elements;
 			id += blockDim.x * gridDim.x)
