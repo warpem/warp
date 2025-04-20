@@ -78,9 +78,9 @@ namespace gtom
 		//d_WriteMRC(d_Fnewweight, toInt3FFT(dimsoripad), "d_Fnewweight.mrc");
 
 		cufftHandle planforw = pre_planforw, planback = pre_planback;
-		if (pre_planforw <= NULL)
+		if (pre_planforw == NULL)
 			planforw = d_FFTR2CGetPlan(3, dimsoripad);
-		if (pre_planback <= NULL)
+		if (pre_planback == NULL)
 			planback = d_IFFTC2RGetPlan(3, dimsoripad);
 
 		for (int i = 0; i < iterations; i++)
@@ -147,9 +147,9 @@ namespace gtom
 		d_Pad(d_conv, d_reconstructed, dimsoripad, dimsori, T_PAD_MODE::T_PAD_VALUE, (tfloat)0);
 		//d_RemapFullFFT2Full(d_reconstructed, d_reconstructed, dimsori);
 
-		if (pre_planforw <= NULL)
+		if (pre_planforw == NULL)
 			cufftDestroy(planforw);
-		if (pre_planback <= NULL)
+		if (pre_planback == NULL)
 			cufftDestroy(planback);
 
 		tfloat rf = r_max - 1;
