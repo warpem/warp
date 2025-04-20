@@ -169,7 +169,6 @@ namespace gtom
 			cudaMalloc((void**)&d_maxtuple, sizeof(tuple2<tfloat, size_t>));
 			tuple2<tfloat, size_t>* h_maxtuple = (tuple2<tfloat, size_t>*)malloc(sizeof(tuple2<tfloat, size_t>));
 
-			int indexdifference;
 			for (int b = 0; b < batch; b++)
 			{
 				int3 coarseposition = toInt3((int)h_positions[b].x, (int)h_positions[b].y, (int)h_positions[b].z);

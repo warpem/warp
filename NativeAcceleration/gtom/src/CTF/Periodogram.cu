@@ -45,9 +45,6 @@ namespace gtom
 		if (planforw == 0)
 			ownplanforw = d_FFTR2CGetPlan(2, toInt3(dimspadded), norigins);
 
-		int memlimit = 128 << 20;
-		int batchsize = norigins; // tmin(norigins, memlimit / (int)(Elements2(dimsregion) * 2 * sizeof(tfloat)));
-
 		tfloat* d_ownextracted;
         if (d_extracted == 0)
             cudaMalloc((void**)&d_ownextracted, norigins * Elements2(dimspadded) * sizeof(tfloat));

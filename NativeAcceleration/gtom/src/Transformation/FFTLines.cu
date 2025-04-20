@@ -59,7 +59,6 @@ namespace gtom
 		float sinangle = sin(angle);
 		float center = (float)(dimsft.x - 1) + 0.5f;
 
-		int outy = ((int)threadIdx.y + (linewidth + 1) / 2) % linewidth;
 		d_output += (blockIdx.x * linewidth + threadIdx.y) * dimsft.x;
 
 		for (uint id = threadIdx.x; id < dimsft.x; id += blockDim.x)

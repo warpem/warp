@@ -57,7 +57,6 @@ namespace gtom
 		}
 
 		int r_max = dimsori.x / 2;
-		int max_r2 = r_max * r_max * paddingfactor * paddingfactor;
 
 		tcomplex* d_convft;
 		cudaMalloc((void**)&d_convft, ElementsFFT(dimsoripad) * sizeof(tcomplex));

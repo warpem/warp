@@ -155,7 +155,6 @@ namespace gtom
 		__syncthreads();
 
 		int maxradius2 = maxradius * maxradius;
-		uint halfminusone = sidelength / 2 - 1;
 
 		for (uint id = blockIdx.x * blockDim.x + threadIdx.x; id < elementscube; id += gridDim.x * blockDim.x)
 		{

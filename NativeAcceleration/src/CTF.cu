@@ -143,7 +143,6 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
 
 __declspec(dllexport) void CTFMakeAverage(float* d_ps, float2* d_pscoords, uint length, uint sidelength, CTFParams* h_sourceparams, CTFParams targetparams, uint minbin, uint maxbin, uint batch, float* d_output)
 {
-	uint nbins = maxbin - minbin;
 	d_CTFRotationalAverageToTarget((tfloat*)d_ps, d_pscoords, length, sidelength, h_sourceparams, targetparams, d_output, minbin, maxbin, batch);
 }
 

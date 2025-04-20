@@ -248,7 +248,7 @@ namespace gtom
 		d_input += elements * blockIdx.x;
 		d_output += elements * blockIdx.x;
 
-		double sum1 = 0.0, sum2 = 0.0;
+		double sum1 = 0.0;
 
 		for (int i = threadIdx.x; i < elements; i += blockDim.x)
 		{
@@ -448,7 +448,7 @@ namespace gtom
 		d_input += elements * blockIdx.x;
 		d_output += elements * blockIdx.x;
 
-		double sum1 = 0.0, sum2 = 0.0;
+		double sum1 = 0.0;
 
 		for (int i = threadIdx.x; i < elements; i += blockDim.x)
 		{

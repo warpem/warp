@@ -253,7 +253,7 @@ __global__ void MultiParticleDiffKernel(float3* d_result,
 	cudaTex referenceRe = subset == 0 ? d_reference1Re : d_reference2Re;
 	cudaTex referenceIm = subset == 0 ? d_reference1Im : d_reference2Im;
 
-	float diff2 = 0, ref2 = 0, part2 = 0, weight = 0;
+	float part2 = 0;
 
 	for (uint id = threadIdx.x; id < elementsdata; id += blockDim.x)
 	{
@@ -538,14 +538,11 @@ __global__ void MultiParticleSimulateKernel(float2* d_result,
 	d_result += blockIdx.x * elementsdata;
 	float2 shift = d_shifts[blockIdx.x * ntilts + itilt];
 	glm::mat3 angles = d_Matrix3Euler(d_angles[blockIdx.x * ntilts + itilt]);
-	float defocus = d_defoci[blockIdx.x * ntilts + itilt];
 
 	cudaTex referenceRe = d_subsets[blockIdx.x] == 0 ? d_reference1Re : d_reference2Re;
 	cudaTex referenceIm = d_subsets[blockIdx.x] == 0 ? d_reference1Im : d_reference2Im;
 
 	ctfparams.defocus = d_defoci[blockIdx.x * ntilts + itilt] * (-1e4f);
-
-	float diff2 = 0, ref2 = 0;
 
 	for (uint id = threadIdx.x; id < elementsdata; id += blockDim.x)
 	{
