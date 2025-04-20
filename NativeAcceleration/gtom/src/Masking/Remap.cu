@@ -146,7 +146,7 @@ namespace gtom
 					lastaddress++;
 				}
 				else
-					h_mapbackward[i] = -1;
+					h_mapbackward[i] = 0;
 		else
 			for (size_t i = 0; i < elementsoriginal; i++)
 			{
