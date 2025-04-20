@@ -271,8 +271,11 @@ namespace gtom
 				}
 
 				position.x = tmin(dimvolume / 2, position.x);
-				position.y = tmax(0, tmin(dimvolume - 1, position.y));
-				position.z = tmax(0, tmin(dimvolume - 1, position.z));
+				position.y = position.y < 0 ? position.y + dimvolume : position.y;
+				position.z = position.z < 0 ? position.z + dimvolume : position.z;
+
+				if (position.y >= dimvolume) position.y = dimvolume - 1;
+				if (position.z >= dimvolume) position.z = dimvolume - 1;
 
 				float interpweight = __half2float(interpw[i]);
 				if (squareinterpweights)
@@ -306,8 +309,11 @@ namespace gtom
 					}
 
 					position.x = tmin(dimvolume / 2, position.x);
-					position.y = tmax(0, tmin(dimvolume - 1, position.y));
-					position.z = tmax(0, tmin(dimvolume - 1, position.z));
+					position.y = position.y < 0 ? position.y + dimvolume : position.y;
+					position.z = position.z < 0 ? position.z + dimvolume : position.z;
+
+					if (position.y >= dimvolume) position.y = dimvolume - 1;
+					if (position.z >= dimvolume) position.z = dimvolume - 1;
 
 					if (d_volumeft != NULL)
 					{

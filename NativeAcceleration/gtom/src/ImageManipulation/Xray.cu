@@ -99,12 +99,20 @@ namespace gtom
 		{
 			uint samples = 0;
 			tfloat localmean = (tfloat)0;
-			for (int z = tmax(0, blockIdx.z - region); z <= tmin(dims.z - 1, blockIdx.z + region); z++)
+
+			int zstart = (blockIdx.z > region) ? (blockIdx.z - region) : 0;
+			int zend = (blockIdx.z + region < dims.z - 1) ? (blockIdx.z + region) : (dims.z - 1);
+			int ystart = (blockIdx.y > region) ? (blockIdx.y - region) : 0;
+			int yend = (blockIdx.y + region < dims.y - 1) ? (blockIdx.y + region) : (dims.y - 1);
+			int xstart = (idx > region) ? (idx - region) : 0;
+			int xend = (idx + region < dims.x - 1) ? (idx + region) : (dims.x - 1);
+
+			for (int z = zstart; z <= zend; z++)
 			{
-				for (int y = tmax(0, blockIdx.y - region); y <= tmin(dims.y - 1, blockIdx.y + region); y++)
+				for (int y = ystart; y <= yend; y++)
 				{
 					size_t offsety = (z * dims.y + y) * dims.x;
-					for (int x = tmax(0, idx - region); x <= tmin(dims.x - 1, idx + region); x++)
+					for (int x = xstart; x <= xend; x++)
 					{
 						if (x == idx && y == blockIdx.y && z == blockIdx.z)
 							continue;
