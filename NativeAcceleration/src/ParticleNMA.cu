@@ -1,4 +1,5 @@
 #include "include/Functions.h"
+#include <cuda_runtime.h>
 using namespace gtom;
 
 #define MULTIBODY_THREADS 128

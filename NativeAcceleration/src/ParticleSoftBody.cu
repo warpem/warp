@@ -1,4 +1,5 @@
 #include "include/Functions.h"
+#include <cuda_runtime.h>
 using namespace gtom;
 
 template<bool useactuators> __global__ void ParticleSoftBodyDeformKernel (float3* d_initialpositions,
