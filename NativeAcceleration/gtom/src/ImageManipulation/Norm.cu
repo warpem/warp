@@ -241,9 +241,11 @@ namespace gtom
 
 	template<bool outputmu> __global__ void NormMeanStdDevMonoKernel(tfloat* d_input, tfloat* d_output, tfloat2* d_mu, size_t elements)
 	{
+#pragma nv_diag_suppress 20054
 		__shared__ double s_sums1[MonoTpB];
 		__shared__ double s_sums2[MonoTpB];
 		__shared__ double s_mean, s_stddev;
+#pragma nv_diag_default 20054
 
 		d_input += elements * blockIdx.x;
 		d_output += elements * blockIdx.x;
