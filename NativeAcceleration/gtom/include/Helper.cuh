@@ -442,6 +442,12 @@ namespace gtom
 
 	//TextureObject.cu:
 
+	// Helper functions for modern CUDA texture API
+	void d_CopyToArray(void* d_src, cudaArray_t dst, size_t width, size_t height, size_t depth, size_t elemSize, cudaMemcpyKind kind);
+	cudaTex d_CreateTextureObject(cudaArray_t array, cudaTextureFilterMode filterMode, cudaTextureReadMode readMode, bool normalizedCoords, cudaTextureAddressMode addressMode = cudaAddressModeWrap);
+	void d_MemcpyToArray(tfloat* d_input, cudaArray_t a_output, int2 dims);
+	cudaArray_t d_MallocArray(int2 dims);
+
 	void d_BindTextureToArray(tfloat* d_input, cudaArray_t &createdarray, cudaTex &createdtexture, int2 dims, cudaTextureFilterMode filtermode, bool normalizedcoords);
 	void d_BindTextureToArray(cudaArray_t a_input, cudaTex& createdtexture, int2 dims, cudaTextureFilterMode filtermode, bool normalizedcoords);
 	void d_BindTextureToArray(tfloat* d_input, cudaArray_t* &h_createdarrays, cudaTex* &h_createdtextures, int2 dims, cudaTextureFilterMode filtermode, bool normalizedcoords, int nimages);

@@ -143,7 +143,7 @@ __declspec(dllexport) cudaArray_t MallocArray(int2 dims)
 
 __declspec(dllexport) void CopyDeviceToArray(float* d_input, cudaArray_t a_output, int2 dims)
 {
-	cudaMemcpyToArray(a_output, 0, 0, d_input, dims.x * dims.y * sizeof(float), cudaMemcpyDeviceToDevice);
+	gtom::d_CopyToArray(d_input, a_output, dims.x, dims.y, 1, sizeof(float), cudaMemcpyDeviceToDevice);
 }
 
 __declspec(dllexport) void FreeArray(cudaArray_t a_input)
