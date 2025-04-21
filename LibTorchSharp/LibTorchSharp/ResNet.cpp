@@ -143,7 +143,7 @@ template <class Block> struct ResNet : torch::nn::Module
     torch::nn::Sequential layer4;
     torch::nn::Linear fc;
 
-    ResNet(int64_t size_input, torch::IntList layers, int64_t num_classes = 2)
+    ResNet(int64_t size_input, c10::ArrayRef<int64_t> layers, int64_t num_classes = 2)
 
            : conv1(conv_options(1, 64, 7, 2, 3)),
              bn1(torch::nn::BatchNorm2dOptions(64).momentum(0.01)),

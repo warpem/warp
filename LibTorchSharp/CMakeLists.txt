@@ -1,4 +1,5 @@
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
+project(LibTorchSharp)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_INSTALL_PREFIX $ENV{__CMakeBinDir})
@@ -11,7 +12,14 @@ include_directories("${CMAKE_BINARY_DIR}/../../")
 
 #add_definitions(-Werror) # treat warnings as errors
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-add_compile_options(-Wno-unused-local-typedef)
+
+# Check if compiler supports -Wno-unused-local-typedef
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wno-unused-local-typedef" COMPILER_SUPPORTS_UNUSED_LOCAL_TYPEDEF)
+if(COMPILER_SUPPORTS_UNUSED_LOCAL_TYPEDEF)
+    add_compile_options(-Wno-unused-local-typedef)
+endif()
+
 add_compile_options(-fPIC)
 add_compile_options(-fvisibility=hidden)
 

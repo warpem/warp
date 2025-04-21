@@ -1,5 +1,3 @@
-#pragma once
-
 #include "CustomModules.h"
 
 #include <torch/nn/init.h>
