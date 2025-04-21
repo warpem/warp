@@ -28,7 +28,7 @@ namespace gtom
 								  cudaTextureFilterMode filterMode, 
 								  cudaTextureReadMode readMode, 
 								  bool normalizedCoords,
-								  cudaTextureAddressMode addressMode = cudaAddressModeWrap)
+								  cudaTextureAddressMode addressMode)
 	{
 		cudaResourceDesc resDesc;
 		memset(&resDesc, 0, sizeof(resDesc));
@@ -65,7 +65,7 @@ namespace gtom
 		d_CopyToArray(d_input, a_input, dims.x, dims.y, 1, sizeof(tfloat), cudaMemcpyDeviceToDevice);
 		
 		// Use our helper function to create texture object
-		cudaTex texObj = d_CreateTextureObject(a_input, filtermode, cudaReadModeElementType, normalizedcoords);
+		cudaTex texObj = d_CreateTextureObject(a_input, filtermode, cudaReadModeElementType, normalizedcoords, cudaAddressModeWrap);
 
 		createdarray = a_input;
 		createdtexture = texObj;
@@ -74,7 +74,7 @@ namespace gtom
 	void d_BindTextureToArray(cudaArray_t a_input, cudaTex& createdtexture, int2 dims, cudaTextureFilterMode filtermode, bool normalizedcoords)
 	{
 		// Use our helper function to create texture object
-		createdtexture = d_CreateTextureObject(a_input, filtermode, cudaReadModeElementType, normalizedcoords);
+		createdtexture = d_CreateTextureObject(a_input, filtermode, cudaReadModeElementType, normalizedcoords, cudaAddressModeWrap);
 	}
 
 	void d_BindTextureToArray(tfloat* d_input, cudaArray_t* &h_createdarrays, cudaTex* &h_createdtextures, int2 dims, cudaTextureFilterMode filtermode, bool normalizedcoords, int nimages)
@@ -89,7 +89,7 @@ namespace gtom
 			d_CopyToArray(d_input + Elements2(dims) * n, a_input, dims.x, dims.y, 1, sizeof(tfloat), cudaMemcpyDeviceToDevice);
 			
 			// Use our helper function to create texture object
-			cudaTex texObj = d_CreateTextureObject(a_input, filtermode, cudaReadModeElementType, normalizedcoords);
+			cudaTex texObj = d_CreateTextureObject(a_input, filtermode, cudaReadModeElementType, normalizedcoords, cudaAddressModeWrap);
 
 			h_createdarrays[n] = a_input;
 			h_createdtextures[n] = texObj;
