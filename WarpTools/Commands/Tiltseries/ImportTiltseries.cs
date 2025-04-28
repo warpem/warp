@@ -179,6 +179,7 @@ namespace WarpTools.Commands
                                     Suffix = Suffix.Substring(0, Suffix.IndexOf(","));
 
                                     AxisAngle = float.Parse(Suffix, CultureInfo.InvariantCulture);
+                                    Console.WriteLine($"Found tilt axis angle of {AxisAngle} in mdoc file for {mdocPath}. Please check this value as Tomo5 mdoc files are known to provide incorrect values. You can use --override_axis to provide the correct value.");
                                     continue;
                                 }
                                 else if (Line.Contains("TiltAxisAngle = "))
@@ -187,6 +188,7 @@ namespace WarpTools.Commands
                                     Suffix = Suffix.Substring(0, Suffix.IndexOf(" "));
 
                                     AxisAngle = float.Parse(Suffix, CultureInfo.InvariantCulture);
+                                    Console.WriteLine($"Found tilt axis angle of {AxisAngle} in mdoc file for {mdocPath}. Please check this value as Tomo5 mdoc files are known to provide incorrect values. You can use --override_axis to provide the correct value.");
                                     continue;
                                 }
 
