@@ -924,7 +924,7 @@ WarpTools threshold_picks \
 --settings warp_tiltseries.settings \
 --in_suffix 15854 \
 --out_suffix clean \
---minimum 6
+--minimum 3
 ```
 
 This generates a number of STAR files containing particle positions with a `clean`
