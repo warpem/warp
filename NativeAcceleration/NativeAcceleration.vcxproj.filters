@@ -705,6 +705,9 @@
     <ClInclude Include="src\einspline\config.h">
       <Filter>einspline</Filter>
     </ClInclude>
+    <ClInclude Include="LanczosEER.hpp">
+      <Filter>CPU</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="einspline">
