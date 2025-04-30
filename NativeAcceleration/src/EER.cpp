@@ -229,8 +229,7 @@ void render4K(float* image, std::vector<unsigned int>& positions, std::vector<un
 
 
 __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrameInclusive, int lastFrameExclusive, int eer_upsampling, float* h_result)
-{
-	
+{	
 	TIFFSetWarningHandler(0);
 
 	if (eer_upsampling < 1 || eer_upsampling > 3)
@@ -374,7 +373,7 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 
 		std::vector<unsigned int> positions;
 		std::vector<unsigned char> symbols;
-		//memset(h_result, 0, supersize * supersize * sizeof(float));
+		memset(h_result, 0, supersize * supersize * sizeof(float));
 
 		for (int iframe = firstFrameInclusive; iframe < lastFrameExclusive; iframe++)
 		{
@@ -509,7 +508,7 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 				throw std::runtime_error("Invalid EER upsamle");
 			}*/
 
-			render_eer_frame_lanczos(positions, symbols, n_electron, 4096 * 1, 4096 * 1, h_result);
+			render_eer_frame_lanczos(positions, symbols, n_electron, supersize, supersize, h_result);
 
 			total_n_electron += n_electron;
 		}
