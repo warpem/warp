@@ -976,6 +976,10 @@ namespace WarpWorker
 
             HeaderEER.SuperResolution = EERSupersample;
 
+            int2 SourceDims = new int2(header.Dimensions);
+            if (IsEER)
+                SourceDims *= 4;
+
             if (IsEER && GainRef != null && correctGain)
             {
                 header.Dimensions.X = GainRef.Dims.X;
@@ -987,13 +991,13 @@ namespace WarpWorker
 
             int CurrentDevice = GPU.GetDevice();
 
-            if (RawLayers == null || RawLayers.Length != NThreads || RawLayers[0].Length < header.Dimensions.ElementsSlice())
-                RawLayers = Helper.ArrayOfFunction(i => new float[header.Dimensions.ElementsSlice()], NThreads);
+            if (RawLayers == null || RawLayers.Length != NThreads || RawLayers[0].Length < SourceDims.Elements())
+                RawLayers = Helper.ArrayOfFunction(i => new float[SourceDims.Elements()], NThreads);
 
-            Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, header.Dimensions.Slice()), GPUThreads);
-            Image[] GPULayers2 = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, header.Dimensions.Slice()), GPUThreads);
+            Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
+            Image[] GPULayers2 = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
 
-            if (scaleFactor == 1M)
+            if (scaleFactor == 1M && !IsEER)
             {
                 if (OriginalStack == null || OriginalStack.Dims != header.Dimensions)
                 {
@@ -1072,10 +1076,10 @@ namespace WarpWorker
                 stack = OriginalStack;
                 float[][] OriginalStackData = stack.GetHost(Intent.Write);
 
-                int[] PlanForw = Helper.ArrayOfFunction(i => GPU.CreateFFTPlan(header.Dimensions.Slice(), 1), GPUThreads);
+                int[] PlanForw = Helper.ArrayOfFunction(i => GPU.CreateFFTPlan(new int3(SourceDims), 1), GPUThreads);
                 int[] PlanBack = Helper.ArrayOfFunction(i => GPU.CreateIFFTPlan(ScaledDims.Slice(), 1), GPUThreads);
 
-                Image[] GPULayersInputFT = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, header.Dimensions.Slice(), true, true), GPUThreads);
+                Image[] GPULayersInputFT = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
                 Image[] GPULayersOutputFT = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, ScaledDims.Slice(), true, true), GPUThreads);
 
                 Image[] GPULayersScaled = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, ScaledDims.Slice()), GPUThreads);
@@ -1087,7 +1091,7 @@ namespace WarpWorker
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
                     else if (IsEER)
-                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), 3, RawLayers[threadID]);
                     else
                         IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
@@ -1102,21 +1106,22 @@ namespace WarpWorker
 
                     lock (Locks[GPUThreadID])
                     {
-                        GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), header.Dimensions.ElementsSlice());
+                        GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), SourceDims.Elements());
 
                         if (GainRef != null && correctGain)
                         {
                             //if (IsEER)
                             //    GPULayers[GPUThreadID].DivideSlices(GainRef);
                             //else
-                                GPULayers[GPUThreadID].MultiplySlices(GainRef); // EER .gain is now multiplicative??
+                            if (!IsEER)
+                                GPULayers[GPUThreadID].MultiplySlices(GainRef);
                         }
 
-                        if (DefectMap != null)
+                        if (DefectMap != null && !IsEER)
                         {
                             GPU.CopyDeviceToDevice(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                                    GPULayers2[GPUThreadID].GetDevice(Intent.Write),
-                                                   header.Dimensions.Elements());
+                                                   SourceDims.Elements());
                             DefectMap.Correct(GPULayers2[GPUThreadID], GPULayers[GPUThreadID]);
                         }
 
@@ -1128,7 +1133,7 @@ namespace WarpWorker
 
                         GPU.Scale(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                   GPULayersScaled[GPUThreadID].GetDevice(Intent.Write),
-                                  header.Dimensions.Slice(),
+                                  new int3(SourceDims),
                                   ScaledDims.Slice(),
                                   1,
                                   PlanForw[GPUThreadID],

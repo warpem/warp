@@ -496,7 +496,7 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 				throw std::runtime_error("Number of pixels is not right.");
 			}
 
-			/*if (eer_upsampling == 3)
+			if (eer_upsampling == 3)
 				render16K(h_result, positions, symbols, n_electron);
 			else if (eer_upsampling == 2)
 				render8K(h_result, positions, symbols, n_electron);
@@ -506,9 +506,9 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 			{
 				std::cout << "Error: Invalid EER upsamle" << std::endl;
 				throw std::runtime_error("Invalid EER upsamle");
-			}*/
+			}
 
-			render_eer_frame_lanczos(positions, symbols, n_electron, supersize, supersize, h_result);
+			//render_eer_frame_lanczos(positions, symbols, n_electron, supersize, supersize, h_result);
 
 			total_n_electron += n_electron;
 		}
