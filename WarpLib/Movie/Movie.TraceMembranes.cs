@@ -35,7 +35,6 @@ namespace Warp
                 var components = maskRaw.GetConnectedComponents().ToArray();
                 if (components.Length == 0)
                     throw new Exception("No membranes found");
-                Console.WriteLine("got connected components");
 
                 // Mean subtraction
                 average.SubtractMeanGrid(new int2(1));
@@ -75,7 +74,7 @@ namespace Warp
                 toDispose.Add(averageLowpass20);
                 toDispose.Add(averageLowpass50);
                 
-                Console.WriteLine("finished preprocessing");
+                Console.WriteLine("Finished preprocessing");
 
                 #endregion
 
@@ -83,11 +82,11 @@ namespace Warp
                 var skeleton = TraceMembranesHelper.Skeletonize(maskRaw);
                 toDispose.Add(skeleton);
                 TraceMembranesHelper.PruneBranchesInPlace(skeleton);
-                Console.WriteLine("skeletonized");
+                Console.WriteLine("Skeletonized input image and pruned short branches");
 
                 // find each individual 1px thick membrane in preprocessed skeleton
                 components = skeleton.GetConnectedComponents();
-                Console.WriteLine($"found {components.Length} connected components");
+                Console.WriteLine($"Found {components.Length} connected components");
                 components = components
                     .Where(c => c.ComponentIndices.Length >= options.MinimumComponentPixels)
                     .ToArray();
@@ -101,12 +100,9 @@ namespace Warp
                 {
                     Console.WriteLine($"Refining membrane {ic + 1} of {components.Length}");
 
-                    // Extract pixel indices for this membrane
+                    // Find pixel indices for this membrane
                     List<int> componentIndices = new List<int>(components[ic].ComponentIndices);
-                    Console.WriteLine($"extracted pixel locations for membrane {ic + 1}");
-
                     // Fit control points of a 2D spline path to these pixel positions
-                    Console.WriteLine("fitting initial spline...");
                     SplinePath2D initialPath = TraceMembranesHelper.FitInitialSpline(
                         componentIndices: componentIndices,
                         skeleton: skeleton,
@@ -114,10 +110,10 @@ namespace Warp
                         pixelSizeAverage: angPixMic,
                         controlPointSpacingAngst: (float)options.SplinePointSpacing
                     );
-                    Console.WriteLine("initial spline fit");
+                    Console.WriteLine("Initial path fit to skeletonized membrane");
 
                     // Optimize control points and intensities based on image data, first at low res
-                    Console.WriteLine("optimizing control points at 50A");
+                    Console.WriteLine("Modelling membrane at low resolution (low pass 50Å)");
                     var (profile1D, refinedPath, intensitySpline) = TraceMembranesHelper.RefineMembrane(
                         initialSpline: initialPath,
                         image: averageLowpass50,
@@ -127,7 +123,7 @@ namespace Warp
                     );
 
                     // then at higher res
-                    Console.WriteLine("optimizing control points at 20A");
+                    Console.WriteLine("Modelling membrane at higher resolution (low pass 20Å)");
                     (profile1D, refinedPath, intensitySpline) = TraceMembranesHelper.RefineMembrane(
                         initialSpline: refinedPath,
                         image: averageLowpass20,
@@ -137,8 +133,7 @@ namespace Warp
                     );
 
                     #region write output file
-
-                    Console.WriteLine("writing output");
+                    
                     // Create a table with path control point coordinates
                     var controlPointsTable = new Star(
                         values: refinedPath.Points.ToArray(),
@@ -167,7 +162,7 @@ namespace Warp
                     // write output file
                     string outputFile = IOPath.Combine(MembraneModelsDir, $"{RootName}_membrane{ic:D3}.star");
                     Star.SaveMultitable(outputFile, outputTables);
-                    Console.WriteLine($"output saved to {outputFile}");
+                    Console.WriteLine($"Membrane model saved to {outputFile}");
 
                     #endregion
                 }
@@ -647,7 +642,7 @@ public static class TraceMembranesHelper
         // Rescale control points to unbinned image pixel space
         var rescaledControlPoints = spline.Points.ToArray();
         for (int i = 0; i < rescaledControlPoints.Length; i++)
-            rescaledControlPoints[i] = rescaledControlPoints[i] * (pixelSizeMask / pixelSizeAverage);
+            rescaledControlPoints[i] *= (pixelSizeMask / pixelSizeAverage);
 
         // Create new spline with rescaled control points
         return new SplinePath2D(rescaledControlPoints, spline.IsClosed);
