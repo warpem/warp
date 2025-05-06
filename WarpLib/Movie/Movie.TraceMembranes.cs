@@ -227,7 +227,8 @@ public static class TraceMembranesHelper
         float2[] membraneNormals = new float2[nMembranePixels];
         float[] membraneWeights = new float[nMembranePixels];
         bool[] excludePixel = new bool[nMembranePixels];
-
+        
+        Console.WriteLine("populating cache with per-membrane-pixel data used in optimization...");
         // cache a bunch of data per-pixel in membrane
         for (int p = 0; p < nMembranePixels; p++)
         {
@@ -264,6 +265,7 @@ public static class TraceMembranesHelper
             membraneWeights[p] = weight;
             excludePixel[p] = projectedLength < 0 || projectedLength > length;
         }
+        Console.WriteLine("cache populated");
 
 
         // Create intensity spline (initially flat)
@@ -280,15 +282,13 @@ public static class TraceMembranesHelper
         // Pre-calculate 1D profile once per iteration
         float[] recData = new float[recDim];
         float[] recWeights = new float[recDim];
-
-
+        
         // Perform refinement iterations
         for (int iter = 0; iter < refinementIterations; iter++)
         {
             recData = new float[recDim];
             recWeights = new float[recDim];
             
-
             for (int p = 0; p < membranePixels.Length; p++)
             {
                 // get image pixel position and linear index
@@ -443,7 +443,7 @@ public static class TraceMembranesHelper
             finalIntensityControls[finalIntensityControls.Length - 1] = finalIntensityControls[0];
 
         SplinePath1D finalIntensitySpline = new SplinePath1D(finalIntensityControls, initialSpline.IsClosed);
-
+        
         return (recData, finalSpline, finalIntensitySpline);
     }
 
