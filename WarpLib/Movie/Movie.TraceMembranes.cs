@@ -182,7 +182,7 @@ namespace Warp
 public class ProcessingOptionsTraceMembranes : ProcessingOptionsBase
 {
     [WarpSerializable] public decimal SplinePointSpacing { get; set; } = 200; // angstroms
-    [WarpSerializable] public int RefinementIterations { get; set; } = 2;
+    [WarpSerializable] public int RefinementIterations { get; set; } = 3;
     [WarpSerializable] public int MinimumComponentPixels { get; set; } = 20;
 }
 
@@ -411,7 +411,7 @@ public static class TraceMembranesHelper
             try
             {
                 BroydenFletcherGoldfarbShanno optimizer = new BroydenFletcherGoldfarbShanno(optimizationInput.Length, eval, grad);
-                optimizer.MaxIterations = 10;
+                optimizer.MaxIterations = 15;
                 optimizer.MaxLineSearch = 5;
                 optimizer.Minimize(optimizationInput);
                 optimizationFallback = optimizationInput.ToArray();
