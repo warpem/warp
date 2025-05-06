@@ -201,7 +201,6 @@ public static class TraceMembranesHelper
 
         // convert distances from angstroms to pixels
         int maxDistance = (int)(maxDistanceAngst / image.PixelSize);
-        Console.WriteLine($"maxdist px: {maxDistance}");
         float softEdgeWidth = softEdgeWidthAngst / image.PixelSize;
 
         // Get control points and normals
@@ -444,8 +443,6 @@ public static class TraceMembranesHelper
             finalIntensityControls[finalIntensityControls.Length - 1] = finalIntensityControls[0];
 
         SplinePath1D finalIntensitySpline = new SplinePath1D(finalIntensityControls, initialSpline.IsClosed);
-
-        // Make a diagnostic image of the final reconstruction of this membrane from the 1d profile
 
         return (recData, finalSpline, finalIntensitySpline);
     }
