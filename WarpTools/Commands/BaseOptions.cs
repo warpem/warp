@@ -97,7 +97,7 @@ namespace WarpTools.Commands
                                                                InputNoRawData ? "*.xml" : Options.Import.Extension,
                                                                Options.Import.DoRecursiveSearch ? SearchOption.AllDirectories :
                                                                                                   SearchOption.TopDirectoryOnly)
-                                               .Where(path => !path.StartsWith('.'))
+                                               .Where(path => !Helper.PathToName(path).StartsWith('.'))
                                                .Order()
                                                .ToArray();
 
