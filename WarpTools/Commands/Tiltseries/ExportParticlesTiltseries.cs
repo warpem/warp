@@ -75,7 +75,7 @@ namespace WarpTools.Commands
 
         [Option("3d", HelpText = "Output particles as 3d images (subtomograms)")]
         public bool Output3DParticles { get; set; }
-
+        
         [OptionGroup("Expert options")]
         [Option("dont_normalize_input",
             HelpText =
@@ -86,6 +86,12 @@ namespace WarpTools.Commands
             HelpText =
                 "Don't normalize output particle volumes (only works with --3d)")]
         public bool DontNormalizeSubtomos { get; set; }
+
+        [Option("output_ctf_csv", HelpText = "Export CTF parameters as CSV files")]
+        public bool OutputCTFCSV { get; set; }
+
+        [Option("dont_correct_ctf_3d", HelpText = "Dont apply ctf correction to 3d subtomogram")]
+        public bool DontCorrectCTFSubtomos { get; set; }
 
         [Option("n_tilts",
             HelpText =
@@ -457,6 +463,8 @@ namespace WarpTools.Commands
             options.Tasks.Export2DBoxSize = cli.OutputBoxSize;
             options.Tasks.Export2DParticleDiameter = cli.OutputBoxSize;
             options.Tasks.InputNormalize = !cli.DontNormalizeInputImages;
+            options.Tasks.TomoSubReconstructCTFCSV = cli.OutputCTFCSV;
+            options.Tasks.TomoSubReconstructCorrectCTF = !cli.DontCorrectCTFSubtomos;
 
             options.Tasks.OutputNormalize =
                 cli.Output3DParticles && !cli.DontNormalizeSubtomos;

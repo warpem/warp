@@ -1674,14 +1674,14 @@ namespace Warp
 
         #region GetCTFs methods
 
-        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3 coords, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
+        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3 coords, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null, string outputpath = "")
         {
             float3[] PerFrameCoords = Helper.ArrayOfConstant(coords, NFrames);
 
-            return GetCTFsForOneParticle(options, PerFrameCoords, ctfCoords, gammaCorrection, weighted, weightsonly, useglobalweights, result);
+            return GetCTFsForOneParticle(options, PerFrameCoords, ctfCoords, gammaCorrection, weighted, weightsonly, useglobalweights, result, outputpath);
         }
 
-        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3[] coordsMoving, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
+        public virtual Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3[] coordsMoving, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null, string outputpath = "")
         {
             float3[] ImagePositions = GetPositionInAllFrames(coordsMoving);
 

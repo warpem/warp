@@ -135,6 +135,7 @@ public partial class TiltSeries
                 ProjectorsMultiplicity[threadID].Weights.Fill(0);
                 CTFsComplex[threadID].Fill(new float2(1, 0));
                 CTFs[threadID].Fill(1);
+                CTFsAbs[threadID].Fill(1); //if dont correct ctf, voxel weight is 1
 
                 ProjectorsMultiplicity[threadID].BackProject(CTFsComplex[threadID], CTFs[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
                 ProjectorsMultiplicity[threadID].Weights.Min(1);
@@ -146,7 +147,10 @@ public partial class TiltSeries
                 Timing.Finish("ExtractImageData");
 
                 Timing.Start("CreateRawCTF");
-                GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, true, false, false, CTFs[threadID]);
+                if (options.OutputCTFCSV)
+                    GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, true, false, false, CTFs[threadID], System.IO.Path.Combine(SubtomoDir, $"{RootName}{options.Suffix}_{p:D7}_ctf_{options.BinnedPixelSizeMean:F2}A.csv"));
+                else
+                    GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, true, false, false, CTFs[threadID]);
                 GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, false, false, false, CTFsUnweighted[threadID]);
                 Timing.Finish("CreateRawCTF");
 
@@ -156,16 +160,23 @@ public partial class TiltSeries
                 // Subtomo is (Image * CTFweighted) / abs(CTFunweighted)
                 // 3D CTF is (CTFweighted * CTFweighted) / abs(CTFweighted)
 
-                ImagesFT[threadID].Multiply(CTFs[threadID]);
-                //GPU.Abs(CTFs[threadID].GetDevice(Intent.Read),
-                //        CTFsAbs[threadID].GetDevice(Intent.Write),
-                //        CTFs[threadID].ElementsReal);
+                CTFsAbs[threadID].Abs();
+                //MOD: if correct subtomo
+                if (options.CorrectCTF) 
+                {
+                    ImagesFT[threadID].Multiply(CTFs[threadID]);
+                    //GPU.Abs(CTFs[threadID].GetDevice(Intent.Read),
+                    //        CTFsAbs[threadID].GetDevice(Intent.Write),
+                    //        CTFs[threadID].ElementsReal);
+                }
 
                 CTFsComplex[threadID].Fill(new float2(1, 0));
-                CTFsComplex[threadID].Multiply(CTFsUnweighted[threadID]); // What the raw image is like: unweighted, unflipped
+                if (options.CorrectCTF)
+                    CTFsComplex[threadID].Multiply(CTFsUnweighted[threadID]); // What the raw image is like: unweighted, unflipped
                 CTFsComplex[threadID].Multiply(CTFs[threadID]); // Weight by the same CTF as raw image: weighted, unflipped
 
-                CTFsUnweighted[threadID].Abs();
+                if (options.CorrectCTF)
+                    CTFsUnweighted[threadID].Abs();
 
                 #region Sub-tomo
 
@@ -173,7 +184,10 @@ public partial class TiltSeries
                 Projectors[threadID].Weights.Fill(0);
 
                 Timing.Start("ProjectImageData");
-                Projectors[threadID].BackProject(ImagesFT[threadID], CTFsUnweighted[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
+                if (options.CorrectCTF)
+                    Projectors[threadID].BackProject(ImagesFT[threadID], CTFsUnweighted[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
+                else
+                    Projectors[threadID].BackProject(ImagesFT[threadID], CTFsAbs[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
                 Timing.Finish("ProjectImageData");
 
                 //Projectors[threadID].Weights.Fill(1);
@@ -212,7 +226,10 @@ public partial class TiltSeries
                 Projectors[threadID].Data.Fill(0);
                 Projectors[threadID].Weights.Fill(0);
 
-                Projectors[threadID].BackProject(CTFsComplex[threadID], CTFsUnweighted[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
+                if (options.CorrectCTF)
+                    Projectors[threadID].BackProject(CTFsComplex[threadID], CTFsUnweighted[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
+                else
+                    Projectors[threadID].BackProject(CTFsComplex[threadID], CTFsAbs[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
 
                 //Projectors[threadID].Weights.Fill(1);
                 Projectors[threadID].Data.Multiply(ProjectorsMultiplicity[threadID].Weights);
@@ -343,4 +360,6 @@ public class ProcessingOptionsTomoSubReconstruction : TomoProcessingOptionsBase
     [WarpSerializable] public int NTilts { get; set; }
     [WarpSerializable] public bool MakeSparse { get; set; }
     [WarpSerializable] public bool UseCPU { get; set; }
+    [WarpSerializable] public bool CorrectCTF { get; set; }
+    [WarpSerializable] public bool OutputCTFCSV { get; set; }
 }
