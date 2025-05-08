@@ -155,18 +155,15 @@ namespace WarpTools.Commands
                 inputStar = ParseRelionParticleStar(cli.InputStarFile);
             else if (handleMultipleFiles)
             {
-                string[] inputStarFiles = Directory.GetFiles(path: cli.InputDirectory,
-                    searchPattern: cli.InputPattern);
-                Console.WriteLine(
-                    $"Found {inputStarFiles.Length} files in {cli.InputDirectory} matching {cli.InputPattern};");
-                inputStar =
-                    new Star(inputStarFiles.Select(file => new Star(file)).ToArray());
+                string[] inputStarFiles = Directory.EnumerateFiles(path: cli.InputDirectory, searchPattern: cli.InputPattern)
+                                                   .Where(p => !Helper.PathToName(p).StartsWith('.')).ToArray();
+                
+                Console.WriteLine($"Found {inputStarFiles.Length} files in {cli.InputDirectory} matching {cli.InputPattern};");
+                inputStar = new Star(inputStarFiles.Select(file => new Star(file)).ToArray());
             }
             else
             {
-                throw new Exception(
-                    "Either a single input file or a directory and wildcard pattern must be provided."
-                );
+                throw new Exception("Either a single input file or a directory and wildcard pattern must be provided.");
             }
 
             ValidateInputStar(inputStar);
@@ -505,8 +502,7 @@ namespace WarpTools.Commands
             {
                 if (!star.HasColumn(column))
                 {
-                    throw new Exception(
-                        $"Couldn't find {column} column in input STAR file.");
+                    throw new Exception($"Couldn't find {column} column in input STAR file.");
                 }
             }
 
@@ -517,8 +513,7 @@ namespace WarpTools.Commands
             };
             if (!tsIDColumns.Any(columnName => star.HasColumn(columnName)))
             {
-                throw new Exception(
-                    $"Input STAR must have one of rlnMicrographName or rlnTomoName to identify tilt series.");
+                throw new Exception($"Input STAR must have one of rlnMicrographName or rlnTomoName to identify tilt series.");
             }
         }
 
@@ -548,9 +543,9 @@ namespace WarpTools.Commands
         private float3[] GetCoordinates(Star InputStar)
         {
             // parse positions
-            float[] posX = ParseFloatColumn(InputStar, "rlnCoordinateX");
-            float[] posY = ParseFloatColumn(InputStar, "rlnCoordinateY");
-            float[] posZ = ParseFloatColumn(InputStar, "rlnCoordinateZ");
+            float[] posX = InputStar.GetFloat("rlnCoordinateX");
+            float[] posY = InputStar.GetFloat("rlnCoordinateY");
+            float[] posZ = InputStar.GetFloat("rlnCoordinateZ");
 
             // parse shifts
             bool inputHasPixelSize = InputStar.HasColumn("rlnPixelSize") ||
@@ -602,17 +597,11 @@ namespace WarpTools.Commands
             return XYZ;
         }
 
-        private float[] ParseFloatColumn(Star star, string columnName)
-        {
-            return star.GetColumn(columnName)
-                .Select(v => float.Parse(v, CultureInfo.InvariantCulture)).ToArray();
-        }
-
         private float[] ParsePixelSizes(Star star)
         {
             float[] pixelSizes = star.HasColumn("rlnPixelSize")
-                ? ParseFloatColumn(star, "rlnPixelSize")
-                : ParseFloatColumn(star, "rlnImagePixelSize");
+                ? star.GetFloat("rlnPixelSize")
+                : star.GetFloat("rlnImagePixelSize");
 
             return pixelSizes;
         }
@@ -624,7 +613,7 @@ namespace WarpTools.Commands
             {
                 if (Helper.IsDebug)
                     Console.WriteLine($"got shifts from {shiftColumn}");
-                return ParseFloatColumn(star, shiftColumn);
+                return star.GetFloat(shiftColumn);
             }
 
             if (star.HasColumn(angstromShiftColumn))
@@ -634,9 +623,9 @@ namespace WarpTools.Commands
                         "shifts in angstroms found without pixel sizes...");
                 if (Helper.IsDebug)
                     Console.WriteLine($"got shifts from {angstromShiftColumn}");
-                return ParseFloatColumn(star, angstromShiftColumn)
-                    .Zip(pixelSizes, (shift, pixelSize) => shift / pixelSize)
-                    .ToArray();
+                return star.GetFloat(angstromShiftColumn)
+                           .Zip(pixelSizes, (shift, pixelSize) => shift / pixelSize)
+                           .ToArray();
             }
 
             if (Helper.IsDebug)
@@ -662,9 +651,9 @@ namespace WarpTools.Commands
             }
 
             // otherwise get from table
-            float[] rot = ParseFloatColumn(star, "rlnAngleRot");
-            float[] tilt = ParseFloatColumn(star, "rlnAngleTilt");
-            float[] psi = ParseFloatColumn(star, "rlnAnglePsi");
+            float[] rot = star.GetFloat("rlnAngleRot");
+            float[] tilt = star.GetFloat("rlnAngleTilt");
+            float[] psi = star.GetFloat("rlnAnglePsi");
             float3[] rotTiltPsi = new float3[star.RowCount];
             for (int r = 0; r < star.RowCount; r++)
                 rotTiltPsi[r] = new float3(x: rot[r], y: tilt[r], z: psi[r]);
