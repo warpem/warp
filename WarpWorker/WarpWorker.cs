@@ -995,7 +995,7 @@ namespace WarpWorker
                 RawLayers = Helper.ArrayOfFunction(i => new float[SourceDims.Elements()], NThreads);
 
             Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
-            Image[] GPULayers2 = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
+            Image[] GPULayers2 = DefectMap != null ? Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads) : null;
 
             if (scaleFactor == 1M && !IsEER)
             {
@@ -1160,6 +1160,7 @@ namespace WarpWorker
 
             foreach (var layer in GPULayers)
                 layer.Dispose();
+            if (GPULayers2 != null)
             foreach (var layer in GPULayers2)
                 layer.Dispose();
 
