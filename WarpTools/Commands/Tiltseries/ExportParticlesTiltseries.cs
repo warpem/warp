@@ -214,21 +214,18 @@ namespace WarpTools.Commands
                 // Validate presence of CTF info and particles for this TS, early exit if not found
                 if (tiltSeries.OptionsCTF == null)
                 {
-                    Console.WriteLine(
-                        $"No CTF metadata found for {tiltSeries.Name}, skipping...");
+                    Console.WriteLine($"No CTF metadata found for {tiltSeries.Name}, skipping...");
                     return;
                 }
 
                 if (!tiltSeriesIdToParticleIndices.ContainsKey(tiltSeries.Name))
                 {
-                    Console.WriteLine(
-                        $"no particles found in {tiltSeries.Name}, skipping...");
+                    Console.WriteLine($"no particles found in {tiltSeries.Name}, skipping...");
                     return;
                 }
 
                 // Get positions and orientations for this tilt-series, rescale to Angstroms
-                List<int> tsParticleIdx =
-                    tiltSeriesIdToParticleIndices[tiltSeries.Name];
+                List<int> tsParticleIdx = tiltSeriesIdToParticleIndices[tiltSeries.Name];
                 float3[] tsParticleXyzAngstroms = new float3[tsParticleIdx.Count];
                 float3[] tsParticleRotTiltPsi = new float3[tsParticleIdx.Count];
 
@@ -240,61 +237,42 @@ namespace WarpTools.Commands
                     // get positions
                     if (cli.InputCoordinatesAreNormalized)
                     {
-                        xyz[tsParticleIdx[i]].X *=
-                            (float)(cli.Options.Tomo.DimensionsX - 1);
-                        xyz[tsParticleIdx[i]].Y *=
-                            (float)(cli.Options.Tomo.DimensionsY - 1);
-                        xyz[tsParticleIdx[i]].Z *=
-                            (float)(cli.Options.Tomo.DimensionsZ - 1);
-                        tsParticleXyzAngstroms[i] = xyz[tsParticleIdx[i]] *
-                                                    (float)cli.Options.Import.PixelSize;
+                        xyz[tsParticleIdx[i]].X *= (float)(cli.Options.Tomo.DimensionsX - 1);
+                        xyz[tsParticleIdx[i]].Y *= (float)(cli.Options.Tomo.DimensionsY - 1);
+                        xyz[tsParticleIdx[i]].Z *= (float)(cli.Options.Tomo.DimensionsZ - 1);
+                        tsParticleXyzAngstroms[i] = xyz[tsParticleIdx[i]] * (float)cli.Options.Import.PixelSize;
                     }
                     else
-                        tsParticleXyzAngstroms[i] = xyz[tsParticleIdx[i]] *
-                                                    (float)cli.InputPixelSize;
+                        tsParticleXyzAngstroms[i] = xyz[tsParticleIdx[i]] * (float)cli.InputPixelSize;
 
                     // get euler angles
                     tsParticleRotTiltPsi[i] = rotTiltPsi[tsParticleIdx[i]];
                 }
 
-
                 // Replicate positions and angles NTilts times because the
                 // WarpWorker method is parametrised for particle trajectories
-                float3[] tsParticleXYZAngstromsReplicated = Helper.Combine(
-                    tsParticleXyzAngstroms.Select(
-                        p => Helper.ArrayOfConstant(p, ((TiltSeries)tiltSeries).NTilts)
-                    ).ToArray()
-                );
-                float3[] TSParticleRotTiltPsiReplicated = Helper.Combine(
-                    tsParticleRotTiltPsi.Select(
-                        p => Helper.ArrayOfConstant(p, ((TiltSeries)tiltSeries).NTilts)
-                    ).ToArray());
-
+                float3[] tsParticleXYZAngstromsReplicated = Helper.Combine(tsParticleXyzAngstroms.Select(p => Helper.ArrayOfConstant(p, ((TiltSeries)tiltSeries).NTilts)).ToArray());
+                float3[] TSParticleRotTiltPsiReplicated = Helper.Combine(tsParticleRotTiltPsi.Select(p => Helper.ArrayOfConstant(p, ((TiltSeries)tiltSeries).NTilts)).ToArray());
 
                 Star TiltSeriesTable = null;
                 if (OutputImageDimensionality == 3)
                 {
                     if (Helper.IsDebug)
-                        Console.WriteLine(
-                            $"Sending export options to worker for {tiltSeries.Name}");
-                    worker.TomoExportParticleSubtomos(
-                        path: tiltSeries.Path,
-                        options: ExportOptions,
-                        coordinates: tsParticleXYZAngstromsReplicated,
-                        angles: TSParticleRotTiltPsiReplicated
-                    );
+                        Console.WriteLine($"Sending export options to worker for {tiltSeries.Name}");
+                    worker.TomoExportParticleSubtomos(path: tiltSeries.Path,
+                                                      options: ExportOptions,
+                                                      coordinates: tsParticleXYZAngstromsReplicated,
+                                                      angles: TSParticleRotTiltPsiReplicated);
                     if (Helper.IsDebug)
-                        Console.WriteLine(
-                            $"Constructing output table for {tiltSeries.Name}");
-                    TiltSeriesTable = ConstructSubvolumeOutputTable(
-                        tiltSeries: tiltSeries,
-                        xyz: tsParticleXyzAngstroms,
-                        eulerAngles: tsParticleRotTiltPsi,
-                        inputHasEulerAngles: inputHasEulerAngles,
-                        outputPixelSize: cli.OutputPixelSize,
-                        relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
-                        particleStarFile: cli.OutputStarFile
-                    );
+                        Console.WriteLine($"Constructing output table for {tiltSeries.Name}");
+                    
+                    TiltSeriesTable = ConstructSubvolumeOutputTable(tiltSeries: tiltSeries,
+                                                                    xyz: tsParticleXyzAngstroms,
+                                                                    eulerAngles: tsParticleRotTiltPsi,
+                                                                    inputHasEulerAngles: inputHasEulerAngles,
+                                                                    outputPixelSize: cli.OutputPixelSize,
+                                                                    relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
+                                                                    particleStarFile: cli.OutputStarFile);
                     lock (OutputStarTables)
                         OutputStarTables.Add(tiltSeries.Name, TiltSeriesTable);
                 }
@@ -305,50 +283,37 @@ namespace WarpTools.Commands
                         lock (opticsGroupLock)
                         {
                             // do export, save particle metadata to a temporary location
-                            string TempTiltSeriesParticleStarPath = Path.Combine(
-                                tiltSeries.ParticleSeriesDir,
-                                tiltSeries.RootName + "_temp.star"
+                            string TempTiltSeriesParticleStarPath = Path.Combine(tiltSeries.ParticleSeriesDir,
+                                                                                 tiltSeries.RootName + "_temp.star"
                             );
+                            
                             if (Helper.IsDebug)
                                 Console.WriteLine($"Sending export options to worker for {tiltSeries.Name}");
-                            worker.TomoExportParticleSeries(
-                                path: tiltSeries.Path,
-                                options: ExportOptions,
-                                coordinates: tsParticleXYZAngstromsReplicated,
-                                angles: TSParticleRotTiltPsiReplicated,
-                                pathTableOut: TempTiltSeriesParticleStarPath,
-                                pathsRelativeTo: OutputStarPath
-                            );
+                            worker.TomoExportParticleSeries(path: tiltSeries.Path,
+                                                            options: ExportOptions,
+                                                            coordinates: tsParticleXYZAngstromsReplicated,
+                                                            angles: TSParticleRotTiltPsiReplicated,
+                                                            pathTableOut: TempTiltSeriesParticleStarPath,
+                                                            pathsRelativeTo: OutputStarPath);
 
                             // generate necessary metadata for particles.star
                             if (Helper.IsDebug)
                                 Console.WriteLine($"\nConstructing output table for {tiltSeries.Name}");
-                            Star ParticleTable = Construct2DParticleTable(
-                                tempParticleStarPath: TempTiltSeriesParticleStarPath,
-                                opticsGroup: currentOpticsGroup
-                            );
-                            Star ParticleOpticsTable = Construct2DOpticsTable(
-                                tiltSeries: tiltSeries,
-                                tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
-                                downsamplingFactor: (float)ExportOptions.DownsampleFactor,
-                                boxSize: ExportOptions.BoxSize,
-                                opticsGroup: currentOpticsGroup
-                            );
+                            Star ParticleTable = Construct2DParticleTable(tempParticleStarPath: TempTiltSeriesParticleStarPath,
+                                                                          opticsGroup: currentOpticsGroup);
+                            Star ParticleOpticsTable = Construct2DOpticsTable(tiltSeries: tiltSeries,
+                                                                              tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
+                                                                              downsamplingFactor: (float)ExportOptions.DownsampleFactor,
+                                                                              boxSize: ExportOptions.BoxSize,
+                                                                              opticsGroup: currentOpticsGroup);
 
                             // generate necessary metadata for tomograms.star 
-                            Star TomogramsGeneralTable =
-                                Construct2DTomogramStarGeneralTable(
-                                    tiltSeries: tiltSeries,
-                                    exportOptions: ExportOptions,
-                                    opticsGroup: currentOpticsGroup
-                                );
-                            Star TomogramsTiltSeriesTable =
-                                Construct2DTomogramStarTiltSeriesTable(
-                                    tiltSeries: tiltSeries,
-                                    exportOptions: ExportOptions,
-                                    opticsGroup: currentOpticsGroup
-                                );
-
+                            Star TomogramsGeneralTable = Construct2DTomogramStarGeneralTable(tiltSeries: tiltSeries,
+                                                                                             exportOptions: ExportOptions,
+                                                                                             opticsGroup: currentOpticsGroup);
+                            Star TomogramsTiltSeriesTable = Construct2DTomogramStarTiltSeriesTable(tiltSeries: tiltSeries,
+                                                                                                   exportOptions: ExportOptions,
+                                                                                                   opticsGroup: currentOpticsGroup);
 
                             // store per tilt-series metadata in dictionary and update optics group
                             OutputStarTables.Add(tiltSeries.RootName + "_particles", ParticleTable);
@@ -359,6 +324,9 @@ namespace WarpTools.Commands
                         }
                     }
                 }
+
+                // Add particle count so it makes it into processed_items.json
+                tiltSeries.ParticleCounts["particles"] = tsParticleXyzAngstroms.Length;
             });
 
             #endregion

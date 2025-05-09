@@ -2383,10 +2383,10 @@ namespace Warp
             Json["Path"] = Helper.PathToNameWithExtension(Path);
 
             // ProcessingStatus enum
-            Json["Stat"] = (int)ProcessingStatus;
+            Json["ProcessingStatus"] = (int)ProcessingStatus;
 
             // Tilts
-            Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths.Where((p, t) => UseTilt[t]).ToArray());
+            Json["Tilts"] = JsonSerializer.SerializeToNode(TiltMoviePaths.Where((p, t) => UseTilt[t]).ToArray());
 
             // Angles
             Json["MinTilt"] = Angles.Min();
@@ -2430,7 +2430,7 @@ namespace Warp
             if (particleSuffix != null)
             {
                 int ParticleCount = GetParticleCount(particleSuffix);
-                Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+                Json["Particles"] = ParticleCount < 0 ? null : ParticleCount;
             }
 
             return Json;

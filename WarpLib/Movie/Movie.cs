@@ -712,7 +712,7 @@ namespace Warp
         #region Picking and particles
 
         public readonly Dictionary<string, decimal> PickingThresholds = new Dictionary<string, decimal>();
-        private readonly Dictionary<string, int> ParticleCounts = new Dictionary<string, int>();
+        public readonly Dictionary<string, int> ParticleCounts = new Dictionary<string, int>();
 
         public int GetParticleCount(string suffix)
         {
@@ -2400,37 +2400,37 @@ namespace Warp
             Json["Path"] = Helper.PathToNameWithExtension(Path);
 
             // ProcessingStatus enum
-            Json["Stat"] = (int)ProcessingStatus;
+            Json["ProcessingStatus"] = (int)ProcessingStatus;
 
             // CTF
             {
                 // Defocus
-                Json["Def"] = CTF == null ? null : MathF.Round((float)CTF.Defocus, 4);
+                Json["Defocus"] = CTF == null ? null : MathF.Round((float)CTF.Defocus, 4);
 
                 // Phase shift
-                Json["Phs"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
+                Json["Phase"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
 
                 // Estimated resolution
-                Json["Rsn"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
+                Json["Resolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
 
                 // Astigmatism plot X and Y
-                Json["AsX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
-                Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+                Json["AstigX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+                Json["AstigY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
             }
 
             // Motion
             {
-                Json["Mtn"] = OptionsMovement == null ? null : (double)MeanFrameMovement;
+                Json["Motion"] = OptionsMovement == null ? null : (double)MeanFrameMovement;
             }
 
             // 💩 percentage
-            Json["Jnk"] = MaskPercentage < 0 ? null : MathF.Round((float)MaskPercentage, 1);
+            Json["Junk"] = MaskPercentage < 0 ? null : MathF.Round((float)MaskPercentage, 1);
 
             // Particle count for given suffix
             if (particleSuffix != null)
             {
                 int ParticleCount = GetParticleCount(particleSuffix);
-                Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+                Json["Particles"] = ParticleCount < 0 ? null : ParticleCount;
             }
 
             return Json;
