@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -1005,10 +1005,22 @@ namespace Warp.Tools
             if (string.IsNullOrEmpty(relativeTo))
                 return path;
 
-            Uri baseUri = new Uri(relativeTo.Replace('\\', '/'));
-            if (!baseUri.IsFile && !relativeTo.EndsWith("/")) 
-                baseUri = new Uri(baseUri + "/");
-
+            // Normalize path separators
+            string normalizedRelativeTo = relativeTo.Replace('\\', '/');
+            
+            // Only check if it's likely a directory when it doesn't end with a slash
+            if (!normalizedRelativeTo.EndsWith("/"))
+            {
+                // Check if it's likely a directory (no extension and not ending with a dot)
+                bool isLikelyDirectory = string.IsNullOrWhiteSpace(Path.GetExtension(normalizedRelativeTo)) &&
+                                         !normalizedRelativeTo.EndsWith(".");
+                
+                // Add slash if it's likely a directory
+                if (isLikelyDirectory)
+                    normalizedRelativeTo += "/";
+            }
+                
+            Uri baseUri = new Uri(normalizedRelativeTo);
             return baseUri.MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
         }
 
