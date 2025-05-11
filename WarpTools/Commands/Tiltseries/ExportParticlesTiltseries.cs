@@ -1108,10 +1108,10 @@ namespace WarpTools.Commands
                     particleStarDirectory,
                     Helper.PathToName(particleStarPath) + "_optimisation_set.star"
                 );
-                string contents = "data_" +
-                                  "" +
-                                  $"_rlnTomoParticlesFile   {particleFile}" +
-                                  $"_rlnTomoTomogramsFile   {tomogramsFile}";
+                string contents = "data_\n" +
+                                  "\n" +
+                                  $"_rlnTomoParticlesFile   {particleFile}\n" +
+                                  $"_rlnTomoTomogramsFile   {tomogramsFile}\n";
                 File.WriteAllText(path: optimisationSetPath, contents: contents);
 
                 #endregion
