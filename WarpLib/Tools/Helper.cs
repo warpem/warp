@@ -1005,7 +1005,11 @@ namespace Warp.Tools
             if (string.IsNullOrEmpty(relativeTo))
                 return path;
 
-            return new Uri(relativeTo.Replace('\\', '/')).MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
+            Uri baseUri = new Uri(relativeTo.Replace('\\', '/'));
+            if (!baseUri.IsFile && !relativeTo.EndsWith("/")) 
+                baseUri = new Uri(baseUri + "/");
+
+            return baseUri.MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
         }
 
         public static string PathCombine(params string[] paths)
