@@ -645,11 +645,11 @@ namespace WarpTools.Commands
 
             if (relativeToParticleStarFile)
             {
-                path = Path.GetRelativePath(path, Path.GetDirectoryName(particleStarFilePath));
+                path = Helper.MakePathRelativeTo(path, Path.GetDirectoryName(particleStarFilePath));
             }
             else // relative to current working directory
             {
-                path = Path.GetRelativePath(path, Directory.GetCurrentDirectory());
+                path = Helper.MakePathRelativeTo(path, Directory.GetCurrentDirectory());
             }
 
             path = path.Replace(oldValue: "\\", newValue: "/");
@@ -671,11 +671,11 @@ namespace WarpTools.Commands
 
             if (relativeToParticleStarFile)
             {
-                path = Path.GetRelativePath(path, Path.GetDirectoryName(particleStarFilePath));
+                path = Helper.MakePathRelativeTo(path, Path.GetDirectoryName(particleStarFilePath));
             }
             else // relative to current working directory
             {
-                path = Path.GetRelativePath(path, Directory.GetCurrentDirectory());
+                path = Helper.MakePathRelativeTo(path, Directory.GetCurrentDirectory());
             }
 
             return path;
@@ -1046,17 +1046,13 @@ namespace WarpTools.Commands
                 #region combine info and write out tomograms.star
 
                 // construct global table
-                Star tomogramsTableGlobalCombined = new Star(perTiltSeriesTables.Where(
-                                                                                       kvp => kvp.Key.EndsWith("_tomograms_global")
-                                                                                      ).ToDictionary(
-                                                                                                     kvp => kvp.Key, kvp => kvp.Value
-                                                                                                    ).Values.ToArray()
-                                                            );
+                Star tomogramsTableGlobalCombined = new Star(perTiltSeriesTables.Where(kvp => kvp.Key.EndsWith("_tomograms_global"))
+                                                                                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value).Values.ToArray());
                 string dummyTiltSeriesPath = Helper.PathCombine(particleStarDirectory, "dummy_tiltseries.mrc");
                 WriteDummyTiltSeries(path: dummyTiltSeriesPath);
                 tomogramsTableGlobalCombined.ModifyAllValuesInColumn(columnName: "rlnTomoTiltSeriesName",
-                                                                     f: v => Path.GetRelativePath(dummyTiltSeriesPath,
-                                                                                                  pathsRelativeTo));
+                                                                     f: v => Helper.MakePathRelativeTo(dummyTiltSeriesPath,
+                                                                                                       pathsRelativeTo));
 
                 // get per tilt-series tables
                 string tiltSeriesTableSuffix = "_tomograms_tiltseries";
