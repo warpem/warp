@@ -994,8 +994,7 @@ namespace WarpTools.Commands
                                          int maxMissingTilts,
                                          string pathsRelativeTo)
         {
-            string particleStarDirectory =
-                Path.GetDirectoryName(Path.GetFullPath(particleStarPath));
+            string particleStarDirectory = Path.GetDirectoryName(Path.GetFullPath(particleStarPath));
             Directory.CreateDirectory(particleStarDirectory);
 
             if (perTiltSeriesTables.Count == 0)
@@ -1060,14 +1059,11 @@ namespace WarpTools.Commands
                         kvp => kvp.Key, kvp => kvp.Value
                     ).Values.ToArray()
                 );
-                string dummyTiltSeriesPath = Helper.PathCombine(particleStarDirectory,
-                    "dummy_tiltseries.mrc");
+                string dummyTiltSeriesPath = Helper.PathCombine(particleStarDirectory, "dummy_tiltseries.mrc");
                 WriteDummyTiltSeries(path: dummyTiltSeriesPath);
-                tomogramsTableGlobalCombined.ModifyAllValuesInColumn(
-                    columnName: "rlnTomoTiltSeriesName",
-                    f: v => Path.GetRelativePath(relativeTo: particleStarDirectory,
-                        dummyTiltSeriesPath)
-                );
+                tomogramsTableGlobalCombined.ModifyAllValuesInColumn(columnName: "rlnTomoTiltSeriesName",
+                                                                     f: v => Path.GetRelativePath(dummyTiltSeriesPath,
+                                                                                                  pathsRelativeTo));
 
                 // get per tilt-series tables
                 string tiltSeriesTableSuffix = "_tomograms_tiltseries";
