@@ -186,8 +186,10 @@ namespace WarpTools.Commands
             Console.WriteLine(
                 $"Found {xyz.Count()} particles in {tiltSeriesIdToParticleIndices.Count()} tilt series");
 
-            #endregion
+            cli.OutputStarFile = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), 
+                                                               cli.OutputStarFile));
 
+            #endregion
 
             #region Prepare WarpWorker options and output-related variables
 
@@ -284,8 +286,7 @@ namespace WarpTools.Commands
                         {
                             // do export, save particle metadata to a temporary location
                             string TempTiltSeriesParticleStarPath = Path.Combine(tiltSeries.ParticleSeriesDir,
-                                                                                 tiltSeries.RootName + "_temp.star"
-                            );
+                                                                                 tiltSeries.RootName + "_temp.star");
                             
                             if (Helper.IsDebug)
                                 Console.WriteLine($"Sending export options to worker for {tiltSeries.Name}");
@@ -294,7 +295,9 @@ namespace WarpTools.Commands
                                                             coordinates: tsParticleXYZAngstromsReplicated,
                                                             angles: TSParticleRotTiltPsiReplicated,
                                                             pathTableOut: TempTiltSeriesParticleStarPath,
-                                                            pathsRelativeTo: OutputStarPath);
+                                                            pathsRelativeTo: cli.OutputPathsRelativeToStarFile ? 
+                                                                                 Path.GetFullPath(OutputStarPath) : 
+                                                                                 Directory.GetCurrentDirectory());
 
                             // generate necessary metadata for particles.star
                             if (Helper.IsDebug)
@@ -333,12 +336,13 @@ namespace WarpTools.Commands
 
             #region Write output metadata
 
-            WriteOutputStarFile(
-                perTiltSeriesTables: OutputStarTables,
-                particleStarPath: cli.OutputStarFile,
-                outputDimensionality: OutputImageDimensionality,
-                maxMissingTilts: cli.MaxMissingTilts
-            );
+            WriteOutputStarFile(perTiltSeriesTables: OutputStarTables,
+                                particleStarPath: cli.OutputStarFile,
+                                outputDimensionality: OutputImageDimensionality,
+                                maxMissingTilts: cli.MaxMissingTilts,
+                                pathsRelativeTo: cli.OutputPathsRelativeToStarFile ? 
+                                                     Path.GetFullPath(cli.OutputStarFile) : 
+                                                     Directory.GetCurrentDirectory());
 
             #endregion
 
@@ -984,12 +988,11 @@ namespace WarpTools.Commands
             dummyImage.WriteMRC16b(path);
         }
 
-        private void WriteOutputStarFile(
-            Dictionary<string, Star> perTiltSeriesTables, 
-            string particleStarPath,
-            int outputDimensionality,
-            int maxMissingTilts
-        )
+        private void WriteOutputStarFile(Dictionary<string, Star> perTiltSeriesTables, 
+                                         string particleStarPath,
+                                         int outputDimensionality,
+                                         int maxMissingTilts,
+                                         string pathsRelativeTo)
         {
             string particleStarDirectory =
                 Path.GetDirectoryName(Path.GetFullPath(particleStarPath));
@@ -1099,19 +1102,16 @@ namespace WarpTools.Commands
 
                 #region write optimisation set
 
-                string particleFile = Helper.PathToNameWithExtension(particleStarPath);
-                string tomogramsFile =
-                    Helper.PathToNameWithExtension(tomogramsStarPath);
+                string particleFile = Helper.MakePathRelativeTo(particleStarPath, pathsRelativeTo);
+                string tomogramsFile = Helper.MakePathRelativeTo(tomogramsStarPath, pathsRelativeTo);
                 string optimisationSetPath = Path.Combine(
                     particleStarDirectory,
                     Helper.PathToName(particleStarPath) + "_optimisation_set.star"
                 );
-                string contents = $@"
-data_
-
-_rlnTomoParticlesFile   {particleFile}
-_rlnTomoTomogramsFile   {tomogramsFile}
-";
+                string contents = "data_" +
+                                  "" +
+                                  $"_rlnTomoParticlesFile   {particleFile}" +
+                                  $"_rlnTomoTomogramsFile   {tomogramsFile}";
                 File.WriteAllText(path: optimisationSetPath, contents: contents);
 
                 #endregion
