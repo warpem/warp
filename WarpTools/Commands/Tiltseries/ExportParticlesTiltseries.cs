@@ -15,62 +15,62 @@ namespace WarpTools.Commands
 {
     [VerbGroup("Tilt series")]
     [Verb("ts_export_particles",
-        HelpText = "Export particles as 3D volumes or 2D image series.")]
+          HelpText = "Export particles as 3D volumes or 2D image series.")]
     [CommandRunner(typeof(ExportParticlesTiltseries))]
     class ExportParticlesTiltseriesOptions : DistributedOptions
     {
         [OptionGroup("STAR files with particle coordinates")]
         [Option("input_star",
-            HelpText = "Single STAR file containing particle poses to be exported")]
+                HelpText = "Single STAR file containing particle poses to be exported")]
         public string InputStarFile { get; set; }
 
         [Option("input_directory",
-            HelpText =
-                "Directory containing multiple STAR files each with particle poses to be exported")]
+                HelpText =
+                    "Directory containing multiple STAR files each with particle poses to be exported")]
         public string InputDirectory { get; set; }
 
         [Option("input_pattern",
-            HelpText = "Wildcard pattern to search for from the input directory",
-            Default = "*.star")]
+                HelpText = "Wildcard pattern to search for from the input directory",
+                Default = "*.star")]
         public string InputPattern { get; set; }
 
         [OptionGroup("Coordinate scaling")]
         [Option("coords_angpix",
-            HelpText = "Pixel size for particles coordinates in input star file(s)",
-            Default = null)]
+                HelpText = "Pixel size for particles coordinates in input star file(s)",
+                Default = null)]
         public double? InputPixelSize { get; set; }
 
         [Option("normalized_coords",
-            HelpText =
-                "Are coordinates normalised to the range [0, 1] (e.g. from Warp's template matching)")]
+                HelpText =
+                    "Are coordinates normalised to the range [0, 1] (e.g. from Warp's template matching)")]
         public bool InputCoordinatesAreNormalized { get; set; }
 
         [OptionGroup("Output")]
         [Option("output_star", HelpText = "STAR file for exported particles",
-            Required = true)]
+                Required = true)]
         public string OutputStarFile { get; set; }
 
         [Option("output_angpix", HelpText = "Pixel size at which to export particles",
-            Required = true)]
+                Required = true)]
         public float OutputPixelSize { get; set; }
 
         [Option("box", HelpText = "Output has this many pixels/voxels on each side",
-            Required = true)]
+                Required = true)]
         public int OutputBoxSize { get; set; }
 
         [Option("diameter", HelpText = "Particle diameter in angstroms",
-            Required = true)]
+                Required = true)]
         public int ParticleDiameter { get; set; }
 
         [Option("relative_output_paths",
-            HelpText =
-                "Make paths in output STAR file relative to the location of the STAR file. They will be relative to the working directory otherwise.")]
+                HelpText =
+                    "Make paths in output STAR file relative to the location of the STAR file. They will be relative to the working directory otherwise.")]
         public bool OutputPathsRelativeToStarFile { get; set; }
 
         [OptionGroup("Export type (REQUIRED, mutually exclusive)")]
         [Option("2d",
-            HelpText =
-                "Output particles as 2d image series centered on the particle (particle series)")]
+                HelpText =
+                    "Output particles as 2d image series centered on the particle (particle series)")]
         public bool Output2DParticles { get; set; }
 
         [Option("3d", HelpText = "Output particles as 3d images (subtomograms)")]
@@ -78,25 +78,25 @@ namespace WarpTools.Commands
 
         [OptionGroup("Expert options")]
         [Option("dont_normalize_input",
-            HelpText =
-                "Don't normalize the entire field of view in input 2D images after high-pass filtering")]
+                HelpText =
+                    "Don't normalize the entire field of view in input 2D images after high-pass filtering")]
         public bool DontNormalizeInputImages { get; set; }
 
         [Option("dont_normalize_3d",
-            HelpText =
-                "Don't normalize output particle volumes (only works with --3d)")]
+                HelpText =
+                    "Don't normalize output particle volumes (only works with --3d)")]
         public bool DontNormalizeSubtomos { get; set; }
 
         [Option("n_tilts",
-            HelpText =
-                "Number of tilt images to include in the output, images with the lowest overall exposure will be included first",
-            Default = null)]
+                HelpText =
+                    "Number of tilt images to include in the output, images with the lowest overall exposure will be included first",
+                Default = null)]
         public int? OutputNTilts { get; set; }
-        
+
         [Option("max_missing_tilts",
-            HelpText =
-                "Particles not visible in more than this number of tilts will be excluded (only works with --2d)",
-            Default = 5)]
+                HelpText =
+                    "Particles not visible in more than this number of tilts will be excluded (only works with --2d)",
+                Default = 5)]
         public int MaxMissingTilts { get; set; }
     }
 
@@ -114,25 +114,25 @@ namespace WarpTools.Commands
             if (cli.InputPixelSize == null &&
                 cli.InputCoordinatesAreNormalized == false)
                 throw new Exception(
-                    "Invalid combination of arguments, either input pixel size or coordinates are normalized must be set.");
+                                    "Invalid combination of arguments, either input pixel size or coordinates are normalized must be set.");
             else if (cli.InputPixelSize != null &&
                      cli.InputCoordinatesAreNormalized == true)
                 throw new Exception(
-                    "Invalid combination of arguments, only one of input pixel size and coordinates are normalized can be set.");
+                                    "Invalid combination of arguments, only one of input pixel size and coordinates are normalized can be set.");
 
             if (cli.InputPixelSize != null && cli.InputPixelSize <= 0)
                 throw new Exception("Input pixel size must be a positive number.");
 
             if (cli.OutputBoxSize % 2 != 0 || cli.OutputBoxSize < 2)
                 throw new Exception(
-                    "Output box size must be an even, positive number.");
+                                    "Output box size must be an even, positive number.");
 
             if (cli.ParticleDiameter < 1)
                 throw new Exception("Particle diameter must be a positive number.");
 
             if (cli.OutputNTilts != null && cli.OutputNTilts < 1)
                 throw new Exception(
-                    "Output number of tilts must be a positive integer.");
+                                    "Output number of tilts must be a positive integer.");
 
             if (new bool[]
                     { cli.Output2DParticles, cli.Output3DParticles }.Count(v => v) != 1)
@@ -157,7 +157,7 @@ namespace WarpTools.Commands
             {
                 string[] inputStarFiles = Directory.EnumerateFiles(path: cli.InputDirectory, searchPattern: cli.InputPattern)
                                                    .Where(p => !Helper.PathToName(p).StartsWith('.')).ToArray();
-                
+
                 Console.WriteLine($"Found {inputStarFiles.Length} files in {cli.InputDirectory} matching {cli.InputPattern};");
                 inputStar = new Star(inputStarFiles.Select(file => new Star(file)).ToArray());
             }
@@ -167,9 +167,7 @@ namespace WarpTools.Commands
             }
 
             ValidateInputStar(inputStar);
-            string[] tiltSeriesIDs = inputStar.HasColumn("rlnMicrographName")
-                ? inputStar.GetColumn("rlnMicrographName")
-                : inputStar.GetColumn("rlnTomoName");
+            string[] tiltSeriesIDs = inputStar.HasColumn("rlnMicrographName") ? inputStar.GetColumn("rlnMicrographName") : inputStar.GetColumn("rlnTomoName");
             Dictionary<string, List<int>> tiltSeriesIdToParticleIndices =
                 GroupParticles(tiltSeriesIDs);
 
@@ -184,9 +182,9 @@ namespace WarpTools.Commands
             if (Helper.IsDebug)
                 Console.WriteLine($"input has euler angles?: {inputHasEulerAngles}");
             Console.WriteLine(
-                $"Found {xyz.Count()} particles in {tiltSeriesIdToParticleIndices.Count()} tilt series");
+                              $"Found {xyz.Count()} particles in {tiltSeriesIdToParticleIndices.Count()} tilt series");
 
-            cli.OutputStarFile = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), 
+            cli.OutputStarFile = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(),
                                                                cli.OutputStarFile));
 
             #endregion
@@ -267,7 +265,7 @@ namespace WarpTools.Commands
                                                       angles: TSParticleRotTiltPsiReplicated);
                     if (Helper.IsDebug)
                         Console.WriteLine($"Constructing output table for {tiltSeries.Name}");
-                    
+
                     TiltSeriesTable = ConstructSubvolumeOutputTable(tiltSeries: tiltSeries,
                                                                     xyz: tsParticleXyzAngstroms,
                                                                     eulerAngles: tsParticleRotTiltPsi,
@@ -287,7 +285,7 @@ namespace WarpTools.Commands
                             // do export, save particle metadata to a temporary location
                             string TempTiltSeriesParticleStarPath = Path.Combine(tiltSeries.ParticleSeriesDir,
                                                                                  tiltSeries.RootName + "_temp.star");
-                            
+
                             if (Helper.IsDebug)
                                 Console.WriteLine($"Sending export options to worker for {tiltSeries.Name}");
                             worker.TomoExportParticleSeries(path: tiltSeries.Path,
@@ -295,8 +293,8 @@ namespace WarpTools.Commands
                                                             coordinates: tsParticleXYZAngstromsReplicated,
                                                             angles: TSParticleRotTiltPsiReplicated,
                                                             pathTableOut: TempTiltSeriesParticleStarPath,
-                                                            pathsRelativeTo: cli.OutputPathsRelativeToStarFile ? 
-                                                                                 Path.GetFullPath(OutputStarPath) : 
+                                                            pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
+                                                                                 Path.GetFullPath(OutputStarPath) :
                                                                                  Directory.GetCurrentDirectory());
 
                             // generate necessary metadata for particles.star
@@ -340,8 +338,8 @@ namespace WarpTools.Commands
                                 particleStarPath: cli.OutputStarFile,
                                 outputDimensionality: OutputImageDimensionality,
                                 maxMissingTilts: cli.MaxMissingTilts,
-                                pathsRelativeTo: cli.OutputPathsRelativeToStarFile ? 
-                                                     Path.GetFullPath(cli.OutputStarFile) : 
+                                pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
+                                                     Path.GetFullPath(cli.OutputStarFile) :
                                                      Directory.GetCurrentDirectory());
 
             #endregion
@@ -366,7 +364,7 @@ namespace WarpTools.Commands
             {
                 if (Helper.IsDebug)
                     Console.WriteLine(
-                        $"file is not a multitable or does not contain an optics table, parsing as single table...");
+                                      $"file is not a multitable or does not contain an optics table, parsing as single table...");
                 return new Star(path);
             }
 
@@ -374,11 +372,11 @@ namespace WarpTools.Commands
             // okay, join the optics data with the particle data
             Star opticsTable = new Star(path, "optics");
             int[] groupIDs = opticsTable.GetColumn("rlnOpticsGroup")
-                .Select(s => int.Parse(s)).ToArray();
+                                        .Select(s => int.Parse(s)).ToArray();
             string[][] opticsGroupData = new string[groupIDs.Max() + 1][];
             string[] opticsColumnNames = opticsTable.GetColumnNames()
-                .Where(n => n != "rlnOpticsGroup" && n != "rlnOpticsGroupName")
-                .ToArray();
+                                                    .Where(n => n != "rlnOpticsGroup" && n != "rlnOpticsGroupName")
+                                                    .ToArray();
 
             // first parse data out of the optics table
             for (int r = 0; r < opticsTable.RowCount; r++)
@@ -398,7 +396,7 @@ namespace WarpTools.Commands
             // construct a new column with the data from the correct optics group
             // and add it to the particle table
             int[] columnOpticsGroupId = particlesTable.GetColumn("rlnOpticsGroup")
-                .Select(s => int.Parse(s)).ToArray();
+                                                      .Select(s => int.Parse(s)).ToArray();
 
             for (int iField = 0; iField < opticsColumnNames.Length; iField++)
             {
@@ -417,7 +415,8 @@ namespace WarpTools.Commands
         }
 
         private ProcessingOptionsTomoSubReconstruction PrepareWarpWorkerExportOptions(
-            ExportParticlesTiltseriesOptions cli, OptionsWarp options
+            ExportParticlesTiltseriesOptions cli,
+            OptionsWarp options
         )
         {
             options.Tasks.TomoSubReconstructPixel = (decimal)cli.OutputPixelSize;
@@ -532,38 +531,38 @@ namespace WarpTools.Commands
                     Console.WriteLine($"pixel sizes: {pixelSizes}");
                 else
                     Console.WriteLine(
-                        $"pixel sizes: [{pixelSizes[0]}, {pixelSizes[1]}, ...]");
+                                      $"pixel sizes: [{pixelSizes[0]}, {pixelSizes[1]}, ...]");
             }
 
 
             float[] shiftsX = ParseShifts(
-                InputStar,
-                shiftColumn: "rlnOriginX",
-                angstromShiftColumn: "rlnOriginXAngst",
-                pixelSizes: pixelSizes
-            );
+                                          InputStar,
+                                          shiftColumn: "rlnOriginX",
+                                          angstromShiftColumn: "rlnOriginXAngst",
+                                          pixelSizes: pixelSizes
+                                         );
             float[] shiftsY = ParseShifts(
-                InputStar,
-                shiftColumn: "rlnOriginY",
-                angstromShiftColumn: "rlnOriginYAngst",
-                pixelSizes: pixelSizes
-            );
+                                          InputStar,
+                                          shiftColumn: "rlnOriginY",
+                                          angstromShiftColumn: "rlnOriginYAngst",
+                                          pixelSizes: pixelSizes
+                                         );
             float[] shiftsZ = ParseShifts(
-                InputStar,
-                shiftColumn: "rlnOriginZ",
-                angstromShiftColumn: "rlnOriginZAngst",
-                pixelSizes: pixelSizes
-            );
+                                          InputStar,
+                                          shiftColumn: "rlnOriginZ",
+                                          angstromShiftColumn: "rlnOriginZAngst",
+                                          pixelSizes: pixelSizes
+                                         );
 
             // combine extraction positions and shifts into absolute positions
             float3[] XYZ = new float3[InputStar.RowCount];
             for (int r = 0; r < InputStar.RowCount; r++)
             {
                 XYZ[r] = new float3(
-                    x: posX[r] - shiftsX[r],
-                    y: posY[r] - shiftsY[r],
-                    z: posZ[r] - shiftsZ[r]
-                );
+                                    x: posX[r] - shiftsX[r],
+                                    y: posY[r] - shiftsY[r],
+                                    z: posZ[r] - shiftsZ[r]
+                                   );
             }
 
             return XYZ;
@@ -571,15 +570,15 @@ namespace WarpTools.Commands
 
         private float[] ParsePixelSizes(Star star)
         {
-            float[] pixelSizes = star.HasColumn("rlnPixelSize")
-                ? star.GetFloat("rlnPixelSize")
-                : star.GetFloat("rlnImagePixelSize");
+            float[] pixelSizes = star.HasColumn("rlnPixelSize") ? star.GetFloat("rlnPixelSize") : star.GetFloat("rlnImagePixelSize");
 
             return pixelSizes;
         }
 
-        private float[] ParseShifts(Star star, string shiftColumn,
-            string angstromShiftColumn, float[] pixelSizes)
+        private float[] ParseShifts(Star star,
+                                    string shiftColumn,
+                                    string angstromShiftColumn,
+                                    float[] pixelSizes)
         {
             if (star.HasColumn(shiftColumn))
             {
@@ -592,7 +591,7 @@ namespace WarpTools.Commands
             {
                 if (pixelSizes == null)
                     throw new Exception(
-                        "shifts in angstroms found without pixel sizes...");
+                                        "shifts in angstroms found without pixel sizes...");
                 if (Helper.IsDebug)
                     Console.WriteLine($"got shifts from {angstromShiftColumn}");
                 return star.GetFloat(angstromShiftColumn)
@@ -632,29 +631,25 @@ namespace WarpTools.Commands
             return rotTiltPsi;
         }
 
-        private string GetOutputImagePath(
-            TiltSeries tiltSeries,
-            int particleIndex,
-            float pixelSize,
-            string suffix,
-            bool relativeToParticleStarFile, // default is relative to working directory 
-            string? particleStarFilePath
-        )
+        private string GetOutputImagePath(TiltSeries tiltSeries,
+                                          int particleIndex,
+                                          float pixelSize,
+                                          string suffix,
+                                          bool relativeToParticleStarFile, // default is relative to working directory 
+                                          string? particleStarFilePath)
         {
             string path = Path.Combine(
-                tiltSeries.SubtomoDir,
-                $"{tiltSeries.RootName}{suffix}_{particleIndex:D7}_{pixelSize:F2}A.mrc"
-            );
+                                       tiltSeries.SubtomoDir,
+                                       $"{tiltSeries.RootName}{suffix}_{particleIndex:D7}_{pixelSize:F2}A.mrc"
+                                      );
 
             if (relativeToParticleStarFile)
             {
-                path = Path.GetRelativePath(
-                    relativeTo: Path.GetDirectoryName(particleStarFilePath), path);
+                path = Path.GetRelativePath(path, Path.GetDirectoryName(particleStarFilePath));
             }
             else // relative to current working directory
             {
-                path = Path.GetRelativePath(relativeTo: Directory.GetCurrentDirectory(),
-                    path);
+                path = Path.GetRelativePath(path, Directory.GetCurrentDirectory());
             }
 
             path = path.Replace(oldValue: "\\", newValue: "/");
@@ -671,23 +666,17 @@ namespace WarpTools.Commands
             string? particleStarFilePath
         )
         {
-            string path = Path.Combine(
-                tiltSeries.SubtomoDir,
-                $"{tiltSeries.RootName}{suffix}_{particleIndex:D7}_ctf_{pixelSize:F2}A.mrc"
-            );
+            string path = Path.Combine(tiltSeries.SubtomoDir,
+                                       $"{tiltSeries.RootName}{suffix}_{particleIndex:D7}_ctf_{pixelSize:F2}A.mrc");
 
             if (relativeToParticleStarFile)
             {
-                path = Path.GetRelativePath(
-                    relativeTo: Path.GetDirectoryName(particleStarFilePath), path);
+                path = Path.GetRelativePath(path, Path.GetDirectoryName(particleStarFilePath));
             }
             else // relative to current working directory
             {
-                path = Path.GetRelativePath(relativeTo: Directory.GetCurrentDirectory(),
-                    path);
+                path = Path.GetRelativePath(path, Directory.GetCurrentDirectory());
             }
-
-            path = path.Replace(oldValue: "\\", newValue: "/");
 
             return path;
         }
@@ -740,21 +729,21 @@ namespace WarpTools.Commands
                 particleResolutionEstimate[i] =
                     FormattableString.Invariant($"{tiltSeries.CTFResolutionEstimate}");
                 particleImageFilePaths[i] = GetOutputImagePath(
-                    tiltSeries,
-                    particleIndex: i,
-                    pixelSize: outputPixelSize,
-                    suffix: "",
-                    relativeToParticleStarFile: relativeToParticleStarFile,
-                    particleStarFilePath: particleStarFile
-                );
+                                                               tiltSeries,
+                                                               particleIndex: i,
+                                                               pixelSize: outputPixelSize,
+                                                               suffix: "",
+                                                               relativeToParticleStarFile: relativeToParticleStarFile,
+                                                               particleStarFilePath: particleStarFile
+                                                              );
                 particleCtfFilePaths[i] = GetOutputCTFPath(
-                    tiltSeries,
-                    particleIndex: i,
-                    pixelSize: outputPixelSize,
-                    suffix: "",
-                    relativeToParticleStarFile: relativeToParticleStarFile,
-                    particleStarFilePath: particleStarFile
-                );
+                                                           tiltSeries,
+                                                           particleIndex: i,
+                                                           pixelSize: outputPixelSize,
+                                                           suffix: "",
+                                                           relativeToParticleStarFile: relativeToParticleStarFile,
+                                                           particleStarFilePath: particleStarFile
+                                                          );
                 particlePixelSize[i] =
                     FormattableString.Invariant($"{outputPixelSize:F5}");
                 particleCtfVoltage[i] =
@@ -813,8 +802,11 @@ namespace WarpTools.Commands
         }
 
         private Star Construct2DOpticsTable(
-            TiltSeries tiltSeries, float tiltSeriesPixelSize, float downsamplingFactor,
-            int boxSize, int opticsGroup
+            TiltSeries tiltSeries,
+            float tiltSeriesPixelSize,
+            float downsamplingFactor,
+            int boxSize,
+            int opticsGroup
         )
         {
             string[] columnNames = new string[]
@@ -847,7 +839,7 @@ namespace WarpTools.Commands
                 new string[]
                 {
                     FormattableString.Invariant(
-                        $"{tiltSeriesPixelSize * downsamplingFactor:F5}")
+                                                $"{tiltSeriesPixelSize * downsamplingFactor:F5}")
                 },
                 new string[] { FormattableString.Invariant($"{boxSize}") },
                 new string[]
@@ -857,16 +849,17 @@ namespace WarpTools.Commands
         }
 
         private Star Construct2DParticleTable(string tempParticleStarPath,
-            int opticsGroup)
+                                              int opticsGroup)
         {
             Star ParticleTable = new Star(tempParticleStarPath);
             ParticleTable.ModifyAllValuesInColumn("rlnOpticsGroup",
-                v => $"{opticsGroup}");
+                                                  v => $"{opticsGroup}");
             return ParticleTable;
         }
 
         private Star Construct2DTomogramStarGeneralTable(
-            TiltSeries tiltSeries, ProcessingOptionsTomoSubReconstruction exportOptions,
+            TiltSeries tiltSeries,
+            ProcessingOptionsTomoSubReconstruction exportOptions,
             int opticsGroup
         )
         {
@@ -887,18 +880,19 @@ namespace WarpTools.Commands
                 "rlnTomoImportFractionalDose"
             });
 
-            List<int> UsedTilts = exportOptions.DoLimitDose
-                ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
-                : tiltSeries.IndicesSortedDose.ToList();
+            List<int> UsedTilts = exportOptions.DoLimitDose ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList() : tiltSeries.IndicesSortedDose.ToList();
             float TiltDose;
-            if (UsedTilts.Count > 1) {
+            if (UsedTilts.Count > 1)
+            {
                 // Normal case - calculate dose difference between first two tilts
                 TiltDose = tiltSeries.Dose[UsedTilts[1]] - tiltSeries.Dose[UsedTilts[0]];
-            } else {
+            }
+            else
+            {
                 // Single tilt case - use a default value or the dose of the single tilt
                 TiltDose = tiltSeries.Dose[UsedTilts[0]]; // Or another appropriate value
             }
-            
+
             UsedTilts.Sort();
 
             tiltSeries.VolumeDimensionsPhysical = exportOptions.DimensionsPhysical;
@@ -923,7 +917,8 @@ namespace WarpTools.Commands
         }
 
         private Star Construct2DTomogramStarTiltSeriesTable(
-            TiltSeries tiltSeries, ProcessingOptionsTomoSubReconstruction exportOptions,
+            TiltSeries tiltSeries,
+            ProcessingOptionsTomoSubReconstruction exportOptions,
             int opticsGroup
         )
         {
@@ -939,27 +934,25 @@ namespace WarpTools.Commands
                 "rlnCtfScalefactor",
                 "rlnMicrographPreExposure"
             });
-            List<int> UsedTilts = exportOptions.DoLimitDose
-                ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList()
-                : tiltSeries.IndicesSortedDose.ToList();
+            List<int> UsedTilts = exportOptions.DoLimitDose ? tiltSeries.IndicesSortedDose.Take(exportOptions.NTilts).ToList() : tiltSeries.IndicesSortedDose.ToList();
             UsedTilts.Sort();
             float3[] TiltAngles =
                 tiltSeries.GetAngleInAllTilts(
-                    tiltSeries.VolumeDimensionsPhysical * 0.5f);
+                                              tiltSeries.VolumeDimensionsPhysical * 0.5f);
             foreach (var i in UsedTilts)
             {
                 Matrix3 M = Matrix3.Euler(TiltAngles[i]);
                 float3 ImageCoords = tiltSeries.GetPositionsInOneTilt(
-                    coords: new[] { tiltSeries.VolumeDimensionsPhysical * 0.5f },
-                    tiltID: i
-                ).First();
+                                                                      coords: new[] { tiltSeries.VolumeDimensionsPhysical * 0.5f },
+                                                                      tiltID: i
+                                                                     ).First();
                 CTF TiltCTF = tiltSeries.GetCTFParamsForOneTilt(
-                    pixelSize: (float)exportOptions.PixelSize,
-                    defoci: new[] { ImageCoords.Z },
-                    coords: new[] { ImageCoords },
-                    tiltID: i,
-                    weighted: true
-                ).First();
+                                                                pixelSize: (float)exportOptions.PixelSize,
+                                                                defoci: new[] { ImageCoords.Z },
+                                                                coords: new[] { ImageCoords },
+                                                                tiltID: i,
+                                                                weighted: true
+                                                               ).First();
 
                 TiltSeriesTable.AddRow(new string[]
                 {
@@ -968,9 +961,9 @@ namespace WarpTools.Commands
                     $"[{M.M31},{M.M32},{M.M33},0]",
                     "[0,0,0,1]",
                     ((TiltCTF.Defocus + TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1",
-                        CultureInfo.InvariantCulture),
+                                                                                   CultureInfo.InvariantCulture),
                     ((TiltCTF.Defocus - TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1",
-                        CultureInfo.InvariantCulture),
+                                                                                   CultureInfo.InvariantCulture),
                     TiltCTF.DefocusAngle.ToString("F3", CultureInfo.InvariantCulture),
                     TiltCTF.Scale.ToString("F3", CultureInfo.InvariantCulture),
                     tiltSeries.Dose[i].ToString("F3", CultureInfo.InvariantCulture)
@@ -988,7 +981,7 @@ namespace WarpTools.Commands
             dummyImage.WriteMRC16b(path);
         }
 
-        private void WriteOutputStarFile(Dictionary<string, Star> perTiltSeriesTables, 
+        private void WriteOutputStarFile(Dictionary<string, Star> perTiltSeriesTables,
                                          string particleStarPath,
                                          int outputDimensionality,
                                          int maxMissingTilts,
@@ -1000,7 +993,7 @@ namespace WarpTools.Commands
             if (perTiltSeriesTables.Count == 0)
             {
                 throw new InvalidOperationException(
-                    "No particles to write out. Check that rlnMicrographName entries match tomostar file for each tilt series.");
+                                                    "No particles to write out. Check that rlnMicrographName entries match tomostar file for each tilt series.");
             }
 
             if (outputDimensionality == 2)
@@ -1009,44 +1002,44 @@ namespace WarpTools.Commands
 
                 Star table2DMode =
                     new StarParameters(new[] { "rlnTomoSubTomosAre2DStacks" },
-                        new[] { "1" });
+                                       new[] { "1" });
                 Star tableOpticsCombined = new Star(perTiltSeriesTables.Where(
-                        kvp => kvp.Key.EndsWith("_optics")
-                    ).ToDictionary(
-                        kvp => kvp.Key, kvp => kvp.Value
-                    ).Values.ToArray()
-                );
+                                                                              kvp => kvp.Key.EndsWith("_optics")
+                                                                             ).ToDictionary(
+                                                                                            kvp => kvp.Key, kvp => kvp.Value
+                                                                                           ).Values.ToArray()
+                                                   );
                 Star tableParticles = new Star(perTiltSeriesTables.Where(
-                        kvp => kvp.Key.EndsWith("_particles")
-                    ).ToDictionary(
-                        kvp => kvp.Key, kvp => kvp.Value
-                    ).Values.ToArray()
-                );
-                
+                                                                         kvp => kvp.Key.EndsWith("_particles")
+                                                                        ).ToDictionary(
+                                                                                       kvp => kvp.Key, kvp => kvp.Value
+                                                                                      ).Values.ToArray()
+                                              );
+
                 // filter to remove particles not visible in more than --max_missing_tilts
                 // c.f. https://github.com/warpem/warp/issues/243
                 int nParticlesBeforeFiltering = tableParticles.RowCount;
                 tableParticles.RemoveRowsWhere(
-                    columnName: "rlnTomoVisibleFrames",
-                    match: s => s
-                        .Trim('[', ']') // remove surrounding brackets
-                        .Split(',') // split out individual values
-                        .Select(int.Parse) // to int
-                        .Count(value => value == 0) > maxMissingTilts
-                    );
+                                               columnName: "rlnTomoVisibleFrames",
+                                               match: s => s
+                                                           .Trim('[', ']') // remove surrounding brackets
+                                                           .Split(',') // split out individual values
+                                                           .Select(int.Parse) // to int
+                                                           .Count(value => value == 0) > maxMissingTilts
+                                              );
                 int nParticlesAfterFiltering = tableParticles.RowCount;
                 if (Helper.IsDebug)
                     Console.WriteLine($"{nParticlesBeforeFiltering} -> {nParticlesAfterFiltering} particles after removing particles not visible in more than {maxMissingTilts} tilt images");
-                
+
                 // write file
                 Star.SaveMultitable(
-                    particleStarPath, new Dictionary<string, Star>()
-                    {
-                        { "general", table2DMode },
-                        { "optics", tableOpticsCombined },
-                        { "particles", tableParticles }
-                    }
-                );
+                                    particleStarPath, new Dictionary<string, Star>()
+                                    {
+                                        { "general", table2DMode },
+                                        { "optics", tableOpticsCombined },
+                                        { "particles", tableParticles }
+                                    }
+                                   );
 
                 #endregion
 
@@ -1054,11 +1047,11 @@ namespace WarpTools.Commands
 
                 // construct global table
                 Star tomogramsTableGlobalCombined = new Star(perTiltSeriesTables.Where(
-                        kvp => kvp.Key.EndsWith("_tomograms_global")
-                    ).ToDictionary(
-                        kvp => kvp.Key, kvp => kvp.Value
-                    ).Values.ToArray()
-                );
+                                                                                       kvp => kvp.Key.EndsWith("_tomograms_global")
+                                                                                      ).ToDictionary(
+                                                                                                     kvp => kvp.Key, kvp => kvp.Value
+                                                                                                    ).Values.ToArray()
+                                                            );
                 string dummyTiltSeriesPath = Helper.PathCombine(particleStarDirectory, "dummy_tiltseries.mrc");
                 WriteDummyTiltSeries(path: dummyTiltSeriesPath);
                 tomogramsTableGlobalCombined.ModifyAllValuesInColumn(columnName: "rlnTomoTiltSeriesName",
@@ -1067,11 +1060,8 @@ namespace WarpTools.Commands
 
                 // get per tilt-series tables
                 string tiltSeriesTableSuffix = "_tomograms_tiltseries";
-                var tomogramsTiltSeriesTables = perTiltSeriesTables.Where(
-                    kvp => kvp.Key.EndsWith(tiltSeriesTableSuffix)
-                ).ToDictionary(
-                    kvp => kvp.Key, kvp => kvp.Value
-                );
+                var tomogramsTiltSeriesTables = perTiltSeriesTables.Where(kvp => kvp.Key.EndsWith(tiltSeriesTableSuffix))
+                                                                   .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
                 // combine all and write out tomograms.star
                 Dictionary<string, Star> tomogramStarDict =
@@ -1081,18 +1071,13 @@ namespace WarpTools.Commands
                     };
                 foreach (var kvp in tomogramsTiltSeriesTables)
                 {
-                    string rootName = kvp.Key.Substring(0,
-                        kvp.Key.Length - tiltSeriesTableSuffix.Length);
+                    string rootName = kvp.Key.Substring(0, kvp.Key.Length - tiltSeriesTableSuffix.Length);
                     tomogramStarDict.Add(rootName + ".tomostar", kvp.Value);
                 }
 
-                string tomogramsStarPath = Path.Combine(
-                    Helper.PathToFolder(particleStarPath),
-                    Helper.PathToName(particleStarPath) + "_tomograms.star"
-                );
-                Star.SaveMultitable(
-                    tomogramsStarPath, tomogramStarDict
-                );
+                string tomogramsStarPath = Path.Combine(Helper.PathToFolder(particleStarPath),
+                                                        Helper.PathToName(particleStarPath) + "_tomograms.star");
+                Star.SaveMultitable(tomogramsStarPath, tomogramStarDict);
 
                 #endregion
 
@@ -1100,10 +1085,8 @@ namespace WarpTools.Commands
 
                 string particleFile = Helper.MakePathRelativeTo(particleStarPath, pathsRelativeTo);
                 string tomogramsFile = Helper.MakePathRelativeTo(tomogramsStarPath, pathsRelativeTo);
-                string optimisationSetPath = Path.Combine(
-                    particleStarDirectory,
-                    Helper.PathToName(particleStarPath) + "_optimisation_set.star"
-                );
+                string optimisationSetPath = Path.Combine(particleStarDirectory,
+                                                          Helper.PathToName(particleStarPath) + "_optimisation_set.star");
                 string contents = "data_\n" +
                                   "\n" +
                                   $"_rlnTomoParticlesFile   {particleFile}\n" +
@@ -1118,7 +1101,5 @@ namespace WarpTools.Commands
                 combinedTable.Save(particleStarPath);
             }
         }
-
-
     }
 }
