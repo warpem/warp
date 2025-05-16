@@ -181,7 +181,7 @@ namespace Warp
 [Serializable]
 public class ProcessingOptionsTraceMembranes : ProcessingOptionsBase
 {
-    [WarpSerializable] public decimal SplinePointSpacing { get; set; } = 200; // angstroms
+    [WarpSerializable] public decimal SplinePointSpacing { get; set; } = 100; // angstroms
     [WarpSerializable] public int RefinementIterations { get; set; } = 3;
     [WarpSerializable] public int MinimumComponentPixels { get; set; } = 20;
 }
