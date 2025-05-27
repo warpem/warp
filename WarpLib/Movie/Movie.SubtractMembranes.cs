@@ -31,7 +31,6 @@ public partial class Movie
             
             // load image data
             Image average = Image.FromFile(AveragePath);
-            toDispose.Add(average);
             
             // preprocess
             average.SubtractMeanGrid(new int2(1));
@@ -43,6 +42,7 @@ public partial class Movie
                 isVolume: false
             );
             average = average.AsPadded(average.DimsSlice / 2).AndDisposeParent();
+            toDispose.Add(average);
             
             // make Image for all membranes
             Image allMembranes = new Image(average.Dims);
