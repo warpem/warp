@@ -1161,8 +1161,8 @@ namespace WarpWorker
             foreach (var layer in GPULayers)
                 layer.Dispose();
             if (GPULayers2 != null)
-            foreach (var layer in GPULayers2)
-                layer.Dispose();
+                foreach (var layer in GPULayers2)
+                    layer.Dispose();
 
             return stack;
         }

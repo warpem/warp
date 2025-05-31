@@ -977,7 +977,7 @@ namespace WarpTools.Commands
         {
             int3 dims = new int3(2, 2, 2);
             Image dummyImage =
-                new Image(dims, isft: false, iscomplex: false, ishalf: false);
+                new Image(dims, isft: false, iscomplex: false);
             dummyImage.WriteMRC16b(path);
         }
 
