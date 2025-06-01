@@ -2342,6 +2342,72 @@ namespace Warp
             return Result;
         }
 
+        public float[] GetShiftXFromPyramid(float3[] coords, bool localOnly = false)
+        {
+            float[] Result = ArrayPool<float>.Rent(coords.Length);
+
+            if (!localOnly)
+            {
+                float[] X = GridMovementX.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += X[i];
+
+                ArrayPool<float>.Return(X);
+            }
+
+            {
+                float[] X = GridLocalX.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += X[i];
+
+                ArrayPool<float>.Return(X);
+            }
+
+            for (int p = 0; p < PyramidShiftX.Count; p++)
+            {
+                float[] X = PyramidShiftX[p].GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += X[i];
+
+                ArrayPool<float>.Return(X);
+            }
+
+            return Result;
+        }
+
+        public float[] GetShiftYFromPyramid(float3[] coords, bool localOnly = false)
+        {
+            float[] Result = ArrayPool<float>.Rent(coords.Length);
+
+            if (!localOnly)
+            {
+                float[] Y = GridMovementY.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += Y[i];
+
+                ArrayPool<float>.Return(Y);
+            }
+
+            {
+                float[] Y = GridLocalY.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += Y[i];
+
+                ArrayPool<float>.Return(Y);
+            }
+
+            for (int p = 0; p < PyramidShiftY.Count; p++)
+            {
+                float[] Y = PyramidShiftY[p].GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += Y[i];
+
+                ArrayPool<float>.Return(Y);
+            }
+
+            return Result;
+        }
+
         public virtual int[] GetRelevantImageSizes(int fullSize, float weightingThreshold)
         {
             int[] Result = new int[NFrames];

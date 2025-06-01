@@ -674,7 +674,7 @@ namespace Warp
 
         public float[] Get2DFromScaledCoords(float2[] coordinates, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
-            float[] Output = new float[coordinates.Length];
+            float[] Output = ArrayPool<float>.Rent(coordinates.Length);
 
             float voltage = (float)Voltage * 1e3f;
             float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));

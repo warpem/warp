@@ -16,12 +16,12 @@ namespace Warp.Tools
     {
         public static Stream OpenWithBigBuffer(string path)
         {
-            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 22, FileOptions.SequentialScan);
+            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
         }
 
         public static Stream CreateWithBigBuffer(string path)
         {
-            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write, 1 << 22);
+            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write, 4096);
         }
 
         public static int3 GetMapDimensions(string path)
