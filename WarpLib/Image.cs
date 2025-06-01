@@ -92,7 +92,7 @@ namespace Warp
             get
             {
                 if (_HostData == null)
-                    _HostData = ArrayPool<float>.RentMultiple(Dims.Z, (int)ElementsSliceReal);
+                    _HostData = ArrayPool<float>.RentMultiple((int)ElementsSliceReal, Dims.Z);
 
                 return _HostData;
             }
