@@ -317,10 +317,14 @@ public partial class Movie
                         Amplitude = options.Amplitude
                     };
 
-                    float[] SimulatedCTF = Helper.Subset(CurrentParams.Get1D(PS1D.Length, true), MinFreqInclusive, MinFreqInclusive + NFreq);
+                    float[] SimulatedCTFFull = CurrentParams.Get1D(PS1D.Length, true);
+                    float[] SimulatedCTF = Helper.Subset(SimulatedCTFFull, MinFreqInclusive, MinFreqInclusive + NFreq);
 
                     MathHelper.NormalizeInPlace(SimulatedCTF);
                     float Score = MathHelper.CrossCorrelate(Subtracted1D, SimulatedCTF);
+
+                    ArrayPool<float>.Return(SimulatedCTFFull);
+                    ArrayPool<float>.Return(SimulatedCTF);
 
                     if (Score > MTBestScore[threadID])
                     {
@@ -423,7 +427,7 @@ public partial class Movie
                 Local.DefocusAngle = AlteredAngle;
 
                 CTFStruct LocalStruct = Local.ToStruct();
-                CTFStruct[] LocalParams = new CTFStruct[defocusValues.Length];
+                CTFStruct[] LocalParams = ArrayPool<CTFStruct>.Rent(defocusValues.Length);
                 for (int i = 0; i < LocalParams.Length; i++)
                 {
                     LocalParams[i] = LocalStruct;
@@ -442,9 +446,9 @@ public partial class Movie
 
             Func<double[], double> Eval = input =>
             {
-                CubicGrid Altered = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v).ToArray());
+                using CubicGrid Altered = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v).ToArray());
                 float[] DefocusValues = Altered.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
-                CubicGrid AlteredPhase = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v).ToArray());
+                using CubicGrid AlteredPhase = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v).ToArray());
                 float[] PhaseValues = AlteredPhase.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
 
                 CTFStruct[] LocalParams = EvalGetCTF(input, CTF, DefocusValues, PhaseValues);
@@ -464,6 +468,8 @@ public partial class Movie
                     (uint)LocalParams.Length);
 
                 float Score = Result.Sum();
+
+                ArrayPool<CTFStruct>.Return(LocalParams);
 
                 if (float.IsNaN(Score) || float.IsInfinity(Score))
                     throw new Exception("Bad score.");
@@ -504,11 +510,11 @@ public partial class Movie
 
                 // ... take shortcut for defoci, ...
                 {
-                    CubicGrid AlteredPhase = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v).ToArray());
+                    using CubicGrid AlteredPhase = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v).ToArray());
                     float[] PhaseValues = AlteredPhase.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
 
                     {
-                        CubicGrid AlteredPlus = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v + Step).ToArray());
+                        using CubicGrid AlteredPlus = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v + Step).ToArray());
                         float[] DefocusValues = AlteredPlus.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
 
                         CTFStruct[] LocalParams = EvalGetCTF(input, CTF, DefocusValues, PhaseValues);
@@ -520,9 +526,11 @@ public partial class Movie
                             LocalParams,
                             ResultPlus,
                             (uint)LocalParams.Length);
+
+                        ArrayPool<CTFStruct>.Return(LocalParams);
                     }
                     {
-                        CubicGrid AlteredMinus = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v - Step).ToArray());
+                        using CubicGrid AlteredMinus = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v - Step).ToArray());
                         float[] DefocusValues = AlteredMinus.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
 
                         CTFStruct[] LocalParams = EvalGetCTF(input, CTF, DefocusValues, PhaseValues);
@@ -534,6 +542,8 @@ public partial class Movie
                             LocalParams,
                             ResultMinus,
                             (uint)LocalParams.Length);
+
+                        ArrayPool<CTFStruct>.Return(LocalParams);
                     }
                     float[] LocalGradients = new float[ResultPlus.Length];
                     for (int i = 0; i < LocalGradients.Length; i++)
@@ -546,11 +556,11 @@ public partial class Movie
                 // ... and take shortcut for phases.
                 if (options.DoPhase)
                 {
-                    CubicGrid AlteredPlus = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v).ToArray());
+                    using CubicGrid AlteredPlus = new CubicGrid(GridCTFDefocus.Dimensions, input.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v).ToArray());
                     float[] DefocusValues = AlteredPlus.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
 
                     {
-                        CubicGrid AlteredPhasePlus = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v + Step).ToArray());
+                        using CubicGrid AlteredPhasePlus = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v + Step).ToArray());
                         float[] PhaseValues = AlteredPhasePlus.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
                         CTFStruct[] LocalParams = EvalGetCTF(input, CTF, DefocusValues, PhaseValues);
 
@@ -561,9 +571,11 @@ public partial class Movie
                             LocalParams,
                             ResultPlus,
                             (uint)LocalParams.Length);
+
+                        ArrayPool<CTFStruct>.Return(LocalParams);
                     }
                     {
-                        CubicGrid AlteredPhaseMinus = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v - Step).ToArray());
+                        using CubicGrid AlteredPhaseMinus = new CubicGrid(GridCTFPhase.Dimensions, input.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v - Step).ToArray());
                         float[] PhaseValues = AlteredPhaseMinus.GetInterpolatedNative(CTFSpectraGrid, new float3(DimsRegion.X / 2f / DimsImage.X, DimsRegion.Y / 2f / DimsImage.Y, BorderZ));
                         CTFStruct[] LocalParams = EvalGetCTF(input, CTF, DefocusValues, PhaseValues);
 
@@ -574,6 +586,8 @@ public partial class Movie
                             LocalParams,
                             ResultMinus,
                             (uint)LocalParams.Length);
+
+                        ArrayPool<CTFStruct>.Return(LocalParams);
                     }
                     float[] LocalGradients = new float[ResultPlus.Length];
                     for (int i = 0; i < LocalGradients.Length; i++)

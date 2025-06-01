@@ -820,11 +820,14 @@ namespace Warp
 
         public void Dispose()
         {
-            if (IsDisposed)
-                return;
             
             lock (Sync)
             {
+                if (IsDisposed)
+                    return;
+
+                IsDisposed = true;
+
                 if (_DeviceData != IntPtr.Zero)
                 {
                     GPU.FreeDevice(_DeviceData);
@@ -849,8 +852,6 @@ namespace Warp
                     _HostData = null;
                     IsHostDirty = false;
                 }
-
-                IsDisposed = true;
             }
 
             if (EnableObjectLogging)

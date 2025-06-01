@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Warp.Tools
 {
@@ -128,6 +129,29 @@ namespace Warp.Tools
         public static void Clear()
         {
             SAvailableArrays.Clear();
+        }
+
+        /// <summary>
+        /// Prints information about all currently available arrays in the pool.
+        /// </summary>
+        public static void PrintPoolInfo()
+        {
+            Console.WriteLine($"Array Pool Status for type {typeof(T).Name}:");
+
+            if (SAvailableArrays.IsEmpty)
+            {
+                Console.WriteLine("  Pool is empty");
+                return;
+            }
+
+            var sizes = SAvailableArrays.Keys.OrderBy(k => k).ToList();
+            foreach (var size in sizes)
+            {
+                if (SAvailableArrays.TryGetValue(size, out var stack))
+                {
+                    Console.WriteLine($"  Size {size,8}: {stack.Count,6} arrays available");
+                }
+            }
         }
 
         /// <summary>

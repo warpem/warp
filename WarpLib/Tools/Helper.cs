@@ -818,7 +818,7 @@ namespace Warp.Tools
 
         public static T[] Subset<T>(T[] values, int fromInclusive, int toExclusive)
         {
-            T[] Result = new T[toExclusive - fromInclusive];
+            T[] Result = ArrayPool<T>.Rent(toExclusive - fromInclusive);
 
             for (int i = fromInclusive, j = 0; i < toExclusive; i++, j++)
                 Result[j] = values[i];

@@ -189,7 +189,7 @@ public partial class Movie
 
             originalStack.FreeDevice();
             PatchesAverage = new Image(IntPtr.Zero, new int3(MaskLength, NPositions, 1), false, true);
-            Shifts = new Image(new float[NPositions * NFrames * 2]);
+            Shifts = new Image(new int3(NPositions * NFrames * 2, 1, 1));
         }
 
         #region Fit movement

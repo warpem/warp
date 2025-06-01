@@ -305,7 +305,7 @@ namespace Warp.Tools
                 }
                 else
                 {
-                    byte[] Bytes = new byte[Elements * ImageFormatsHelper.SizeOf(ValueType)];
+                    byte[] Bytes = ArrayPool<byte>.Rent((int)(Elements * ImageFormatsHelper.SizeOf(ValueType)));
 
                     for (int z = 0; z < header.Dimensions.Z; z++)
                     {
@@ -368,6 +368,8 @@ namespace Warp.Tools
 
                         Writer.Write(Bytes);
                     }
+
+                    ArrayPool<byte>.Return(Bytes, clearArray: false);
                 }
             }
         }
