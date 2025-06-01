@@ -72,7 +72,7 @@ namespace Warp
             {
                 if (_DeviceData == IntPtr.Zero)
                 {
-                    _DeviceData = GPU.MallocDevice(ElementsReal);
+                    _DeviceData = GpuArrayPool.Rent(ElementsReal);
 
                     lock (GlobalSync)
                         OnDeviceObjects.Add(this);
@@ -521,7 +521,7 @@ namespace Warp
                     if (IsDeviceDirty)
                         for (int z = 0; z < Dims.Z; z++)
                             GPU.CopyDeviceToHost(new IntPtr((long)DeviceData + ElementsSliceReal * z * sizeof(float)), HostData[z], ElementsSliceReal);
-                    GPU.FreeDevice(DeviceData);
+                    GpuArrayPool.Return(DeviceData);
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
@@ -830,7 +830,7 @@ namespace Warp
 
                 if (_DeviceData != IntPtr.Zero)
                 {
-                    GPU.FreeDevice(_DeviceData);
+                    GpuArrayPool.Return(_DeviceData);
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
@@ -3121,7 +3121,8 @@ namespace Warp
             if (scalarMultiplicators.Length != Dims.Z)
                 throw new DimensionMismatchException("Number of scalar multiplicators must equal number of slices.");
 
-            IntPtr d_multiplicators = GPU.MallocDeviceFromHost(scalarMultiplicators, scalarMultiplicators.Length);
+            IntPtr d_multiplicators = GpuArrayPool.Rent(scalarMultiplicators.Length);
+            GPU.CopyHostToDevice(scalarMultiplicators, d_multiplicators, scalarMultiplicators.Length);
 
             GPU.MultiplyByScalars(GetDevice(Intent.Read),
                                   GetDevice(Intent.Write),
@@ -3129,7 +3130,7 @@ namespace Warp
                                   ElementsSliceReal,
                                   (uint)Dims.Z);
 
-            GPU.FreeDevice(d_multiplicators);
+            GpuArrayPool.Return(d_multiplicators);
         }
 
         private void Multiply(Image multiplicators, uint elements, uint batch)
@@ -3138,7 +3139,7 @@ namespace Warp
                 multiplicators.ElementsComplex != elements ||
                 //IsFT != multiplicators.IsFT ||
                 (multiplicators.IsComplex && !IsComplex))
-                throw new DimensionMismatchException();
+                throw new DimensionMismatchException("", $"Own dimensions: {Dims}, multiplicator dimensions: {multiplicators.Dims}; own ElementsComplex: {ElementsComplex}, elements: {elements}, batch: {batch}, IsComplex: {IsComplex}, multiplicators.IsComplex: {multiplicators.IsComplex}");
 
             if (!IsComplex)
             {

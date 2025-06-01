@@ -21,7 +21,7 @@ using System.Runtime.InteropServices;
 
 namespace WarpWorker
 {
-    static class WarpWorker
+    static class WarpWorkerProcess
     {
         static bool DebugMode = false;
         static bool IsSilent = false;
@@ -227,7 +227,7 @@ namespace WarpWorker
                 }
                 else if (Command.Name == "LoadStack")
                 {
-                    OriginalStack?.Dispose();
+                    //OriginalStack?.Dispose();
 
                     string Path = (string)Command.Content[0];
                     decimal ScaleFactor = (decimal)Command.Content[1];
@@ -991,11 +991,16 @@ namespace WarpWorker
 
             int CurrentDevice = GPU.GetDevice();
 
-            if (RawLayers == null || RawLayers.Length != NThreads || RawLayers[0].Length < SourceDims.Elements())
-                RawLayers = Helper.ArrayOfFunction(i => new float[SourceDims.Elements()], NThreads);
+            if (RawLayers == null || RawLayers.Length < NThreads || RawLayers[0].Length < SourceDims.Elements())
+            {
+                Console.WriteLine($"Allocating {NThreads} raw layers of size {SourceDims.Elements()} for {path} on device {CurrentDevice}");
+                if (RawLayers != null)
+                    ArrayPool<float>.ReturnMultiple(RawLayers);
+                RawLayers = ArrayPool<float>.RentMultiple((int)SourceDims.Elements(), NThreads);
+            }
 
-            Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
-            Image[] GPULayers2 = DefectMap != null ? Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads) : null;
+            Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims)), GPUThreads);
+            Image[] GPULayers2 = DefectMap != null ? Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims)), GPUThreads) : null;
 
             if (scaleFactor == 1M && !IsEER)
             {
@@ -1003,6 +1008,7 @@ namespace WarpWorker
                 {
                     OriginalStack?.Dispose();
                     OriginalStack = new Image(header.Dimensions);
+                    Console.WriteLine($"Allocating original stack of size {header.Dimensions} for {path} on device {CurrentDevice}");
                 }
 
                 stack = OriginalStack;

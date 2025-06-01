@@ -198,7 +198,7 @@ namespace Warp.Tools
                 Header = MapHeader.ReadFromFile(null, path, headerlessSliceDims, headerlessOffset, headerlessType, stream);
                 if (Helper.PathToExtension(path).ToLower() == ".eer")
                 {
-                    Data = Helper.ArrayOfFunction(i => new float[Header.Dimensions.ElementsSlice()], layers == null ? Header.Dimensions.Z : layers.Length);
+                    Data = Helper.ArrayOfFunction(i => ArrayPool<float>.Rent((int)Header.Dimensions.ElementsSlice()), layers == null ? Header.Dimensions.Z : layers.Length);
                     for (int i = 0; i < Data.Length; i++)
                     {
                         int z = layers == null ? i : layers[i];
@@ -211,8 +211,12 @@ namespace Warp.Tools
                 }
 
                 if (reuseBuffer != null)
+                {
                     for (int i = 0; i < Data.Length; i++)
                         Array.Copy(Data[i], reuseBuffer[i], Data[i].Length);
+
+                    ArrayPool<float>.ReturnMultiple(Data);
+                }
             }
 
             return Data;
