@@ -195,6 +195,12 @@ namespace WarpWorker
 
                     Console.WriteLine($" Done");
                 }
+                else if (Command.Name == "GcCollect")
+                {
+                    GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+
+                    Console.WriteLine("Garbage collection performed");
+                }
                 else if (Command.Name == "SetHeaderlessParams")
                 {
                     HeaderlessDims = (int2)Command.Content[0];
@@ -227,8 +233,6 @@ namespace WarpWorker
                 }
                 else if (Command.Name == "LoadStack")
                 {
-                    //OriginalStack?.Dispose();
-
                     string Path = (string)Command.Content[0];
                     decimal ScaleFactor = (decimal)Command.Content[1];
                     int EERGroupFrames = (int)Command.Content[2];

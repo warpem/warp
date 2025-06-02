@@ -287,6 +287,11 @@ namespace Warp
             SendCommand(new NamedSerializableObject(nameof(WaitAsyncTasks)));
         }
 
+        public void GcCollect()
+        {
+            SendCommand(new NamedSerializableObject("GcCollect"));
+        }
+
         public void SetHeaderlessParams(int2 dims, long offset, string type)
         {
             SendCommand(new NamedSerializableObject("SetHeaderlessParams",

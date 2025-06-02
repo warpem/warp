@@ -219,6 +219,8 @@ namespace WarpTools.Commands
                 if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
                     worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames, false);
                 worker.MovieProcessCTF(m.Path, OptionsCTF);
+
+                worker.GcCollect();
             });
 
             Console.Write("Saying goodbye to all workers...");

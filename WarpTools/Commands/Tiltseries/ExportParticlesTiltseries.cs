@@ -328,6 +328,8 @@ namespace WarpTools.Commands
 
                 // Add particle count so it makes it into processed_items.json
                 tiltSeries.ParticleCounts["particles"] = tsParticleXyzAngstroms.Length;
+
+                worker.GcCollect();
             });
 
             #endregion
