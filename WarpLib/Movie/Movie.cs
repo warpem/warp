@@ -1097,7 +1097,7 @@ namespace Warp
                 if (PS1D != null)
                 {
                     Writer.WriteStartElement("PS1D");
-                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture))));
+                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -1107,7 +1107,7 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    _SimulatedBackground.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                          "|" +
-                                                                                         v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                         v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -1117,7 +1117,7 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    _SimulatedScale.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                     "|" +
-                                                                                    v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                    v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 

@@ -36,7 +36,7 @@ namespace Warp.Tools
         public static void WriteAttribute(XmlTextWriter writer, string name, float[] value)
         {
             writer.WriteStartAttribute(name);
-            writer.WriteValue(string.Join(";", value.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+            writer.WriteValue(string.Join(";", value.Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray()));
             writer.WriteEndAttribute();
         }
 
@@ -98,7 +98,7 @@ namespace Warp.Tools
         {
             writer.WriteStartElement("Param");
             XMLHelper.WriteAttribute(writer, "Name", name);
-            XMLHelper.WriteAttribute(writer, "Value", string.Join(";", value.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+            XMLHelper.WriteAttribute(writer, "Value", string.Join(";", value.Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray()));
             writer.WriteEndElement();
         }
 
