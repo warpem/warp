@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -368,7 +369,7 @@ public partial class Movie
                 Components.Add(Component);
             }
 
-            Centroids = Components.Select(c => MathHelper.Mean(c.Select(v => new float2(v)))).ToList();
+            Centroids = Components.Select(c => MathHelper.Mean(c.Select(v => new float2(v)).ToArray())).ToList();
             Extents = Components.Select(c => c.Count).ToArray();
         }
 

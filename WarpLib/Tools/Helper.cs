@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Headers;
+using ZLinq;
 
 namespace Warp.Tools
 {
@@ -301,19 +302,6 @@ namespace Warp.Tools
 
             for (int i = 0; i < array.Length; i++)
                 array[i] = OldOrder[indices[i]];
-        }
-
-        public static T[] Combine<T>(IEnumerable<T[]> arrays)
-        {
-            int NElements = arrays.Select(a => a.Length).Sum();
-            T[] Result = new T[NElements];
-
-            int i = 0;
-            foreach (var array in arrays)
-                for (int j = 0; j < array.Length; j++, i++)
-                    Result[i] = array[j];
-
-            return Result;
         }
 
         public static T[] Combine<T>(params T[][] arrays)

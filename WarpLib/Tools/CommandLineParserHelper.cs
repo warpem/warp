@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommandLine;
 using CommandLine.Text;
 using MathNet.Numerics.LinearAlgebra;
+using ZLinq;
 
 namespace Warp.Tools
 {

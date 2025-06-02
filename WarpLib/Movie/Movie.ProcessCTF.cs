@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Accord.Math.Optimization;
 using Warp.Headers;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -159,12 +160,13 @@ public partial class Movie
         #region Init addresses
 
         {
-            float2[] CoordsData = new float2[CTFCoordsCart.ElementsSliceComplex];
+            float2[] CoordsData = ArrayPool<float2>.Rent((int)CTFCoordsCart.ElementsSliceComplex);
 
             Helper.ForEachElementFT(DimsRegion, (x, y, xx, yy, r, a) => CoordsData[y * (DimsRegion.X / 2 + 1) + x] = new float2(r, a));
             CTFCoordsCart.UpdateHostWithComplex(new[] { CoordsData });
+            ArrayPool<float2>.Return(CoordsData);
 
-            CoordsData = new float2[NFreq * DimsRegion.X];
+            CoordsData = ArrayPool<float2>.Rent(NFreq * DimsRegion.X);
             Helper.ForEachElement(CTFCoordsPolarTrimmed.DimsSlice, (x, y) =>
             {
                 float Angle = (float)y / DimsRegion.X * (float)Math.PI;
@@ -172,6 +174,7 @@ public partial class Movie
                 CoordsData[y * NFreq + x] = new float2((x + MinFreqInclusive) * Ny, Angle);
             });
             CTFCoordsPolarTrimmed.UpdateHostWithComplex(new[] { CoordsData });
+            ArrayPool<float2>.Return(CoordsData);
         }
 
         #endregion
@@ -627,10 +630,10 @@ public partial class Movie
 
             #region Retrieve parameters
 
-            CTF.Defocus = (decimal)MathHelper.Mean(Optimizer.Solution.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v));
+            CTF.Defocus = (decimal)Optimizer.Solution.Take((int)GridCTFDefocus.Dimensions.Elements()).Select(v => (float)v).Average();
             CTF.DefocusDelta = (decimal)Optimizer.Solution[StartParams.Length - 2];
             CTF.DefocusAngle = (decimal)(Optimizer.Solution[StartParams.Length - 1] * 20 * Helper.ToDeg);
-            CTF.PhaseShift = (decimal)MathHelper.Mean(Optimizer.Solution.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v));
+            CTF.PhaseShift = (decimal)Optimizer.Solution.Skip((int)GridCTFDefocus.Dimensions.Elements()).Take((int)GridCTFPhase.Dimensions.Elements()).Select(v => (float)v).Average();
 
             if (CTF.DefocusDelta < 0)
             {
@@ -724,7 +727,7 @@ public partial class Movie
 
         {
             int3 DimsAverage = new int3(DimsRegion.X, DimsRegion.X / 2, 1);
-            float[] Average2DData = new float[DimsAverage.Elements()];
+            float[] Average2DData = ArrayPool<float>.Rent((int)DimsAverage.Elements());
             float[] OriginalAverageData = CTFMean.GetHost(Intent.Read)[0];
             int DimHalf = DimsRegion.X / 2;
 
@@ -755,6 +758,8 @@ public partial class Movie
                     MaxValue = MathHelper.Max(Average2DData)
                 },
                 Average2DData);
+
+            ArrayPool<float>.Return(Average2DData);
         }
 
         #endregion

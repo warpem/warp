@@ -14,6 +14,7 @@ using static TorchSharp.NN.Functions;
 using static TorchSharp.NN.Losses;
 using static TorchSharp.ScalarExtensionMethods;
 using TorchSharp;
+using ZLinq;
 
 namespace Warp
 {
@@ -244,7 +245,7 @@ namespace Warp
 
             Optimizer.Step();
 
-            ResultLoss[0] = MathHelper.Mean(DeviceLosses.Select(a => a[0]));
+            ResultLoss[0] = DeviceLosses.Select(a => a[0]).Average();
 
             prediction = ResultPredicted;
             loss = ResultLoss;

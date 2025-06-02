@@ -15,6 +15,7 @@ using Accord.Math.Optimization;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using ZLinq;
 using IOPath = System.IO.Path;
 
 namespace Warp
@@ -1358,7 +1359,7 @@ namespace Warp
                     Arrays.Add(Helper.ToBytes(grid.FlatValues));
                 }
 
-            byte[] ArraysCombined = Helper.Combine(Arrays);
+            byte[] ArraysCombined = Arrays.SelectMany(a => a).ToArray();
             return MathHelper.GetSHA1(ArraysCombined);
         }
 

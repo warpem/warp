@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Tools;
+using ZLinq;
 
 
 namespace Warp.Sociology
@@ -171,7 +172,7 @@ namespace Warp.Sociology
 
             WriteToXML(Writer);
 
-            Species[] AllSpecies = Helper.Combine(Species.Select(s => s.AllDescendants));
+            Species[] AllSpecies = Species.SelectMany(s => s.AllDescendants).ToArray();
             Writer.WriteStartElement("Species");
             foreach (var species in AllSpecies)
             {

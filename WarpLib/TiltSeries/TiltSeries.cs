@@ -22,6 +22,7 @@ using TorchSharp.NN;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using ZLinq;
 using IOPath = System.IO.Path;
 
 namespace Warp
@@ -2398,10 +2399,10 @@ namespace Warp
             
             // Shifts
             Json["MinShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Min();
-            Json["MeanShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Mean();
+            Json["MeanShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Average();
             Json["MaxShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Max();
             Json["MinShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Min();
-            Json["MeanShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Mean();
+            Json["MeanShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Average();
             Json["MaxShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Max();
 
             // CTF
@@ -2578,7 +2579,7 @@ namespace Warp
                 Arrays.Add(Helper.ToBytes(TiltMovie.GetProcessingHash().ToCharArray()));
             }
 
-            byte[] ArraysCombined = Helper.Combine(Arrays);
+            byte[] ArraysCombined = Arrays.SelectMany(a => a).ToArray();
             return MathHelper.GetSHA1(ArraysCombined);
         }
 

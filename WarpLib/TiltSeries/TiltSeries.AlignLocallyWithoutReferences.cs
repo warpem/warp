@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Accord.Math.Optimization;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -268,7 +269,7 @@ public partial class TiltSeries
 
             Action<double[]> SetWarping = (input) =>
             {
-                float Mean = MathHelper.Mean(input.Select(v => (float)v));
+                float Mean = input.Select(v => (float)v).Average();
                 GridPatchZ = new CubicGrid(GridPatchZ.Dimensions, input.Select((v, i) => OriWarping[i] + (float)v - Mean).ToArray());
 
                 float3[] InterpCoords = PositionGridPhysical.Select(v => new float3(v.X / VolumeDimensionsPhysical.X, v.Y / VolumeDimensionsPhysical.Y, 0.5f)).ToArray();
@@ -419,7 +420,7 @@ public partial class TiltSeries
             Action<double[]> SetWarping = (input) =>
             {
                 float[] NewValues = new float[GridVolumeWarpZ.Values.Length];
-                float Mean = MathHelper.Mean(input.Select(v => (float)v));
+                float Mean = input.Select(v => (float)v).Average();
                 for (int i = 0; i < GridVolumeWarpZ.Dimensions.Elements() - GridVolumeWarpZ.Dimensions.ElementsSlice(); i++)
                     NewValues[GridVolumeWarpZ.Dimensions.ElementsSlice() + i] = (float)input[i] - Mean;
 
