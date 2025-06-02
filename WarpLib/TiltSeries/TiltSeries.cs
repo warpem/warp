@@ -2210,35 +2210,35 @@ namespace Warp
                 #region Per-tilt propertries
 
                 Writer.WriteStartElement("Angles");
-                Writer.WriteString(string.Join("\n", Angles.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+                Writer.WriteString(string.Join("\n", Angles.Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("Dose");
-                Writer.WriteString(string.Join("\n", Dose.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+                Writer.WriteString(string.Join("\n", Dose.Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("UseTilt");
-                Writer.WriteString(string.Join("\n", UseTilt.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", UseTilt.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("AxisAngle");
-                Writer.WriteString(string.Join("\n", TiltAxisAngles.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltAxisAngles.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("AxisOffsetX");
-                Writer.WriteString(string.Join("\n", TiltAxisOffsetX.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltAxisOffsetX.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("AxisOffsetY");
-                Writer.WriteString(string.Join("\n", TiltAxisOffsetY.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltAxisOffsetY.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("MoviePath");
-                Writer.WriteString(string.Join("\n", TiltMoviePaths.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltMoviePaths.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("FOVFraction");
-                Writer.WriteString(string.Join("\n", FOVFraction.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", FOVFraction.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 #endregion
@@ -2249,7 +2249,7 @@ namespace Warp
                 {
                     Writer.WriteStartElement("TiltPS1D");
                     XMLHelper.WriteAttribute(Writer, "ID", TiltPS1D.IndexOf(ps1d));
-                    Writer.WriteString(string.Join(";", ps1d.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture))));
+                    Writer.WriteString(string.Join(";", ps1d.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -2260,14 +2260,14 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    simulatedScale.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                    "|" +
-                                                                                   v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                   v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
                 if (PS1D != null)
                 {
                     Writer.WriteStartElement("PS1D");
-                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture))));
+                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -2277,7 +2277,7 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    SimulatedScale.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                     "|" +
-                                                                                    v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                    v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
