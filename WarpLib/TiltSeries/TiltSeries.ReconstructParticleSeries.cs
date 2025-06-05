@@ -194,7 +194,7 @@ public partial class TiltSeries
                 "0.0",
                 "0.0",
                 "0.0",
-                $"[{string.Join(',', Visibility.Select(v => v ? "1" : "0"))}]"
+                $"[{string.Join(',', Visibility.Select(v => v ? "1" : "0").ToArray())}]"
             });
 
             UsedParticles.WriteMRC16b(SeriesPath, (float)options.BinnedPixelSizeMean, true);
