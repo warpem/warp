@@ -450,6 +450,7 @@ namespace WarpWorker
 
                     TiltSeries T = new TiltSeries(Path);
                     T.StackTilts(Options);
+                    T.SaveMeta();
 
                     Console.WriteLine($"Created tilt stack for {Path}");
                 }
