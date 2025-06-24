@@ -14,6 +14,8 @@ namespace Warp
 
         public static void ReadEERPatient(int attempts, int mswait, string path, int firstFrameInclusive, int lastFrameExclusive, int eer_upsampling, float[] h_result)
         {
+            Exception exc = null;
+
             for (int a = 0; a < attempts; a++)
             {
                 try
@@ -21,13 +23,14 @@ namespace Warp
                     ReadEER(path, firstFrameInclusive, lastFrameExclusive, eer_upsampling, h_result);
                     return;
                 }
-                catch
+                catch (Exception e)
                 {
+                    exc = e;
                     Thread.Sleep(mswait);
                 }
             }
 
-            throw new Exception($"Could not successfully read {path} within the specified number of attempts.");
+            throw new Exception($"Could not successfully read {path} within the specified number of attempts: {exc.Message}");
         }
     }
 }
