@@ -266,5 +266,83 @@ namespace Warp.Sociology
                 Rec2.FreeDevice();
             }
         }
+
+        /// <summary>
+        /// Updates the path of species in the population XML file based on the provided mapping.
+        /// </summary>
+        /// <param name="paths">Dictionary mapping species name (file name without extension) to new path.</param>
+        /// <param name="populationPath">Path to the population XML file.</param>
+        public static void MoveSpecies(Dictionary<string, string> paths, string populationPath)
+        {
+            var xmlDoc = new XmlDocument();
+            xmlDoc.Load(populationPath);
+
+            var speciesNodes = xmlDoc.SelectNodes("/Population/Species/Species");
+            if (speciesNodes == null)
+                return;
+
+            foreach (XmlNode speciesNode in speciesNodes)
+            {
+                var pathAttr = speciesNode.Attributes?["Path"];
+                if (pathAttr == null)
+                    continue;
+
+                // Get the file name without extension
+                var fileName = System.IO.Path.GetFileNameWithoutExtension(pathAttr.Value);
+
+                if (paths.TryGetValue(fileName, out string newPath))
+                {
+                    pathAttr.Value = newPath;
+                }
+            }
+
+            // Write back to the same file, preserving formatting as much as possible
+            using (var writer = new XmlTextWriter(populationPath, Encoding.UTF8))
+            {
+                writer.Formatting = Formatting.Indented;
+                writer.IndentChar = '\t';
+                writer.Indentation = 1;
+                xmlDoc.Save(writer);
+            }
+        }
+
+        /// <summary>
+        /// Updates the path of data sources in the population XML file based on the provided mapping.
+        /// </summary>
+        /// <param name="paths">Dictionary mapping source name (file name without extension) to new path.</param>
+        /// <param name="populationPath">Path to the population XML file.</param>
+        public static void MoveSources(Dictionary<string, string> paths, string populationPath)
+        {
+            var xmlDoc = new XmlDocument();
+            xmlDoc.Load(populationPath);
+
+            var sourceNodes = xmlDoc.SelectNodes("/Population/Sources/Source");
+            if (sourceNodes == null)
+                return;
+
+            foreach (XmlNode sourceNode in sourceNodes)
+            {
+                var pathAttr = sourceNode.Attributes?["Path"];
+                if (pathAttr == null)
+                    continue;
+
+                // Get the file name without extension
+                var fileName = System.IO.Path.GetFileNameWithoutExtension(pathAttr.Value);
+
+                if (paths.TryGetValue(fileName, out string newPath))
+                {
+                    pathAttr.Value = newPath;
+                }
+            }
+
+            // Write back to the same file, preserving formatting as much as possible
+            using (var writer = new XmlTextWriter(populationPath, Encoding.UTF8))
+            {
+                writer.Formatting = Formatting.Indented;
+                writer.IndentChar = '\t';
+                writer.Indentation = 1;
+                xmlDoc.Save(writer);
+            }
+        }
     }
 }
