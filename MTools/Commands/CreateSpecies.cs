@@ -73,6 +73,12 @@ namespace MTools.Commands
 
         [Option("ignore_unmatched", HelpText = "Don't fail if there are particles that don't match any data sources.")]
         public bool IgnoreUnmatched { get; set; }
+
+        [Option("dont_use_denoiser", HelpText = "Use low-pass filtering for regularization instead of a denoiser.")]
+        public bool DontUseDenoiser { get; set; }
+        
+        [Option('o', "output", HelpText= "Optionally, override default path where the .species file and all data will be saved.")]
+        public string OutputPath { get; set; }
     }
 
     class CreateSpecies : BaseCommand
@@ -304,12 +310,16 @@ namespace MTools.Commands
                 HelicalHeight = Options.HelicalHeight,
                 DiameterAngstrom = Options.Diameter,
                 TemporalResolutionMovement = Options.TemporalSamples,
-                TemporalResolutionRotation = Options.TemporalSamples
+                TemporalResolutionRotation = Options.TemporalSamples,
+                ApplyDenoising = !Options.DontUseDenoiser
             };
 
-            NewSpecies.Path = Path.Combine(Population.SpeciesDir,
-                                           NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8),
-                                           NewSpecies.NameSafe + ".species");
+            NewSpecies.Path = string.IsNullOrWhiteSpace(Options.OutputPath) ?
+                                  Path.Combine(Population.SpeciesDir,
+                                               NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8),
+                                               NewSpecies.NameSafe + ".species") :
+                                  Options.OutputPath;
+            
             if (File.Exists(NewSpecies.Path))
             {
                 Console.Error.WriteLine($"{NewSpecies.Path} already exists. Please use a different name, or delete the old species.");

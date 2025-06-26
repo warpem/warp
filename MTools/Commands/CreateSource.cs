@@ -29,6 +29,9 @@ namespace MTools.Commands
 
         [Option("files", HelpText = "Optional STAR file with a list of files to intersect with the full list of frame or tilt series referenced by the settings.")]
         public string Files { get; set; }
+
+        [Option('o', "output", HelpText = "Optionally, override the default path where the .source file will be saved.")]
+        public string OutputPath { get; set; }
     }
 
     class CreateSource : BaseCommand
@@ -67,29 +70,31 @@ namespace MTools.Commands
                 DimensionsZ = OptionsWarp.Tomo.DimensionsZ,
                 FrameLimit = 0,
 
-                GainPath = !string.IsNullOrEmpty(OptionsWarp.Import.GainPath) && OptionsWarp.Import.CorrectGain ? 
-                           Helper.PathCombine(Environment.CurrentDirectory, 
-                                              Path.GetDirectoryName(OptionsCLI.ProcessingSettings), 
-                                              OptionsWarp.Import.GainPath) : 
-                           "",
+                GainPath = !string.IsNullOrEmpty(OptionsWarp.Import.GainPath) && OptionsWarp.Import.CorrectGain ?
+                               Helper.PathCombine(Environment.CurrentDirectory,
+                                                  Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                                  OptionsWarp.Import.GainPath) :
+                               "",
                 GainFlipX = OptionsWarp.Import.GainFlipX,
                 GainFlipY = OptionsWarp.Import.GainFlipY,
                 GainTranspose = OptionsWarp.Import.GainTranspose,
 
-                DefectsPath = !string.IsNullOrEmpty(OptionsWarp.Import.DefectsPath) && OptionsWarp.Import.CorrectDefects ? 
-                              Helper.PathCombine(Environment.CurrentDirectory, 
-                                                 Path.GetDirectoryName(OptionsCLI.ProcessingSettings), 
-                                                 OptionsWarp.Import.DefectsPath) : 
-                              "",
+                DefectsPath = !string.IsNullOrEmpty(OptionsWarp.Import.DefectsPath) && OptionsWarp.Import.CorrectDefects ?
+                                  Helper.PathCombine(Environment.CurrentDirectory,
+                                                     Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                                     OptionsWarp.Import.DefectsPath) :
+                                  "",
 
                 DosePerAngstromFrame = OptionsWarp.Import.DosePerAngstromFrame,
                 EERGroupFrames = OptionsWarp.Import.EERGroupFrames,
 
                 Name = OptionsCLI.Name,
-                Path = Helper.PathCombine(Environment.CurrentDirectory,
-                                          Path.GetDirectoryName(OptionsCLI.ProcessingSettings), 
-                                          OptionsWarp.Import.ProcessingOrDataFolder, 
-                                          Helper.RemoveInvalidChars(OptionsCLI.Name) + ".source")
+                Path = string.IsNullOrWhiteSpace(OptionsCLI.OutputPath) ?
+                           Helper.PathCombine(Environment.CurrentDirectory,
+                                              Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                              OptionsWarp.Import.ProcessingOrDataFolder,
+                                              Helper.RemoveInvalidChars(OptionsCLI.Name) + ".source") :
+                           OptionsCLI.OutputPath
             };
 
             if (Population.Sources.Any(s => Path.GetFullPath(s.Path) == Path.GetFullPath(NewSource.Path)))
