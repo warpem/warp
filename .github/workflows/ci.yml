@@ -39,14 +39,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Mamba
-        uses: conda-incubator/setup-miniconda@v3
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v2
         with:
-          auto-update-conda: true
-          python-version: "3.10"
-          mamba-version: "*"
-          channels: conda-forge, nodefaults
-          activate-environment: package-build
+          environment-name: package-build
+          create-args: >-
+            python=3.10
+            conda-build
+            anaconda-client
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: 'all'
+          
+      - name: Build conda package
+        run: |
+          ls -lrth
+          conda build conda-recipe -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
 
       - name: Build conda package
         shell: bash -el {0}
