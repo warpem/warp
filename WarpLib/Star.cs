@@ -966,6 +966,26 @@ namespace Warp
 
             return Result;
         }
+
+        public static Dictionary<string, Star> LoadSplitByValue(string path, string columnName)
+        {
+            var TableIn = new Star(path);
+            int ColumnId = TableIn.GetColumnID(columnName);
+
+            Dictionary<string, List<int>> RowIds = new();
+            for (int r = 0; r < TableIn.RowCount; r++)
+            {
+                string RowValue = TableIn.GetRowValue(r, ColumnId);
+                if (!RowIds.ContainsKey(RowValue))
+                    RowIds.Add(RowValue, new List<int>());
+                RowIds[RowValue].Add(r);
+            }
+
+            var TablesOut = RowIds.ToDictionary(kvp => kvp.Key,
+                                                kvp => TableIn.CreateSubset(kvp.Value));
+
+            return TablesOut;
+        }
     }
 
     public class StarParameters : Star
