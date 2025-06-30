@@ -22,7 +22,7 @@ namespace Warp
         public int RowCount => Rows.Count;
         public int ColumnCount => NameMapping.Count;
 
-        public Star(string path, string tableName = "", string[] onlyColumns = null, int nrows = -1)
+        public Star(string path, string tableName = "", string[] onlyColumns = null, int nrows = -1, string rowFilterColumn = null, Func<string, bool> rowFilter = null)
         {
             using (SpanLineReader Reader = new SpanLineReader(path))
             {
@@ -55,22 +55,44 @@ namespace Warp
                     int ColumnIndex = Parts.Length > 1 ? int.Parse(Parts[1].Substring(1)) - 1 : NameMapping.Count;
                     NameMapping.Add(ColumnName, ColumnIndex);
                 }
+                
+                int RowFilterColumnId = -1;
+                if (rowFilter != null && !string.IsNullOrWhiteSpace(rowFilterColumn))
+                {
+                    if (!NameMapping.ContainsKey(rowFilterColumn))
+                        throw new Exception($"Row filter column '{rowFilterColumn}' not found in {path}, table {tableName}");
+
+                    RowFilterColumnId = NameMapping[rowFilterColumn];
+                }
 
                 if (onlyColumns == null)
                 {
                     ReadOnlySpan<char> LineSpan = Line.AsSpan(); // First line has already been read
 
-                    do
-                    {
-                        string[] Parts = Helper.StringSplitWhitespace(LineSpan, null, new string[NameMapping.Count]);
-                        if (Parts.Length == NameMapping.Count)
-                            Rows.Add(Parts);
-                        else
-                            break;
+                    if (RowFilterColumnId < 0)
+                        do
+                        {
+                            string[] Parts = Helper.StringSplitWhitespace(LineSpan, null, new string[NameMapping.Count]);
+                            if (Parts.Length == NameMapping.Count)
+                                Rows.Add(Parts);
+                            else
+                                break;
 
-                        if (nrows > 0 && Rows.Count >= nrows)
-                            break;
-                    } while(Reader.TryReadLineSpan(out LineSpan));
+                            if (nrows > 0 && Rows.Count >= nrows)
+                                break;
+                        } while(Reader.TryReadLineSpan(out LineSpan));
+                    else
+                        do
+                        {
+                            string[] Parts = Helper.StringSplitWhitespace(LineSpan, null, new string[NameMapping.Count]);
+                            if (Parts.Length == NameMapping.Count && rowFilter(Parts[RowFilterColumnId]))
+                                Rows.Add(Parts);
+                            else
+                                break;
+
+                            if (nrows > 0 && Rows.Count >= nrows)
+                                break;
+                        } while(Reader.TryReadLineSpan(out LineSpan));
                 }
                 else
                 {
@@ -94,17 +116,30 @@ namespace Warp
 
                     ReadOnlySpan<char> LineSpan = Line.AsSpan(); // First line has already been read
                     string[] PartsBuffer = new string[OverallColumns];
-                    do
-                    {
-                        string[] Parts = Helper.StringSplitWhitespace(LineSpan, ReadMask, PartsBuffer);
-                        if (Parts.Length == OverallColumns)
-                            Rows.Add(Helper.IndexedSubset(Parts, OnlyPositions));
-                        else
-                            break;
+                    if (RowFilterColumnId < 0)
+                        do
+                        {
+                            string[] Parts = Helper.StringSplitWhitespace(LineSpan, ReadMask, PartsBuffer);
+                            if (Parts.Length == OverallColumns)
+                                Rows.Add(Helper.IndexedSubset(Parts, OnlyPositions));
+                            else
+                                break;
 
-                        if (nrows > 0 && Rows.Count >= nrows)
-                            break;
-                    } while(Reader.TryReadLineSpan(out LineSpan));
+                            if (nrows > 0 && Rows.Count >= nrows)
+                                break;
+                        } while(Reader.TryReadLineSpan(out LineSpan));
+                    else
+                        do
+                        {
+                            string[] Parts = Helper.StringSplitWhitespace(LineSpan, ReadMask, PartsBuffer);
+                            if (Parts.Length == OverallColumns && rowFilter(Parts[RowFilterColumnId]))
+                                Rows.Add(Helper.IndexedSubset(Parts, OnlyPositions));
+                            else
+                                break;
+
+                            if (nrows > 0 && Rows.Count >= nrows)
+                                break;
+                        } while(Reader.TryReadLineSpan(out LineSpan));
                 }
             }
         }
