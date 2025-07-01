@@ -967,9 +967,9 @@ namespace Warp
             return Result;
         }
 
-        public static Dictionary<string, Star> LoadSplitByValue(string path, string columnName)
+        public static Dictionary<string, Star> LoadSplitByValue(string path, string columnName, string tableName = null)
         {
-            var TableIn = new Star(path);
+            var TableIn = new Star(path, tableName);
             int ColumnId = TableIn.GetColumnID(columnName);
 
             Dictionary<string, List<int>> RowIds = new();
