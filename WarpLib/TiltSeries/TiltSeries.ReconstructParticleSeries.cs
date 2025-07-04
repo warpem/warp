@@ -175,7 +175,7 @@ public partial class TiltSeries
             float3 Position0 = positions[p * NTilts + NTilts / 2] / (float)options.BinnedPixelSizeMean;
             float3 Angle0 = angles[p * NTilts + NTilts / 2];
 
-            string SeriesPath = System.IO.Path.Combine(ParticleSeriesDir, $"{RootName}{options.Suffix}_{options.BinnedPixelSizeMean:F2}A_{(p + 1):D6}.mrcs");
+            string SeriesPath = ToParticleSeriesFilePath(RootName, options.BinnedPixelSizeMean, p + 1);
             string SeriesPathRelative = Helper.MakePathRelativeTo(SeriesPath, tablePath);
 
             tableOut.AddRow(new string[]
@@ -211,7 +211,7 @@ public partial class TiltSeries
             for (int i = 0; i < UsedTilts.Count; i++)
                 Array.Copy(SumAllParticlesData[UsedTilts[i]], 0, UsedParticlesData[i], 0, SumAllParticlesData[0].Length);
 
-            string SumPath = System.IO.Path.Combine(ParticleSeriesDir, $"{RootName}{options.Suffix}_{options.BinnedPixelSizeMean:F2}A_average.mrcs");
+            string SumPath = ToParticleSeriesAveragePath(RootName, options.BinnedPixelSizeMean);
             UsedParticles.WriteMRC16b(SumPath, (float)options.BinnedPixelSizeMean, true);
         }
 
