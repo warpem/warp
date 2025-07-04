@@ -77,11 +77,11 @@ namespace Warp
         public string SubtomoDir => IOPath.Combine(ProcessingDirectoryName, SubtomoDirName, RootName);
 
         public static readonly string ParticleSeriesDirName = "particleseries";
-        public static string ToParticleSeriesDirPath(string name) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(name));
-        public static string ToParticleSeriesAveragePath(string name, decimal angpix) => 
-            IOPath.Combine(ToParticleSeriesDirPath(name), $"{name}_{angpix:F2}A_average.mrcs");
-        public static string ToParticleSeriesFilePath(string name, decimal angpix, int id) => 
-            IOPath.Combine(ToParticleSeriesDirPath(name), $"{name}_{angpix:F2}A_{id:D6}.mrcs");
+        public static string ToParticleSeriesDirPath(string path) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(path));
+        public static string ToParticleSeriesAveragePath(string path, decimal angpix) => 
+            IOPath.Combine(ToParticleSeriesDirPath(path), $"{Helper.PathToName(path)}_{angpix:F2}A_average.mrcs");
+        public static string ToParticleSeriesFilePath(string path, decimal angpix, int id) => 
+            IOPath.Combine(ToParticleSeriesDirPath(Helper.PathToName(path)), $"{Helper.PathToName(path)}_{angpix:F2}A_{id:D6}.mrcs");
         public string ParticleSeriesDir => IOPath.Combine(ProcessingDirectoryName, ParticleSeriesDirName, RootName);
 
         #endregion
