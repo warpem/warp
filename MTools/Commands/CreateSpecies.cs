@@ -324,6 +324,8 @@ namespace MTools.Commands
                                                NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8),
                                                NewSpecies.NameSafe + ".species") :
                                   Options.OutputPath;
+
+            Directory.CreateDirectory(NewSpecies.FolderPath);
             
             if (File.Exists(NewSpecies.Path))
             {
@@ -648,11 +650,6 @@ namespace MTools.Commands
             #region Calculate resolution
 
             Console.WriteLine("Calculating resolution and training denoiser model...");
-
-            NewSpecies.Path = Path.Combine(Population.SpeciesDir, 
-                                           NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8), 
-                                           NewSpecies.NameSafe + ".species");
-            Directory.CreateDirectory(NewSpecies.FolderPath);
 
             NewSpecies.CalculateResolutionAndFilter(Options.Lowpass ?? -1, (message) => { VirtualConsole.ClearLastLine(); Console.Write(message); });
 

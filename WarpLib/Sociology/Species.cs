@@ -2252,9 +2252,6 @@ namespace Warp.Sociology
             if (PreviousVersion != null && Version == PreviousVersion)
                 return;
 
-            string VersionFolderPath = Helper.PathCombine(FolderPath, "versions", Version);
-            Directory.CreateDirectory(VersionFolderPath);
-
             string FileName = Helper.PathToNameWithExtension(Path);
             string OriginalFolderPath = FolderPath;
 
@@ -2267,6 +2264,9 @@ namespace Warp.Sociology
 
             if (!DontVersion)
             {
+                string VersionFolderPath = Helper.PathCombine(FolderPath, "versions", Version);
+                Directory.CreateDirectory(VersionFolderPath);
+            
                 Path = Helper.PathCombine(VersionFolderPath, FileName);
                 try
                 {

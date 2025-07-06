@@ -142,9 +142,6 @@ namespace Warp.Sociology
                     string Path = nav.GetAttribute("Path", "");
                     Guid SourceGUID = Guid.Parse(nav.GetAttribute("GUID", ""));
 
-                    Console.WriteLine(FolderPath);
-                    Console.WriteLine(Path);
-                    Console.WriteLine(Helper.PathCombine(FolderPath, Path));
                     DataSource LoadedSource = DataSource.FromFile(Helper.PathCombine(FolderPath, Path));
                     if (SourceGUID != LoadedSource.GUID)
                         throw new Exception("Stored GUID does not match that of the data source.");
