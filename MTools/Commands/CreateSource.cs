@@ -32,6 +32,9 @@ namespace MTools.Commands
 
         [Option('o', "output", HelpText = "Optionally, override the default path where the .source file will be saved.")]
         public string OutputPath { get; set; }
+        
+        [Option("dont_version", HelpText = "If set, the source will not be versioned.")]
+        public bool DontVersion { get; set; } = false;
     }
 
     class CreateSource : BaseCommand
@@ -60,6 +63,13 @@ namespace MTools.Commands
             #endregion
 
             #region Create source metadata and check if one with the same path already exists
+            
+            Console.WriteLine(Environment.CurrentDirectory);
+            Console.WriteLine(Path.GetDirectoryName(OptionsCLI.ProcessingSettings));
+            Console.WriteLine(OptionsWarp.Import.GainPath);
+            Console.WriteLine(Helper.PathCombine(Environment.CurrentDirectory,
+                                                 Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                                 OptionsWarp.Import.GainPath));
 
             DataSource NewSource = new DataSource
             {

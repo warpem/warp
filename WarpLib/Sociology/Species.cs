@@ -46,6 +46,21 @@ namespace Warp.Sociology
                 }
             }
         }
+        
+        private bool _DontVersion = false;
+        [WarpSerializable]
+        public bool DontVersion
+        {
+            get { return _DontVersion; }
+            set
+            {
+                if (value != _DontVersion)
+                {
+                    _DontVersion = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         private string _PreviousVersion = "";
         [WarpSerializable]
@@ -2250,12 +2265,15 @@ namespace Warp.Sociology
                 Denoiser.Load(PathNoiseNet);
             }
 
-            Path = Helper.PathCombine(VersionFolderPath, FileName);
-            try
+            if (!DontVersion)
             {
-                Save();
+                Path = Helper.PathCombine(VersionFolderPath, FileName);
+                try
+                {
+                    Save();
+                }
+                catch { }
             }
-            catch { }
 
             Path = Helper.PathCombine(OriginalFolderPath, FileName);
             Save();
