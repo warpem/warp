@@ -79,6 +79,9 @@ namespace MTools.Commands
         
         [Option('o', "output", HelpText= "Optionally, override default path where the .species file and all data will be saved.")]
         public string OutputPath { get; set; }
+        
+        [Option("dont_version", HelpText = "If set, the source will not be versioned.")]
+        public bool DontVersion { get; set; } = false;
     }
 
     class CreateSpecies : BaseCommand
@@ -311,7 +314,9 @@ namespace MTools.Commands
                 DiameterAngstrom = Options.Diameter,
                 TemporalResolutionMovement = Options.TemporalSamples,
                 TemporalResolutionRotation = Options.TemporalSamples,
-                ApplyDenoising = !Options.DontUseDenoiser
+                ApplyDenoising = !Options.DontUseDenoiser,
+                
+                DontVersion = Options.DontVersion
             };
 
             NewSpecies.Path = string.IsNullOrWhiteSpace(Options.OutputPath) ?

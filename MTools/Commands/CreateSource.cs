@@ -63,13 +63,6 @@ namespace MTools.Commands
             #endregion
 
             #region Create source metadata and check if one with the same path already exists
-            
-            Console.WriteLine(Environment.CurrentDirectory);
-            Console.WriteLine(Path.GetDirectoryName(OptionsCLI.ProcessingSettings));
-            Console.WriteLine(OptionsWarp.Import.GainPath);
-            Console.WriteLine(Helper.PathCombine(Environment.CurrentDirectory,
-                                                 Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
-                                                 OptionsWarp.Import.GainPath));
 
             DataSource NewSource = new DataSource
             {
@@ -104,7 +97,9 @@ namespace MTools.Commands
                                               Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
                                               OptionsWarp.Import.ProcessingOrDataFolder,
                                               Helper.RemoveInvalidChars(OptionsCLI.Name) + ".source") :
-                           OptionsCLI.OutputPath
+                           OptionsCLI.OutputPath,
+                
+                DontVersion = OptionsCLI.DontVersion
             };
 
             if (Population.Sources.Any(s => Path.GetFullPath(s.Path) == Path.GetFullPath(NewSource.Path)))
