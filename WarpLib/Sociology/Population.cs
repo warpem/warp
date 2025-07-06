@@ -124,7 +124,7 @@ namespace Warp.Sociology
                     Guid SpeciesGUID = Guid.Parse(nav.GetAttribute("GUID", ""));
                     string SpeciesPath = nav.GetAttribute("Path", "");
 
-                    Species LoadedSpecies = Sociology.Species.FromFile(System.IO.Path.Combine(FolderPath, SpeciesPath));
+                    Species LoadedSpecies = Sociology.Species.FromFile(Helper.PathCombine(FolderPath, SpeciesPath));
                     if (LoadedSpecies.GUID != SpeciesGUID)
                         throw new Exception("Stored GUID does not match that of the species.");
 
@@ -142,7 +142,10 @@ namespace Warp.Sociology
                     string Path = nav.GetAttribute("Path", "");
                     Guid SourceGUID = Guid.Parse(nav.GetAttribute("GUID", ""));
 
-                    DataSource LoadedSource = DataSource.FromFile(System.IO.Path.Combine(FolderPath, Path));
+                    Console.WriteLine(FolderPath);
+                    Console.WriteLine(Path);
+                    Console.WriteLine(Helper.PathCombine(FolderPath, Path));
+                    DataSource LoadedSource = DataSource.FromFile(Helper.PathCombine(FolderPath, Path));
                     if (SourceGUID != LoadedSource.GUID)
                         throw new Exception("Stored GUID does not match that of the data source.");
 
