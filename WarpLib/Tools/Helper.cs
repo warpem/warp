@@ -993,23 +993,32 @@ namespace Warp.Tools
             if (string.IsNullOrEmpty(relativeTo))
                 return path;
 
-            // Normalize path separators
-            string normalizedRelativeTo = relativeTo.Replace('\\', '/');
-            
-            // Only check if it's likely a directory when it doesn't end with a slash
-            if (!normalizedRelativeTo.EndsWith("/"))
+            try
             {
-                // Check if it's likely a directory (no extension and not ending with a dot)
-                bool isLikelyDirectory = string.IsNullOrWhiteSpace(Path.GetExtension(normalizedRelativeTo)) &&
-                                         !normalizedRelativeTo.EndsWith(".");
-                
-                // Add slash if it's likely a directory
-                if (isLikelyDirectory)
-                    normalizedRelativeTo += "/";
+                // Normalize path separators
+                string normalizedRelativeTo = relativeTo.Replace('\\', '/');
+
+                // Only check if it's likely a directory when it doesn't end with a slash
+                if (!normalizedRelativeTo.EndsWith("/"))
+                {
+                    // Check if it's likely a directory (no extension and not ending with a dot)
+                    bool isLikelyDirectory = string.IsNullOrWhiteSpace(Path.GetExtension(normalizedRelativeTo)) &&
+                                             !normalizedRelativeTo.EndsWith(".");
+
+                    // Add slash if it's likely a directory
+                    if (isLikelyDirectory)
+                        normalizedRelativeTo += "/";
+                }
+
+                Uri baseUri = new Uri(normalizedRelativeTo);
+                return baseUri.MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
             }
-                
-            Uri baseUri = new Uri(normalizedRelativeTo);
-            return baseUri.MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error making path relative: path = {path}, relativeTo = {relativeTo}\n" +
+                                  $"{ex.Message}");
+                throw;
+            }
         }
 
         public static string PathCombine(params string[] paths)
