@@ -175,7 +175,7 @@ public partial class TiltSeries
             float3 Position0 = positions[p * NTilts + NTilts / 2] / (float)options.BinnedPixelSizeMean;
             float3 Angle0 = angles[p * NTilts + NTilts / 2];
 
-            string SeriesPath = ToParticleSeriesFilePath(RootName, options.BinnedPixelSizeMean, p + 1);
+            string SeriesPath = System.IO.Path.Combine(ProcessingDirectoryName, ToParticleSeriesFilePath(RootName, options.BinnedPixelSizeMean, p + 1));
             string SeriesPathRelative = Helper.MakePathRelativeTo(SeriesPath, tablePath);
 
             tableOut.AddRow(new string[]
