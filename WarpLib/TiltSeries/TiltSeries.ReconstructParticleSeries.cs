@@ -211,7 +211,7 @@ public partial class TiltSeries
             for (int i = 0; i < UsedTilts.Count; i++)
                 Array.Copy(SumAllParticlesData[UsedTilts[i]], 0, UsedParticlesData[i], 0, SumAllParticlesData[0].Length);
 
-            string SumPath = ToParticleSeriesAveragePath(RootName, options.BinnedPixelSizeMean);
+            string SumPath = System.IO.Path.Combine(ProcessingDirectoryName, ToParticleSeriesAveragePath(RootName, options.BinnedPixelSizeMean));
             UsedParticles.WriteMRC16b(SumPath, (float)options.BinnedPixelSizeMean, true);
         }
 
