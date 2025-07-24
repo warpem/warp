@@ -1,6 +1,6 @@
 # This workflow installs mkdocs-material and itsdependencies, 
 # builds the docs, and pushes the built site to the `gh-pages` branch 
-# of the same repository.
+# of the warpem.github.io repository.
 name: docs
 
 on:
@@ -32,9 +32,12 @@ jobs:
         run: |
           mkdocs build
 
-      # Push the site to github-pages
-      - name: GitHub Pages action
+      # Push the site to the gh-pages branch of warpem/warpem.github.io
+      # this means the site will be available at warpem.github.io 
+      # rather than warpem.github.io/warp
+      - name: 🚢 Deploy site
         uses: peaceiris/actions-gh-pages@v4
         with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: warpem/warpem.github.io
           publish_dir: ./site
-          github_token: ${{ secrets.GITHUB_TOKEN }}
