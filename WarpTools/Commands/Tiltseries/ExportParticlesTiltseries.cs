@@ -181,11 +181,21 @@ namespace WarpTools.Commands
                     Console.WriteLine($"TS: {kvp.Key}   Particles: {kvp.Value.Count}");
 
             float3[] xyz = GetCoordinates(inputStar);
+
+            //<-- START OF PATCH -->
+            // Check for the existence of Euler angle columns directly instead of checking for non-zero values.
+            // This correctly handles cases where particles have a legitimate (0,0,0) orientation.
+            bool inputHasEulerAngles = inputStar.HasColumn("rlnAngleRot") &&
+                                       inputStar.HasColumn("rlnAngleTilt") &&
+                                       inputStar.HasColumn("rlnAnglePsi");
+
+            // GetEulerAngles is already designed to return zeroed vectors if columns are missing.
             float3[] rotTiltPsi = GetEulerAngles(inputStar); // degrees
-            bool inputHasEulerAngles = rotTiltPsi.All(v => !v.EqualsZero());
 
             if (Helper.IsDebug)
                 Console.WriteLine($"input has euler angles?: {inputHasEulerAngles}");
+            //<-- END OF PATCH -->
+
             Console.WriteLine(
                 $"Found {xyz.Count()} particles in {tiltSeriesIdToParticleIndices.Count()} tilt series");
 
