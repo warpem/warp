@@ -31,7 +31,6 @@
     <ClInclude Include="gtom\include\Relion.cuh" />
     <ClInclude Include="gtom\include\Resolution.cuh" />
     <ClInclude Include="gtom\include\Transformation.cuh" />
-    <ClInclude Include="LanczosEER.hpp" />
     <ClInclude Include="liblion\avx_helper.h" />
     <ClInclude Include="liblion\backprojector.h" />
     <ClInclude Include="liblion\complex.h" />
