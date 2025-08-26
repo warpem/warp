@@ -304,6 +304,8 @@ namespace WarpTools.Commands
 
                         lock(Workers)
                             ScoresOriginal.AddRange(PeakValues);
+
+                        worker.GcCollect();
                     });
 
                     Console.WriteLine($"Average top peak value with original template: {ScoresOriginal.Average():F3}");
@@ -328,6 +330,8 @@ namespace WarpTools.Commands
 
                         lock (Workers)
                             ScoresFlipped.AddRange(PeakValues);
+
+                        worker.GcCollect();
                     });
 
                     Console.WriteLine($"Average top peak value with flipped template: {ScoresFlipped.Average():F3}");
@@ -351,6 +355,8 @@ namespace WarpTools.Commands
             IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
             {
                 worker.TomoMatch(t.Path, OptionsMatch, CLI.TemplatePath);
+
+                worker.GcCollect();
             });
 
             Console.Write("Saying goodbye to all workers...");

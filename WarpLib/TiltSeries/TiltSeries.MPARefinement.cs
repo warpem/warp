@@ -7,6 +7,7 @@ using Accord.Math.Optimization;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -54,8 +55,8 @@ public partial class TiltSeries
 
         #region Figure out dimensions
 
-        float SmallestAngPix = MathHelper.Min(allSpecies.Select(s => (float)s.PixelSize));
-        float LargestBox = MathHelper.Max(allSpecies.Select(s => s.DiameterAngstrom)) * 2 / SmallestAngPix;
+        float SmallestAngPix = allSpecies.Select(s => (float)s.PixelSize).Min();
+        float LargestBox = allSpecies.Select(s => s.DiameterAngstrom).Max() * 2 / SmallestAngPix;
 
         float MinDose = MathHelper.Min(Dose), MaxDose = MathHelper.Max(Dose);
         float[] DoseInterpolationSteps = Dose.Select(d => (d - MinDose) / (MaxDose - MinDose)).ToArray();
@@ -850,9 +851,9 @@ public partial class TiltSeries
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
                             int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                            var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                            float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                            float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                             for (int t = 0; t < NTilts; t++)
                             {
@@ -1279,8 +1280,8 @@ public partial class TiltSeries
             //float2 OriginalBeamTilt = CTF.BeamTilt;
             Matrix2 OriginalMagnification = MagnificationCorrection.GetCopy();
 
-            float3[][] OriginalParticlePositions = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Coordinates))).ToArray();
-            float3[][] OriginalParticleAngles = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Angles))).ToArray();
+            float3[][] OriginalParticlePositions = allSpecies.Select(s => SpeciesParticles[s].SelectMany(p => p.Coordinates).ToArray()).ToArray();
+            float3[][] OriginalParticleAngles = allSpecies.Select(s => SpeciesParticles[s].SelectMany(p => p.Angles).ToArray()).ToArray();
 
             int BFGSIterations = 0;
             WarpOptimizationTypes CurrentOptimizationTypeWarp = 0;
@@ -1870,10 +1871,10 @@ public partial class TiltSeries
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
                         float[] BatchContainmentMask = ContainmentMask.Skip(batchStart * NTilts).Take(CurBatch * NTilts).ToArray();
-                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                        float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                        float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                         for (int t = 0; t < NTilts; t++)
                         {
@@ -2113,10 +2114,10 @@ public partial class TiltSeries
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
                         float[] BatchContainmentMask = ContainmentMask.Skip(batchStart * NTilts).Take(CurBatch * NTilts).ToArray();
-                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                        float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                        float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                         for (int t = 0; t < NTilts; t++)
                         {
@@ -2403,10 +2404,10 @@ public partial class TiltSeries
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
                             int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                            var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
                             float[] BatchContainmentMask = ContainmentMask.Skip(batchStart * NTilts).Take(CurBatch * NTilts).ToArray();
-                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                            float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                            float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                             for (int t = 0; t < NTilts; t++)
                             {
@@ -2783,9 +2784,9 @@ public partial class TiltSeries
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
                             int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                            var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                            float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                            float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                             for (int i = 0; i < CurBatch; i++)
                             {
@@ -3074,9 +3075,9 @@ public partial class TiltSeries
                 for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                 {
                     int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                    IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                    float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                    float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                    var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                    float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                    float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                     for (int t = 0; t < NTilts; t++)
                     {
@@ -3308,8 +3309,8 @@ public partial class TiltSeries
             float MinDose = MathHelper.Min(Dose), MaxDose = MathHelper.Max(Dose);
             float TiltInterpolationCoord = (Dose[tiltID] - MinDose) / (MaxDose - MinDose);
 
-            float SmallestAngPix = MathHelper.Min(allSpecies.Select(s => (float)s.PixelSize));
-            float LargestBox = MathHelper.Max(allSpecies.Select(s => s.DiameterAngstrom)) * 2 / SmallestAngPix;
+            float SmallestAngPix = allSpecies.Select(s => (float)s.PixelSize).Min();
+            float LargestBox = allSpecies.Select(s => s.DiameterAngstrom).Max() * 2 / SmallestAngPix;
 
             decimal BinTimes = (decimal)Math.Log(SmallestAngPix / (float)dataSource.PixelSizeMean, 2.0);
             ProcessingOptionsTomoSubReconstruction OptionsDataLoad = new ProcessingOptionsTomoSubReconstruction()
@@ -3421,7 +3422,7 @@ public partial class TiltSeries
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
                         float3[] CoordinatesMoving = BatchParticles.Select(p => p.GetCoordinatesAt(TiltInterpolationCoord)).ToArray();
 
                         float3[] CoordinatesTilt = GetPositionsInOneTilt(CoordinatesMoving, tiltID);
@@ -3922,7 +3923,7 @@ public partial class TiltSeries
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
                             int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                            var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
                             float3[] CoordinatesMoving = BatchParticles.Select(p => p.GetCoordinatesAt(TiltInterpolationCoord)).ToArray();
                             float3[] AnglesMoving = BatchParticles.Select(p => p.GetAnglesAt(TiltInterpolationCoord)).ToArray();
 

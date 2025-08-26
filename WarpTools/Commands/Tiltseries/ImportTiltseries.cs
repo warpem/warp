@@ -24,6 +24,9 @@ namespace WarpTools.Commands
         [Option("pattern", Default = "*.mdoc", HelpText = "File name pattern to search for in the MDOC folder")]
         public string MdocPattern { get; set; }
 
+        [Option("exclude_pattern", Default = "", HelpText = "Don't import MDOC files that contain this pattern in their name, e.g. 'unsorted'")]
+        public string MdocExcludePattern { get; set; }
+
         [Option("frameseries", Required = true, HelpText = "Path to a folder containing frame series processing results and their aligned averages")]
         public string FrameseriesPath { get; set; }
 
@@ -103,6 +106,9 @@ namespace WarpTools.Commands
                 string PatternDir = Path.GetFullPath(CLI.MdocFolder);
                 string PatternFile = CLI.MdocPattern;
                 MdocPaths = Directory.EnumerateFiles(PatternDir, PatternFile).ToList();
+                
+                if (!string.IsNullOrWhiteSpace(CLI.MdocExcludePattern))
+                    MdocPaths.RemoveAll(p => p.Contains(CLI.MdocExcludePattern, StringComparison.OrdinalIgnoreCase));
 
                 Console.WriteLine($"Found {MdocPaths.Count} MDOC files, searching for {PatternFile} in {PatternDir}");
             }

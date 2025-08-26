@@ -28,6 +28,14 @@ namespace Warp.Sociology
             get { return _Version; }
             set { if (value != _Version) { _Version = value; OnPropertyChanged(); } }
         }
+        
+        private bool _DontVersion = false;
+        [WarpSerializable]
+        public bool DontVersion
+        {
+            get { return _DontVersion; }
+            set { if (value != _DontVersion) { _DontVersion = value; OnPropertyChanged(); } }
+        }
 
         private string _PreviousVersion = "";
         [WarpSerializable]
@@ -358,14 +366,14 @@ namespace Warp.Sociology
 
             string[] Paths = Files.Values.ToArray();
             string[] Hashes = new string[Paths.Length];
-            Parallel.For(0, Paths.Length,
-                new ParallelOptions { MaxDegreeOfParallelism = Math.Min(20, Environment.ProcessorCount) },
-                i =>
-                {
-                    var file = Paths[i];
-                    Movie Movie = IsTiltSeries ? new TiltSeries(FolderPath + file) : new Movie(FolderPath + file);
-                    Hashes[i] = Movie.GetProcessingHash();
-                });
+            Parallel.For(0, Paths.Length,            
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Min(20, Environment.ProcessorCount) },
+            (i) =>
+            {
+                var file = Paths[i];
+                Movie Movie = IsTiltSeries ? new TiltSeries(Helper.PathCombine(FolderPath, file)) : new Movie(Helper.PathCombine(FolderPath, file));
+                Hashes[i] = Movie.GetProcessingHash();
+            });
 
             Builder.AppendJoin("", Hashes);
 
@@ -385,24 +393,29 @@ namespace Warp.Sociology
 
             if (PreviousVersion != null && Version == PreviousVersion)
                 return;
-
-            string VersionFolderPath = FolderPath + "versions/" + Version + "/";
-            Directory.CreateDirectory(VersionFolderPath);
-
-            string FileName = Helper.PathToNameWithExtension(Path);
+            
             string OriginalFolderPath = FolderPath;
+            string FileName = Helper.PathToNameWithExtension(Path);
 
-            Path = VersionFolderPath + FileName;
-            Save();
-
-            foreach (var file in Files)
+            if (!DontVersion)
             {
-                string NameXML = Helper.PathToName(file.Value) + ".xml";
-                if (!File.Exists(VersionFolderPath + NameXML))
-                    File.Copy(OriginalFolderPath + NameXML, VersionFolderPath + NameXML);
+                string VersionFolderPath = Helper.PathCombine(FolderPath, "versions", Version);
+                Directory.CreateDirectory(VersionFolderPath);
+
+
+                Path = Helper.PathCombine(VersionFolderPath, FileName);
+                Save();
+
+                foreach (var file in Files)
+                {
+                    string NameXML = Helper.PathToName(file.Value) + ".xml";
+                    if (!File.Exists(Helper.PathCombine(VersionFolderPath, NameXML)))
+                        File.Copy(Helper.PathCombine(OriginalFolderPath, NameXML), 
+                                  Helper.PathCombine(VersionFolderPath, NameXML));
+                }
             }
 
-            Path = OriginalFolderPath + FileName;
+            Path = Helper.PathCombine(OriginalFolderPath, FileName);
             Save();
         }
 

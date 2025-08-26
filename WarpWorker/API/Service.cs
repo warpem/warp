@@ -20,7 +20,7 @@ namespace WarpWorker.API
         [Route("SendPulse")]
         public IActionResult SendPulse()
         {
-            WarpWorker.SendPulse();
+            WarpWorkerProcess.SendPulse();
             return Ok();
         }
 
@@ -29,7 +29,7 @@ namespace WarpWorker.API
         public IActionResult Exit()
         {
             Console.WriteLine("Received exit command");
-            WarpWorker.Exit();
+            WarpWorkerProcess.Exit();
             return Ok();
         }
 
@@ -44,7 +44,7 @@ namespace WarpWorker.API
 
             try
             {
-                WarpWorker.EvaluateCommand(Command);
+                WarpWorkerProcess.EvaluateCommand(Command);
             }
             catch (Exception ex) 
             { 

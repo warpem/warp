@@ -11,6 +11,7 @@ using System.Xml;
 using System.Xml.XPath;
 using TorchSharp;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp.Sociology
 {
@@ -41,6 +42,21 @@ namespace Warp.Sociology
                 if (value != _Version)
                 {
                     _Version = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+        
+        private bool _DontVersion = false;
+        [WarpSerializable]
+        public bool DontVersion
+        {
+            get { return _DontVersion; }
+            set
+            {
+                if (value != _DontVersion)
+                {
+                    _DontVersion = value;
                     OnPropertyChanged();
                 }
             }
@@ -137,7 +153,7 @@ namespace Warp.Sociology
             }
         }
 
-        public Species[] AllDescendants => Children.Count == 0 ? new[] { this } : Helper.Combine(Children.Select(c => c.AllDescendants));
+        public Species[] AllDescendants => Children.Count == 0 ? new[] { this } : Children.SelectMany(c => c.AllDescendants).ToArray();
 
         private List<Guid> ChildrenGUIDs = new List<Guid>();
 
@@ -258,7 +274,7 @@ namespace Warp.Sociology
         public Particle[] Particles = new Particle[0];
         public int NParticles => Particles.Length;
 
-        public Particle[] DescendantParticles => Children.Count == 0 ? Particles.ToArray() : Helper.Combine(Children.Select(c => c.DescendantParticles));
+        public Particle[] DescendantParticles => Children.Count == 0 ? Particles.ToArray() : Children.SelectMany(c => c.DescendantParticles).ToArray();
 
         private const string SuffixParticleFile = "_particles.star";
         public string NameParticleFile => NameSafe + SuffixParticleFile;
@@ -2236,9 +2252,6 @@ namespace Warp.Sociology
             if (PreviousVersion != null && Version == PreviousVersion)
                 return;
 
-            string VersionFolderPath = Helper.PathCombine(FolderPath, "versions", Version);
-            Directory.CreateDirectory(VersionFolderPath);
-
             string FileName = Helper.PathToNameWithExtension(Path);
             string OriginalFolderPath = FolderPath;
 
@@ -2249,12 +2262,18 @@ namespace Warp.Sociology
                 Denoiser.Load(PathNoiseNet);
             }
 
-            Path = Helper.PathCombine(VersionFolderPath, FileName);
-            try
+            if (!DontVersion)
             {
-                Save();
+                string VersionFolderPath = Helper.PathCombine(FolderPath, "versions", Version);
+                Directory.CreateDirectory(VersionFolderPath);
+            
+                Path = Helper.PathCombine(VersionFolderPath, FileName);
+                try
+                {
+                    Save();
+                }
+                catch { }
             }
-            catch { }
 
             Path = Helper.PathCombine(OriginalFolderPath, FileName);
             Save();
@@ -2338,8 +2357,8 @@ namespace Warp.Sociology
                 Builder.Append(source.Value);
             }
 
-            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Helper.ToInterleaved(Helper.Combine(DescendantParticles.Select(p => p.Coordinates))))));
-            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Helper.ToInterleaved(Helper.Combine(DescendantParticles.Select(p => p.Angles))))));
+            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Helper.ToInterleaved(DescendantParticles.SelectMany(p => p.Coordinates).ToArray()))));
+            Builder.Append(MathHelper.GetSHA1(Helper.ToBytes(Helper.ToInterleaved(DescendantParticles.SelectMany(p => p.Angles).ToArray()))));
 
             Builder.Append(MathHelper.GetSHA1(Helper.ToBytesSafe(HalfMap1.GetHostContinuousCopy())));
             Builder.Append(MathHelper.GetSHA1(Helper.ToBytesSafe(HalfMap2.GetHostContinuousCopy())));

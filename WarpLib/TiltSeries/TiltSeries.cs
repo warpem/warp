@@ -22,6 +22,7 @@ using TorchSharp.NN;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using ZLinq;
 using IOPath = System.IO.Path;
 
 namespace Warp
@@ -76,7 +77,11 @@ namespace Warp
         public string SubtomoDir => IOPath.Combine(ProcessingDirectoryName, SubtomoDirName, RootName);
 
         public static readonly string ParticleSeriesDirName = "particleseries";
-        public static string ToParticleSeriesDirPath(string name) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(name));
+        public static string ToParticleSeriesDirPath(string path) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(path));
+        public static string ToParticleSeriesAveragePath(string path, decimal angpix) => 
+            IOPath.Combine(ToParticleSeriesDirPath(path), $"{Helper.PathToName(path)}_{angpix:F2}A_average.mrcs");
+        public static string ToParticleSeriesFilePath(string path, decimal angpix, int id) => 
+            IOPath.Combine(ToParticleSeriesDirPath(Helper.PathToName(path)), $"{Helper.PathToName(path)}_{angpix:F2}A_{id:D6}.mrcs");
         public string ParticleSeriesDir => IOPath.Combine(ProcessingDirectoryName, ParticleSeriesDirName, RootName);
 
         #endregion
@@ -2209,35 +2214,35 @@ namespace Warp
                 #region Per-tilt propertries
 
                 Writer.WriteStartElement("Angles");
-                Writer.WriteString(string.Join("\n", Angles.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+                Writer.WriteString(string.Join("\n", Angles.Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("Dose");
-                Writer.WriteString(string.Join("\n", Dose.Select(v => v.ToString(CultureInfo.InvariantCulture))));
+                Writer.WriteString(string.Join("\n", Dose.Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("UseTilt");
-                Writer.WriteString(string.Join("\n", UseTilt.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", UseTilt.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("AxisAngle");
-                Writer.WriteString(string.Join("\n", TiltAxisAngles.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltAxisAngles.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("AxisOffsetX");
-                Writer.WriteString(string.Join("\n", TiltAxisOffsetX.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltAxisOffsetX.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("AxisOffsetY");
-                Writer.WriteString(string.Join("\n", TiltAxisOffsetY.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltAxisOffsetY.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("MoviePath");
-                Writer.WriteString(string.Join("\n", TiltMoviePaths.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", TiltMoviePaths.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 Writer.WriteStartElement("FOVFraction");
-                Writer.WriteString(string.Join("\n", FOVFraction.Select(v => v.ToString())));
+                Writer.WriteString(string.Join("\n", FOVFraction.Select(v => v.ToString()).ToArray()));
                 Writer.WriteEndElement();
 
                 #endregion
@@ -2248,7 +2253,7 @@ namespace Warp
                 {
                     Writer.WriteStartElement("TiltPS1D");
                     XMLHelper.WriteAttribute(Writer, "ID", TiltPS1D.IndexOf(ps1d));
-                    Writer.WriteString(string.Join(";", ps1d.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture))));
+                    Writer.WriteString(string.Join(";", ps1d.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -2259,14 +2264,14 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    simulatedScale.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                    "|" +
-                                                                                   v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                   v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
                 if (PS1D != null)
                 {
                     Writer.WriteStartElement("PS1D");
-                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture))));
+                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -2276,7 +2281,7 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    SimulatedScale.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                     "|" +
-                                                                                    v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                    v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -2383,10 +2388,10 @@ namespace Warp
             Json["Path"] = Helper.PathToNameWithExtension(Path);
 
             // ProcessingStatus enum
-            Json["Stat"] = (int)ProcessingStatus;
+            Json["ProcessingStatus"] = (int)ProcessingStatus;
 
             // Tilts
-            Json["Tlts"] = JsonSerializer.SerializeToNode(TiltMoviePaths.Where((p, t) => UseTilt[t]).ToArray());
+            Json["Tilts"] = JsonSerializer.SerializeToNode(TiltMoviePaths.Where((p, t) => UseTilt[t]).ToArray());
 
             // Angles
             Json["MinTilt"] = Angles.Min();
@@ -2398,10 +2403,10 @@ namespace Warp
             
             // Shifts
             Json["MinShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Min();
-            Json["MeanShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Mean();
+            Json["MeanShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Average();
             Json["MaxShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Max();
             Json["MinShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Min();
-            Json["MeanShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Mean();
+            Json["MeanShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Average();
             Json["MaxShiftY"] = TiltAxisOffsetY.Select(Math.Abs).Max();
 
             // CTF
@@ -2430,7 +2435,7 @@ namespace Warp
             if (particleSuffix != null)
             {
                 int ParticleCount = GetParticleCount(particleSuffix);
-                Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+                Json["Particles"] = ParticleCount < 0 ? null : ParticleCount;
             }
 
             return Json;
@@ -2578,7 +2583,7 @@ namespace Warp
                 Arrays.Add(Helper.ToBytes(TiltMovie.GetProcessingHash().ToCharArray()));
             }
 
-            byte[] ArraysCombined = Helper.Combine(Arrays);
+            byte[] ArraysCombined = Arrays.SelectMany(a => a).ToArray();
             return MathHelper.GetSHA1(ArraysCombined);
         }
 

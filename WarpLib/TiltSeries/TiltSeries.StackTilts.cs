@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -36,7 +37,7 @@ public partial class TiltSeries
         using (Image stack = new Image(UsedTilts.Select(i => i.GetHost(Intent.Read)[0]).ToArray(), new int3(UsedTilts[0].Dims.X, UsedTilts[0].Dims.Y, UsedTilts.Length)))
             stack.WriteMRC(TiltStackPath, (float)options.BinnedPixelSizeMean, true);
 
-        File.WriteAllLines(AngleFilePath, UsedAngles.Select(a => a.ToString("F2", CultureInfo.InvariantCulture)));
+        File.WriteAllLines(AngleFilePath, UsedAngles.Select(a => a.ToString("F2", CultureInfo.InvariantCulture)).ToArray());
         
         #region Make thumbnails
 

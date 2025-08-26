@@ -120,6 +120,8 @@ namespace WarpTools.Commands
                         worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
                     
                     worker.MovieProcessCTF(m.Path, OptionsCTF);
+
+                    worker.GcCollect();
                 }
             );
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Headers;
+using ZLinq;
 
 namespace Warp.Tools
 {
@@ -301,19 +302,6 @@ namespace Warp.Tools
 
             for (int i = 0; i < array.Length; i++)
                 array[i] = OldOrder[indices[i]];
-        }
-
-        public static T[] Combine<T>(IEnumerable<T[]> arrays)
-        {
-            int NElements = arrays.Select(a => a.Length).Sum();
-            T[] Result = new T[NElements];
-
-            int i = 0;
-            foreach (var array in arrays)
-                for (int j = 0; j < array.Length; j++, i++)
-                    Result[i] = array[j];
-
-            return Result;
         }
 
         public static T[] Combine<T>(params T[][] arrays)
@@ -818,7 +806,7 @@ namespace Warp.Tools
 
         public static T[] Subset<T>(T[] values, int fromInclusive, int toExclusive)
         {
-            T[] Result = new T[toExclusive - fromInclusive];
+            T[] Result = ArrayPool<T>.Rent(toExclusive - fromInclusive);
 
             for (int i = fromInclusive, j = 0; i < toExclusive; i++, j++)
                 Result[j] = values[i];
@@ -1005,7 +993,32 @@ namespace Warp.Tools
             if (string.IsNullOrEmpty(relativeTo))
                 return path;
 
-            return new Uri(relativeTo.Replace('\\', '/')).MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
+            try
+            {
+                // Normalize path separators
+                string normalizedRelativeTo = relativeTo.Replace('\\', '/');
+
+                // Only check if it's likely a directory when it doesn't end with a slash
+                if (!normalizedRelativeTo.EndsWith("/"))
+                {
+                    // Check if it's likely a directory (no extension and not ending with a dot)
+                    bool isLikelyDirectory = string.IsNullOrWhiteSpace(Path.GetExtension(normalizedRelativeTo)) &&
+                                             !normalizedRelativeTo.EndsWith(".");
+
+                    // Add slash if it's likely a directory
+                    if (isLikelyDirectory)
+                        normalizedRelativeTo += "/";
+                }
+
+                Uri baseUri = new Uri(normalizedRelativeTo);
+                return baseUri.MakeRelativeUri(new Uri(path.Replace('\\', '/'))).ToString();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error making path relative: path = {path}, relativeTo = {relativeTo}\n" +
+                                  $"{ex.Message}");
+                throw;
+            }
         }
 
         public static string PathCombine(params string[] paths)

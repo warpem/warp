@@ -150,7 +150,7 @@ namespace Warp
             if (Einspline == IntPtr.Zero || DimensionSet == DimensionSets.None)
                 return Helper.ArrayOfConstant(Values[0], coords.Length);
 
-            float[] Result = new float[coords.Length];
+            float[] Result = ArrayPool<float>.Rent(coords.Length);
             //float[] Coords = Helper.ToInterleaved(coords);
 
             switch (DimensionSet)

@@ -304,10 +304,9 @@ namespace WarpTools.Commands
 
         protected void WriteMiniJson<T>(string path, IEnumerable<T> items) where T : Movie
         {
-            JsonArray itemsJson = new JsonArray(items.Select(series => series.ToMiniJson(""))
+            JsonArray itemsJson = new JsonArray(items.Select(series => series.ToMiniJson("particles"))
                                                      .ToArray());
-            File.WriteAllText(path,
-                              itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(path, itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
     }
 

@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Accord;
 using MathNet.Numerics.Statistics;
+using ZLinq;
 
 namespace Warp.Tools
 {
@@ -378,9 +379,9 @@ namespace Warp.Tools
         public static int[] Histogram(IEnumerable<float> data, int nbins, float min = float.NaN, float max = float.NaN)
         {
             if (float.IsNaN(min))
-                min = Min(data);
+                min = data.AsValueEnumerable().Min();
             if (float.IsNaN(max))
-                max = Max(data);
+                max = data.AsValueEnumerable().Max();
 
             float Range = max - min;
 
@@ -444,12 +445,6 @@ namespace Warp.Tools
         public static float CrossCorrelateNormalized(float[] data1, float[] data2)
         {
             return CrossCorrelate(Normalize(data1), Normalize(data2));
-        }
-
-        public static float Min(IEnumerable<float> data)
-        {
-            float Min = float.MaxValue;
-            return data.Aggregate(Min, (start, i) => Math.Min(start, i));
         }
         
         public static float Min(float[] data)

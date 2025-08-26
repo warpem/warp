@@ -16,12 +16,12 @@ namespace Warp.Tools
     {
         public static Stream OpenWithBigBuffer(string path)
         {
-            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 22, FileOptions.SequentialScan);
+            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
         }
 
         public static Stream CreateWithBigBuffer(string path)
         {
-            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write, 1 << 22);
+            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write, 4096);
         }
 
         public static int3 GetMapDimensions(string path)
@@ -198,7 +198,7 @@ namespace Warp.Tools
                 Header = MapHeader.ReadFromFile(null, path, headerlessSliceDims, headerlessOffset, headerlessType, stream);
                 if (Helper.PathToExtension(path).ToLower() == ".eer")
                 {
-                    Data = Helper.ArrayOfFunction(i => new float[Header.Dimensions.ElementsSlice()], layers == null ? Header.Dimensions.Z : layers.Length);
+                    Data = Helper.ArrayOfFunction(i => ArrayPool<float>.Rent((int)Header.Dimensions.ElementsSlice()), layers == null ? Header.Dimensions.Z : layers.Length);
                     for (int i = 0; i < Data.Length; i++)
                     {
                         int z = layers == null ? i : layers[i];
@@ -211,8 +211,12 @@ namespace Warp.Tools
                 }
 
                 if (reuseBuffer != null)
+                {
                     for (int i = 0; i < Data.Length; i++)
                         Array.Copy(Data[i], reuseBuffer[i], Data[i].Length);
+
+                    ArrayPool<float>.ReturnMultiple(Data);
+                }
             }
 
             return Data;
@@ -305,7 +309,7 @@ namespace Warp.Tools
                 }
                 else
                 {
-                    byte[] Bytes = new byte[Elements * ImageFormatsHelper.SizeOf(ValueType)];
+                    byte[] Bytes = ArrayPool<byte>.Rent((int)(Elements * ImageFormatsHelper.SizeOf(ValueType)));
 
                     for (int z = 0; z < header.Dimensions.Z; z++)
                     {
@@ -368,6 +372,8 @@ namespace Warp.Tools
 
                         Writer.Write(Bytes);
                     }
+
+                    ArrayPool<byte>.Return(Bytes, clearArray: false);
                 }
             }
         }

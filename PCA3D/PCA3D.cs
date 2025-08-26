@@ -613,7 +613,7 @@ namespace PCA3D
                         ReducedAmps.Dispose();
                     }
 
-                    float MedianScale = MathHelper.Mean(Helper.Combine(BatchScales).Where(v => v != 0f));
+                    float MedianScale = BatchScales.SelectMany(a => a).Where(v => v != 0f).Average();
                     Console.WriteLine(MedianScale);
                     for (int i = 0; i < BatchScales.Count; i++)
                         BatchScales[i] = BatchScales[i].Select(v => v / MedianScale).ToArray();

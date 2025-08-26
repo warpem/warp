@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Accord.Math.Optimization;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -189,7 +190,7 @@ public partial class Movie
 
             originalStack.FreeDevice();
             PatchesAverage = new Image(IntPtr.Zero, new int3(MaskLength, NPositions, 1), false, true);
-            Shifts = new Image(new float[NPositions * NFrames * 2]);
+            Shifts = new Image(new int3(NPositions * NFrames * 2, 1, 1));
         }
 
         #region Fit movement
@@ -435,7 +436,7 @@ public partial class Movie
         {
             float2[] Track = GetMotionTrack(new float2(0.5f, 0.5f), 1);
             float[] Diff = MathHelper.Diff(Track).Select(v => v.Length()).ToArray();
-            MeanFrameMovement = (decimal)MathHelper.Mean(Diff.Take(Math.Max(1, Diff.Length / 3)));
+            MeanFrameMovement = (decimal)Diff.Take(Math.Max(1, Diff.Length / 3)).Average();
         }
 
         // Save XML metadata and export motion tracks json
