@@ -29,7 +29,7 @@ requirements:
     - dotnet=8.0
     - cuda-toolkit
     - mkl=2024.0.0
-    - cmake
+    - cmake<4
   run:
     - python=3.11.9
     - libtiff

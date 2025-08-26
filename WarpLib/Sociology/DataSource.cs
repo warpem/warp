@@ -366,7 +366,9 @@ namespace Warp.Sociology
 
             string[] Paths = Files.Values.ToArray();
             string[] Hashes = new string[Paths.Length];
-            Parallel.For(0, Paths.Length, (i) =>
+            Parallel.For(0, Paths.Length,            
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Min(20, Environment.ProcessorCount) },
+            (i) =>
             {
                 var file = Paths[i];
                 Movie Movie = IsTiltSeries ? new TiltSeries(Helper.PathCombine(FolderPath, file)) : new Movie(Helper.PathCombine(FolderPath, file));
