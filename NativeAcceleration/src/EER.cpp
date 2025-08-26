@@ -6,8 +6,6 @@
 #include <stdexcept>
 #include <immintrin.h> // Include for AVX2 intrinsics
 
-#include "LanczosEER.hpp"
-
 using namespace gtom;
 
 // Adapted from RELION's https://github.com/3dem/relion/blob/devel-eer/src/renderEER.*
@@ -507,8 +505,6 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 				std::cout << "Error: Invalid EER upsamle" << std::endl;
 				throw std::runtime_error("Invalid EER upsamle");
 			}
-
-			//render_eer_frame_lanczos(positions, symbols, n_electron, supersize, supersize, h_result);
 
 			total_n_electron += n_electron;
 		}
