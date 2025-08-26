@@ -909,8 +909,8 @@ namespace Cube
 
         private void UpdateParticleScores()
         {
-            float ScoreMin = MathHelper.Min(Particles.Select(p => p.Score));
-            float ScoreMax = MathHelper.Max(Particles.Select(p => p.Score));
+            float ScoreMin = Particles.Select(p => p.Score).Min();
+            float ScoreMax = Particles.Select(p => p.Score).Max();
             float ScoreSpread = ScoreMax - ScoreMin;
 
             SliderParticleScoreMin.MinValue = (decimal)ScoreMin;

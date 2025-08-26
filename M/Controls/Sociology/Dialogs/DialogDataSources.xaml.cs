@@ -591,7 +591,7 @@ namespace M.Controls.Sociology.Dialogs
 
                         #region Check for overlapping hashes
 
-                        string[] Overlapping = Helper.Combine(Population.Sources.Select(s => s.Files.Where(f => NewSource.Files.ContainsKey(f.Key)).Select(f => f.Value).ToArray()));
+                        string[] Overlapping = Helper.Combine(Population.Sources.Select(s => s.Files.Where(f => NewSource.Files.ContainsKey(f.Key)).Select(f => f.Value).ToArray()).ToArray());
                         if (Overlapping.Length > 0)
                         {
                             string Offenders = "";
