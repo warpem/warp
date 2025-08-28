@@ -70,6 +70,13 @@ namespace WarpWorker
 
             GPU.SetDevice(DeviceID);
 
+            // Check if we should use controller mode or traditional REST server mode
+            if (!string.IsNullOrEmpty(OptionsCLI.Controller))
+            {
+                await RunControllerModeAsync(OptionsCLI);
+                return;
+            }
+
             var Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseKestrel(options =>
@@ -885,6 +892,71 @@ namespace WarpWorker
                 //File.AppendAllText($"worker_{Port}_crash.txt", e.ToString());
 
                 throw;
+            }
+        }
+
+        #endregion
+
+        #region Controller Mode
+
+        static async Task RunControllerModeAsync(OptionsCLI options)
+        {
+            Console.WriteLine($"Starting worker in controller mode, connecting to {options.Controller}");
+            Console.WriteLine($"Running on GPU #{DeviceID} ({GPU.GetFreeMemory(DeviceID)} MB free)");
+            
+            if (DebugMode)
+                Console.WriteLine("Debug mode");
+
+            var controllerClient = new ControllerClient(options.Controller, DeviceID, GPU.GetFreeMemory(DeviceID));
+            
+            // Handle task execution
+            controllerClient.TaskReceived += (command) => 
+            {
+                try
+                {
+                    EvaluateCommand(command);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Command execution failed: {ex}");
+                    throw; // Re-throw so the controller client can report it as failed
+                }
+            };
+
+            controllerClient.ErrorOccurred += (error) =>
+            {
+                Console.WriteLine($"Controller client error: {error}");
+                if (!DebugMode)
+                {
+                    Console.WriteLine("Exiting due to controller error");
+                    Process.GetCurrentProcess().Kill();
+                }
+            };
+
+            // Register with controller
+            bool registered = await controllerClient.RegisterAsync();
+            if (!registered)
+            {
+                Console.WriteLine("Failed to register with controller, exiting");
+                return;
+            }
+
+            // In controller mode, we don't need the heartbeat monitoring
+            // since the controller handles worker lifecycle
+            Console.WriteLine("Worker registered successfully, starting task processing...");
+
+            // Keep the process alive
+            while (true)
+            {
+                Thread.Sleep(1000);
+                
+                // Check if we should exit (this could be expanded with proper shutdown signaling)
+                if (Terminating)
+                {
+                    Console.WriteLine("Exiting controller mode");
+                    controllerClient.Dispose();
+                    break;
+                }
             }
         }
 

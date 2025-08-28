@@ -181,11 +181,11 @@ namespace WarpTools.Commands
                 }
 
                 // Log file setup (differs slightly for batches)
-                processor?.Console.Clear();
+                processor?.WorkerConsole.Clear();
                 string logFile = isBatch ?
                                      Path.Combine(logDirectory, $"batch{index}.log") :
                                      Path.Combine(logDirectory, $"{itemsToProcess[0].RootName}.log");
-                processor?.Console.SetFileOutput(logFile);
+                processor?.WorkerConsole.SetFileOutput(logFile);
 
                 try
                 {
@@ -234,7 +234,7 @@ namespace WarpTools.Commands
                 }
                 finally
                 {
-                    processor?.Console.SetFileOutput("");
+                    processor?.WorkerConsole.SetFileOutput("");
 
                     jsonTasks.Add(Task.Run(() =>
                     {

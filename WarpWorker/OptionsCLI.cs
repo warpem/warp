@@ -27,5 +27,8 @@ namespace WarpWorker
 
         [Option("debug_attach", HelpText = "Attach a debugger to this worker process")]
         public bool DebugAttach { get; set; }
+
+        [Option("controller", HelpText = "Controller endpoint (host:port) to connect to instead of serving own REST API")]
+        public string Controller { get; set; }
     }
 }

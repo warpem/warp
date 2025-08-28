@@ -311,7 +311,7 @@ namespace MCore
                         {
                             try
                             {
-                                var Lines = WorkersRefine[iworker].Console.GetLastNLines(1);
+                                var Lines = WorkersRefine[iworker].WorkerConsole.GetLastNLines(1);
                                 if (Lines.Count > 0 && !string.IsNullOrWhiteSpace(Lines[0].Message))
                                     StatusMessage.Append(CurrentlyRefinedItems[iworker] + ": " + Lines[0].Message + "\n");
                             }
@@ -354,12 +354,12 @@ namespace MCore
 
                         Species S = ActivePopulation.Species[ispecies];
 
-                        Preparer.Console.Clear();
-                        Preparer.Console.SetFileOutput(Path.Combine(LogDirectory, $"preprocess_{S.NameSafe}.log"));
+                        Preparer.WorkerConsole.Clear();
+                        Preparer.WorkerConsole.SetFileOutput(Path.Combine(LogDirectory, $"preprocess_{S.NameSafe}.log"));
 
                         Preparer.MPAPrepareSpecies(S.Path, StagingDirectory);
 
-                        Preparer.Console.SetFileOutput("");
+                        Preparer.WorkerConsole.SetFileOutput("");
 
                         lock (Preparers)
                         {
@@ -468,15 +468,15 @@ namespace MCore
                             lock (CurrentlyRefinedItems)
                                 CurrentlyRefinedItems[iworker] = Helper.PathToName(AllPaths[ifile]);
 
-                            Refiner.Console.Clear();
-                            Refiner.Console.SetFileOutput(Path.Combine(LogDirectory, $"refine_{Helper.PathToName(AllPaths[ifile])}.log"));
+                            Refiner.WorkerConsole.Clear();
+                            Refiner.WorkerConsole.SetFileOutput(Path.Combine(LogDirectory, $"refine_{Helper.PathToName(AllPaths[ifile])}.log"));
 
                             Refiner.MPARefine(Path.Combine(source.FolderPath, AllPaths[ifile]),
                                               WorkerFolders[iworker],
                                               Options,
                                               source);
 
-                            Refiner.Console.SetFileOutput("");
+                            Refiner.WorkerConsole.SetFileOutput("");
 
                             lock (CurrentlyRefinedItems)
                                 CurrentlyRefinedItems[iworker] = null;
@@ -548,12 +548,12 @@ namespace MCore
 
                         Species S = ActivePopulation.Species[ispecies];
 
-                        Finisher.Console.Clear();
-                        Finisher.Console.SetFileOutput(Path.Combine(LogDirectory, $"postprocess_{S.NameSafe}.log"));
+                        Finisher.WorkerConsole.Clear();
+                        Finisher.WorkerConsole.SetFileOutput(Path.Combine(LogDirectory, $"postprocess_{S.NameSafe}.log"));
 
                         Finisher.MPAFinishSpecies(S.Path, StagingDirectory, AllProcessingFolders.ToArray());
 
-                        Finisher.Console.SetFileOutput("");
+                        Finisher.WorkerConsole.SetFileOutput("");
 
                         lock (Finishers)
                         {
