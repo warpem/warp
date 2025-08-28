@@ -397,6 +397,13 @@ namespace Warp
                                                     options));
         }
         
+        public void TomoAretomo3(string path, ProcessingOptionsTomoAretomo3 options)
+        {
+            SendCommand(new NamedSerializableObject("TomoAretomo3",
+                                                    path,
+                                                    options));
+        }
+        
         public void TomoEtomoPatchTrack(string path, ProcessingOptionsTomoEtomoPatch options)
         {
             SendCommand(new NamedSerializableObject("TomoEtomoPatchTrack",
