@@ -2642,6 +2642,25 @@ namespace Warp
     }
     
     [Serializable]
+    public class ProcessingOptionsTomoAretomo3 : TomoProcessingOptionsBase
+    {
+        [WarpSerializable]
+        public int AlignZ { get; set; }
+
+        [WarpSerializable]
+        public int[] AtPatch { get; set; }
+
+        [WarpSerializable]
+        public decimal AxisAngle { get; set; }
+
+        [WarpSerializable]
+        public bool DoAxisSearch { get; set; }
+
+        [WarpSerializable]
+        public string Executable { get; set; }
+    }
+    
+    [Serializable]
     public class ProcessingOptionsTomoEtomoPatch : TomoProcessingOptionsBase
     {
         [WarpSerializable]

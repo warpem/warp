@@ -500,6 +500,59 @@ namespace WarpWorker
 
                     Console.WriteLine($"Executed AreTomo for {SeriesPath}");
                 }
+                else if (Command.Name == "TomoAretomo3")
+                {
+                    string SeriesPath = (string)Command.Content[0];
+                    var Options = (ProcessingOptionsTomoAretomo3)Command.Content[1];
+
+                    TiltSeries T = new TiltSeries(SeriesPath);
+
+                    string StackDir = T.TiltStackDir;
+                    string StackPath = Path.GetFileName(T.TiltStackPath);
+
+                    // Build the AreTomo3 command
+                    // Use the actual stack path as the input for AreTomo3
+                    string BaseName = Path.GetFileNameWithoutExtension(StackPath);
+                    string InPrefix = BaseName;
+                    string InSuffix = ".st";
+                    string AtPatch = $"{Options.AtPatch[0]} {Options.AtPatch[1]}";
+                    string Axis = Options.AxisAngle.ToString() + (Options.DoAxisSearch ? " 0" : " -1");
+                    string AlignZ = Options.AlignZ.ToString();
+                    
+                    // VolZ is forced to 0 as per AreTomo3 requirements
+                    string Arguments = $"-InPrefix {InPrefix} -InSuffix {InSuffix} -OutDir {StackDir} " +
+                                     $"-TiltAxis {Axis} -AlignZ {AlignZ} -AtPatch {AtPatch} -VolZ 0 " +
+                                     $"-ExtZ 0 -OutImod 2 -TiltCor 1 -Cmd 1 -Serial 1 " +
+                                     $"-CorrCTF 0 0 -DarkTol 0 -Gpu {DeviceID}";
+
+                    Console.WriteLine($"Executing {Options.Executable} in {StackDir} with arguments: {Arguments}");
+
+                    Process AreTomo3 = new Process
+                    {
+                        StartInfo =
+                        {
+                            FileName = Options.Executable,
+                            CreateNoWindow = false,
+                            WindowStyle = ProcessWindowStyle.Minimized,
+                            WorkingDirectory = StackDir,
+                            Arguments = Arguments,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        }
+                    };
+                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+                    AreTomo3.OutputDataReceived += Handler;
+                    AreTomo3.ErrorDataReceived += Handler;
+
+                    AreTomo3.Start();
+
+                    AreTomo3.BeginOutputReadLine();
+                    AreTomo3.BeginErrorReadLine();
+
+                    AreTomo3.WaitForExit();
+
+                    Console.WriteLine($"Executed AreTomo3 for {SeriesPath}");
+                }
                 else if (Command.Name == "TomoEtomoPatchTrack")
                 {
                     string TiltSeriesPath = (string)Command.Content[0];
