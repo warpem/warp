@@ -5,7 +5,6 @@
     <RootNamespace>Warp</RootNamespace>
     <Version>2.0.0</Version>
     <AssemblyVersion>2.0.0</AssemblyVersion>
-    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>..\bin\</OutputPath>
@@ -34,7 +33,6 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="SkiaSharp" Version="3.119.0" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="ZLinq" Version="1.4.9" />
     <PackageReference Include="ZLinq.DropInGenerator" Version="1.4.9">
       <PrivateAssets>all</PrivateAssets>
