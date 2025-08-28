@@ -29,8 +29,6 @@ launchSettings.json
 .vs/
 .vs/*
 
-test*/
-
 *.settings
 
 # Roslyn cache directories
