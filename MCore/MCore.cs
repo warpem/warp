@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Components;
 using System.Reflection;
 using Warp.Sociology;
 using Microsoft.Extensions.Options;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 
 namespace MCore

@@ -1,6 +1,7 @@
 using Warp;
 using Xunit;
 using Xunit.Abstractions;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace Tests.WorkerController;
 
@@ -49,7 +50,6 @@ public class WorkerWrapperTests : IDisposable
 
     [Theory]
     [InlineData(0)]
-    [InlineData(0)] // Test same device twice to ensure it works
     public async Task WorkerWrapper_ShouldHandleMultipleDeviceRequests(int deviceId)
     {
         // Skip if no GPU available

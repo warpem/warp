@@ -21,6 +21,7 @@ using Warp;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace M.Controls
 {

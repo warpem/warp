@@ -12,6 +12,7 @@ using System.Windows.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using Warp.Headers;
 using Warp.Tools;
+using Warp.Workers;
 
 namespace Warp.Controls.TaskDialogs.TwoD
 {

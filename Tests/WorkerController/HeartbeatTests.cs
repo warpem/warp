@@ -1,7 +1,7 @@
 using Warp;
-using Warp.WorkerController;
 using Xunit;
 using Xunit.Abstractions;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace Tests.WorkerController;
 
@@ -98,7 +98,7 @@ public class HeartbeatTests : IDisposable
         await Task.Delay(1000);
 
         // Create remote connection
-        var remoteWorker = new WorkerWrapper("localhost", localWorker.Port);
+        var remoteWorker = new WorkerWrapper(localWorker.Port, "localhost");
         _workersToDispose.Add(remoteWorker);
         
         await Task.Delay(1000);

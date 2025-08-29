@@ -18,6 +18,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Warp.Headers;
 using Warp.Tools;
+using Warp.Workers;
 
 namespace Warp.Controls
 {
@@ -286,7 +287,7 @@ namespace Warp.Controls
                 WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount() * MainWindow.GlobalOptions.ProcessesPerDevice];
                 foreach (var gpuID in UsedDeviceProcesses)
                 {
-                    Workers[gpuID] = new WorkerWrapper(gpuID);
+                    Workers[gpuID] = new WorkerWrapper(gpuID, silent: false, attachDebugger: false);
                     Workers[gpuID].SetHeaderlessParams(new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
                                                         Options.Import.HeaderlessOffset,
                                                         Options.Import.HeaderlessType);

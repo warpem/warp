@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Sociology;
 using Warp.Tools;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace WarpTools.Commands
 {

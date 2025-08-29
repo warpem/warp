@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Warp.Tools;
 
-namespace Warp.WorkerController
+namespace Warp.Workers.WorkerController
 {
     [ApiController]
     [Route("api/workers")]
@@ -36,8 +36,8 @@ namespace Warp.WorkerController
             }
         }
 
-        [HttpGet("{workerId}/poll")]
-        public ActionResult<PollResponse> PollForTask(string workerId, [FromHeader] string authorization = null)
+        [HttpPost("{workerId}/poll")]
+        public ActionResult<PollResponse> PollForTask(string workerId, [FromBody] PollRequest pollRequest = null, [FromHeader] string authorization = null)
         {
             try
             {
@@ -48,7 +48,7 @@ namespace Warp.WorkerController
                 // if (!ValidateWorkerToken(workerId, authorization))
                 //     return Unauthorized();
 
-                var response = _controllerService.PollForTask(workerId);
+                var response = _controllerService.PollForTask(workerId, pollRequest);
                 return Ok(response);
             }
             catch (Exception ex)

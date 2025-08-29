@@ -48,12 +48,12 @@ namespace Warp.Tools
                     var propertyName = reader.GetString();
                     reader.Read();
 
-                    switch (propertyName)
+                    switch (propertyName?.ToLower())
                     {
-                        case "Name":
+                        case "name":
                             namedSerializableObject.Name = reader.GetString();
                             break;
-                        case "Content":
+                        case "content":
                             if (reader.TokenType != JsonTokenType.StartArray)
                             {
                                 throw new JsonException();

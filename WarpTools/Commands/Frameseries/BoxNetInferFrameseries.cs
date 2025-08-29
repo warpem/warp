@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 
 namespace WarpTools.Commands.Frameseries

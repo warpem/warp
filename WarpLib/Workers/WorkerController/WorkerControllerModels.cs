@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using Warp.Tools;
 
-namespace Warp.WorkerController
+namespace Warp.Workers.WorkerController
 {
     public enum WorkerStatus
     {
@@ -96,6 +95,11 @@ namespace Warp.WorkerController
         public object Result { get; set; }
         public string ProgressMessage { get; set; }
         public double? ProgressPercentage { get; set; }
+    }
+
+    public class PollRequest
+    {
+        public List<LogEntry> ConsoleLines { get; set; } = new List<LogEntry>();
     }
 
     public class HeartbeatRequest

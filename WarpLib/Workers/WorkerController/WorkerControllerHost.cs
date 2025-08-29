@@ -1,15 +1,13 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Warp.WorkerController
+namespace Warp.Workers.WorkerController
 {
     public class WorkerControllerHost : IDisposable
     {
@@ -33,7 +31,9 @@ namespace Warp.WorkerController
             
             // Configure services
             builder.Services.AddSingleton(_controllerService);
-            builder.Services.AddControllers().AddNewtonsoftJson();
+            builder.Services.AddControllers()
+                .AddApplicationPart(typeof(WorkerControllerAPI).Assembly)
+                .AddNewtonsoftJson();
             builder.Services.AddLogging(logging =>
             {
                 logging.SetMinimumLevel(LogLevel.Warning);
@@ -50,6 +50,7 @@ namespace Warp.WorkerController
             _host = builder.Build();
 
             // Configure the HTTP request pipeline
+            _host.UseRouting();
             _host.MapControllers();
 
             await _host.StartAsync();

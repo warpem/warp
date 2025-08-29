@@ -1,22 +1,22 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Warp.Tools;
 using ZLinq;
 
-namespace Warp.WorkerController
+namespace Warp.Workers.WorkerController
 {
     public class WorkerControllerService : IDisposable
     {
         private readonly ConcurrentDictionary<string, WorkerInfo> _workers;
         private readonly ConcurrentQueue<TaskInfo> _taskQueue;
         private readonly ConcurrentDictionary<string, TaskInfo> _activeTasks;
+        private readonly ConcurrentDictionary<string, List<LogEntry>> _workerConsoleLines;
         private readonly Timer _heartbeatMonitor;
         private readonly Timer _taskMonitor;
         private volatile bool _disposed;
+        private readonly int _maxConsoleLines = 10000;
 
         private readonly object _assignmentLock = new object();
         
@@ -30,6 +30,7 @@ namespace Warp.WorkerController
             _workers = new ConcurrentDictionary<string, WorkerInfo>();
             _taskQueue = new ConcurrentQueue<TaskInfo>();
             _activeTasks = new ConcurrentDictionary<string, TaskInfo>();
+            _workerConsoleLines = new ConcurrentDictionary<string, List<LogEntry>>();
 
             // Monitor worker heartbeats every 30 seconds
             _heartbeatMonitor = new Timer(MonitorWorkerHeartbeats, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
@@ -106,6 +107,9 @@ namespace Warp.WorkerController
                 }
 
                 WorkerDisconnected?.Invoke(this, worker);
+                
+                // Clean up console lines for offline worker
+                _workerConsoleLines.TryRemove(worker.WorkerId, out _);
             }
         }
 
@@ -122,12 +126,30 @@ namespace Warp.WorkerController
             return task.TaskId;
         }
 
-        public PollResponse PollForTask(string workerId)
+        public PollResponse PollForTask(string workerId, PollRequest pollRequest = null)
         {
             if (!_workers.TryGetValue(workerId, out var worker))
                 return new PollResponse(); // Worker not registered
 
             worker.LastHeartbeat = DateTime.UtcNow;
+
+            // Store console lines if provided
+            if (pollRequest?.ConsoleLines != null && pollRequest.ConsoleLines.Count > 0)
+            {
+                var workerConsole = _workerConsoleLines.GetOrAdd(workerId, _ => new List<LogEntry>());
+                
+                lock (workerConsole)
+                {
+                    workerConsole.AddRange(pollRequest.ConsoleLines);
+                    
+                    // Limit stored lines to prevent unbounded growth
+                    if (workerConsole.Count > _maxConsoleLines)
+                    {
+                        int excess = workerConsole.Count - _maxConsoleLines;
+                        workerConsole.RemoveRange(0, excess);
+                    }
+                }
+            }
 
             // Try to assign a task
             lock (_assignmentLock)
@@ -235,6 +257,29 @@ namespace Warp.WorkerController
         public int GetQueueLength()
         {
             return _taskQueue.Count;
+        }
+
+        public List<LogEntry> GetWorkerConsoleLines(string workerId)
+        {
+            if (!_workerConsoleLines.TryGetValue(workerId, out var consoleLines))
+                return new List<LogEntry>();
+                
+            lock (consoleLines)
+            {
+                return new List<LogEntry>(consoleLines);
+            }
+        }
+        
+        public List<LogEntry> GetWorkerConsoleLines(string workerId, int count)
+        {
+            var allLines = GetWorkerConsoleLines(workerId);
+            return allLines.Skip(Math.Max(0, allLines.Count - count)).ToList();
+        }
+        
+        public List<LogEntry> GetWorkerConsoleLines(string workerId, int start, int count)
+        {
+            var allLines = GetWorkerConsoleLines(workerId);
+            return allLines.Skip(start).Take(count).ToList();
         }
 
         private void MonitorTaskTimeouts(object state)

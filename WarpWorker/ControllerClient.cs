@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -35,6 +36,13 @@ namespace WarpWorker
         private readonly int _maxConsecutiveFailures = 10;
         private readonly object _failureLock = new object();
         
+        // Console output tracking
+        private int _lastSentConsoleLineIndex = 0;
+        
+        // Persistent connection mode - for external workers that should retry indefinitely until first connection
+        private readonly bool _persistentConnection;
+        private volatile bool _hasEverConnected = false;
+        
         // Events for task execution
         public event Action<NamedSerializableObject> TaskReceived;
         public event Action<string> ErrorOccurred;
@@ -42,11 +50,15 @@ namespace WarpWorker
         public event Action Disconnected;
         public event Action<int> ReconnectAttempt;
         
-        public ControllerClient(string controllerEndpoint, int deviceId, long freeMemoryMB)
+        public ControllerClient(string controllerEndpoint, int deviceId, long freeMemoryMB, bool persistentConnection = false)
         {
             _controllerEndpoint = controllerEndpoint.StartsWith("http://") ? controllerEndpoint : $"http://{controllerEndpoint}";
             _deviceId = deviceId;
             _freeMemoryMB = freeMemoryMB;
+            _persistentConnection = persistentConnection;
+            
+            // Generate worker's own token for identification
+            Token = Guid.NewGuid().ToString();
             
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Accept.Clear();
@@ -59,7 +71,7 @@ namespace WarpWorker
             int attempts = 0;
             const int maxAttempts = 5;
             
-            while (attempts < maxAttempts && !_disposed)
+            while ((_persistentConnection || attempts < maxAttempts) && !_disposed)
             {
                 try
                 {
@@ -67,7 +79,8 @@ namespace WarpWorker
                     {
                         Host = Environment.MachineName,
                         DeviceId = _deviceId,
-                        FreeMemoryMB = _freeMemoryMB
+                        FreeMemoryMB = _freeMemoryMB,
+                        Token = Token // Send our self-generated token
                     };
                     
                     var json = JsonSerializer.Serialize(request);
@@ -80,11 +93,12 @@ namespace WarpWorker
                     var registrationResponse = JsonSerializer.Deserialize<JsonElement>(responseJson);
                     
                     WorkerId = registrationResponse.GetProperty("workerId").GetString();
-                    Token = registrationResponse.GetProperty("token").GetString();
+                    // Keep our self-generated token
                     
-                    Console.WriteLine($"Successfully registered with controller as worker {WorkerId}");
+                    Console.WriteLine($"Successfully registered with controller as worker {WorkerId} (token: {Token})");
                     
                     _isConnected = true;
+                    _hasEverConnected = true;
                     _reconnectAttempts = 0;
                     ResetFailureCount(); // Reset on successful registration
                     Connected?.Invoke();
@@ -98,16 +112,24 @@ namespace WarpWorker
                 catch (Exception ex)
                 {
                     attempts++;
-                    Console.WriteLine($"Failed to register with controller (attempt {attempts}/{maxAttempts}): {ex.Message}");
                     
-                    if (attempts >= maxAttempts)
+                    if (_persistentConnection)
                     {
-                        ErrorOccurred?.Invoke($"Registration failed after {maxAttempts} attempts: {ex.Message}");
-                        return false;
+                        Console.WriteLine($"Failed to register with controller (attempt {attempts}, will retry indefinitely): {ex.Message}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to register with controller (attempt {attempts}/{maxAttempts}): {ex.Message}");
+                        
+                        if (attempts >= maxAttempts)
+                        {
+                            ErrorOccurred?.Invoke($"Registration failed after {maxAttempts} attempts: {ex.Message}");
+                            return false;
+                        }
                     }
                     
-                    // Exponential backoff
-                    int delay = Math.Min(1000 * (int)Math.Pow(2, attempts - 1), 30000);
+                    // Exponential backoff with cap
+                    int delay = Math.Min(1000 * (int)Math.Pow(2, Math.Min(attempts - 1, 6)), 30000);
                     await Task.Delay(delay);
                 }
             }
@@ -226,7 +248,19 @@ namespace WarpWorker
         {
             try
             {
-                var response = _httpClient.GetAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/poll").Result;
+                // Get new console lines since last poll
+                var allConsoleLines = VirtualConsole.GetAllLines();
+                var newConsoleLines = allConsoleLines.Skip(_lastSentConsoleLineIndex).ToList();
+                
+                var pollRequest = new
+                {
+                    ConsoleLines = newConsoleLines
+                };
+                
+                var json = JsonSerializer.Serialize(pollRequest);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                
+                var response = _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/poll", content).Result;
                 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -238,8 +272,11 @@ namespace WarpWorker
                     return null;
                 }
                 
-                var json = response.Content.ReadAsStringAsync().Result;
-                var pollResponse = JsonSerializer.Deserialize<JsonElement>(json);
+                // Update index after successful poll
+                _lastSentConsoleLineIndex = allConsoleLines.Count;
+                
+                var responseJson = response.Content.ReadAsStringAsync().Result;
+                var pollResponse = JsonSerializer.Deserialize<JsonElement>(responseJson);
                 
                 PollResponseData result = new PollResponseData
                 {
@@ -337,7 +374,9 @@ namespace WarpWorker
                 _consecutiveFailures++;
                 Console.WriteLine($"Consecutive failures: {_consecutiveFailures}/{_maxConsecutiveFailures} (from {operation})");
                 
-                if (_consecutiveFailures >= _maxConsecutiveFailures)
+                // Only auto-shutdown if we've successfully connected before
+                // Persistent workers should keep trying until first connection
+                if (_consecutiveFailures >= _maxConsecutiveFailures && _hasEverConnected)
                 {
                     Console.WriteLine($"Worker shutting down after {_maxConsecutiveFailures} consecutive communication failures");
                     Console.WriteLine($"Last error: {ex.Message}");
@@ -349,6 +388,10 @@ namespace WarpWorker
                     catch { }
                     
                     Environment.Exit(1);
+                }
+                else if (!_hasEverConnected)
+                {
+                    Console.WriteLine($"Worker has never connected, will continue trying (failures: {_consecutiveFailures})");
                 }
             }
         }

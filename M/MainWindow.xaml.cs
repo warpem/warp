@@ -36,6 +36,7 @@ using Image = Warp.Image;
 using M.Controls;
 using ControlzEx.Theming;
 using System.Runtime.InteropServices;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace M
 {

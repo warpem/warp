@@ -1,7 +1,7 @@
 using Warp;
-using Warp.WorkerController;
 using Xunit;
 using Xunit.Abstractions;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace Tests.WorkerController;
 
@@ -19,7 +19,7 @@ public class ControllerArchitectureTests : IDisposable
     public async Task BasicWorkerCreation_ShouldStartControllerAutomatically()
     {
         // Arrange & Act
-        var worker = new WorkerWrapper(0, silent: true);
+        var worker = new WorkerWrapper(0, silent: false);
         _workersToDispose.Add(worker);
 
         // Assert
@@ -43,6 +43,12 @@ public class ControllerArchitectureTests : IDisposable
         // Act & Assert - these should not throw
         worker.GcCollect();
         worker.WaitAsyncTasks();
+        
+        // Wait for worker to initialize
+        await Task.Delay(4000);
+        
+        foreach (var entry in worker.GetConsoleLines())
+            Console.WriteLine(entry.Message);
         
         _output.WriteLine("Worker commands executed successfully");
     }
@@ -73,7 +79,7 @@ public class ControllerArchitectureTests : IDisposable
         await Task.Delay(1000); // Let controller start
 
         // Act - Connect as remote worker
-        var remoteWorker = new WorkerWrapper("localhost", localWorker.Port);
+        var remoteWorker = new WorkerWrapper(localWorker.Port, "localhost");
         _workersToDispose.Add(remoteWorker);
 
         // Assert

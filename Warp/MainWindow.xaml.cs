@@ -29,6 +29,7 @@ using Warp.Controls.TaskDialogs.Tomo;
 using Warp.Controls.TaskDialogs.TwoD;
 using Warp.Headers;
 using Warp.Tools;
+using Warp.Workers;
 using Path = System.IO.Path;
 
 namespace Warp
@@ -137,9 +138,7 @@ namespace Warp
                 for (int i = 0; i < CheckboxesGPUStats.Length; i++)
                 {
                     int CurrentMemory = (int)GPU.GetFreeMemory(i);
-                    IntPtr NamePtr = GPU.GetDeviceName(i);
-                    string Name = Marshal.PtrToStringAnsi(NamePtr);
-                    CPU.HostFree(NamePtr);
+                    string Name = GPU.GetDeviceName(i);
                     CheckboxesGPUStats[i].Content = $"#{i}, {Name}: {((float)CurrentMemory / 1024).ToString("f1")} GB";
                 }
             }, Dispatcher);
@@ -1403,7 +1402,7 @@ namespace Warp
                     WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount() * GlobalOptions.ProcessesPerDevice];
                     Parallel.ForEach(UsedDeviceProcesses, gpuID =>
                     {
-                        Workers[gpuID] = new WorkerWrapper(gpuID);
+                        Workers[gpuID] = new WorkerWrapper(gpuID, silent: false, attachDebugger: false);
                         Workers[gpuID].SetHeaderlessParams(new int2(Options.Import.HeaderlessWidth, Options.Import.HeaderlessHeight),
                                                            Options.Import.HeaderlessOffset,
                                                            Options.Import.HeaderlessType);

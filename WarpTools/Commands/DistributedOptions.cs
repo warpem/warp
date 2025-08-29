@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace WarpTools.Commands
 {
@@ -66,16 +67,17 @@ namespace WarpTools.Commands
             }
             else
             {
-                ConnectedWorkers = new WorkerWrapper[Workers.Count()];
-
-                for (int i = 0; i < Workers.Count(); i++)
-                {
-                    string[] Parts = Workers.ElementAt(i).Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
-                    string Host = Parts[0];
-                    int Port = int.Parse(Parts[1]);
-
-                    ConnectedWorkers[i] = new WorkerWrapper(Host, Port);
-                }
+                // ConnectedWorkers = new WorkerWrapper[Workers.Count()];
+                //
+                // for (int i = 0; i < Workers.Count(); i++)
+                // {
+                //     string[] Parts = Workers.ElementAt(i).Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                //     string Host = Parts[0];
+                //     int Port = int.Parse(Parts[1]);
+                //
+                //     ConnectedWorkers[i] = new WorkerWrapper(Host, Port);
+                // }
+                throw new NotImplementedException("Remote workers are not implemented yet");
             }
 
             if (Options != null)

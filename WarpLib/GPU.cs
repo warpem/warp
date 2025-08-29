@@ -9,6 +9,9 @@ namespace Warp
     [SuppressUnmanagedCodeSecurity]
     public static class GPU
     {
+        private static bool _canUseGPU = TryUseGPU();
+        public static bool CanUseGPU => _canUseGPU;
+        
         public static readonly object Sync = new object();
 
         public static event Action MemoryChanged;
@@ -18,28 +21,87 @@ namespace Warp
             //MemoryChanged?.Invoke();
         }
 
+        private static bool TryUseGPU()
+        {
+            try
+            {
+                Console.WriteLine("Trying to load NativeAcceleration.dll");
+                _GetDeviceCount();
+                return true;
+            }
+            catch (DllNotFoundException ex)
+            {
+                Console.WriteLine("Couldn't load NativeAcceleration.dll, will fall back to fake GPU: ");// + ex.Message);
+                return false;
+            }
+            catch (EntryPointNotFoundException ex)
+            {
+                Console.WriteLine("The required entry point in the native library is not found, will fall back to fake GPU: " + ex.Message);
+                return false;
+            }
+        }
+
         // Memory.cpp:
 
         [DllImport("NativeAcceleration", EntryPoint = "GetDeviceCount")]
-        public static extern int GetDeviceCount();
+        private static extern int _GetDeviceCount();
+        public static int GetDeviceCount()
+        {
+            if (!CanUseGPU) return 1;
+            return _GetDeviceCount();
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "SetDevice")]
-        public static extern void SetDevice(int id);
+        private static extern void _SetDevice(int id);
+        public static void SetDevice(int id)
+        {
+            if (!CanUseGPU) return;
+            _SetDevice(id);
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "GetDevice")]
-        public static extern int GetDevice();
+        private static extern int _GetDevice();
+        public static int GetDevice()
+        {
+            if (!CanUseGPU) return 0;
+            return _GetDevice();
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "GetFreeMemory")]
-        public static extern long GetFreeMemory(int device);
+        private static extern long _GetFreeMemory(int device);
+        public static long GetFreeMemory(int device)
+        {
+            if (!CanUseGPU) return 999;
+            return _GetFreeMemory(device);
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "GetTotalMemory")]
-        public static extern long GetTotalMemory(int device);
+        private static extern long _GetTotalMemory(int device);
+        public static long GetTotalMemory(int device)
+        {
+            if (!CanUseGPU) return 999;
+            return _GetTotalMemory(device);
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "GetDeviceName")]
-        public static extern IntPtr GetDeviceName(int device);
+        private static extern IntPtr _GetDeviceName(int device);
+        public static string GetDeviceName(int device)
+        {
+            if (!CanUseGPU) return "Fake GPU";
+            IntPtr ptr = _GetDeviceName(device);
+            string result = Marshal.PtrToStringAnsi(ptr);
+            CPU.HostFree(ptr);
+            
+            return result;
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "DeviceSynchronize")]
-        public static extern void DeviceSynchronize();
+        private static extern void _DeviceSynchronize();
+        public static void DeviceSynchronize()
+        {
+            if (!CanUseGPU) return;
+            _DeviceSynchronize();
+        }
 
         [DllImport("NativeAcceleration", EntryPoint = "MallocDevice")]
         public static extern IntPtr MallocDevice(long elements);

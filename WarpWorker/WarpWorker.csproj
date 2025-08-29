@@ -2,7 +2,6 @@
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
 		<OutputType>Exe</OutputType>
-		<PublishSingleFile>true</PublishSingleFile>
 		<ServerGarbageCollection>true</ServerGarbageCollection>
         <PlatformTarget>AnyCPU</PlatformTarget>
     <Version>2.0.0</Version>
@@ -13,12 +12,12 @@
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
 		<OutputPath>..\bin\</OutputPath>
-		<PlatformTarget>x64</PlatformTarget>
+		<PlatformTarget>AnyCPU</PlatformTarget>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
 		<OutputPath>..\Release\</OutputPath>
-		<PlatformTarget>x64</PlatformTarget>
+		<PlatformTarget>AnyCPU</PlatformTarget>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>

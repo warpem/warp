@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Warp;
 using Xunit;
 using Xunit.Abstractions;
+using WorkerWrapper = Warp.Workers.WorkerWrapper;
 
 namespace Tests.WorkerController;
 
