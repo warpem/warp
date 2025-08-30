@@ -29,7 +29,7 @@ namespace Warp.Tools
             else
             {
                 if (!string.IsNullOrEmpty(appName))
-                Console.WriteLine(appName);
+                    Console.WriteLine(appName);
 
                 var Version = (Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly()).GetName().Version;
                 Console.WriteLine($"Version {Version.Major}.{Version.Minor}.{Version.Build}\n");

@@ -230,10 +230,11 @@ namespace MCore
             if (collection.Any(w => w.Host == Host && w.Port == Port))
                 throw new Exception($"Worker {spec} already attached");
 
-            var ConnectedWorker = new WorkerWrapper(Host, Port);
-            ConnectedWorker.WorkerDied += WorkerDied;
+            throw new NotImplementedException("Remote workers are not implemented yet");
+            //var ConnectedWorker = new WorkerWrapper(Host, Port);
+            //ConnectedWorker.WorkerDied += WorkerDied;
 
-            collection.Add(ConnectedWorker);
+            //collection.Add(ConnectedWorker);
         }
 
         static void DropWorkers()

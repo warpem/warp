@@ -292,7 +292,7 @@ namespace M.Controls
                     WorkerWrapper[] Workers = new WorkerWrapper[GPU.GetDeviceCount() * 1];
                     foreach (var gpuID in UsedDeviceProcesses)
                     {
-                        Workers[gpuID] = new WorkerWrapper(gpuID);
+                        Workers[gpuID] = new WorkerWrapper(gpuID, false, false);
                         Workers[gpuID].SetHeaderlessParams(new int2(1, 1),
                                                            0,
                                                            "float32");

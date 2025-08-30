@@ -122,9 +122,7 @@ namespace M
                 for (int i = 0; i < CheckboxesGPUStats.Length; i++)
                 {
                     int CurrentMemory = (int)GPU.GetFreeMemory(i);
-                    IntPtr NamePtr = GPU.GetDeviceName(i);
-                    string Name = Marshal.PtrToStringAnsi(NamePtr);
-                    CPU.HostFree(NamePtr);
+                    string Name = GPU.GetDeviceName(i);
                     CheckboxesGPUStats[i].Content = $"#{i}, {Name}: {((float)CurrentMemory / 1024).ToString("f1")} GB";
                 }
             }, Dispatcher);
@@ -636,7 +634,7 @@ namespace M
                     {
                         Dispatcher.InvokeAsync(() => Progress.SetMessage($"Preparing refinement requisites..."));
 
-                        WorkerWrapper[] SpeciesPreparers = UsedDevices.Select(i => new WorkerWrapper(i)).ToArray();
+                        WorkerWrapper[] SpeciesPreparers = UsedDevices.Select(i => new WorkerWrapper(i, false, false)).ToArray();
 
                         Helper.ForEachGPU(ActivePopulation.Species, (species, gpuID) =>
                         {
@@ -683,7 +681,7 @@ namespace M
                                 {
                                     for (int i = 0; i < ProcessesPerDevice; i++)
                                     {
-                                        Workers[gpuID * ProcessesPerDevice + i] = new WorkerWrapper(gpuID);
+                                        Workers[gpuID * ProcessesPerDevice + i] = new WorkerWrapper(gpuID, false, false);
                                         Workers[gpuID * ProcessesPerDevice + i].SetHeaderlessParams(new int2(2), 0, "float");
 
                                         WorkerLogs[gpuID * ProcessesPerDevice + i] = System.IO.Path.Combine(ActivePopulation.FolderPath, "refinement_temp", source.Name, $"worker{gpuID * ProcessesPerDevice + i}", "run.out");
@@ -916,7 +914,7 @@ namespace M
 
                         Helper.ForEachGPU(ActivePopulation.Species, (species, gpuID) =>
                         {
-                            WorkerWrapper Worker = new WorkerWrapper(gpuID);
+                            WorkerWrapper Worker = new WorkerWrapper(gpuID, false, false);
                             Worker.MPAFinishSpecies(species.Path, StagingDirectory, AllWorkerFolders.ToArray());
                             Worker.Dispose();
                         }, 1, UsedDevices);
