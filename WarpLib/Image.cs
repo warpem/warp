@@ -804,8 +804,8 @@ namespace Warp
                     {
                         for (int x = 0; x < Dims.X; x++)
                         {
-                            int i = y * Dims.X + x;
-                            byte PixelValue = (byte)Math.Max(0, Math.Min(255, (long)Data[(Dims.Y - 1 - y) * Dims.X + x]));
+                            int i = (Dims.Y - 1 - y) * Dims.X + x;
+                            byte PixelValue = (byte)Math.Max(0, Math.Min(255, (long)Data[i]));
                             ((byte*)Image.GetAddress(x, y))[0] = PixelValue;
                         }
                     }
