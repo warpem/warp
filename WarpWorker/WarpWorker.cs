@@ -22,12 +22,14 @@ namespace WarpWorker
     {
         static bool DebugMode = false;
         static bool IsSilent = false;
+        static bool MockMode = false;
 
         static int DeviceID = 0;
 
         static bool Terminating = false;
 
-        private static readonly Dictionary<string, MethodInfo> CommandMethods = new Dictionary<string, MethodInfo>();
+        private static readonly Dictionary<string, MethodInfo> CommandMethods = new();
+        private static readonly Dictionary<string, MethodInfo> MockCommandMethods = new();
 
         static WarpWorkerProcess()
         {
@@ -42,9 +44,11 @@ namespace WarpWorker
             {
                 var commandAttr = method.GetCustomAttribute<CommandAttribute>();
                 if (commandAttr != null)
-                {
                     CommandMethods[commandAttr.Name] = method;
-                }
+                
+                var mockCommandAttr = method.GetCustomAttribute<MockCommandAttribute>();
+                if (mockCommandAttr != null)
+                    MockCommandMethods[mockCommandAttr.Name] = method;
             }
         }
 
@@ -79,6 +83,7 @@ namespace WarpWorker
             DeviceID = OptionsCLI.Device % GPU.GetDeviceCount();
             IsSilent = OptionsCLI.Silent;
             DebugMode = OptionsCLI.Debug;
+            MockMode = OptionsCLI.Mock;
 
             VirtualConsole.IsSilent = IsSilent;
 
@@ -116,10 +121,25 @@ namespace WarpWorker
                 Stopwatch Watch = new Stopwatch();
                 Watch.Start();
 
-                if (CommandMethods.TryGetValue(Command.Name, out MethodInfo method))
-                    method.Invoke(null, new object[] { Command });
+                // Handle mock mode
+                if (MockMode && Command.Name != "Exit")
+                {
+                    if (MockCommandMethods.TryGetValue(Command.Name, out MethodInfo method))
+                        method.Invoke(null, new object[] { Command });
+                    else
+                        // Simulate processing time with a short delay
+                        Thread.Sleep(100 + new Random().Next(400)); // 100-500ms random delay
+                    
+                    Console.WriteLine($"[MOCK] Command '{Command.Name}' completed successfully");
+                }
                 else
-                    throw new ArgumentException($"Unknown command: '{Command.Name}'");
+                {
+                    // Execute real command
+                    if (CommandMethods.TryGetValue(Command.Name, out MethodInfo method))
+                        method.Invoke(null, new object[] { Command });
+                    else
+                        throw new ArgumentException($"Unknown command: '{Command.Name}'");
+                }
 
                 Watch.Stop();
                 Console.WriteLine($"Execution took {(Watch.ElapsedMilliseconds / 1000f):F3} seconds");
@@ -145,6 +165,8 @@ namespace WarpWorker
             
             if (DebugMode)
                 Console.WriteLine("Debug mode");
+            if (MockMode)
+                Console.WriteLine("Mock mode enabled");
 
             var controllerClient = new ControllerClient(options.Controller, DeviceID, GPU.GetFreeMemory(DeviceID), options.Persistent);
             

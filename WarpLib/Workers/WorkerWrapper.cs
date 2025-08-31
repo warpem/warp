@@ -41,9 +41,13 @@ namespace Warp.Workers
         Process Worker;
 
         public event EventHandler<EventArgs> WorkerDied;
+        
+        // Static events for pool integration
+        public static event EventHandler<WorkerInfo> WorkerRegistered;
+        public static event EventHandler<WorkerInfo> WorkerDisconnected;
 
         // Create new worker using controller architecture
-        public WorkerWrapper(int deviceID, bool silent = false, bool attachDebugger = false)
+        public WorkerWrapper(int deviceID, bool silent = false, bool attachDebugger = false, bool mockMode = false)
         {
             DeviceID = deviceID;
             Host = "localhost";
@@ -53,7 +57,7 @@ namespace Warp.Workers
             
             WorkerConsole = new WorkerConsole(this);
             
-            _workerId = SpawnWorkerProcess(deviceID, silent, attachDebugger).GetAwaiter().GetResult();
+            _workerId = SpawnWorkerProcess(deviceID, silent, attachDebugger, mockMode).GetAwaiter().GetResult();
             
             lock (_activeWorkers)
             {
@@ -97,6 +101,7 @@ namespace Warp.Workers
                     
                     // Subscribe to controller events for all WorkerWrapper instances
                     var controllerService = _sharedController.GetService();
+                    controllerService.WorkerRegistered += OnSharedControllerWorkerRegistered;
                     controllerService.WorkerDisconnected += OnSharedControllerWorkerDisconnected;
                 }
             }
@@ -106,6 +111,26 @@ namespace Warp.Workers
         public static void StartControllerOnPort(int port)
         {
             EnsureControllerStarted(port);
+        }
+        
+        // Static methods for pool integration
+        public static List<WorkerInfo> GetAllWorkers()
+        {
+            if (_sharedController == null) return new List<WorkerInfo>();
+            
+            var controllerService = _sharedController.GetService();
+            return controllerService.GetActiveWorkers().ToList();
+        }
+        
+        public static int GetControllerPort()
+        {
+            return _controllerPort;
+        }
+        
+        private static void OnSharedControllerWorkerRegistered(object sender, WorkerInfo worker)
+        {
+            // Fire static event for pool integration
+            WorkerRegistered?.Invoke(null, worker);
         }
         
         private static void OnSharedControllerWorkerDisconnected(object sender, WorkerInfo worker)
@@ -118,9 +143,12 @@ namespace Warp.Workers
                     _activeWorkers.Remove(worker.WorkerId);
                 }
             }
+            
+            // Fire static event for pool integration
+            WorkerDisconnected?.Invoke(null, worker);
         }
         
-        private async Task<string> SpawnWorkerProcess(int deviceID, bool silent, bool attachDebugger)
+        private async Task<string> SpawnWorkerProcess(int deviceID, bool silent, bool attachDebugger, bool mockMode = false)
         {
             bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             
@@ -136,7 +164,8 @@ namespace Warp.Workers
                     WindowStyle = ProcessWindowStyle.Minimized,
                     Arguments = $"-d {deviceID} --controller {controllerEndpoint} {(silent ? "-s" : "")} " +
                                 $"{(Debugger.IsAttached ? "--debug" : "")} " +
-                                $"{(attachDebugger ? "--debug_attach" : "")}",
+                                $"{(attachDebugger ? "--debug_attach" : "")} " +
+                                $"{(mockMode ? "--mock" : "")}",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false
@@ -152,6 +181,7 @@ namespace Warp.Workers
                                     $"-d {deviceID} --controller {controllerEndpoint} " +
                                     $"{(silent ? "-s" : "")} {(Debugger.IsAttached ? "--debug" : "")} " +
                                     $"{(attachDebugger ? "--debug_attach" : "")} " +
+                                    $"{(mockMode ? "--mock" : "")} " +
                                     $"> worker_dev{deviceID}.out 2> worker_dev{deviceID}.err\"",
                         UseShellExecute = false
                     };
@@ -161,7 +191,8 @@ namespace Warp.Workers
                         FileName = Path.Combine(AppContext.BaseDirectory, "WarpWorker"),
                         Arguments = $"-d {deviceID} --controller {controllerEndpoint} {(silent ? "-s" : "")} " +
                                     $"{(Debugger.IsAttached ? "--debug" : "")} " +
-                                    $"{(attachDebugger ? "--debug_attach" : "")}",
+                                    $"{(attachDebugger ? "--debug_attach" : "")} " +
+                                    $"{(mockMode ? "--mock" : "")}",
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         UseShellExecute = false
@@ -187,8 +218,8 @@ namespace Warp.Workers
                 // Check if a worker with this device ID has registered
                 var controllerService = _sharedController.GetService();
                 var workers = controllerService.GetActiveWorkers();
-                var deviceWorker = workers.FirstOrDefault(w => w.DeviceId == deviceID && 
-                    !_activeWorkers.ContainsValue(this));
+                // Find a worker that hasn't been claimed by another WorkerWrapper
+                var deviceWorker = workers.FirstOrDefault(w => !_activeWorkers.ContainsKey(w.WorkerId));
                 
                 if (deviceWorker != null)
                 {

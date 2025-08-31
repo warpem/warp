@@ -11,3 +11,13 @@ internal class CommandAttribute : Attribute
         Name = name;
     }
 }
+
+internal class MockCommandAttribute : Attribute
+{
+    public string Name;
+    
+    public MockCommandAttribute(string name)
+    {
+        Name = name;
+    }
+}

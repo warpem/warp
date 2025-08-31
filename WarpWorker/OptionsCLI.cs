@@ -29,5 +29,8 @@ namespace WarpWorker
         
         [Option("persistent", HelpText = "Keep trying to connect indefinitely until first successful connection (for external workers)")]
         public bool Persistent { get; set; }
+        
+        [Option("mock", HelpText = "Run in mock mode - commands return immediately with success")]
+        public bool Mock { get; set; }
     }
 }
