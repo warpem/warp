@@ -47,8 +47,6 @@ TestResult.xml
 [Rr]eleasePS/
 dlldata.c
 
-WarpCore/
-
 *.zip
 *.db
 *.dll

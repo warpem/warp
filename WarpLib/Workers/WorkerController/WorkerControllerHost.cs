@@ -44,7 +44,7 @@ namespace Warp.Workers.WorkerController
             builder.WebHost.UseKestrel(options =>
             {
                 options.ListenAnyIP(port);
-                options.Limits.MaxRequestBodySize = 104857600; // 100 MB
+                options.Limits.MaxRequestBodySize = 1 << 27; // 128 MB
             });
 
             _host = builder.Build();

@@ -165,32 +165,5 @@ namespace Warp.Workers.WorkerController
                 return StatusCode(500, "Internal server error");
             }
         }
-
-        // Administrative endpoint to submit tasks (for testing/debugging)
-        [HttpPost("tasks")]
-        public ActionResult<string> SubmitTask([FromBody] NamedSerializableObject command)
-        {
-            try
-            {
-                if (command == null || string.IsNullOrEmpty(command.Name))
-                    return BadRequest("Valid command is required");
-
-                var taskId = _controllerService.SubmitTask(command);
-                return Ok(taskId);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Error submitting task");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        // Helper method for token validation (can be implemented later)
-        private bool ValidateWorkerToken(string workerId, string authorization)
-        {
-            // Extract token from authorization header and validate
-            // For now, we'll skip validation
-            return true;
-        }
     }
 }
