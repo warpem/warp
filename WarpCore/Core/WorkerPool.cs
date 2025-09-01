@@ -276,6 +276,10 @@ namespace WarpCore.Core
 
         public void Dispose()
         {
+            // Unsubscribe from static WorkerWrapper events to prevent duplicate handlers
+            WorkerWrapper.WorkerRegistered -= OnWorkerRegistered;
+            WorkerWrapper.WorkerDisconnected -= OnWorkerDisconnected;
+
             lock (_workersLock)
             {
                 // Dispose all WorkerWrappers

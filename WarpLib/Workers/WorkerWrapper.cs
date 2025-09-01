@@ -37,15 +37,11 @@ namespace Warp.Workers
         public DateTime ConnectedAt { get; set; }
         public DateTime LastHeartbeat { get; set; }
         public string CurrentTask { get; set; }
-        private readonly List<string> _workerOutput = new List<string>();
-        private readonly List<string> _workerErrors = new List<string>();
-        private readonly object _outputLock = new object();
         private List<LogEntry> _consoleLines = new List<LogEntry>();
 
         public readonly WorkerConsole WorkerConsole;
 
         Thread Heartbeat;
-        Process Worker;
 
         public event EventHandler<EventArgs> WorkerDied;
         
@@ -53,46 +49,29 @@ namespace Warp.Workers
         public static event EventHandler<WorkerWrapper> WorkerRegistered;
         public static event EventHandler<WorkerWrapper> WorkerDisconnected;
 
-        // Create new worker using controller architecture
-        public WorkerWrapper(int deviceID, bool silent = false, bool attachDebugger = false, bool mockMode = false)
+        /// <summary>
+        /// Create WorkerWrapper for a worker that has registered with the controller
+        /// This is the new unified constructor for both local and remote workers
+        /// </summary>
+        public WorkerWrapper(WorkerInfo controllerWorkerInfo)
         {
-            DeviceID = deviceID;
-            Host = "localhost";
-            
-            EnsureControllerStarted();
+            // Copy properties from controller info
+            _workerId = controllerWorkerInfo.WorkerId;
+            DeviceID = controllerWorkerInfo.DeviceId;
+            Host = "localhost"; // All workers connect through our controller
             Port = _controllerPort;
             
+            // Initialize status tracking
+            Status = WorkerStatus.Idle;
+            ConnectedAt = DateTime.UtcNow;
+            LastHeartbeat = DateTime.UtcNow;
+            CurrentTask = null;
+            
+            // Initialize console and monitoring
             WorkerConsole = new WorkerConsole(this);
-            
-            _workerId = SpawnWorkerProcess(deviceID, silent, attachDebugger, mockMode).GetAwaiter().GetResult();
-            
-            lock (_activeWorkers)
-            {
-                _activeWorkers[_workerId] = this;
-                Console.WriteLine($"WorkerWrapper tracking worker {_workerId} for device {deviceID}");
-            }
-
             StartHeartbeat();
-        }
-
-        // Start controller for remote workers to connect to (for HPC scenarios)
-        public WorkerWrapper(int controllerPort, string hostName = null)
-        {
-            Host = hostName ?? "localhost";
             
-            EnsureControllerStarted(controllerPort);
-            Port = _controllerPort;
-            
-            // No worker process to spawn - remote workers will connect to our controller
-            _workerId = null;
-            
-            StartHeartbeat();
-            WorkerConsole = new WorkerConsole(this);
-            
-            if (!string.IsNullOrEmpty(hostName))
-            {
-                Console.WriteLine($"Controller started on {hostName}:{Port} for remote worker connections");
-            }
+            Console.WriteLine($"WorkerWrapper created for worker {_workerId} on device {DeviceID}");
         }
 
         #region Static Controller Management
@@ -121,78 +100,34 @@ namespace Warp.Workers
             EnsureControllerStarted(port);
         }
         
-        // Static methods for pool integration
-        public static List<WorkerWrapper> GetAllWorkers()
-        {
-            lock (_activeWorkers)
-            {
-                return _activeWorkers.Values.ToList();
-            }
-        }
+        // Static methods for worker management
         
-        public static int GetControllerPort()
+        /// <summary>
+        /// Spawn a local worker process that will connect to the shared controller
+        /// </summary>
+        public static async Task<bool> SpawnLocalWorkerAsync(
+            int deviceId, 
+            bool silent = false, 
+            bool attachDebugger = false, 
+            bool mockMode = false,
+            TimeSpan? startupTimeout = null)
         {
-            return _controllerPort;
-        }
-        
-        private static void OnSharedControllerWorkerRegistered(object sender, WorkerInfo worker)
-        {
-            // For now, only fire events for workers that have WorkerWrapper instances
-            // Remote workers connecting directly to controller won't have WorkerWrapper instances
-            lock (_activeWorkers)
-            {
-                if (_activeWorkers.TryGetValue(worker.WorkerId, out var workerWrapper))
-                {
-                    // Update the status from controller
-                    workerWrapper.Status = WorkerStatus.Idle;
-                    workerWrapper.ConnectedAt = DateTime.UtcNow;
-                    workerWrapper.LastHeartbeat = DateTime.UtcNow;
-                    
-                    Console.WriteLine($"FIRING EVENT, subscribers: {WorkerRegistered?.GetInvocationList().Length}");
-                    
-                    // Fire static event for pool integration
-                    WorkerRegistered?.Invoke(null, workerWrapper);
-                }
-                else
-                    Console.WriteLine($"WorkerWrapper ERROR: Worker {worker.WorkerId} registered but no WorkerWrapper instance found");
-            }
-        }
-        
-        private static void OnSharedControllerWorkerDisconnected(object sender, WorkerInfo worker)
-        {
-            WorkerWrapper disconnectedWorker = null;
-            lock (_activeWorkers)
-            {
-                if (_activeWorkers.TryGetValue(worker.WorkerId, out disconnectedWorker))
-                {
-                    disconnectedWorker.Status = WorkerStatus.Offline;
-                    disconnectedWorker.ReportDeath();
-                    _activeWorkers.Remove(worker.WorkerId);
-                }
-            }
+            // Ensure controller is running
+            EnsureControllerStarted();
             
-            // Fire static event for pool integration only if we have a WorkerWrapper
-            if (disconnectedWorker != null)
-            {
-                WorkerDisconnected?.Invoke(null, disconnectedWorker);
-            }
-        }
-        
-        private async Task<string> SpawnWorkerProcess(int deviceID, bool silent, bool attachDebugger, bool mockMode = false)
-        {
-            bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-            
-            string controllerEndpoint = $"{Host}:{Port}";
+            bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            string controllerEndpoint = $"localhost:{_controllerPort}";
+            var timeout = startupTimeout ?? TimeSpan.FromSeconds(attachDebugger ? 200 : 30);
             
             ProcessStartInfo startInfo;
-            if (IsWindows)
+            if (isWindows)
             {
                 startInfo = new ProcessStartInfo()
                 {
                     FileName = Path.Combine(AppContext.BaseDirectory, "WarpWorker"),
                     CreateNoWindow = false,
                     WindowStyle = ProcessWindowStyle.Minimized,
-                    Arguments = $"-d {deviceID} --controller {controllerEndpoint} {(silent ? "-s" : "")} " +
+                    Arguments = $"-d {deviceId} --controller {controllerEndpoint} {(silent ? "-s" : "")} " +
                                 $"{(Debugger.IsAttached ? "--debug" : "")} " +
                                 $"{(attachDebugger ? "--debug_attach" : "")} " +
                                 $"{(mockMode ? "--mock" : "")}",
@@ -208,18 +143,18 @@ namespace Warp.Workers
                     {
                         FileName = "bash",
                         Arguments = $"-c \"{Path.Combine(AppContext.BaseDirectory, "WarpWorker")} " +
-                                    $"-d {deviceID} --controller {controllerEndpoint} " +
+                                    $"-d {deviceId} --controller {controllerEndpoint} " +
                                     $"{(silent ? "-s" : "")} {(Debugger.IsAttached ? "--debug" : "")} " +
                                     $"{(attachDebugger ? "--debug_attach" : "")} " +
                                     $"{(mockMode ? "--mock" : "")} " +
-                                    $"> worker_dev{deviceID}.out 2> worker_dev{deviceID}.err\"",
+                                    $"> worker_dev{deviceId}.out 2> worker_dev{deviceId}.err\"",
                         UseShellExecute = false
                     };
                 else
                     startInfo = new ProcessStartInfo()
                     {
                         FileName = Path.Combine(AppContext.BaseDirectory, "WarpWorker"),
-                        Arguments = $"-d {deviceID} --controller {controllerEndpoint} {(silent ? "-s" : "")} " +
+                        Arguments = $"-d {deviceId} --controller {controllerEndpoint} {(silent ? "-s" : "")} " +
                                     $"{(Debugger.IsAttached ? "--debug" : "")} " +
                                     $"{(attachDebugger ? "--debug_attach" : "")} " +
                                     $"{(mockMode ? "--mock" : "")}",
@@ -229,71 +164,95 @@ namespace Warp.Workers
                     };
             }
 
-            Console.Error.WriteLine(startInfo.Arguments);
-            Worker = new Process { StartInfo = startInfo };
-            Worker.OutputDataReceived += OnWorkerOutputReceived;
-            Worker.ErrorDataReceived += OnWorkerErrorReceived;
-            Worker.Start();
-            Worker.BeginOutputReadLine();
-            Worker.BeginErrorReadLine();
-
-            // Wait for worker registration (with timeout)
-            var registrationTimeout = DateTime.UtcNow.AddSeconds(attachDebugger ? 200 : 30);
-            string workerId = null;
-
-            while (DateTime.UtcNow < registrationTimeout && workerId == null)
+            try
             {
+                Console.WriteLine($"Spawning local worker for device {deviceId}: {startInfo.FileName} {startInfo.Arguments}");
+                
+                var process = new Process { StartInfo = startInfo };
+                process.Start();
+                
+                // Give the process a moment to start
                 await Task.Delay(500);
                 
-                // Check if a worker with this device ID has registered
-                var controllerService = _sharedController.GetService();
-                var workers = controllerService.GetActiveWorkers();
-                // Find a worker that hasn't been claimed by another WorkerWrapper
-                var deviceWorker = workers.FirstOrDefault(w => !_activeWorkers.ContainsKey(w.WorkerId));
-                
-                if (deviceWorker != null)
+                // Check if process is still running (didn't crash immediately)
+                if (process.HasExited)
                 {
-                    workerId = deviceWorker.WorkerId;
-                    Console.WriteLine($"Worker {workerId} registered for device {deviceID}");
-                    break;
+                    Console.WriteLine($"Worker process for device {deviceId} exited immediately with code {process.ExitCode}");
+                    return false;
                 }
+                
+                Console.WriteLine($"Worker process for device {deviceId} started successfully (PID: {process.Id})");
+                
+                // Don't wait for registration - that's handled by controller events
+                // Worker will register itself with the controller when ready
+                return true;
             }
-
-            if (workerId == null)
-                throw new TimeoutException($"Worker for device {deviceID} failed to register within timeout period");
-
-            return workerId;
-        }
-        
-        private void OnWorkerOutputReceived(object sender, DataReceivedEventArgs e)
-        {
-            if (!string.IsNullOrEmpty(e.Data))
+            catch (Exception ex)
             {
-                lock (_outputLock)
-                {
-                    _workerOutput.Add(e.Data);
-                }
-                
-                //if (Debugger.IsAttached)
-                {
-                    Console.WriteLine($"Worker {DeviceID}: {e.Data}");
-                }
+                Console.WriteLine($"Failed to spawn worker for device {deviceId}: {ex.Message}");
+                return false;
             }
         }
         
-        private void OnWorkerErrorReceived(object sender, DataReceivedEventArgs e)
+        // Static methods for pool integration
+        public static List<WorkerWrapper> GetAllWorkers()
         {
-            if (!string.IsNullOrEmpty(e.Data))
+            lock (_activeWorkers)
             {
-                lock (_outputLock)
-                {
-                    _workerErrors.Add(e.Data);
-                }
-                
-                // Always display errors
-                Console.WriteLine($"Worker {DeviceID} ERROR: {e.Data}");
+                return _activeWorkers.Values.ToList();
             }
         }
+        
+        public static int GetControllerPort()
+        {
+            return _controllerPort;
+        }
+        
+        private static void OnSharedControllerWorkerRegistered(object sender, WorkerInfo workerInfo)
+        {
+            WorkerWrapper workerWrapper = null;
+            
+            lock (_activeWorkers)
+            {
+                // Create new WorkerWrapper for this registered worker
+                workerWrapper = new WorkerWrapper(workerInfo);
+                _activeWorkers[workerInfo.WorkerId] = workerWrapper;
+                
+                Console.WriteLine($"Created WorkerWrapper for registered worker {workerInfo.WorkerId} on device {workerInfo.DeviceId}");
+            }
+            
+            // Fire static event for pool integration
+            Console.WriteLine($"Firing WorkerRegistered event, subscribers: {WorkerRegistered?.GetInvocationList()?.Length ?? 0}");
+            WorkerRegistered?.Invoke(null, workerWrapper);
+        }
+        
+        private static void OnSharedControllerWorkerDisconnected(object sender, WorkerInfo worker)
+        {
+            WorkerWrapper disconnectedWorker = null;
+            
+            lock (_activeWorkers)
+            {
+                if (_activeWorkers.TryGetValue(worker.WorkerId, out disconnectedWorker))
+                {
+                    disconnectedWorker.Status = WorkerStatus.Offline;
+                    disconnectedWorker.ReportDeath();
+                    _activeWorkers.Remove(worker.WorkerId);
+                    
+                    Console.WriteLine($"Removed WorkerWrapper for disconnected worker {worker.WorkerId}");
+                }
+            }
+            
+            // Fire static event for pool integration only if we had a WorkerWrapper
+            if (disconnectedWorker != null)
+            {
+                WorkerDisconnected?.Invoke(null, disconnectedWorker);
+            }
+            else
+            {
+                Console.WriteLine($"Worker {worker.WorkerId} disconnected but no WorkerWrapper found");
+            }
+        }
+        
         
         #endregion
 
@@ -378,43 +337,9 @@ namespace Warp.Workers
             catch { }
         }
 
-        private void DisplayWorkerOutput()
-        {
-            lock (_outputLock)
-            {
-                bool hasErrors = _workerErrors.Count > 0;
-                bool shouldDisplay = Debugger.IsAttached || hasErrors;
-                
-                if (shouldDisplay && (_workerOutput.Count > 0 || _workerErrors.Count > 0))
-                {
-                    Console.WriteLine($"\n=== Worker {DeviceID} Output History ===");
-                    
-                    if (_workerOutput.Count > 0)
-                    {
-                        Console.WriteLine("--- Standard Output ---");
-                        foreach (var line in _workerOutput)
-                        {
-                            Console.WriteLine(line);
-                        }
-                    }
-                    
-                    if (_workerErrors.Count > 0)
-                    {
-                        Console.WriteLine("--- Error Output ---");
-                        foreach (var line in _workerErrors)
-                        {
-                            Console.WriteLine($"ERROR: {line}");
-                        }
-                    }
-                    
-                    Console.WriteLine($"=== End Worker {DeviceID} Output ===");
-                }
-            }
-        }
         
         void ReportDeath()
         {
-            DisplayWorkerOutput();
             WorkerDied?.Invoke(this, null);
         }
 
@@ -422,32 +347,13 @@ namespace Warp.Workers
         {
             if (IsAlive)
             {
-                Debug.WriteLine($"Told worker {(_workerId ?? $"{Host}:{Port}")} to exit");
+                Debug.WriteLine($"Disposing worker {_workerId}");
                 IsAlive = false;
 
                 WaitAsyncTasks();
                 SendExit();
                 
-                // Display output if there were any issues (for local workers with processes)
-                if (Worker != null)
-                    DisplayWorkerOutput();
-                
-                // Clean up the worker process
-                if (Worker != null)
-                {
-                    try
-                    {
-                        if (!Worker.HasExited)
-                            Worker.Kill();
-                        
-                        Worker.OutputDataReceived -= OnWorkerOutputReceived;
-                        Worker.ErrorDataReceived -= OnWorkerErrorReceived;
-                        Worker.Dispose();
-                    }
-                    catch { }
-                }
-                
-                // Remove from active workers tracking (for local workers)
+                // Remove from active workers tracking
                 if (_workerId != null)
                 {
                     lock (_activeWorkers)

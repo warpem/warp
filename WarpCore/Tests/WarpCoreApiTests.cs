@@ -15,6 +15,7 @@ using Xunit;
 using Xunit.Abstractions;
 using Warp;
 using Warp.Workers;
+using Warp.Workers.WorkerController;
 using WarpCore.Core;
 
 namespace WarpCore.Tests
@@ -134,13 +135,40 @@ namespace WarpCore.Tests
         {
             try
             {
-                var worker = new WorkerWrapper(deviceId, silent: true, attachDebugger: false, mockMode: true);
-                _testWorkers.Add(worker);
+                // Set up event handler to capture registered worker
+                WorkerWrapper registeredWorker = null;
+                var workerRegistered = new TaskCompletionSource<WorkerWrapper>();
                 
-                // Give worker time to register
-                await Task.Delay(1000);
+                void OnWorkerRegistered(object sender, WorkerWrapper worker)
+                {
+                    if (worker.DeviceID == deviceId)
+                    {
+                        registeredWorker = worker;
+                        workerRegistered.TrySetResult(worker);
+                    }
+                }
                 
-                return worker;
+                WorkerWrapper.WorkerRegistered += OnWorkerRegistered;
+                
+                try
+                {
+                    // Spawn worker process
+                    bool spawned = await WorkerWrapper.SpawnLocalWorkerAsync(deviceId, silent: true, attachDebugger: false, mockMode: true);
+                    if (!spawned)
+                    {
+                        throw new Exception($"Failed to spawn worker for device {deviceId}");
+                    }
+                    
+                    // Wait for worker to register with controller (with timeout)
+                    var worker = await workerRegistered.Task.ConfigureAwait(false);
+                    _testWorkers.Add(worker);
+                    
+                    return worker;
+                }
+                finally
+                {
+                    WorkerWrapper.WorkerRegistered -= OnWorkerRegistered;
+                }
             }
             catch (Exception ex)
             {
@@ -292,7 +320,7 @@ namespace WarpCore.Tests
             var content = await response.Content.ReadAsStringAsync();
             _testOutputHelper.WriteLine(content);
             
-            var workers = JsonConvert.DeserializeObject<List<WorkerWrapper>>(content);
+            var workers = JsonConvert.DeserializeObject<List<WorkerInfo>>(content);
             
             Assert.NotNull(workers);
             Assert.True(workers.Count > 0, "At least one worker should be registered");
@@ -308,7 +336,7 @@ namespace WarpCore.Tests
             // Get worker list to find the worker ID
             var workersResponse = await _client.GetAsync("/api/workers");
             workersResponse.EnsureSuccessStatusCode();
-            var workers = JsonConvert.DeserializeObject<List<WorkerWrapper>>(
+            var workers = JsonConvert.DeserializeObject<List<WorkerInfo>>(
                 await workersResponse.Content.ReadAsStringAsync());
             
             if (workers.Count > 0)

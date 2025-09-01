@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Warp;
+using Warp.Workers.WorkerController;
 using WarpCore.Core;
 
 namespace WarpCore.Controllers
@@ -121,7 +123,19 @@ namespace WarpCore.Controllers
             try
             {
                 var workers = _workerPool.GetWorkers();
-                return Ok(workers);
+                var workerInfos = workers.Select(w => new WorkerInfo
+                {
+                    WorkerId = w.WorkerId,
+                    DeviceId = w.DeviceID,
+                    Host = w.Host ?? "localhost",
+                    Status = w.Status,
+                    LastHeartbeat = w.LastHeartbeat,
+                    RegisteredAt = w.ConnectedAt,
+                    CurrentTaskId = w.CurrentTask,
+                    FreeMemoryMB = 0 // WorkerWrapper doesn't track memory
+                }).ToList();
+                
+                return Ok(workerInfos);
             }
             catch (Exception ex)
             {

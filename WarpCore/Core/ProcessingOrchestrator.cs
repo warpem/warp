@@ -12,7 +12,7 @@ using WarpCore.Core.Processing;
 
 namespace WarpCore.Core
 {
-    public class ProcessingOrchestrator
+    public class ProcessingOrchestrator : IDisposable
     {
         private readonly ILogger<ProcessingOrchestrator> _logger;
         private readonly WorkerPool _workerPool;
@@ -322,6 +322,18 @@ namespace WarpCore.Core
         {
             // TODO: Implement processing rate calculation based on recent processing history
             return 0.0;
+        }
+
+        public void Dispose()
+        {
+            // Unsubscribe from events to prevent memory leaks and duplicate handlers
+            _workerPool.WorkerConnected -= OnWorkerConnected;
+            _workerPool.WorkerDisconnected -= OnWorkerDisconnected;
+            _fileDiscoverer.FileDiscovered -= OnFileDiscovered;
+            
+            // Cancel any ongoing processing
+            _processingCancellation?.Cancel();
+            _processingCancellation?.Dispose();
         }
     }
 }
