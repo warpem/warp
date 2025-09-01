@@ -10,12 +10,20 @@ using Xunit.Abstractions;
 
 namespace WarpCore.Tests
 {
+    /// <summary>
+    /// Test suite for the FileDiscoverer class, validating file detection, incubation,
+    /// event handling, and performance under various scenarios including high-volume file creation.
+    /// </summary>
     public class FileDiscovererTests : IDisposable
     {
         private readonly ITestOutputHelper _testOutputHelper;
         private readonly ILogger<FileDiscoverer> _logger;
         private readonly string _testDirectory;
 
+        /// <summary>
+        /// Initializes a new test instance with a temporary directory for test files.
+        /// </summary>
+        /// <param name="testOutputHelper">XUnit test output helper for logging</param>
         public FileDiscovererTests(ITestOutputHelper testOutputHelper)
         {
             _testOutputHelper = testOutputHelper;
@@ -26,6 +34,10 @@ namespace WarpCore.Tests
             Directory.CreateDirectory(_testDirectory);
         }
 
+        /// <summary>
+        /// Tests that FileDiscoverer can be successfully initialized without throwing exceptions.
+        /// Validates basic setup and configuration of file watching infrastructure.
+        /// </summary>
         [Fact]
         public async Task InitializeAsync_SetsUpFileWatching()
         {
@@ -37,6 +49,10 @@ namespace WarpCore.Tests
             Assert.True(true);
         }
 
+        /// <summary>
+        /// Tests that FileDiscovered event is properly fired when a new file is created.
+        /// Validates the event mechanism and correct file path reporting.
+        /// </summary>
         [Fact]
         public async Task FileDiscovered_EventFiredWhenFileCreated()
         {
@@ -61,6 +77,11 @@ namespace WarpCore.Tests
             Assert.Equal(testFile, discoveredPath);
         }
 
+        /// <summary>
+        /// Tests that the file incubation mechanism properly waits for files to reach stable size
+        /// before declaring them ready. Simulates a file being written in chunks and verifies
+        /// the event is not fired until the file stops growing.
+        /// </summary>
         [Fact]
         public async Task FileIncubation_WaitsForStableSize()
         {
@@ -89,6 +110,11 @@ namespace WarpCore.Tests
             Assert.True(eventFired);
         }
 
+        /// <summary>
+        /// Tests that existing files are discovered when FileDiscoverer is initialized
+        /// with recursive search enabled. Validates discovery of files that existed
+        /// before the discoverer was started.
+        /// </summary>
         [Fact]
         public async Task RescanAsync_DiscoverExistingFiles()
         {
@@ -107,6 +133,11 @@ namespace WarpCore.Tests
             Assert.True(eventFired);
         }
 
+        /// <summary>
+        /// Performance test that validates FileDiscoverer can handle high-volume file creation.
+        /// Creates 1000 files simultaneously and verifies all are discovered and reported correctly.
+        /// Tests the scalability and thread safety of the file discovery system.
+        /// </summary>
         [Fact]
         public async Task MultipleFiles_Handles1000Files()
         {
@@ -144,6 +175,10 @@ namespace WarpCore.Tests
             }
         }
 
+        /// <summary>
+        /// Cleans up the temporary test directory and all created files.
+        /// Implements IDisposable to ensure proper resource cleanup after each test.
+        /// </summary>
         public void Dispose()
         {
             if (Directory.Exists(_testDirectory))

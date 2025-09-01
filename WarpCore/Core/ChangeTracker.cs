@@ -10,6 +10,11 @@ using Warp;
 
 namespace WarpCore.Core
 {
+    /// <summary>
+    /// Tracks changes to processing state and maintains JSON export files for processed and failed items.
+    /// Provides timestamps for change detection and summary information for monitoring.
+    /// Used by clients to determine when processing results have been updated.
+    /// </summary>
     public class ChangeTracker
     {
         private readonly ILogger<ChangeTracker> _logger;
@@ -19,6 +24,10 @@ namespace WarpCore.Core
         private DateTime _lastModified = DateTime.UtcNow;
         private readonly object _timestampLock = new object();
 
+        /// <summary>
+        /// Gets the timestamp of the last recorded change to processing state.
+        /// Thread-safe property used by clients for change detection.
+        /// </summary>
         public DateTime LastModified
         {
             get
@@ -30,6 +39,12 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Initializes the change tracker with required dependencies.
+        /// </summary>
+        /// <param name="logger">Logger for recording change tracking operations</param>
+        /// <param name="startupOptions">Application startup configuration containing directory paths</param>
+        /// <param name="fileDiscoverer">File discoverer service (currently unused but available for future features)</param>
         public ChangeTracker(ILogger<ChangeTracker> logger, StartupOptions startupOptions, FileDiscoverer fileDiscoverer)
         {
             _logger = logger;
@@ -37,6 +52,11 @@ namespace WarpCore.Core
             _fileDiscoverer = fileDiscoverer;
         }
 
+        /// <summary>
+        /// Records that a change has occurred in the processing system by updating the last modified timestamp.
+        /// This is used by clients to detect when processing results have been updated.
+        /// </summary>
+        /// <returns>Task representing the change recording operation</returns>
         public Task RecordChangeAsync()
         {
             lock (_timestampLock)
@@ -48,6 +68,12 @@ namespace WarpCore.Core
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Updates JSON files containing processed and failed items for external consumption.
+        /// Creates processed_items.json and failed_items.json files in the processing directory.
+        /// Currently has placeholder implementation - movie data source needs to be connected.
+        /// </summary>
+        /// <returns>Task representing the JSON file update operation</returns>
         public async Task UpdateProcessedItemsAsync()
         {
             try
@@ -79,6 +105,11 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Gets a summary of processing results including counts of processed, failed, and queued movies.
+        /// Currently has placeholder implementation - movie data source needs to be connected.
+        /// </summary>
+        /// <returns>Processing summary with item counts and last modified timestamp</returns>
         public async Task<ProcessingSummary> GetSummaryAsync()
         {
             try
@@ -112,6 +143,14 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Writes a collection of movie items to a JSON file using atomic write operations.
+        /// Uses a temporary file and move operation to prevent partial writes.
+        /// </summary>
+        /// <typeparam name="T">Type of movie items to write</typeparam>
+        /// <param name="filePath">Destination path for the JSON file</param>
+        /// <param name="items">Collection of movie items to serialize</param>
+        /// <returns>Task representing the JSON write operation</returns>
         private async Task WriteItemsJsonAsync<T>(string filePath, IEnumerable<T> items) where T : Movie
         {
             try

@@ -6,18 +6,32 @@ using Warp;
 
 namespace WarpCore.Core.Processing
 {
+    /// <summary>
+    /// Handles analysis and application of processing settings changes.
+    /// Determines the impact of settings changes on existing movies and
+    /// coordinates updates to processing queues and task priorities.
+    /// </summary>
     public class SettingsChangeHandler
     {
         private readonly ILogger<SettingsChangeHandler> _logger;
 
+        /// <summary>
+        /// Initializes a new settings change handler.
+        /// </summary>
+        /// <param name="logger">Logger for recording settings change operations</param>
         public SettingsChangeHandler(ILogger<SettingsChangeHandler> logger)
         {
             _logger = logger;
         }
 
         /// <summary>
-        /// Analyze the impact of settings changes and trigger appropriate responses
+        /// Analyzes the differences between old and new processing settings to determine
+        /// what changes occurred and their potential impact on existing movies.
+        /// Compares processing options and enabled/disabled states for each processing step.
         /// </summary>
+        /// <param name="oldSettings">Previous processing settings</param>
+        /// <param name="newSettings">New processing settings to apply</param>
+        /// <returns>Impact analysis describing what changed and how it affects processing</returns>
         public SettingsChangeImpact AnalyzeSettingsChange(OptionsWarp oldSettings, OptionsWarp newSettings)
         {
             var impact = new SettingsChangeImpact();
@@ -63,8 +77,14 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Apply settings change to the processing queue
+        /// Applies the analyzed settings changes to the processing queue.
+        /// Refreshes all movie statuses based on new settings and logs the resulting
+        /// distribution of movies across different processing states.
         /// </summary>
+        /// <param name="queue">Processing queue to update</param>
+        /// <param name="oldSettings">Previous processing settings</param>
+        /// <param name="newSettings">New processing settings</param>
+        /// <param name="impact">Impact analysis from settings comparison</param>
         public void ApplySettingsChange(
             ProcessingQueue queue,
             OptionsWarp oldSettings,
@@ -93,14 +113,25 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Determine if settings change should trigger immediate redistribution
+        /// Determines if the settings change should trigger immediate work redistribution.
+        /// Returns true when processing steps are enabled or disabled, as this significantly
+        /// changes which movies need processing and their priority.
         /// </summary>
+        /// <param name="impact">Impact analysis from settings comparison</param>
+        /// <returns>True if immediate redistribution should be triggered, false otherwise</returns>
         public bool ShouldTriggerImmediateRedistribution(SettingsChangeImpact impact)
         {
             // Immediate redistribution if processing steps were toggled on/off
             return impact.CTFToggled || impact.MovementToggled || impact.PickingToggled;
         }
 
+        /// <summary>
+        /// Compares two processing options objects to determine if they are different.
+        /// Handles null cases and uses built-in equality comparison for non-null objects.
+        /// </summary>
+        /// <param name="oldOptions">Previous processing options</param>
+        /// <param name="newOptions">New processing options</param>
+        /// <returns>True if the options are different, false if they are the same</returns>
         private bool AreProcessingOptionsDifferent(object oldOptions, object newOptions)
         {
             // Handle null cases
@@ -112,19 +143,56 @@ namespace WarpCore.Core.Processing
         }
     }
 
+    /// <summary>
+    /// Contains the analysis results of processing settings changes.
+    /// Tracks what processing options changed and whether steps were enabled/disabled.
+    /// </summary>
     public class SettingsChangeImpact
     {
+        /// <summary>
+        /// Gets or sets a value indicating whether CTF processing options changed.
+        /// </summary>
         public bool CTFChanged { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether movement correction options changed.
+        /// </summary>
         public bool MovementChanged { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether particle picking options changed.
+        /// </summary>
         public bool PickingChanged { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether export options changed.
+        /// </summary>
         public bool ExportChanged { get; set; }
         
+        /// <summary>
+        /// Gets or sets a value indicating whether CTF processing was enabled or disabled.
+        /// </summary>
         public bool CTFToggled { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether movement correction was enabled or disabled.
+        /// </summary>
         public bool MovementToggled { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether particle picking was enabled or disabled.
+        /// </summary>
         public bool PickingToggled { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether any changes were detected.
+        /// </summary>
         public bool HasAnyChanges { get; set; }
 
+        /// <summary>
+        /// Returns a string representation of the settings change impact for debugging.
+        /// </summary>
+        /// <returns>Formatted string showing all change indicators</returns>
         public override string ToString()
         {
             return $"SettingsChangeImpact(CTF:{CTFChanged}/{CTFToggled}, " +

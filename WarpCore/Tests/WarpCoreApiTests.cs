@@ -20,15 +20,28 @@ using WarpCore.Core;
 
 namespace WarpCore.Tests
 {
+    /// <summary>
+    /// Custom web application factory for creating test instances of the WarpCore API.
+    /// Configures the test server with isolated startup options and test-specific services.
+    /// </summary>
     public class TestWebApplicationFactory : WebApplicationFactory<Startup>
     {
         private readonly StartupOptions _startupOptions;
 
+        /// <summary>
+        /// Initializes a new test web application factory with the specified startup options.
+        /// </summary>
+        /// <param name="startupOptions">Configuration options for the test application instance</param>
         public TestWebApplicationFactory(StartupOptions startupOptions)
         {
             _startupOptions = startupOptions;
         }
 
+        /// <summary>
+        /// Creates and configures the host builder for the test application.
+        /// Uses TestServer instead of real network connections for isolated testing.
+        /// </summary>
+        /// <returns>Configured host builder for the test environment</returns>
         protected override IHostBuilder CreateHostBuilder()
         {
             return Host.CreateDefaultBuilder()
@@ -44,6 +57,11 @@ namespace WarpCore.Tests
         }
     }
 
+    /// <summary>
+    /// Integration test suite for the WarpCore REST API endpoints.
+    /// Tests complete API functionality including settings management, processing control,
+    /// worker operations, and data export endpoints in an isolated test environment.
+    /// </summary>
     public class WarpCoreApiTests : IAsyncLifetime
     {
         private readonly ITestOutputHelper _testOutputHelper;
@@ -54,11 +72,20 @@ namespace WarpCore.Tests
         private readonly List<WorkerWrapper> _testWorkers = new List<WorkerWrapper>();
         private StartupOptions _testStartupOptions;
 
+        /// <summary>
+        /// Initializes a new test instance with the specified test output helper.
+        /// </summary>
+        /// <param name="testOutputHelper">XUnit test output helper for logging test information</param>
         public WarpCoreApiTests(ITestOutputHelper testOutputHelper)
         {
             _testOutputHelper = testOutputHelper;
         }
 
+        /// <summary>
+        /// Sets up the test environment including temporary directories, startup options,
+        /// and the test web application factory. Called before each test execution.
+        /// </summary>
+        /// <returns>Task representing the async initialization</returns>
         public async Task InitializeAsync()
         {
             // Create temporary directories
@@ -82,6 +109,12 @@ namespace WarpCore.Tests
             _client = _factory.CreateClient();
         }
 
+        /// <summary>
+        /// Cleans up the test environment including workers, HTTP clients, factories,
+        /// and temporary directories. Called after each test execution to ensure
+        /// proper resource cleanup and test isolation.
+        /// </summary>
+        /// <returns>Task representing the async cleanup</returns>
         public async Task DisposeAsync()
         {
             // Dispose all test workers

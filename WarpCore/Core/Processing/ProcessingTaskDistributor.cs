@@ -10,26 +10,85 @@ using TaskStatus = Warp.Workers.WorkerController.TaskStatus;
 
 namespace WarpCore.Core.Processing
 {
+    /// <summary>
+    /// Represents a processing task assigned to a worker. Contains all information
+    /// needed to track and manage the execution of movie processing operations.
+    /// </summary>
     public class ProcessingTask
     {
+        /// <summary>
+        /// Gets or sets the unique identifier for this processing task.
+        /// </summary>
         public string TaskId { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the movie being processed in this task.
+        /// </summary>
         public Movie Movie { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the unique identifier of the worker assigned to this task.
+        /// </summary>
         public string WorkerId { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the worker wrapper instance handling this task.
+        /// </summary>
         public WorkerWrapper Worker { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the timestamp when task execution began.
+        /// </summary>
         public DateTime StartedAt { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the current processing step being executed.
+        /// </summary>
         public ProcessingStep CurrentStep { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the current status of the task execution.
+        /// </summary>
         public TaskStatus Status { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the error message if the task failed.
+        /// </summary>
         public string ErrorMessage { get; set; }
     }
 
+    /// <summary>
+    /// Enumeration of processing steps that can be performed on movies.
+    /// Represents the different phases of electron microscopy data processing.
+    /// </summary>
     public enum ProcessingStep
     {
+        /// <summary>
+        /// Motion correction processing step.
+        /// </summary>
         Motion,
+        
+        /// <summary>
+        /// Contrast Transfer Function (CTF) estimation step.
+        /// </summary>
         CTF,
+        
+        /// <summary>
+        /// Particle picking step.
+        /// </summary>
         Picking,
+        
+        /// <summary>
+        /// Movie export step.
+        /// </summary>
         Export
     }
 
+    /// <summary>
+    /// Manages the distribution and lifecycle of processing tasks. Handles task assignment
+    /// to workers, progress tracking, completion/failure handling, and task reassignment
+    /// when workers disconnect or tasks timeout.
+    /// </summary>
     public class ProcessingTaskDistributor
     {
         private readonly ILogger<ProcessingTaskDistributor> _logger;
@@ -37,6 +96,11 @@ namespace WarpCore.Core.Processing
         private readonly object _tasksLock = new object();
         private readonly WorkerPool _workerPool;
 
+        /// <summary>
+        /// Initializes a new processing task distributor.
+        /// </summary>
+        /// <param name="logger">Logger for recording task distribution operations</param>
+        /// <param name="workerPool">Worker pool for task assignment and management</param>
         public ProcessingTaskDistributor(ILogger<ProcessingTaskDistributor> logger, WorkerPool workerPool)
         {
             _logger = logger;
@@ -44,8 +108,13 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Assign movies to available workers (thread-safe via WorkerPool)
+        /// Assigns movies to available workers using thread-safe worker pool operations.
+        /// Creates processing tasks for each movie and tracks them until completion.
+        /// Stops assignment if no more workers are available.
         /// </summary>
+        /// <param name="movies">List of movies to assign to workers</param>
+        /// <param name="currentSettings">Current processing settings to determine first processing step</param>
+        /// <returns>List of processing tasks that were successfully assigned to workers</returns>
         public async Task<List<ProcessingTask>> AssignTasksAsync(
             List<Movie> movies, 
             OptionsWarp currentSettings)
@@ -80,8 +149,10 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Mark a task as completed successfully
+        /// Marks a task as completed successfully. Updates the movie's processing status,
+        /// saves metadata, removes the task from active tracking, and returns the worker to the pool.
         /// </summary>
+        /// <param name="taskId">Unique identifier of the task to complete</param>
         public void CompleteTask(string taskId)
         {
             lock (_tasksLock)
@@ -104,8 +175,12 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Mark a task as failed
+        /// Marks a task as failed with an error message. Updates the movie to be excluded
+        /// from processing, saves metadata, removes the task from active tracking,
+        /// and returns the worker to the pool.
         /// </summary>
+        /// <param name="taskId">Unique identifier of the task that failed</param>
+        /// <param name="errorMessage">Description of the error that caused the failure</param>
         public void FailTask(string taskId, string errorMessage)
         {
             lock (_tasksLock)
@@ -130,8 +205,11 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Update task progress
+        /// Updates the progress of a running task by recording the current processing step.
+        /// Used for monitoring and debugging task execution.
         /// </summary>
+        /// <param name="taskId">Unique identifier of the task to update</param>
+        /// <param name="currentStep">Current processing step being executed</param>
         public void UpdateTaskProgress(string taskId, ProcessingStep currentStep)
         {
             lock (_tasksLock)
@@ -146,8 +224,10 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Get all active tasks
+        /// Gets a snapshot of all currently active tasks.
+        /// Thread-safe operation that returns a copy of the active tasks list.
         /// </summary>
+        /// <returns>List of all active processing tasks</returns>
         public List<ProcessingTask> GetActiveTasks()
         {
             lock (_tasksLock)
@@ -157,8 +237,11 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Get tasks assigned to a specific worker
+        /// Gets all active tasks assigned to a specific worker.
+        /// Used for monitoring worker load and handling worker disconnections.
         /// </summary>
+        /// <param name="workerId">Unique identifier of the worker</param>
+        /// <returns>List of tasks assigned to the specified worker</returns>
         public List<ProcessingTask> GetTasksForWorker(string workerId)
         {
             lock (_tasksLock)
@@ -170,8 +253,11 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Reassign tasks from a disconnected worker
+        /// Reassigns all tasks from a disconnected worker back to the processing queue.
+        /// Marks affected movies as outdated so they can be picked up by other workers.
         /// </summary>
+        /// <param name="disconnectedWorkerId">Unique identifier of the disconnected worker</param>
+        /// <returns>List of movies that need to be reprocessed</returns>
         public List<Movie> ReassignTasksFromWorker(string disconnectedWorkerId)
         {
             var moviesToReprocess = new List<Movie>();
@@ -198,8 +284,12 @@ namespace WarpCore.Core.Processing
         }
 
         /// <summary>
-        /// Clean up stale tasks (timeout handling)
+        /// Cleans up tasks that have been running longer than the specified timeout.
+        /// Marks affected movies as outdated for reprocessing and removes stale tasks
+        /// from active tracking. Used to handle hung or extremely slow processing.
         /// </summary>
+        /// <param name="timeout">Maximum allowed task execution time</param>
+        /// <returns>List of movies from stale tasks that need reprocessing</returns>
         public List<Movie> CleanupStaleTasks(TimeSpan timeout)
         {
             var staleMovies = new List<Movie>();
@@ -226,6 +316,14 @@ namespace WarpCore.Core.Processing
             return staleMovies;
         }
 
+        /// <summary>
+        /// Determines the first processing step that needs to be executed for a movie
+        /// based on current settings and what processing has already been completed.
+        /// Follows the processing pipeline order: Motion -> CTF -> Picking -> Export.
+        /// </summary>
+        /// <param name="movie">Movie to determine processing step for</param>
+        /// <param name="currentSettings">Current processing settings</param>
+        /// <returns>The first processing step that needs to be executed</returns>
         private ProcessingStep DetermineFirstStep(Movie movie, OptionsWarp currentSettings)
         {
             // Determine which processing step to start with based on current settings

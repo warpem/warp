@@ -11,6 +11,12 @@ using Microsoft.Extensions.Logging;
 
 namespace WarpCore.Core
 {
+    /// <summary>
+    /// Discovers and monitors files in a specified directory, ensuring they are stable
+    /// before notifying listeners. Uses an incubation system to prevent processing
+    /// files that are still being written. Supports file system watching for real-time
+    /// discovery and periodic scanning for robustness.
+    /// </summary>
     public class FileDiscoverer : IDisposable
     {
         private readonly ILogger<FileDiscoverer> _logger;
@@ -36,17 +42,46 @@ namespace WarpCore.Core
         private int _exceptionsLogged = 0;
         private const int MaxExceptionsToLog = 100;
         
+        /// <summary>
+        /// Event raised when a stable file has been discovered and is ready for processing.
+        /// </summary>
         public event EventHandler<FileDiscoveredEventArgs> FileDiscovered;
+        
+        /// <summary>
+        /// Event raised when file incubation begins (when files start being monitored for stability).
+        /// </summary>
         public event EventHandler IncubationStarted;
+        
+        /// <summary>
+        /// Event raised when file incubation ends (when all files have been determined stable or removed).
+        /// </summary>
         public event EventHandler IncubationEnded;
+        
+        /// <summary>
+        /// Event raised when the file system state changes (new files detected).
+        /// </summary>
         public event EventHandler FilesChanged;
 
+        /// <summary>
+        /// Initializes a new file discoverer with default incubation period of 1 second.
+        /// </summary>
+        /// <param name="logger">Logger for recording file discovery operations</param>
         public FileDiscoverer(ILogger<FileDiscoverer> logger)
         {
             _logger = logger;
             _incubationMilliseconds = 1000;
         }
 
+        /// <summary>
+        /// Initializes the file discoverer with the specified directory, pattern, and search options.
+        /// Sets up file system watching and starts the discovery and incubation threads.
+        /// </summary>
+        /// <param name="dataDirectory">Directory to monitor for files</param>
+        /// <param name="filePattern">File pattern to match (e.g., "*.tiff")</param>
+        /// <param name="recursiveSearch">Whether to search subdirectories recursively</param>
+        /// <returns>Task representing the initialization operation</returns>
+        /// <exception cref="ArgumentNullException">Thrown when required parameters are null</exception>
+        /// <exception cref="DirectoryNotFoundException">Thrown when the data directory doesn't exist</exception>
         public Task InitializeAsync(string dataDirectory, string filePattern, bool recursiveSearch = false)
         {
             _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
@@ -64,6 +99,13 @@ namespace WarpCore.Core
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Changes the file discovery configuration. Stops current operations and reinitializes
+        /// with the new settings. Used for dynamic reconfiguration during runtime.
+        /// </summary>
+        /// <param name="dataDirectory">New directory to monitor</param>
+        /// <param name="filePattern">New file pattern to match</param>
+        /// <param name="recursiveSearch">Whether to search subdirectories recursively</param>
         public void ChangeConfiguration(string dataDirectory, string filePattern, bool recursiveSearch = false)
         {
             StopThreads();
@@ -80,6 +122,10 @@ namespace WarpCore.Core
             StartDiscoveryThreads();
         }
 
+        /// <summary>
+        /// Sets up the file system watcher for real-time file detection.
+        /// Configures the watcher to monitor file creation, changes, and renames.
+        /// </summary>
         private void SetupFileWatcher()
         {
             try
@@ -105,11 +151,22 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Event handler for file system events. Sets a flag to trigger
+        /// immediate discovery scanning.
+        /// </summary>
+        /// <param name="sender">Event sender (FileSystemWatcher)</param>
+        /// <param name="e">File system event arguments</param>
         private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
         {
             _fileWatcherRaised = true;
         }
 
+        /// <summary>
+        /// Starts the background threads for file discovery and incubation processing.
+        /// The discovery thread finds new files, while the incubation thread monitors
+        /// them for stability before declaring them ready.
+        /// </summary>
         private void StartDiscoveryThreads()
         {
             _shouldAbort = false;
@@ -138,6 +195,13 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Background thread worker that continuously scans the data directory for new files.
+        /// Enumerates files matching the pattern and adds unknown files to the processing queue.
+        /// Runs until termination is requested.
+        /// </summary>
+        /// <param name="sender">Event sender (BackgroundWorker)</param>
+        /// <param name="e">Background worker event arguments</param>
         private void DiscoveryThreadWork(object sender, DoWorkEventArgs e)
         {
             while (!_shouldAbort)
@@ -175,6 +239,13 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Background thread worker that processes files through the incubation system.
+        /// Monitors newly discovered files and files being incubated, determining when
+        /// they are stable and ready for processing. Runs until termination is requested.
+        /// </summary>
+        /// <param name="sender">Event sender (BackgroundWorker)</param>
+        /// <param name="e">Background worker event arguments</param>
         private void IncubationThreadWork(object sender, DoWorkEventArgs e)
         {
             var eventTimer = new Stopwatch();
@@ -316,6 +387,12 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Tests whether a file can be opened for reading, which indicates it's not
+        /// currently being written to by another process.
+        /// </summary>
+        /// <param name="filePath">Path to the file to test</param>
+        /// <returns>True if the file can be read, false if it's locked or inaccessible</returns>
         private bool CanReadFile(string filePath)
         {
             try
@@ -387,6 +464,11 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Gets a value indicating whether any files are currently being incubated
+        /// (monitored for stability).
+        /// </summary>
+        /// <returns>True if files are being incubated, false otherwise</returns>
         public bool IsIncubating()
         {
             lock (_incubatorLock)
@@ -395,6 +477,11 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Gets an array of all files that have completed incubation and are ready for processing.
+        /// Thread-safe operation that returns a snapshot of the ripe files list.
+        /// </summary>
+        /// <returns>Array of file paths that are ready for processing</returns>
         public string[] GetRipeFiles()
         {
             lock (_ripeFilesLock)
@@ -403,6 +490,11 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Triggers an immediate rescan of the data directory for new files.
+        /// Useful for forcing discovery without waiting for the next scheduled scan.
+        /// </summary>
+        /// <returns>Task representing the rescan trigger operation</returns>
         public Task RescanAsync()
         {
             _logger.LogInformation("Rescanning for files");
@@ -410,6 +502,10 @@ namespace WarpCore.Core
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Disposes the file discoverer, stopping all background threads and cleaning up resources.
+        /// Ensures proper shutdown of file system monitoring and thread operations.
+        /// </summary>
         public void Dispose()
         {
             _shouldAbort = true;

@@ -12,6 +12,12 @@ using WarpCore.Core.Processing;
 
 namespace WarpCore.Core
 {
+    /// <summary>
+    /// Central orchestrator that coordinates all aspects of distributed image processing.
+    /// Manages the main processing loop, coordinates between file discovery, worker pools,
+    /// and task distribution, handles settings changes, and provides processing statistics.
+    /// This is the core component that ties the entire system together.
+    /// </summary>
     public class ProcessingOrchestrator : IDisposable
     {
         private readonly ILogger<ProcessingOrchestrator> _logger;
@@ -30,8 +36,23 @@ namespace WarpCore.Core
         private readonly ProcessingTaskDistributor _taskDistributor;
         private readonly SettingsChangeHandler _settingsChangeHandler;
 
+        /// <summary>
+        /// Gets a value indicating whether the processing system is currently active.
+        /// </summary>
         public bool IsProcessing { get; private set; }
 
+        /// <summary>
+        /// Initializes the processing orchestrator with all required dependencies.
+        /// Sets up event subscriptions for worker management and file discovery.
+        /// </summary>
+        /// <param name="logger">Logger for recording orchestration operations</param>
+        /// <param name="workerPool">Pool of workers for distributed processing</param>
+        /// <param name="fileDiscoverer">Service for discovering new files to process</param>
+        /// <param name="changeTracker">Service for tracking processing state changes</param>
+        /// <param name="startupOptions">Application startup configuration</param>
+        /// <param name="processingQueue">Queue manager for discovered movies</param>
+        /// <param name="taskDistributor">Task assignment and distribution logic</param>
+        /// <param name="settingsChangeHandler">Handler for processing settings changes</param>
         public ProcessingOrchestrator(
             ILogger<ProcessingOrchestrator> logger,
             WorkerPool workerPool, 
@@ -63,6 +84,12 @@ namespace WarpCore.Core
             _fileDiscoverer.FileDiscovered += OnFileDiscovered;
         }
 
+        /// <summary>
+        /// Starts the processing orchestrator. Initializes file discovery for the data directory
+        /// and begins the main processing loop that continuously processes discovered files.
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancelling the startup operation</param>
+        /// <returns>Task representing the asynchronous startup operation</returns>
         public async Task StartProcessingAsync(CancellationToken cancellationToken = default)
         {
             lock (_processingLock)
@@ -83,6 +110,11 @@ namespace WarpCore.Core
             _processingTask = ProcessingLoopAsync(_processingCancellation.Token);
         }
 
+        /// <summary>
+        /// Pauses the processing orchestrator. Stops the main processing loop and waits
+        /// for any currently running tasks to complete gracefully.
+        /// </summary>
+        /// <returns>Task representing the asynchronous pause operation</returns>
         public async Task PauseProcessingAsync()
         {
             lock (_processingLock)
@@ -109,6 +141,12 @@ namespace WarpCore.Core
             _logger.LogInformation("Processing orchestrator paused");
         }
 
+        /// <summary>
+        /// Updates the processing settings and triggers re-evaluation of all movies.
+        /// Analyzes the impact of settings changes and may trigger immediate work redistribution
+        /// if processing steps were enabled or disabled.
+        /// </summary>
+        /// <param name="newSettings">New processing settings to apply</param>
         public void UpdateSettings(OptionsWarp newSettings)
         {
             var oldSettings = _currentSettings;
@@ -127,11 +165,20 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Gets the current processing settings being used by the orchestrator.
+        /// </summary>
+        /// <returns>Current processing settings configuration</returns>
         public OptionsWarp GetCurrentSettings()
         {
             return _currentSettings;
         }
 
+        /// <summary>
+        /// Calculates and returns comprehensive processing statistics including item counts,
+        /// worker status, and processing rates for monitoring and display purposes.
+        /// </summary>
+        /// <returns>Statistics object containing processing metrics and status information</returns>
         public ProcessingStatistics GetStatistics()
         {
             var workers = _workerPool.GetWorkers();
@@ -157,6 +204,13 @@ namespace WarpCore.Core
             };
         }
 
+        /// <summary>
+        /// Main processing loop that continuously monitors for work and coordinates task execution.
+        /// Handles stale task cleanup, assigns work to available workers, and manages error recovery.
+        /// Runs until cancellation is requested.
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancelling the processing loop</param>
+        /// <returns>Task representing the processing loop execution</returns>
         private async Task ProcessingLoopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Starting main processing loop");
@@ -191,6 +245,13 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Processes all pending items that are ready for processing.
+        /// Checks for available workers, gets the next batch of movies from the queue,
+        /// assigns tasks to workers, and executes them in parallel.
+        /// </summary>
+        /// <param name="cancellationToken">Token for cancelling the processing operation</param>
+        /// <returns>Task representing the pending items processing operation</returns>
         private async Task ProcessPendingItemsAsync(CancellationToken cancellationToken)
         {
             // Count available workers
@@ -222,6 +283,13 @@ namespace WarpCore.Core
             await _changeTracker.UpdateProcessedItemsAsync();
         }
 
+        /// <summary>
+        /// Processes a single task by executing it on the assigned worker.
+        /// Handles task completion and failure scenarios, updating task status accordingly.
+        /// </summary>
+        /// <param name="task">Processing task to execute</param>
+        /// <param name="cancellationToken">Token for cancelling the task execution</param>
+        /// <returns>Task representing the processing operation</returns>
         private async Task ProcessTaskAsync(ProcessingTask task, CancellationToken cancellationToken)
         {
             try
@@ -250,12 +318,24 @@ namespace WarpCore.Core
         }
 
 
+        /// <summary>
+        /// Event handler for when a new worker connects to the system.
+        /// Triggers work redistribution to take advantage of the new capacity.
+        /// </summary>
+        /// <param name="sender">Event sender (WorkerPool)</param>
+        /// <param name="e">Event arguments containing worker information</param>
         private void OnWorkerConnected(object sender, WorkerEventArgs e)
         {
             _logger.LogInformation($"Worker {e.Worker.WorkerId} connected, redistributing work");
             _ = Task.Run(() => RedistributeWorkAsync());
         }
 
+        /// <summary>
+        /// Event handler for when a worker disconnects from the system.
+        /// Reassigns any tasks that were running on the disconnected worker back to the queue.
+        /// </summary>
+        /// <param name="sender">Event sender (WorkerPool)</param>
+        /// <param name="e">Event arguments containing worker information</param>
         private void OnWorkerDisconnected(object sender, WorkerEventArgs e)
         {
             _logger.LogWarning($"Worker {e.Worker.WorkerId} disconnected, reassigning tasks");
@@ -268,6 +348,12 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Event handler for when the file discoverer finds a new movie file.
+        /// Creates a Movie object, loads any existing metadata, and adds it to the processing queue.
+        /// </summary>
+        /// <param name="sender">Event sender (FileDiscoverer)</param>
+        /// <param name="e">Event arguments containing file discovery information</param>
         private void OnFileDiscovered(object sender, FileDiscoveredEventArgs e)
         {
             try
@@ -306,6 +392,14 @@ namespace WarpCore.Core
             }
         }
 
+        /// <summary>
+        /// Redistributes work among available workers. Currently, the queue-based approach
+        /// handles redistribution automatically, so this method serves as a placeholder
+        /// for future more sophisticated redistribution logic.
+        /// </summary>
+        /// <param name="oldSettings">Previous settings (optional)</param>
+        /// <param name="newSettings">New settings (optional)</param>
+        /// <returns>Task representing the redistribution operation</returns>
         private async Task RedistributeWorkAsync(OptionsWarp oldSettings = null, OptionsWarp newSettings = null)
         {
             if (!IsProcessing)
@@ -318,12 +412,21 @@ namespace WarpCore.Core
             await Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Calculates the current processing rate (items per time unit).
+        /// Currently returns 0.0 as a placeholder - implementation is pending.
+        /// </summary>
+        /// <returns>Processing rate in items per unit time</returns>
         private double CalculateProcessingRate()
         {
             // TODO: Implement processing rate calculation based on recent processing history
             return 0.0;
         }
 
+        /// <summary>
+        /// Disposes the orchestrator, cleaning up event subscriptions and cancelling
+        /// any ongoing processing operations to prevent resource leaks.
+        /// </summary>
         public void Dispose()
         {
             // Unsubscribe from events to prevent memory leaks and duplicate handlers
