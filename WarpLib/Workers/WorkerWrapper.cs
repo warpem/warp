@@ -30,6 +30,13 @@ namespace Warp.Workers
         public string Host { get; private set; }
         
         private string _workerId;
+        
+        // WorkerInfo fields integrated into WorkerWrapper
+        public string WorkerId => _workerId;
+        public WorkerStatus Status { get; set; } = WorkerStatus.Idle;
+        public DateTime ConnectedAt { get; set; }
+        public DateTime LastHeartbeat { get; set; }
+        public string CurrentTask { get; set; }
         private readonly List<string> _workerOutput = new List<string>();
         private readonly List<string> _workerErrors = new List<string>();
         private readonly object _outputLock = new object();
@@ -43,8 +50,8 @@ namespace Warp.Workers
         public event EventHandler<EventArgs> WorkerDied;
         
         // Static events for pool integration
-        public static event EventHandler<WorkerInfo> WorkerRegistered;
-        public static event EventHandler<WorkerInfo> WorkerDisconnected;
+        public static event EventHandler<WorkerWrapper> WorkerRegistered;
+        public static event EventHandler<WorkerWrapper> WorkerDisconnected;
 
         // Create new worker using controller architecture
         public WorkerWrapper(int deviceID, bool silent = false, bool attachDebugger = false, bool mockMode = false)
@@ -62,6 +69,7 @@ namespace Warp.Workers
             lock (_activeWorkers)
             {
                 _activeWorkers[_workerId] = this;
+                Console.WriteLine($"WorkerWrapper tracking worker {_workerId} for device {deviceID}");
             }
 
             StartHeartbeat();
@@ -114,12 +122,12 @@ namespace Warp.Workers
         }
         
         // Static methods for pool integration
-        public static List<WorkerInfo> GetAllWorkers()
+        public static List<WorkerWrapper> GetAllWorkers()
         {
-            if (_sharedController == null) return new List<WorkerInfo>();
-            
-            var controllerService = _sharedController.GetService();
-            return controllerService.GetActiveWorkers().ToList();
+            lock (_activeWorkers)
+            {
+                return _activeWorkers.Values.ToList();
+            }
         }
         
         public static int GetControllerPort()
@@ -129,23 +137,45 @@ namespace Warp.Workers
         
         private static void OnSharedControllerWorkerRegistered(object sender, WorkerInfo worker)
         {
-            // Fire static event for pool integration
-            WorkerRegistered?.Invoke(null, worker);
-        }
-        
-        private static void OnSharedControllerWorkerDisconnected(object sender, WorkerInfo worker)
-        {
+            // For now, only fire events for workers that have WorkerWrapper instances
+            // Remote workers connecting directly to controller won't have WorkerWrapper instances
             lock (_activeWorkers)
             {
                 if (_activeWorkers.TryGetValue(worker.WorkerId, out var workerWrapper))
                 {
-                    workerWrapper.ReportDeath();
+                    // Update the status from controller
+                    workerWrapper.Status = WorkerStatus.Idle;
+                    workerWrapper.ConnectedAt = DateTime.UtcNow;
+                    workerWrapper.LastHeartbeat = DateTime.UtcNow;
+                    
+                    Console.WriteLine($"FIRING EVENT, subscribers: {WorkerRegistered?.GetInvocationList().Length}");
+                    
+                    // Fire static event for pool integration
+                    WorkerRegistered?.Invoke(null, workerWrapper);
+                }
+                else
+                    Console.WriteLine($"WorkerWrapper ERROR: Worker {worker.WorkerId} registered but no WorkerWrapper instance found");
+            }
+        }
+        
+        private static void OnSharedControllerWorkerDisconnected(object sender, WorkerInfo worker)
+        {
+            WorkerWrapper disconnectedWorker = null;
+            lock (_activeWorkers)
+            {
+                if (_activeWorkers.TryGetValue(worker.WorkerId, out disconnectedWorker))
+                {
+                    disconnectedWorker.Status = WorkerStatus.Offline;
+                    disconnectedWorker.ReportDeath();
                     _activeWorkers.Remove(worker.WorkerId);
                 }
             }
             
-            // Fire static event for pool integration
-            WorkerDisconnected?.Invoke(null, worker);
+            // Fire static event for pool integration only if we have a WorkerWrapper
+            if (disconnectedWorker != null)
+            {
+                WorkerDisconnected?.Invoke(null, disconnectedWorker);
+            }
         }
         
         private async Task<string> SpawnWorkerProcess(int deviceID, bool silent, bool attachDebugger, bool mockMode = false)

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using WarpCore.Core;
+using WarpCore.Core.Processing;
 
 namespace WarpCore
 {
@@ -31,6 +32,11 @@ namespace WarpCore
             services.AddSingleton<WorkerPool>();
             services.AddSingleton<ChangeTracker>();
             services.AddSingleton<FileDiscoverer>();
+            
+            // Register processing components
+            services.AddSingleton<ProcessingQueue>();
+            services.AddSingleton<ProcessingTaskDistributor>();
+            services.AddSingleton<SettingsChangeHandler>();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

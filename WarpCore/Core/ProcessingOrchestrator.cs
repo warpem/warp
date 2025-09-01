@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Warp;
 using Warp.Workers;
+using Warp.Workers.WorkerController;
+using WarpCore.Core.Processing;
 
 namespace WarpCore.Core
 {
@@ -23,8 +25,10 @@ namespace WarpCore.Core
         private Task _processingTask;
         private readonly object _processingLock = new object();
 
-        private List<Movie> _discoveredMovies = new List<Movie>();
-        private readonly object _moviesLock = new object();
+        // Processing components
+        private readonly ProcessingQueue _processingQueue;
+        private readonly ProcessingTaskDistributor _taskDistributor;
+        private readonly SettingsChangeHandler _settingsChangeHandler;
 
         public bool IsProcessing { get; private set; }
 
@@ -33,13 +37,21 @@ namespace WarpCore.Core
             WorkerPool workerPool, 
             FileDiscoverer fileDiscoverer,
             ChangeTracker changeTracker,
-            StartupOptions startupOptions)
+            StartupOptions startupOptions,
+            ProcessingQueue processingQueue,
+            ProcessingTaskDistributor taskDistributor,
+            SettingsChangeHandler settingsChangeHandler)
         {
             _logger = logger;
             _workerPool = workerPool;
             _fileDiscoverer = fileDiscoverer;
             _changeTracker = changeTracker;
             _startupOptions = startupOptions;
+            
+            // Use DI-provided processing components
+            _processingQueue = processingQueue;
+            _taskDistributor = taskDistributor;
+            _settingsChangeHandler = settingsChangeHandler;
 
             _currentSettings = new OptionsWarp();
             
@@ -102,10 +114,17 @@ namespace WarpCore.Core
             var oldSettings = _currentSettings;
             _currentSettings = newSettings;
             
-            _logger.LogInformation("Settings updated, triggering redistribution");
+            _logger.LogInformation("Settings updated, analyzing impact");
             
-            // Settings change triggers redistribution of work
-            _ = Task.Run(() => RedistributeWorkAsync(oldSettings, newSettings));
+            // Analyze and apply settings changes
+            var impact = _settingsChangeHandler.AnalyzeSettingsChange(oldSettings, newSettings);
+            _settingsChangeHandler.ApplySettingsChange(_processingQueue, oldSettings, newSettings, impact);
+            
+            // Trigger immediate redistribution if needed
+            if (_settingsChangeHandler.ShouldTriggerImmediateRedistribution(impact))
+            {
+                _ = Task.Run(() => RedistributeWorkAsync(oldSettings, newSettings));
+            }
         }
 
         public OptionsWarp GetCurrentSettings()
@@ -116,80 +135,85 @@ namespace WarpCore.Core
         public ProcessingStatistics GetStatistics()
         {
             var workers = _workerPool.GetWorkers();
+            var allMovies = _processingQueue.GetAllMovies();
             
-            lock (_moviesLock)
+            var processedCount = allMovies.Count(m => _currentSettings.GetMovieProcessingStatus(m, false) == Warp.ProcessingStatus.Processed);
+            var failedCount = allMovies.Count(m => _currentSettings.GetMovieProcessingStatus(m, false) == Warp.ProcessingStatus.LeaveOut);
+            var queuedCount = allMovies.Count(m => 
             {
-                var processedCount = _discoveredMovies.Count(m => m.ProcessingStatus == ProcessingStatus.Processed);
-                var failedCount = _discoveredMovies.Count(m => m.ProcessingStatus == ProcessingStatus.LeaveOut);
-                var queuedCount = _discoveredMovies.Count(m => 
-                    m.ProcessingStatus == ProcessingStatus.Unprocessed || 
-                    m.ProcessingStatus == ProcessingStatus.Outdated);
+                var status = _currentSettings.GetMovieProcessingStatus(m, false);
+                return status == Warp.ProcessingStatus.Unprocessed || status == Warp.ProcessingStatus.Outdated;
+            });
 
-                return new ProcessingStatistics
-                {
-                    TotalItems = _discoveredMovies.Count,
-                    ProcessedItems = processedCount,
-                    FailedItems = failedCount,
-                    QueuedItems = queuedCount,
-                    ActiveWorkers = workers.Count(w => w.Status == "Active"),
-                    ProcessingRate = CalculateProcessingRate(),
-                    Status = IsProcessing ? "Running" : "Paused"
-                };
-            }
+            return new ProcessingStatistics
+            {
+                TotalItems = allMovies.Count,
+                ProcessedItems = processedCount,
+                FailedItems = failedCount,
+                QueuedItems = queuedCount,
+                ActiveWorkers = workers.Count(w => w.Status == WorkerStatus.Idle), // Available workers
+                ProcessingRate = CalculateProcessingRate(),
+                Status = IsProcessing ? "Running" : "Paused"
+            };
         }
 
         private async Task ProcessingLoopAsync(CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Starting main processing loop");
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    // File discovery happens via events, no need to poll
+                    // Clean up any stale tasks (timeout after 30 minutes)
+                    var staleMovies = _taskDistributor.CleanupStaleTasks(TimeSpan.FromMinutes(30));
+                    if (staleMovies.Any())
+                    {
+                        _logger.LogWarning($"Found {staleMovies.Count} stale tasks, movies will be reprocessed");
+                    }
 
                     // Process items that need processing
                     await ProcessPendingItemsAsync(cancellationToken);
 
                     // Wait before next iteration
-                    await Task.Delay(5000, cancellationToken);
+                    await Task.Delay(2000, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
+                    _logger.LogInformation("Processing loop cancelled");
                     break;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error in processing loop");
-                    await Task.Delay(10000, cancellationToken);
+                    await Task.Delay(5000, cancellationToken);
                 }
             }
         }
 
         private async Task ProcessPendingItemsAsync(CancellationToken cancellationToken)
         {
-            var availableWorkers = _workerPool.GetWorkers()
-                .Where(w => w.Status == "Idle")
-                .ToList();
+            // Count available workers
+            var availableWorkerCount = _workerPool.GetWorkers()
+                .Count(w => w.Status == WorkerStatus.Idle);
 
-            if (!availableWorkers.Any())
+            if (availableWorkerCount == 0)
                 return;
 
-            List<Movie> itemsToProcess;
-            lock (_moviesLock)
-            {
-                itemsToProcess = _discoveredMovies
-                    .Where(NeedsProcessing)
-                    .Take(availableWorkers.Count)
-                    .ToList();
-            }
+            // Get movies that need processing from the queue
+            var moviesToProcess = _processingQueue.GetNextBatch(availableWorkerCount, _currentSettings);
 
-            if (!itemsToProcess.Any())
+            if (!moviesToProcess.Any())
                 return;
 
-            _logger.LogInformation($"Processing {itemsToProcess.Count} items with {availableWorkers.Count} workers");
+            _logger.LogInformation($"Processing {moviesToProcess.Count} items with {availableWorkerCount} available workers");
 
-            // Process items in parallel across available workers
-            var processingTasks = itemsToProcess.Zip(availableWorkers, (movie, worker) =>
-                ProcessMovieAsync(movie, worker.Id, cancellationToken));
+            // Assign tasks to workers (WorkerPool handles reservation)
+            var assignedTasks = await _taskDistributor.AssignTasksAsync(moviesToProcess, _currentSettings);
+
+            // Execute tasks in parallel
+            var processingTasks = assignedTasks.Select(task => 
+                ProcessTaskAsync(task, cancellationToken));
 
             await Task.WhenAll(processingTasks);
             
@@ -198,63 +222,50 @@ namespace WarpCore.Core
             await _changeTracker.UpdateProcessedItemsAsync();
         }
 
-        private async Task ProcessMovieAsync(Movie movie, string workerId, CancellationToken cancellationToken)
+        private async Task ProcessTaskAsync(ProcessingTask task, CancellationToken cancellationToken)
         {
             try
             {
-                _logger.LogDebug($"Processing {movie.Name} on worker {workerId}");
+                _logger.LogDebug($"Processing task {task.TaskId} for movie {task.Movie.Name}");
 
-                // Get processing options
-                var ctfOptions = _currentSettings.GetProcessingMovieCTF();
-                var movementOptions = _currentSettings.GetProcessingMovieMovement();
-                var exportOptions = _currentSettings.GetProcessingMovieExport();
-                var pickingOptions = _currentSettings.GetProcessingBoxNet();
+                // Execute the processing task via WorkerPool
+                bool success = await _workerPool.ExecuteProcessingTaskAsync(task, _currentSettings);
 
-                // Determine what processing steps are needed
-                bool needsCTF = _currentSettings.ProcessCTF && (movie.OptionsCTF == null || movie.OptionsCTF != ctfOptions);
-                bool needsMovement = _currentSettings.ProcessMovement && (movie.OptionsMovement == null || movie.OptionsMovement != movementOptions);
-                bool needsPicking = _currentSettings.ProcessPicking && (movie.OptionsBoxNet == null || movie.OptionsBoxNet != pickingOptions);
-
-                // TODO: Execute processing steps using WorkerWrapper
-                // This would call the appropriate worker methods:
-                // - Workers[workerId].MovieProcessMovement()
-                // - Workers[workerId].MovieProcessCTF()  
-                // - Workers[workerId].MovieExportMovie()
-                // - Workers[workerId].MovieExportParticles()
-
-                movie.ProcessingStatus = ProcessingStatus.Processed;
-                movie.SaveMeta();
-
-                _logger.LogDebug($"Completed processing {movie.Name}");
+                if (success)
+                {
+                    _taskDistributor.CompleteTask(task.TaskId);
+                    _logger.LogInformation($"Successfully completed processing {task.Movie.Name}");
+                }
+                else
+                {
+                    _taskDistributor.FailTask(task.TaskId, "Processing failed");
+                    _logger.LogWarning($"Failed to process {task.Movie.Name}");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to process {movie.Name}");
-                movie.ProcessingStatus = ProcessingStatus.LeaveOut;
-                movie.UnselectManual = true;
-                movie.SaveMeta();
+                _logger.LogError(ex, $"Error processing task {task.TaskId} for movie {task.Movie.Name}");
+                _taskDistributor.FailTask(task.TaskId, ex.Message);
             }
         }
 
-        private bool NeedsProcessing(Movie movie)
-        {
-            if (movie.UnselectManual == true)
-                return false;
-
-            var status = _currentSettings.GetMovieProcessingStatus(movie, false);
-            return status == ProcessingStatus.Unprocessed || status == ProcessingStatus.Outdated;
-        }
 
         private void OnWorkerConnected(object sender, WorkerEventArgs e)
         {
-            _logger.LogInformation($"Worker {e.Worker.Id} connected, redistributing work");
+            _logger.LogInformation($"Worker {e.Worker.WorkerId} connected, redistributing work");
             _ = Task.Run(() => RedistributeWorkAsync());
         }
 
         private void OnWorkerDisconnected(object sender, WorkerEventArgs e)
         {
-            _logger.LogWarning($"Worker {e.Worker.Id} disconnected, redistributing work immediately");
-            _ = Task.Run(() => RedistributeWorkAsync());
+            _logger.LogWarning($"Worker {e.Worker.WorkerId} disconnected, reassigning tasks");
+            
+            // Reassign any tasks that were running on the disconnected worker
+            var reassignedMovies = _taskDistributor.ReassignTasksFromWorker(e.Worker.WorkerId);
+            if (reassignedMovies.Any())
+            {
+                _logger.LogInformation($"Reassigned {reassignedMovies.Count} movies from disconnected worker");
+            }
         }
 
         private void OnFileDiscovered(object sender, FileDiscoveredEventArgs e)
@@ -264,27 +275,30 @@ namespace WarpCore.Core
                 var fileName = Path.GetFileNameWithoutExtension(e.FilePath);
                 var relativePath = Path.GetRelativePath(_startupOptions.DataDirectory, e.FilePath);
                 var baseName = Path.GetFileNameWithoutExtension(relativePath);
-                var processingPath = Path.Combine(_startupOptions.ProcessingDirectory, baseName + ".xml");
-
-                var movie = new Movie(processingPath);
                 
-                if (File.Exists(processingPath))
+                // The first argument (path) should point to where the raw data file would be in the processing folder
+                var processingRawPath = Path.Combine(_startupOptions.ProcessingDirectory, Path.GetFileName(e.FilePath));
+                
+                // Create Movie with proper constructor arguments
+                Movie movie = new Movie(processingRawPath,
+                                        string.IsNullOrWhiteSpace(_currentSettings.Import.DataFolder) ?
+                                            null :
+                                            Path.GetDirectoryName(e.FilePath));
+                
+                // Load existing metadata if it exists
+                var processingMetaPath = Path.Combine(_startupOptions.ProcessingDirectory, baseName + ".xml");
+                if (File.Exists(processingMetaPath))
                 {
                     movie.LoadMeta();
                 }
                 else
                 {
-                    movie.ProcessingStatus = ProcessingStatus.Unprocessed;
+                    movie.ProcessingStatus = Warp.ProcessingStatus.Unprocessed;
                 }
 
-                lock (_moviesLock)
-                {
-                    if (!_discoveredMovies.Any(m => m.Path == movie.Path))
-                    {
-                        _discoveredMovies.Add(movie);
-                        _logger.LogDebug($"New file discovered: {fileName}");
-                    }
-                }
+                // Add the movie to the processing queue
+                _processingQueue.AddMovie(movie);
+                _logger.LogDebug($"New file discovered and added to queue: {fileName}");
             }
             catch (Exception ex)
             {
@@ -294,18 +308,14 @@ namespace WarpCore.Core
 
         private async Task RedistributeWorkAsync(OptionsWarp oldSettings = null, OptionsWarp newSettings = null)
         {
-            // Immediate redistribution logic - reassign work that was in progress on disconnected workers
-            // or needs reprocessing due to settings changes
-            
             if (!IsProcessing)
                 return;
 
             _logger.LogDebug("Redistributing work among available workers");
             
-            // This would implement the logic to:
-            // 1. Find items that were being processed by disconnected workers
-            // 2. Find items that need reprocessing due to settings changes  
-            // 3. Reassign them to available workers
+            // The main processing loop will automatically pick up any work that needs to be done
+            // No explicit redistribution is needed since the queue-based approach handles this
+            await Task.CompletedTask;
         }
 
         private double CalculateProcessingRate()

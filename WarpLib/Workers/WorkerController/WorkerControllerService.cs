@@ -54,6 +54,7 @@ namespace Warp.Workers.WorkerController
             _workers[worker.WorkerId] = worker;
             
             Console.WriteLine($"Worker {worker.WorkerId} registered from {worker.Host}, GPU #{worker.DeviceId}");
+            Console.WriteLine($"WorkerControllerService: FIRING EVENT, subscribers: {WorkerRegistered?.GetInvocationList().Length}");
             WorkerRegistered?.Invoke(this, worker);
 
             return new WorkerRegistrationResponse

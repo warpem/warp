@@ -292,7 +292,7 @@ namespace WarpCore.Tests
             var content = await response.Content.ReadAsStringAsync();
             _testOutputHelper.WriteLine(content);
             
-            var workers = JsonConvert.DeserializeObject<List<WorkerInfo>>(content);
+            var workers = JsonConvert.DeserializeObject<List<WorkerWrapper>>(content);
             
             Assert.NotNull(workers);
             Assert.True(workers.Count > 0, "At least one worker should be registered");
@@ -308,12 +308,12 @@ namespace WarpCore.Tests
             // Get worker list to find the worker ID
             var workersResponse = await _client.GetAsync("/api/workers");
             workersResponse.EnsureSuccessStatusCode();
-            var workers = JsonConvert.DeserializeObject<List<WorkerInfo>>(
+            var workers = JsonConvert.DeserializeObject<List<WorkerWrapper>>(
                 await workersResponse.Content.ReadAsStringAsync());
             
             if (workers.Count > 0)
             {
-                var workerId = workers[0].Id;
+                var workerId = workers[0].WorkerId;
                 var logsResponse = await _client.GetAsync($"/api/workers/{workerId}/logs");
                 
                 logsResponse.EnsureSuccessStatusCode();

@@ -1,25 +1,15 @@
 using System;
 using System.Diagnostics;
 using Warp;
+using Warp.Workers;
 
 namespace WarpCore.Core
 {
-    public class WorkerInfo
-    {
-        public string Id { get; set; }
-        public int DeviceId { get; set; }
-        public string Status { get; set; }
-        public DateTime ConnectedAt { get; set; }
-        public DateTime LastHeartbeat { get; set; }
-        public int ProcessedItems { get; set; }
-        public string CurrentTask { get; set; }
-    }
-
     public class WorkerEventArgs : EventArgs
     {
-        public WorkerInfo Worker { get; }
+        public WorkerWrapper Worker { get; }
 
-        public WorkerEventArgs(WorkerInfo worker)
+        public WorkerEventArgs(WorkerWrapper worker)
         {
             Worker = worker;
         }
