@@ -320,7 +320,16 @@ namespace Warp.Workers
         {
             // All workers now use controller task submission to specific worker
             var controllerService = _sharedController.GetService();
-            var taskId = controllerService.SubmitTaskToWorker(_workerId, command);
+            
+            string taskId;
+            try
+            {
+                taskId = controllerService.SubmitTaskToWorker(_workerId, command);
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("offline"))
+            {
+                throw new Exception($"Worker {_workerId} is offline and cannot accept new tasks");
+            }
 
             // Wait for task completion with timeout
             var timeout = DateTime.UtcNow.AddMinutes(30);

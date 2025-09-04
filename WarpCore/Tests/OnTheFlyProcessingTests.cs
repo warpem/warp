@@ -221,7 +221,7 @@ namespace WarpCore.Tests
                     var queuedCount = status.GetProperty("statistics").GetProperty("queuedItems").GetInt32();
                     var failedCount = status.GetProperty("statistics").GetProperty("failedItems").GetInt32();
                     var isProcessing = status.GetProperty("isProcessing").GetBoolean();
-                    var activeWorkers = status.GetProperty("statistics").GetProperty("activeWorkers").GetInt32();
+                    var idleWorkers = status.GetProperty("statistics").GetProperty("idleWorkers").GetInt32();
                     
                     // Check if we've discovered the expected files
                     if (totalCount >= expectedFileCount)
@@ -231,7 +231,7 @@ namespace WarpCore.Tests
                     
                     _testOutputHelper.WriteLine($"Processing status: {processedCount} processed, " +
                                                 $"{queuedCount} queued, {failedCount} failed, " +
-                                                $"{totalCount} total (processing: {isProcessing}, {activeWorkers} idle workers)");
+                                                $"{totalCount} total (processing: {isProcessing}, {idleWorkers} idle workers)");
                     
                     // Processing is complete when:
                     // 1. We've discovered all expected files
@@ -304,32 +304,6 @@ namespace WarpCore.Tests
             }
             catch { }
             return 0;
-        }
-
-        /// <summary>
-        /// Verifies that both workers were utilized during processing by checking task assignments.
-        /// </summary>
-        /// <returns>True if both workers received tasks, false otherwise</returns>
-        private async Task<bool> VerifyWorkerUtilization()
-        {
-            var response = await _client.GetAsync("/api/workers");
-            if (!response.IsSuccessStatusCode)
-                return false;
-                
-            var content = await response.Content.ReadAsStringAsync();
-            var workers = JsonSerializer.Deserialize<List<WorkerInfo>>(content, JsonSettings.Default);
-            
-            // Check that we have the expected number of workers
-            if (workers.Count < 2)
-            {
-                _testOutputHelper.WriteLine($"Expected at least 2 workers, found {workers.Count}");
-                return false;
-            }
-            
-            // Note: Since tasks complete quickly in mocks, we might not catch workers in "Working" state
-            // The fact that both workers registered and processing completed suggests distribution worked
-            _testOutputHelper.WriteLine($"Found {workers.Count} registered workers - distribution appears successful");
-            return true;
         }
 
         /// <summary>
@@ -423,6 +397,8 @@ namespace WarpCore.Tests
                 workerProcesses.Add(process);
             }
             
+            //Thread.Sleep(20000);
+            
             // Step 4.1: Wait for all workers to register with the controller
             _testOutputHelper.WriteLine($"Step 4.1: Waiting for {workerCount} workers to register");
             await WaitForWorkersToRegister(workerCount);
@@ -431,24 +407,47 @@ namespace WarpCore.Tests
             // Kill a few workers while processing is ongoing to test robustness
             Thread killer = new Thread(() =>
             {
-                while(workerProcesses.Count(p => p.HasExited) < 2)
+                int killCount = 0;
+                const int maxKills = 100;
+                
+                while (killCount < maxKills)
                 {
-                    Thread.Sleep(10000); // Wait 10 seconds between kills
-                    var toKill = workerProcesses.Where(p => p.HasExited == false).OrderBy(_ => Random.Shared.Next()).FirstOrDefault();
+                    Thread.Sleep(1000);
+                    
+                    var aliveProcesses = workerProcesses.Where(p => !p.HasExited).ToList();
+                    var toKill = aliveProcesses.OrderBy(_ => Random.Shared.Next()).FirstOrDefault();
+                    
                     if (toKill != null)
                     {
-                        _testOutputHelper.WriteLine($"Killing worker process {toKill.Id} to test robustness");
+                        killCount++;
+                        _testOutputHelper.WriteLine($"[KILLER] Killing worker process {toKill.Id} ({killCount}/{maxKills}) to test robustness");
+                        
                         try
                         {
                             toKill.Kill();
+                            _testOutputHelper.WriteLine($"[KILLER] Worker process {toKill.Id} killed successfully");
+
+                            WorkerWrapper.SpawnLocalWorkerAsync(0, true, false, true).Wait();
+                            _testOutputHelper.WriteLine($"[KILLER] Spawned replacement worker for killed process");
                         }
                         catch (Exception ex)
                         {
-                            _testOutputHelper.WriteLine($"Error killing worker process: {ex.Message}");
+                            _testOutputHelper.WriteLine($"[KILLER] Error killing worker process {toKill.Id}: {ex.Message}");
                         }
                     }
+                    else
+                    {
+                        _testOutputHelper.WriteLine($"[KILLER] No alive processes found to kill");
+                        break;
+                    }
                 }
-            });
+                
+                _testOutputHelper.WriteLine($"[KILLER] Finished killing {maxKills} workers");
+            })
+            {
+                IsBackground = true,
+                Name = "WorkerKiller"
+            };
             killer.Start();
             
             // Step 5: Monitor processing progress

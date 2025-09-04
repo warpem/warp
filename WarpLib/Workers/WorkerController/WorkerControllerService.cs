@@ -32,11 +32,11 @@ namespace Warp.Workers.WorkerController
             _activeTasks = new ConcurrentDictionary<string, TaskInfo>();
             _workerConsoleLines = new ConcurrentDictionary<string, List<LogEntry>>();
 
-            // Monitor worker heartbeats every 10 seconds for faster failure detection
-            _heartbeatMonitor = new Timer(MonitorWorkerHeartbeats, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+            // Monitor worker heartbeats every 1 second for immediate failure detection
+            _heartbeatMonitor = new Timer(MonitorWorkerHeartbeats, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             
-            // Monitor task timeouts every 60 seconds
-            _taskMonitor = new Timer(MonitorTaskTimeouts, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
+            // Monitor task timeouts every 1 second
+            _taskMonitor = new Timer(MonitorTaskTimeouts, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
 
         #region Worker Management
@@ -74,6 +74,7 @@ namespace Warp.Workers.WorkerController
             worker.Status = heartbeat.Status;
             worker.FreeMemoryMB = heartbeat.FreeMemoryMB;
             worker.CurrentTaskId = heartbeat.CurrentTaskId;
+            //Console.WriteLine("❤️ from heartbeat");
 
             return true;
         }
@@ -87,7 +88,7 @@ namespace Warp.Workers.WorkerController
         {
             if (_disposed) return;
 
-            var cutoff = DateTime.UtcNow.AddMinutes(-1);
+            var cutoff = DateTime.UtcNow.AddSeconds(-1);
             var disconnectedWorkers = _workers.Values
                 .Where(w => w.LastHeartbeat < cutoff && w.Status != WorkerStatus.Offline)
                 .ToList();
@@ -97,10 +98,10 @@ namespace Warp.Workers.WorkerController
                 Console.WriteLine($"Worker {worker.WorkerId} missed heartbeat, marking as offline");
                 worker.Status = WorkerStatus.Offline;
                 
-                // Reassign any active tasks
-                if (!string.IsNullOrEmpty(worker.CurrentTaskId))
+                lock (_assignmentLock)
                 {
-                    lock (_assignmentLock)
+                    // Fail any active tasks
+                    if (!string.IsNullOrEmpty(worker.CurrentTaskId))
                     {
                         if (_activeTasks.TryGetValue(worker.CurrentTaskId, out var task))
                         {
@@ -110,6 +111,25 @@ namespace Warp.Workers.WorkerController
                             _activeTasks.TryRemove(task.TaskId, out _);
                             Console.WriteLine($"Task {task.TaskId} failed due to worker disconnection");
                             TaskFailed?.Invoke(this, task);
+                        }
+                    }
+                    
+                    // Fail all queued tasks for this worker
+                    if (_workerTaskQueues.TryGetValue(worker.WorkerId, out var workerQueue))
+                    {
+                        var queuedTasks = new List<TaskInfo>();
+                        while (workerQueue.TryDequeue(out var queuedTask))
+                        {
+                            queuedTasks.Add(queuedTask);
+                        }
+                        
+                        foreach (var queuedTask in queuedTasks)
+                        {
+                            queuedTask.Status = TaskStatus.Failed;
+                            queuedTask.CompletedAt = DateTime.UtcNow;
+                            queuedTask.ErrorMessage = "Worker disconnected before task could be executed";
+                            Console.WriteLine($"Queued task {queuedTask.TaskId} failed due to worker disconnection");
+                            TaskFailed?.Invoke(this, queuedTask);
                         }
                     }
                 }
@@ -130,6 +150,9 @@ namespace Warp.Workers.WorkerController
             if (!_workers.TryGetValue(workerId, out var worker))
                 throw new ArgumentException($"Worker {workerId} not found");
 
+            if (worker.Status == WorkerStatus.Offline)
+                throw new ArgumentException($"Worker {workerId} is offline");
+
             if (!_workerTaskQueues.TryGetValue(workerId, out var workerQueue))
                 throw new ArgumentException($"Worker {workerId} queue not found");
 
@@ -146,6 +169,7 @@ namespace Warp.Workers.WorkerController
                 return new PollResponse(); // Worker not registered
 
             worker.LastHeartbeat = DateTime.UtcNow;
+            //Console.WriteLine("❤️ from poll");
 
             // Store console lines if provided
             if (pollRequest?.ConsoleLines != null && pollRequest.ConsoleLines.Count > 0)
@@ -214,6 +238,7 @@ namespace Warp.Workers.WorkerController
                 return false; // Task not assigned to this worker
 
             worker.LastHeartbeat = DateTime.UtcNow;
+            //Console.WriteLine("❤️ from task update");
 
             var oldStatus = task.Status;
             task.Status = update.Status;

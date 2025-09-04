@@ -222,11 +222,11 @@ namespace WarpWorker
                         {
                             SendHeartbeat();
                             ResetFailureCount(); // Reset on successful heartbeat
-                            Thread.Sleep(30000); // Heartbeat every 30 seconds
+                            Thread.Sleep(300); // Heartbeat every 300 ms
                         }
                         else
                         {
-                            Thread.Sleep(5000); // Check connection state more frequently when disconnected
+                            Thread.Sleep(100); // Check connection state more frequently when disconnected
                         }
                     }
                     catch (Exception ex)
@@ -310,11 +310,11 @@ namespace WarpWorker
         {
             try
             {
-                var heartbeat = new
+                var heartbeat = new HeartbeatRequest
                 {
-                    Status = "Idle", // Could be dynamic based on current state
+                    Status = WorkerStatus.Idle, // Use proper enum instead of string
                     FreeMemoryMB = GPU.GetFreeMemory(_deviceId),
-                    CurrentTaskId = (string)null
+                    CurrentTaskId = null
                 };
                 
                 var json = JsonSerializer.Serialize(heartbeat);
