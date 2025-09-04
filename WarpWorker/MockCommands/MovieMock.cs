@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
 using Warp;
 using Warp.Tools;
 using Warp.Workers;
@@ -29,6 +31,7 @@ static partial class WarpWorkerProcess
             Cs = Options.Cs,
             Voltage = Options.Voltage,
         };
+        Thread.Sleep(3000 + Random.Shared.Next(1000));
         M.SaveMeta();
 
         Console.WriteLine($"Processed CTF for {Path}");
@@ -39,6 +42,8 @@ static partial class WarpWorkerProcess
     {
         string Path = (string)Command.Content[0];
         ProcessingOptionsMovieMovement Options = (ProcessingOptionsMovieMovement)Command.Content[1];
+        Console.WriteLine(OriginalStack);
+        Console.WriteLine(Options);
         Options.Dimensions = OriginalStack.Dims.MultXY((float)Options.BinnedPixelSizeMean);
 
         Movie M = new Movie(Path);
@@ -59,6 +64,7 @@ static partial class WarpWorkerProcess
                                      Enumerable.Range(0, 5 * 5 * 3)
                                                .Select(i => (float)(Random.Shared.NextDouble() * 2 - 1))
                                                .ToArray());
+        Thread.Sleep(4000 + Random.Shared.Next(1000));
         M.SaveMeta();
 
         Console.WriteLine($"Processed movement for {Path}");
@@ -67,9 +73,6 @@ static partial class WarpWorkerProcess
     [MockCommand(nameof(WorkerWrapper.MoviePickBoxNet))]
     static void MockMoviePickBoxNet(NamedSerializableObject Command)
     {
-        if (BoxNetModel == null)
-            throw new Exception("No BoxNet model loaded");
-
         string Path = (string)Command.Content[0];
         ProcessingOptionsBoxNet Options = (ProcessingOptionsBoxNet)Command.Content[1];
 
@@ -93,6 +96,7 @@ static partial class WarpWorkerProcess
         Directory.CreateDirectory(M.MatchingDir);
         TableOut.Save(System.IO.Path.Combine(M.MatchingDir, M.RootName + "_boxnet.star"));
         
+        Thread.Sleep(1000 + Random.Shared.Next(500));
         M.SaveMeta();
 
         Console.WriteLine($"Picked particles for {Path}");
@@ -113,6 +117,7 @@ static partial class WarpWorkerProcess
                                   new int3(4096, 4096, 1));
         Average.WriteMRC16b(M.AveragePath, (float)Options.PixelSize, true);
         
+        Thread.Sleep(2000 + Random.Shared.Next(1000));
         M.SaveMeta();
 
         Console.WriteLine($"Exported movie for {Path}");
@@ -131,6 +136,8 @@ static partial class WarpWorkerProcess
         Image Thumb = new Image([Enumerable.Range(0, 128 * 128).Select(i => Rng.NextSingle() * 255).ToArray()],
                                   new int3(128, 128, 1));
         Thumb.WritePNG(M.ThumbnailsPath);
+        
+        Thread.Sleep(500 + Random.Shared.Next(300));
 
         Console.WriteLine($"Exported movie for {Path}");
     }
@@ -147,10 +154,15 @@ static partial class WarpWorkerProcess
 
         Directory.CreateDirectory(M.ParticlesDir);
         var Rng = new RandomNormal(Random.Shared.Next());
-        Image Stack = new Image([Enumerable.Range(0, 100 * 64 * 64).Select(i => Rng.NextSingle(0, 1)).ToArray()],
+        Image Stack = new Image(Enumerable.Range(0, 100)
+                                          .Select(j => Enumerable.Range(0, 64 * 64)
+                                                                 .Select(i => Rng.NextSingle(0, 1))
+                                                                 .ToArray())
+                                          .ToArray(),
                                   new int3(64, 64, 100));
         Stack.WriteMRC16b(System.IO.Path.Combine(M.ParticlesDir, M.RootName + Options.Suffix + ".mrcs"), (float)Options.PixelSize, true);
         
+        Thread.Sleep(2000 + Random.Shared.Next(1000));
         M.SaveMeta();
 
         Console.WriteLine($"Exported {Coordinates.Length} particles for {Path}");

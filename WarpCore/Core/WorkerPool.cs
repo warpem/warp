@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Warp;
+using Warp.Tools;
 using Warp.Workers;
 using Warp.Workers.WorkerController;
 using WarpCore.Core.Processing;
@@ -183,32 +184,39 @@ namespace WarpCore.Core
         {
             try
             {
-                _logger.LogInformation($"Executing task {task.TaskId} for movie {task.Movie.Name} on worker {task.WorkerId}");
+                bool success = false;
 
-                // Get current processing options from settings
-                var ctfOptions = settings.GetProcessingMovieCTF();
-                var movementOptions = settings.GetProcessingMovieMovement();
-                var exportOptions = settings.GetProcessingMovieExport();
-                var pickingOptions = settings.GetProcessingBoxNet();
-
-                // Save current state before processing
-                task.Movie.SaveMeta();
-
-                // Process steps based on what needs to be done
-                bool success = await ExecuteProcessingStepsAsync(task, 
-                                                                 settings, 
-                                                                 ctfOptions, 
-                                                                 movementOptions, 
-                                                                 exportOptions, 
-                                                                 pickingOptions);
-
-                if (success)
+                await Task.Run(async () =>
                 {
-                    // Reload metadata after processing (worker has updated it)
-                    task.Movie.LoadMeta();
-                    task.Movie.ProcessingStatus = ProcessingStatus.Processed;
-                }
+                    _logger.LogInformation($"Executing task {task.TaskId} for movie {task.Movie.Name} on worker {task.WorkerId}");
 
+                    // Get current processing options from settings
+                    var ctfOptions = settings.GetProcessingMovieCTF();
+                    var movementOptions = settings.GetProcessingMovieMovement();
+                    var exportOptions = settings.GetProcessingMovieExport();
+                    var pickingOptions = settings.GetProcessingBoxNet();
+                    var particleExportOptions = settings.GetProcessingParticleExport();
+
+                    // Save current state before processing
+                    task.Movie.SaveMeta();
+
+                    // Process steps based on what needs to be done
+                    success = await ExecuteProcessingStepsAsync(task,
+                                                                settings,
+                                                                ctfOptions,
+                                                                movementOptions,
+                                                                exportOptions,
+                                                                pickingOptions,
+                                                                particleExportOptions);
+
+                    if (success)
+                    {
+                        // Reload metadata after processing (worker has updated it)
+                        task.Movie.LoadMeta();
+                        task.Movie.ProcessingStatus = ProcessingStatus.Processed;
+                    }
+                });
+                
                 return success;
             }
             catch (Exception ex)
@@ -236,7 +244,8 @@ namespace WarpCore.Core
             ProcessingOptionsMovieCTF ctfOptions,
             ProcessingOptionsMovieMovement movementOptions,
             ProcessingOptionsMovieExport exportOptions,
-            ProcessingOptionsBoxNet pickingOptions)
+            ProcessingOptionsBoxNet pickingOptions,
+            ProcessingOptionsParticleExport particleExportOptions)
         {
             try
             {
@@ -255,6 +264,8 @@ namespace WarpCore.Core
 
                 bool needsExport = (exportOptions.DoAverage || exportOptions.DoStack || exportOptions.DoDeconv) &&
                     (movie.OptionsMovieExport == null || !movie.OptionsMovieExport.Equals(exportOptions) || needsMovement);
+
+                bool needsParticleExport = settings.Picking.DoExport;
 
                 // Determine if we need to load the stack (matches original logic)
                 bool needStack = needsCTF || needsMovement || needsExport || (needsPicking && pickingOptions.ExportParticles);
@@ -293,6 +304,15 @@ namespace WarpCore.Core
                 {
                     _logger.LogDebug($"Processing particle picking for {movie.Name}");
                     worker.MoviePickBoxNet(movie.Path, pickingOptions);
+                    movie.LoadMeta(); // Reload metadata after processing
+                }
+                
+                if (needsParticleExport)
+                {
+                    _logger.LogDebug($"Exporting particles for {movie.Name}");
+                    worker.MovieExportParticles(movie.Path, 
+                                                particleExportOptions, 
+                                                [new float2(0, 0), new float2(1, 2)]);
                     movie.LoadMeta(); // Reload metadata after processing
                 }
 

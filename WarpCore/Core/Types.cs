@@ -137,7 +137,7 @@ namespace WarpCore.Core
         /// <summary>
         /// Gets or sets the number of workers currently available for processing tasks.
         /// </summary>
-        public int ActiveWorkers { get; set; }
+        public int IdleWorkers { get; set; }
         
         /// <summary>
         /// Gets or sets the current processing rate (items per time unit).

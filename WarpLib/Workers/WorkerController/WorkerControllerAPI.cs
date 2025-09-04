@@ -44,10 +44,6 @@ namespace Warp.Workers.WorkerController
                 if (string.IsNullOrEmpty(workerId))
                     return BadRequest("Worker ID is required");
 
-                // Basic token validation could be added here
-                // if (!ValidateWorkerToken(workerId, authorization))
-                //     return Unauthorized();
-
                 var response = _controllerService.PollForTask(workerId, pollRequest);
                 return Ok(response);
             }
@@ -84,6 +80,8 @@ namespace Warp.Workers.WorkerController
         {
             try
             {
+                //Console.WriteLine($"STATUS: Received task status update from worker {workerId}, task {taskId}: {update.Status}");
+                
                 if (string.IsNullOrEmpty(workerId))
                     return BadRequest("Worker ID is required");
 

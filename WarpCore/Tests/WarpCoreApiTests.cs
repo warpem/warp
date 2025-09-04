@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -10,10 +12,10 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
 using Warp;
+using Warp.Tools;
 using Warp.Workers;
 using Warp.Workers.WorkerController;
 using WarpCore.Core;
@@ -45,6 +47,15 @@ namespace WarpCore.Tests
         protected override IHostBuilder CreateHostBuilder()
         {
             return Host.CreateDefaultBuilder()
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                    logging.SetMinimumLevel(LogLevel.Warning);
+                    logging.AddFilter("Microsoft", LogLevel.Warning);
+                    logging.AddFilter("System", LogLevel.Warning);
+                    logging.AddFilter("WarpCore", LogLevel.Information);
+                })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
@@ -164,7 +175,7 @@ namespace WarpCore.Tests
             await File.WriteAllTextAsync(filePath, "test movie data");
         }
 
-        private async Task<WorkerWrapper> SpawnMockWorkerAsync(int deviceId = 0)
+        private async Task<Process> SpawnMockWorkerAsync(int deviceId = 0)
         {
             try
             {
@@ -186,8 +197,8 @@ namespace WarpCore.Tests
                 try
                 {
                     // Spawn worker process
-                    bool spawned = await WorkerWrapper.SpawnLocalWorkerAsync(deviceId, silent: true, attachDebugger: false, mockMode: true);
-                    if (!spawned)
+                    var spawned = await WorkerWrapper.SpawnLocalWorkerAsync(deviceId, silent: true, attachDebugger: false, mockMode: true);
+                    if (spawned == null)
                     {
                         throw new Exception($"Failed to spawn worker for device {deviceId}");
                     }
@@ -196,7 +207,7 @@ namespace WarpCore.Tests
                     var worker = await workerRegistered.Task.ConfigureAwait(false);
                     _testWorkers.Add(worker);
                     
-                    return worker;
+                    return spawned;
                 }
                 finally
                 {
@@ -219,7 +230,7 @@ namespace WarpCore.Tests
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var summary = JsonConvert.DeserializeObject<ProcessingSummary>(content);
+                    var summary = JsonSerializer.Deserialize<ProcessingSummary>(content, JsonSettings.Default);
                     
                     if (summary.TotalMovies >= expectedFileCount)
                         return;
@@ -242,7 +253,7 @@ namespace WarpCore.Tests
             
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
-            var settings = JsonConvert.DeserializeObject<OptionsWarp>(content);
+            var settings = JsonSerializer.Deserialize<OptionsWarp>(content, JsonSettings.Default);
             
             Assert.NotNull(settings);
         }
@@ -253,14 +264,14 @@ namespace WarpCore.Tests
             // Get current settings
             var getResponse = await _client.GetAsync("/api/settings");
             getResponse.EnsureSuccessStatusCode();
-            var currentSettings = JsonConvert.DeserializeObject<OptionsWarp>(
-                await getResponse.Content.ReadAsStringAsync());
+            var currentSettings = JsonSerializer.Deserialize<OptionsWarp>(
+                await getResponse.Content.ReadAsStringAsync(), JsonSettings.Default);
 
             // Modify settings
             currentSettings.ProcessCTF = !currentSettings.ProcessCTF;
             
             // Update settings
-            var json = JsonConvert.SerializeObject(currentSettings);
+            var json = JsonSerializer.Serialize(currentSettings, JsonSettings.Default);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             var putResponse = await _client.PutAsync("/api/settings", content);
             
@@ -269,8 +280,8 @@ namespace WarpCore.Tests
             // Verify settings were updated
             var verifyResponse = await _client.GetAsync("/api/settings");
             verifyResponse.EnsureSuccessStatusCode();
-            var updatedSettings = JsonConvert.DeserializeObject<OptionsWarp>(
-                await verifyResponse.Content.ReadAsStringAsync());
+            var updatedSettings = JsonSerializer.Deserialize<OptionsWarp>(
+                await verifyResponse.Content.ReadAsStringAsync(), JsonSettings.Default);
             
             Assert.Equal(currentSettings.ProcessCTF, updatedSettings.ProcessCTF);
         }
@@ -287,9 +298,9 @@ namespace WarpCore.Tests
             
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
-            var result = JsonConvert.DeserializeObject<dynamic>(content);
+            var result = JsonSerializer.Deserialize<JsonElement>(content, JsonSettings.Default);
             
-            Assert.NotNull(result.timestamp);
+            Assert.True(result.TryGetProperty("timestamp", out _));
         }
 
         #endregion
@@ -327,11 +338,11 @@ namespace WarpCore.Tests
             
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
-            var status = JsonConvert.DeserializeObject<dynamic>(content);
+            var status = JsonSerializer.Deserialize<JsonElement>(content, JsonSettings.Default);
             
-            Assert.NotNull(status.statistics);
-            Assert.NotNull(status.lastModified);
-            Assert.NotNull(status.isProcessing);
+            Assert.True(status.TryGetProperty("statistics", out _));
+            Assert.True(status.TryGetProperty("lastModified", out _));
+            Assert.True(status.TryGetProperty("isProcessing", out _));
         }
 
         #endregion
@@ -353,7 +364,7 @@ namespace WarpCore.Tests
             var content = await response.Content.ReadAsStringAsync();
             _testOutputHelper.WriteLine(content);
             
-            var workers = JsonConvert.DeserializeObject<List<WorkerInfo>>(content);
+            var workers = JsonSerializer.Deserialize<List<WorkerInfo>>(content, JsonSettings.Default);
             
             Assert.NotNull(workers);
             Assert.True(workers.Count > 0, "At least one worker should be registered");
@@ -369,8 +380,8 @@ namespace WarpCore.Tests
             // Get worker list to find the worker ID
             var workersResponse = await _client.GetAsync("/api/workers");
             workersResponse.EnsureSuccessStatusCode();
-            var workers = JsonConvert.DeserializeObject<List<WorkerInfo>>(
-                await workersResponse.Content.ReadAsStringAsync());
+            var workers = JsonSerializer.Deserialize<List<WorkerInfo>>(
+                await workersResponse.Content.ReadAsStringAsync(), JsonSettings.Default);
             
             if (workers.Count > 0)
             {
@@ -379,10 +390,10 @@ namespace WarpCore.Tests
                 
                 logsResponse.EnsureSuccessStatusCode();
                 var logsContent = await logsResponse.Content.ReadAsStringAsync();
-                var logsResult = JsonConvert.DeserializeObject<dynamic>(logsContent);
+                var logsResult = JsonSerializer.Deserialize<JsonElement>(logsContent, JsonSettings.Default);
                 
-                Assert.NotNull(logsResult.workerId);
-                Assert.NotNull(logsResult.logs);
+                Assert.True(logsResult.TryGetProperty("workerId", out _));
+                Assert.True(logsResult.TryGetProperty("logs", out _));
             }
         }
 
@@ -397,7 +408,7 @@ namespace WarpCore.Tests
             
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
-            var summary = JsonConvert.DeserializeObject<ProcessingSummary>(content);
+            var summary = JsonSerializer.Deserialize<ProcessingSummary>(content, JsonSettings.Default);
             
             Assert.NotNull(summary);
             Assert.True(summary.LastModified > DateTime.MinValue);

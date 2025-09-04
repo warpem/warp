@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -35,6 +36,14 @@ namespace WarpCore.Core
         private readonly ProcessingQueue _processingQueue;
         private readonly ProcessingTaskDistributor _taskDistributor;
         private readonly SettingsChangeHandler _settingsChangeHandler;
+        
+        // Debounced change tracking
+        private readonly Timer _changeTrackingTimer;
+        private volatile bool _hasChangesToWrite;
+        private readonly object _changeTrackingLock = new object();
+        
+        // Active movie assignment tracking to prevent duplicate processing
+        private readonly ConcurrentDictionary<string, string> _activeMovieAssignments = new();
 
         /// <summary>
         /// Gets a value indicating whether the processing system is currently active.
@@ -76,6 +85,9 @@ namespace WarpCore.Core
 
             _currentSettings = new OptionsWarp();
             
+            // Initialize debounced change tracking (10 second debounce)
+            _changeTrackingTimer = new Timer(WriteChangesCallback, null, Timeout.Infinite, Timeout.Infinite);
+            
             // Subscribe to worker events for redistribution
             _workerPool.WorkerConnected += OnWorkerConnected;
             _workerPool.WorkerDisconnected += OnWorkerDisconnected;
@@ -104,7 +116,7 @@ namespace WarpCore.Core
             _logger.LogInformation("Starting processing orchestrator");
 
             // Initialize file discovery
-            await _fileDiscoverer.InitializeAsync(_startupOptions.DataDirectory, "*.tiff", true);
+            await _fileDiscoverer.InitializeAsync(_startupOptions.DataDirectory, _currentSettings.Import.Extension, true);
 
             // Start the main processing loop
             _processingTask = ProcessingLoopAsync(_processingCancellation.Token);
@@ -154,6 +166,13 @@ namespace WarpCore.Core
             
             _logger.LogInformation("Settings updated, analyzing impact");
             
+            // Check if file pattern changed and reconfigure file discovery
+            if (oldSettings.Import.Extension != newSettings.Import.Extension)
+            {
+                _logger.LogInformation($"File extension changed from {oldSettings.Import.Extension} to {newSettings.Import.Extension}, reconfiguring file discovery");
+                _fileDiscoverer.ChangeConfiguration(_startupOptions.DataDirectory, newSettings.Import.Extension, true);
+            }
+            
             // Analyze and apply settings changes
             var impact = _settingsChangeHandler.AnalyzeSettingsChange(oldSettings, newSettings);
             _settingsChangeHandler.ApplySettingsChange(_processingQueue, oldSettings, newSettings, impact);
@@ -198,7 +217,7 @@ namespace WarpCore.Core
                 ProcessedItems = processedCount,
                 FailedItems = failedCount,
                 QueuedItems = queuedCount,
-                ActiveWorkers = workers.Count(w => w.Status == WorkerStatus.Idle), // Available workers
+                IdleWorkers = workers.Count(w => w.Status == WorkerStatus.Idle), // Available workers
                 ProcessingRate = CalculateProcessingRate(),
                 Status = IsProcessing ? "Running" : "Paused"
             };
@@ -229,8 +248,12 @@ namespace WarpCore.Core
                     // Process items that need processing
                     await ProcessPendingItemsAsync(cancellationToken);
 
+                    // Refresh processing queue statuses after completing tasks
+                    // This ensures movies that just finished processing are no longer considered for reprocessing
+                    _processingQueue.RefreshAllStatuses(_currentSettings);
+
                     // Wait before next iteration
-                    await Task.Delay(2000, cancellationToken);
+                    await Task.Delay(50, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -261,8 +284,11 @@ namespace WarpCore.Core
             if (availableWorkerCount == 0)
                 return;
 
-            // Get movies that need processing from the queue
-            var moviesToProcess = _processingQueue.GetNextBatch(availableWorkerCount, _currentSettings);
+            // Get active movie assignments as a set for efficient filtering
+            var activeAssignments = _activeMovieAssignments.Keys.ToHashSet();
+
+            // Get movies that need processing, excluding those already being processed
+            var moviesToProcess = _processingQueue.GetNextBatch(availableWorkerCount, _currentSettings, activeAssignments);
 
             if (!moviesToProcess.Any())
                 return;
@@ -272,15 +298,16 @@ namespace WarpCore.Core
             // Assign tasks to workers (WorkerPool handles reservation)
             var assignedTasks = await _taskDistributor.AssignTasksAsync(moviesToProcess, _currentSettings);
 
-            // Execute tasks in parallel
-            var processingTasks = assignedTasks.Select(task => 
-                ProcessTaskAsync(task, cancellationToken));
+            // Track active assignments to prevent duplicate processing
+            foreach (var task in assignedTasks)
+            {
+                _activeMovieAssignments[task.Movie.Path] = task.WorkerId;
+                _logger.LogDebug($"Movie {task.Movie.Name} assigned to worker {task.WorkerId}");
+            }
 
-            await Task.WhenAll(processingTasks);
-            
-            // Update change tracking
-            await _changeTracker.RecordChangeAsync();
-            await _changeTracker.UpdateProcessedItemsAsync();
+            // Execute tasks without waiting for completion - allows continuous assignment
+            foreach (var task in assignedTasks)
+                ProcessTaskAsync(task, cancellationToken);
         }
 
         /// <summary>
@@ -303,17 +330,37 @@ namespace WarpCore.Core
                 {
                     _taskDistributor.CompleteTask(task.TaskId);
                     _logger.LogInformation($"Successfully completed processing {task.Movie.Name}");
+                    
+                    // Update movie status to processed
+                    task.Movie.ProcessingStatus = Warp.ProcessingStatus.Processed;
+                    
+                    // Schedule debounced change tracking for individual item completion
+                    ScheduleDebouncedChangeTracking();
                 }
                 else
                 {
                     _taskDistributor.FailTask(task.TaskId, "Processing failed");
                     _logger.LogWarning($"Failed to process {task.Movie.Name}");
+                    
+                    // Mark movie as LeaveOut to prevent future processing attempts
+                    task.Movie.ProcessingStatus = Warp.ProcessingStatus.LeaveOut;
+                    task.Movie.SaveMeta(); // Persist the failed status
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error processing task {task.TaskId} for movie {task.Movie.Name}");
                 _taskDistributor.FailTask(task.TaskId, ex.Message);
+                
+                // Mark movie as LeaveOut due to exception
+                task.Movie.ProcessingStatus = Warp.ProcessingStatus.LeaveOut;
+                task.Movie.SaveMeta(); // Persist the failed status
+            }
+            finally
+            {
+                // Always remove from active assignments when processing completes (success or failure)
+                _activeMovieAssignments.TryRemove(task.Movie.Path, out _);
+                _logger.LogDebug($"Removed movie {task.Movie.Name} from active assignments");
             }
         }
 
@@ -424,6 +471,48 @@ namespace WarpCore.Core
         }
 
         /// <summary>
+        /// Schedules change tracking to be written with a 10-second debounce.
+        /// This prevents excessive I/O when many items complete processing in quick succession.
+        /// </summary>
+        private void ScheduleDebouncedChangeTracking()
+        {
+            lock (_changeTrackingLock)
+            {
+                _hasChangesToWrite = true;
+                // Reset the timer - this implements the debounce behavior
+                // Timer will fire 10 seconds after the LAST change
+                _changeTrackingTimer.Change(TimeSpan.FromSeconds(10), Timeout.InfiniteTimeSpan);
+            }
+        }
+
+        /// <summary>
+        /// Timer callback that performs the actual change tracking write operations.
+        /// Only executes if there are pending changes to write.
+        /// </summary>
+        private void WriteChangesCallback(object state)
+        {
+            lock (_changeTrackingLock)
+            {
+                if (!_hasChangesToWrite)
+                    return;
+
+                _hasChangesToWrite = false;
+            }
+
+            // Perform the actual I/O outside the lock to avoid blocking
+            try
+            {
+                _changeTracker.RecordChangeAsync().Wait();
+                _changeTracker.UpdateProcessedItemsAsync().Wait();
+                _logger.LogDebug("Debounced change tracking completed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error writing debounced change tracking");
+            }
+        }
+
+        /// <summary>
         /// Disposes the orchestrator, cleaning up event subscriptions and cancelling
         /// any ongoing processing operations to prevent resource leaks.
         /// </summary>
@@ -437,6 +526,23 @@ namespace WarpCore.Core
             // Cancel any ongoing processing
             _processingCancellation?.Cancel();
             _processingCancellation?.Dispose();
+            
+            // Flush any pending change tracking before disposal
+            if (_hasChangesToWrite)
+            {
+                try
+                {
+                    _changeTracker.RecordChangeAsync().Wait(TimeSpan.FromSeconds(5));
+                    _changeTracker.UpdateProcessedItemsAsync().Wait(TimeSpan.FromSeconds(5));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error flushing final change tracking during disposal");
+                }
+            }
+            
+            // Dispose the debounced change tracking timer
+            _changeTrackingTimer?.Dispose();
         }
     }
 }

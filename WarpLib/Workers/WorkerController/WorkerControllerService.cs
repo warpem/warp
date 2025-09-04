@@ -10,7 +10,7 @@ namespace Warp.Workers.WorkerController
     public class WorkerControllerService : IDisposable
     {
         private readonly ConcurrentDictionary<string, WorkerInfo> _workers;
-        private readonly ConcurrentQueue<TaskInfo> _taskQueue;
+        private readonly ConcurrentDictionary<string, ConcurrentQueue<TaskInfo>> _workerTaskQueues;
         private readonly ConcurrentDictionary<string, TaskInfo> _activeTasks;
         private readonly ConcurrentDictionary<string, List<LogEntry>> _workerConsoleLines;
         private readonly Timer _heartbeatMonitor;
@@ -28,12 +28,12 @@ namespace Warp.Workers.WorkerController
         public WorkerControllerService()
         {
             _workers = new ConcurrentDictionary<string, WorkerInfo>();
-            _taskQueue = new ConcurrentQueue<TaskInfo>();
+            _workerTaskQueues = new ConcurrentDictionary<string, ConcurrentQueue<TaskInfo>>();
             _activeTasks = new ConcurrentDictionary<string, TaskInfo>();
             _workerConsoleLines = new ConcurrentDictionary<string, List<LogEntry>>();
 
-            // Monitor worker heartbeats every 30 seconds
-            _heartbeatMonitor = new Timer(MonitorWorkerHeartbeats, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+            // Monitor worker heartbeats every 10 seconds for faster failure detection
+            _heartbeatMonitor = new Timer(MonitorWorkerHeartbeats, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
             
             // Monitor task timeouts every 60 seconds
             _taskMonitor = new Timer(MonitorTaskTimeouts, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
@@ -52,9 +52,10 @@ namespace Warp.Workers.WorkerController
             };
 
             _workers[worker.WorkerId] = worker;
+            _workerTaskQueues[worker.WorkerId] = new ConcurrentQueue<TaskInfo>();
             
             Console.WriteLine($"Worker {worker.WorkerId} registered from {worker.Host}, GPU #{worker.DeviceId}");
-            Console.WriteLine($"WorkerControllerService: FIRING EVENT, subscribers: {WorkerRegistered?.GetInvocationList().Length}");
+            //Console.WriteLine($"WorkerControllerService: FIRING EVENT, subscribers: {WorkerRegistered?.GetInvocationList().Length}");
             WorkerRegistered?.Invoke(this, worker);
 
             return new WorkerRegistrationResponse
@@ -86,7 +87,7 @@ namespace Warp.Workers.WorkerController
         {
             if (_disposed) return;
 
-            var cutoff = DateTime.UtcNow.AddMinutes(-2);
+            var cutoff = DateTime.UtcNow.AddMinutes(-1);
             var disconnectedWorkers = _workers.Values
                 .Where(w => w.LastHeartbeat < cutoff && w.Status != WorkerStatus.Offline)
                 .ToList();
@@ -97,14 +98,20 @@ namespace Warp.Workers.WorkerController
                 worker.Status = WorkerStatus.Offline;
                 
                 // Reassign any active tasks
-                if (!string.IsNullOrEmpty(worker.CurrentTaskId) && 
-                    _activeTasks.TryGetValue(worker.CurrentTaskId, out var task))
+                if (!string.IsNullOrEmpty(worker.CurrentTaskId))
                 {
-                    task.Status = TaskStatus.Pending;
-                    task.WorkerId = null;
-                    task.AssignedAt = null;
-                    _taskQueue.Enqueue(task);
-                    Console.WriteLine($"Reassigning task {task.TaskId} due to worker disconnection");
+                    lock (_assignmentLock)
+                    {
+                        if (_activeTasks.TryGetValue(worker.CurrentTaskId, out var task))
+                        {
+                            task.Status = TaskStatus.Failed;
+                            task.CompletedAt = DateTime.UtcNow;
+                            task.ErrorMessage = "Worker disconnected during task execution";
+                            _activeTasks.TryRemove(task.TaskId, out _);
+                            Console.WriteLine($"Task {task.TaskId} failed due to worker disconnection");
+                            TaskFailed?.Invoke(this, task);
+                        }
+                    }
                 }
 
                 WorkerDisconnected?.Invoke(this, worker);
@@ -118,12 +125,18 @@ namespace Warp.Workers.WorkerController
 
         #region Task Management
 
-        public string SubmitTask(NamedSerializableObject command)
+        public string SubmitTaskToWorker(string workerId, NamedSerializableObject command)
         {
+            if (!_workers.TryGetValue(workerId, out var worker))
+                throw new ArgumentException($"Worker {workerId} not found");
+
+            if (!_workerTaskQueues.TryGetValue(workerId, out var workerQueue))
+                throw new ArgumentException($"Worker {workerId} queue not found");
+
             var task = new TaskInfo(command);
-            _taskQueue.Enqueue(task);
+            workerQueue.Enqueue(task);
             
-            Console.WriteLine($"Task {task.TaskId} queued: {command.Name}");
+            Console.WriteLine($"Task {task.TaskId} queued for worker {workerId}: {command.Name}");
             return task.TaskId;
         }
 
@@ -152,27 +165,30 @@ namespace Warp.Workers.WorkerController
                 }
             }
 
-            // Try to assign a task
-            lock (_assignmentLock)
+            // Check worker's own queue for tasks
+            if (_workerTaskQueues.TryGetValue(workerId, out var workerQueue))
             {
-                if (_taskQueue.TryDequeue(out var task))
+                lock (_assignmentLock)
                 {
-                    // Assign task to worker
-                    task.WorkerId = workerId;
-                    task.Status = TaskStatus.Assigned;
-                    task.AssignedAt = DateTime.UtcNow;
-                    
-                    _activeTasks[task.TaskId] = task;
-                    worker.Status = WorkerStatus.Working;
-                    worker.CurrentTaskId = task.TaskId;
+                    if (workerQueue.TryDequeue(out var task))
+                    {
+                        // Assign task to worker
+                        task.WorkerId = workerId;
+                        task.Status = TaskStatus.Assigned;
+                        task.AssignedAt = DateTime.UtcNow;
+                        
+                        _activeTasks[task.TaskId] = task;
+                        worker.Status = WorkerStatus.Working;
+                        worker.CurrentTaskId = task.TaskId;
 
-                    Console.WriteLine($"Task {task.TaskId} assigned to worker {workerId}");
-                    
-                    return new PollResponse 
-                    { 
-                        Task = task,
-                        NextPollDelayMs = 1000 // Poll quickly after receiving a task
-                    };
+                        Console.WriteLine($"Task {task.TaskId} assigned to worker {workerId}");
+                        
+                        return new PollResponse 
+                        { 
+                            Task = task,
+                            NextPollDelayMs = 100 // Poll quickly after receiving a task
+                        };
+                    }
                 }
             }
 
@@ -182,7 +198,7 @@ namespace Warp.Workers.WorkerController
 
             return new PollResponse 
             { 
-                NextPollDelayMs = 5000 // Standard polling interval
+                NextPollDelayMs = 500 // Standard polling interval
             };
         }
 
@@ -246,8 +262,23 @@ namespace Warp.Workers.WorkerController
 
         public TaskInfo GetTask(string taskId)
         {
-            _activeTasks.TryGetValue(taskId, out var task);
-            return task;
+            lock (_assignmentLock)
+            {
+                // First check active tasks
+                if (_activeTasks.TryGetValue(taskId, out var task))
+                    return task;
+                
+                // Check all worker queues for the task
+                foreach (var workerQueue in _workerTaskQueues.Values)
+                {
+                    var queuedTasks = workerQueue.ToArray();
+                    var queuedTask = queuedTasks.FirstOrDefault(t => t.TaskId == taskId);
+                    if (queuedTask != null)
+                        return queuedTask;
+                }
+                    
+                return null; // Task not found anywhere - likely completed and removed
+            }
         }
 
         public IEnumerable<TaskInfo> GetActiveTasks()
@@ -257,7 +288,7 @@ namespace Warp.Workers.WorkerController
 
         public int GetQueueLength()
         {
-            return _taskQueue.Count;
+            return _workerTaskQueues.Values.Sum(q => q.Count);
         }
 
         public List<LogEntry> GetWorkerConsoleLines(string workerId)
@@ -304,13 +335,16 @@ namespace Warp.Workers.WorkerController
                     worker.CurrentTaskId = null;
                 }
 
-                // Reassign task
-                task.Status = TaskStatus.Pending;
-                task.WorkerId = null;
-                task.AssignedAt = null;
-                task.StartedAt = null;
-                _activeTasks.TryRemove(task.TaskId, out _);
-                _taskQueue.Enqueue(task);
+                // Mark the timed-out task as failed
+                lock (_assignmentLock)
+                {
+                    task.Status = TaskStatus.Failed;
+                    task.CompletedAt = DateTime.UtcNow;
+                    task.ErrorMessage = "Task timed out after 30 minutes";
+                    _activeTasks.TryRemove(task.TaskId, out _);
+                    Console.WriteLine($"Task {task.TaskId} failed due to timeout");
+                    TaskFailed?.Invoke(this, task);
+                }
             }
         }
 
@@ -335,7 +369,7 @@ namespace Warp.Workers.WorkerController
                 },
                 Tasks = new
                 {
-                    Queued = _taskQueue.Count,
+                    Queued = GetQueueLength(),
                     Active = tasks.Count,
                     Running = tasks.Count(t => t.Status == TaskStatus.Running),
                     Assigned = tasks.Count(t => t.Status == TaskStatus.Assigned)

@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -6,6 +8,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Warp.Tools;
 
 namespace Warp.Workers.WorkerController
 {
@@ -33,7 +36,13 @@ namespace Warp.Workers.WorkerController
             builder.Services.AddSingleton(_controllerService);
             builder.Services.AddControllers()
                 .AddApplicationPart(typeof(WorkerControllerAPI).Assembly)
-                .AddNewtonsoftJson();
+                .AddJsonOptions(options =>
+                {
+                    // Use the same JSON settings as the main application
+                    options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                    options.JsonSerializerOptions.Converters.Add(new NamedSerializableObjectConverter());
+                });
             builder.Services.AddLogging(logging =>
             {
                 logging.SetMinimumLevel(LogLevel.Warning);

@@ -47,7 +47,7 @@ namespace Warp
         private static extern int _GetDeviceCount();
         public static int GetDeviceCount()
         {
-            if (!CanUseGPU) return 1;
+            if (!CanUseGPU) return int.MaxValue;
             return _GetDeviceCount();
         }
 

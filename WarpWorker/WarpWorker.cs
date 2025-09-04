@@ -160,6 +160,8 @@ namespace WarpWorker
 
         static async Task RunControllerModeAsync(OptionsCLI options)
         {
+            for (int i = 0; i < 10; i++)
+                Console.WriteLine("HELLO");
             Console.WriteLine($"Starting worker in controller mode, connecting to {options.Controller}");
             Console.WriteLine($"Running on GPU #{DeviceID} ({GPU.GetFreeMemory(DeviceID)} MB free)");
             

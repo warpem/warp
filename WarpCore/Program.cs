@@ -4,6 +4,7 @@ using CommandLine;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Warp;
 using Warp.Tools;
 using WarpCore.Core;
@@ -48,7 +49,7 @@ public class StartupOptions
 /// for electron microscopy data. Coordinates file discovery, worker management,
 /// and processing orchestration through a REST API.
 /// </summary>
-class WarpCore
+internal class WarpCore
 {
     /// <summary>
     /// Application entry point. Parses command line arguments and starts the web host
@@ -73,8 +74,17 @@ class WarpCore
     /// </summary>
     /// <param name="options">Startup configuration options parsed from command line</param>
     /// <returns>Configured host builder ready to build and run the application</returns>
-    static IHostBuilder CreateHostBuilder(StartupOptions options) =>
+    private static IHostBuilder CreateHostBuilder(StartupOptions options) =>
         Host.CreateDefaultBuilder()
+            .ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.AddConsole();
+                logging.SetMinimumLevel(LogLevel.Warning);
+                logging.AddFilter("Microsoft", LogLevel.Warning);
+                logging.AddFilter("System", LogLevel.Warning);
+                logging.AddFilter("WarpCore", LogLevel.Information);
+            })
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseStartup<Startup>();

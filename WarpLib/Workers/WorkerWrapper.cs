@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,7 +106,7 @@ namespace Warp.Workers
         /// <summary>
         /// Spawn a local worker process that will connect to the shared controller
         /// </summary>
-        public static async Task<bool> SpawnLocalWorkerAsync(
+        public static async Task<Process> SpawnLocalWorkerAsync(
             int deviceId, 
             bool silent = false, 
             bool attachDebugger = false, 
@@ -158,8 +159,6 @@ namespace Warp.Workers
                                     $"{(Debugger.IsAttached ? "--debug" : "")} " +
                                     $"{(attachDebugger ? "--debug_attach" : "")} " +
                                     $"{(mockMode ? "--mock" : "")}",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
                         UseShellExecute = false
                     };
             }
@@ -178,19 +177,19 @@ namespace Warp.Workers
                 if (process.HasExited)
                 {
                     Console.WriteLine($"Worker process for device {deviceId} exited immediately with code {process.ExitCode}");
-                    return false;
+                    return null;
                 }
                 
                 Console.WriteLine($"Worker process for device {deviceId} started successfully (PID: {process.Id})");
                 
                 // Don't wait for registration - that's handled by controller events
                 // Worker will register itself with the controller when ready
-                return true;
+                return process;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Failed to spawn worker for device {deviceId}: {ex.Message}");
-                return false;
+                return null;
             }
         }
         
@@ -222,7 +221,7 @@ namespace Warp.Workers
             }
             
             // Fire static event for pool integration
-            Console.WriteLine($"Firing WorkerRegistered event, subscribers: {WorkerRegistered?.GetInvocationList()?.Length ?? 0}");
+            //Console.WriteLine($"Firing WorkerRegistered event, subscribers: {WorkerRegistered?.GetInvocationList()?.Length ?? 0}");
             WorkerRegistered?.Invoke(null, workerWrapper);
         }
         
@@ -278,6 +277,21 @@ namespace Warp.Workers
                             
                             if (!workerStillActive)
                             {
+                                // Worker is no longer registered with controller - mark any active tasks as failed
+                                var activeTasks = controllerService.GetActiveTasks().Where(t => t.WorkerId == _workerId).ToList();
+                                foreach (var task in activeTasks)
+                                {
+                                    try
+                                    {
+                                        controllerService.UpdateTaskStatus(_workerId, task.TaskId, new TaskUpdateRequest
+                                        {
+                                            Status = TaskStatus.Failed,
+                                            ErrorMessage = "Worker disconnected during task execution"
+                                        });
+                                    }
+                                    catch { } // Task might already be completed/failed
+                                }
+                                
                                 ReportDeath();
                                 IsAlive = false;
                                 break;
@@ -304,26 +318,35 @@ namespace Warp.Workers
 
         void SendCommand(NamedSerializableObject command)
         {
-            // All workers now use controller task submission
+            // All workers now use controller task submission to specific worker
             var controllerService = _sharedController.GetService();
-            var taskId = controllerService.SubmitTask(command);
+            var taskId = controllerService.SubmitTaskToWorker(_workerId, command);
 
             // Wait for task completion with timeout
             var timeout = DateTime.UtcNow.AddMinutes(30);
+            
             while (DateTime.UtcNow < timeout)
             {
                 var task = controllerService.GetTask(taskId);
                 if (task == null) // Task completed and removed
-                    break;
+                    return;
 
                 if (task.Status == TaskStatus.Completed)
-                    break;
+                    return;
 
                 if (task.Status == TaskStatus.Failed)
                     throw new Exception($"Task failed: {task.ErrorMessage}");
 
-                Thread.Sleep(100);
+                // Only check worker health if task is actively running
+                // Pending/Assigned tasks will be handled by disposal logic
+                if (task.Status == TaskStatus.Running && !IsAlive)
+                    throw new Exception($"Worker {_workerId} died during task execution, status was {task.Status}");
+
+                Thread.Sleep(50);
             }
+            
+            // If we get here, we timed out
+            throw new Exception($"Task execution timed out after 30 minutes");
         }
 
         void SendExit()
@@ -332,7 +355,7 @@ namespace Warp.Workers
             try
             {
                 var controllerService = _sharedController.GetService();
-                controllerService.SubmitTask(new NamedSerializableObject("Exit")); // Note: Exit is not a WorkerWrapper method
+                controllerService.SubmitTaskToWorker(_workerId, new NamedSerializableObject("Exit"));
             }
             catch { }
         }
@@ -348,6 +371,42 @@ namespace Warp.Workers
             if (IsAlive)
             {
                 Debug.WriteLine($"Disposing worker {_workerId}");
+
+                // First, wait for active tasks to complete (with timeout)
+                if (_workerId != null)
+                {
+                    try
+                    {
+                        var controllerService = _sharedController.GetService();
+                        var deadline = DateTime.UtcNow.AddSeconds(1);
+                        
+                        while (DateTime.UtcNow < deadline)
+                        {
+                            var activeTasks = controllerService.GetActiveTasks().Where(t => t.WorkerId == _workerId).ToList();
+                            if (!activeTasks.Any())
+                                break; // No active tasks, safe to dispose
+                                
+                            Thread.Sleep(50); // Check every 50ms
+                        }
+                        
+                        // After timeout, mark any remaining tasks as failed
+                        var remainingTasks = controllerService.GetActiveTasks().Where(t => t.WorkerId == _workerId).ToList();
+                        foreach (var task in remainingTasks)
+                        {
+                            try
+                            {
+                                controllerService.UpdateTaskStatus(_workerId, task.TaskId, new TaskUpdateRequest
+                                {
+                                    Status = TaskStatus.Failed,
+                                    ErrorMessage = "Worker disposed during task execution"
+                                });
+                            }
+                            catch { } // Task might already be completed/failed
+                        }
+                    }
+                    catch { } // Controller might already be disposed
+                }
+
                 IsAlive = false;
 
                 WaitAsyncTasks();
@@ -355,12 +414,10 @@ namespace Warp.Workers
                 
                 // Remove from active workers tracking
                 if (_workerId != null)
-                {
                     lock (_activeWorkers)
                     {
                         _activeWorkers.Remove(_workerId);
                     }
-                }
             }
         }
 

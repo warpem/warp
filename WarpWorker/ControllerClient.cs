@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers.WorkerController;
+using TaskStatus = Warp.Workers.WorkerController.TaskStatus;
 
 namespace WarpWorker
 {
@@ -168,7 +170,7 @@ namespace WarpWorker
                             Console.WriteLine($"Received task: {pollResponse.Task.Command.Name}");
                             
                             // Update task status to Running
-                            UpdateTaskStatus(pollResponse.Task.TaskId, "Running", null, null);
+                            UpdateTaskStatus(pollResponse.Task.TaskId, TaskStatus.Running, null, null);
                             
                             // Execute the task
                             try
@@ -176,12 +178,12 @@ namespace WarpWorker
                                 TaskReceived?.Invoke(pollResponse.Task.Command);
                                 
                                 // Update task status to Completed
-                                UpdateTaskStatus(pollResponse.Task.TaskId, "Completed", null, null);
+                                UpdateTaskStatus(pollResponse.Task.TaskId, TaskStatus.Completed, null, null);
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine($"Task execution failed: {ex.Message}");
-                                UpdateTaskStatus(pollResponse.Task.TaskId, "Failed", ex.Message, null);
+                                UpdateTaskStatus(pollResponse.Task.TaskId, TaskStatus.Failed, ex.Message, null);
                             }
                             
                             // Poll immediately for next task
@@ -189,7 +191,7 @@ namespace WarpWorker
                         }
                         
                         // No task available, wait before polling again
-                        Thread.Sleep(pollResponse?.NextPollDelayMs ?? 5000);
+                        Thread.Sleep(pollResponse?.NextPollDelayMs ?? 1000);
                     }
                     catch (Exception ex)
                     {
@@ -288,7 +290,8 @@ namespace WarpWorker
                     result.Task = new TaskData
                     {
                         TaskId = taskElement.GetProperty("taskId").GetString(),
-                        Command = JsonSerializer.Deserialize<NamedSerializableObject>(taskElement.GetProperty("command").GetRawText())
+                        Command = JsonSerializer.Deserialize<NamedSerializableObject>(taskElement.GetProperty("command").GetRawText(), 
+                                                                                      JsonSettings.Default)
                     };
                 }
                 
@@ -296,7 +299,7 @@ namespace WarpWorker
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Poll request failed: {ex.Message}");
+                Console.WriteLine($"Poll request failed: {ex.Message}\n{ex.StackTrace}");
                 HandleConnectionError(ex);
                 CheckForShutdown(ex, "poll request");
                 return null;
@@ -330,18 +333,18 @@ namespace WarpWorker
             }
         }
         
-        private void UpdateTaskStatus(string taskId, string status, string errorMessage, object result)
+        private void UpdateTaskStatus(string taskId, TaskStatus status, string errorMessage, object result)
         {
             try
             {
-                var update = new
+                TaskUpdateRequest updateRequest = new()
                 {
-                    Status = status,
-                    ErrorMessage = errorMessage,
+                    Status = status, 
+                    ErrorMessage = errorMessage, 
                     Result = result
                 };
                 
-                var json = JsonSerializer.Serialize(update);
+                var json = JsonSerializer.Serialize(updateRequest);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
                 var response = _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/tasks/{taskId}/status", content).Result;
@@ -349,6 +352,12 @@ namespace WarpWorker
                 if (!response.IsSuccessStatusCode)
                 {
                     Console.WriteLine($"Failed to update task status: {response.StatusCode}");
+                    var responseContent = response.Content.ReadAsStringAsync().Result;
+                    Console.WriteLine($"Response: {responseContent}");
+                }
+                else
+                {
+                    Console.WriteLine($"Successfully updated task status to {status}");
                 }
             }
             catch (Exception ex)

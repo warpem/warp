@@ -51,13 +51,15 @@ namespace WarpCore.Core.Processing
         /// </summary>
         /// <param name="maxCount">Maximum number of movies to return in the batch</param>
         /// <param name="currentSettings">Current processing settings to determine what needs processing</param>
+        /// <param name="excludeAssignments">Set of movie paths currently being processed to exclude from selection</param>
         /// <returns>List of movies ready for processing, up to maxCount items</returns>
-        public List<Movie> GetNextBatch(int maxCount, OptionsWarp currentSettings)
+        public List<Movie> GetNextBatch(int maxCount, OptionsWarp currentSettings, ISet<string> excludeAssignments = null)
         {
             lock (_moviesLock)
             {
                 var needProcessing = _discoveredMovies
                     .Where(movie => NeedsProcessing(movie, currentSettings))
+                    .Where(movie => excludeAssignments == null || !excludeAssignments.Contains(movie.Path))
                     .ToList();
 
                 // Sort by priority: outdated items first, then by discovery order
@@ -180,6 +182,11 @@ namespace WarpCore.Core.Processing
         private bool NeedsProcessing(Movie movie, OptionsWarp currentSettings)
         {
             if (movie.UnselectManual == true)
+                return false;
+
+            // If the movie is already marked as processed in memory, don't reprocess it
+            // This prevents infinite loops when options comparison fails due to object equality issues
+            if (movie.ProcessingStatus == Warp.ProcessingStatus.Processed)
                 return false;
 
             var status = currentSettings.GetMovieProcessingStatus(movie, false);

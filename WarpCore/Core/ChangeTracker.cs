@@ -164,6 +164,13 @@ namespace WarpCore.Core
                 
                 var jsonString = itemsJson.ToJsonString(options);
                 
+                // Ensure directory exists before writing
+                var directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                
                 // Write to temp file first, then move to avoid partial writes
                 var tempPath = filePath + ".tmp";
                 await File.WriteAllTextAsync(tempPath, jsonString);
