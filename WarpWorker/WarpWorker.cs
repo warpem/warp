@@ -1006,18 +1006,7 @@ namespace WarpWorker
                     if (header.Dimensions.X != GainRef.Dims.X || header.Dimensions.Y != GainRef.Dims.Y)
                         throw new Exception($"Gain reference dimensions ({GainRef.Dims.X}x{GainRef.Dims.Y}) do not match image ({header.Dimensions.X}x{header.Dimensions.Y}).");
 
-            int EERSupersample = 1;
-            if (GainRef != null && correctGain && IsEER)
-            {
-                if (header.Dimensions.X == GainRef.Dims.X)
-                    EERSupersample = 1;
-                else if (header.Dimensions.X * 2 == GainRef.Dims.X)
-                    EERSupersample = 2;
-                else if (header.Dimensions.X * 4 == GainRef.Dims.X)
-                    EERSupersample = 3;
-                else
-                    throw new Exception("Invalid supersampling factor requested for EER based on gain reference dimensions");
-            }
+            int EERSupersample = 4; // EER super-resolution now fixed to 4x
             int EERGroupFrames = 1;
             if (IsEER)
             {
@@ -1036,12 +1025,11 @@ namespace WarpWorker
 
             int2 SourceDims = new int2(header.Dimensions);
             if (IsEER)
+            { 
                 SourceDims *= 4;
 
-            if (IsEER && GainRef != null && correctGain)
-            {
-                header.Dimensions.X = GainRef.Dims.X;
-                header.Dimensions.Y = GainRef.Dims.Y;
+                if (GainRef != null && correctGain)
+                    GainRef = GainRef.AsScaled(SourceDims).AndDisposeParent();
             }
 
             int NThreads = (IsTiff || IsEER) ? maxThreads : 1;
@@ -1078,9 +1066,7 @@ namespace WarpWorker
                 {
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
-                    else if (IsEER)
-                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
-                    else
+                    else 
                         IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
                                                      HeaderlessDims,
@@ -1097,12 +1083,7 @@ namespace WarpWorker
                         GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), header.Dimensions.ElementsSlice());
 
                         if (GainRef != null && correctGain)
-                        {
-                            //if (IsEER)
-                            //    GPULayers[GPUThreadID].DivideSlices(GainRef);
-                            //else
-                                GPULayers[GPUThreadID].MultiplySlices(GainRef); // EER .gain is now multiplicative??
-                        }
+                            GPULayers[GPUThreadID].MultiplySlices(GainRef);
 
                         if (DefectMap != null)
                         {
@@ -1155,7 +1136,11 @@ namespace WarpWorker
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
                     else if (IsEER)
-                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), 3, RawLayers[threadID]);
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, 
+                                                 Math.Min(((HeaderEER)header).DimensionsUngrouped.Z,
+                                                          (z + 1) * EERGroupFrames), 
+                                                 3, // 3 = 4x super-resolution
+                                                 RawLayers[threadID]);
                     else
                         IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
@@ -1173,13 +1158,7 @@ namespace WarpWorker
                         GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), SourceDims.Elements());
 
                         if (GainRef != null && correctGain)
-                        {
-                            //if (IsEER)
-                            //    GPULayers[GPUThreadID].DivideSlices(GainRef);
-                            //else
-                            if (!IsEER)
-                                GPULayers[GPUThreadID].MultiplySlices(GainRef);
-                        }
+                            GPULayers[GPUThreadID].MultiplySlices(GainRef); // Let's assume EER gain is always multiplicative now
 
                         if (DefectMap != null && !IsEER)
                         {
