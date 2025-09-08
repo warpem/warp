@@ -418,6 +418,13 @@ namespace Warp
                 options));
         }
 
+        public void TomoAutoLevel(string path, ProcessingOptionsTomoAutoLevel options)
+        {
+            SendCommand(new NamedSerializableObject("TomoAutoLevel",
+                                                    path,
+                                                    options));
+        }
+
         public void TomoProcessCTF(string path, ProcessingOptionsMovieCTF options)
         {
             SendCommand(new NamedSerializableObject("TomoProcessCTF",

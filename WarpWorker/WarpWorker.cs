@@ -766,6 +766,17 @@ namespace WarpWorker
 
                     Console.WriteLine($"Processed CTF for {Path}");
                 }
+                else if (Command.Name == "TomoAutoLevel")
+                {
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTomoAutoLevel Options = (ProcessingOptionsTomoAutoLevel)Command.Content[1];
+
+                    TiltSeries T = new TiltSeries(Path);
+                    T.AutoLevel(Options);
+                    T.SaveMeta();
+
+                    Console.WriteLine($"Processed auto-leveling for {Path}");
+                }
                 else if (Command.Name == "TomoAlignLocallyWithoutReferences")
                 {
                     string Path = (string)Command.Content[0];
