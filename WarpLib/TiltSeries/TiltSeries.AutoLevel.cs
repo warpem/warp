@@ -77,7 +77,7 @@ public partial class TiltSeries
 
         var OptimizeAngles = () =>
         {
-            foreach (float lowpassFraction in new float[] { 0.5f, 1.0f })
+            foreach (float lowpassFraction in new float[] { 1.0f })
             {
                 float OriginalLevelAngleX = LevelAngleX;
                 float OriginalLevelAngleY = LevelAngleY;
@@ -346,7 +346,7 @@ public partial class TiltSeries
                 GridMovementY = new CubicGrid(new int3(1, 1, NTilts));
             }
 
-            foreach (float lowpassFraction in new float[] { 0.25f, 0.5f, 1.0f })
+            foreach (float lowpassFraction in new float[] { 1.0f })
             {
                 int CentralTilt = IndicesSortedAbsoluteAngle[0];
 
@@ -491,6 +491,7 @@ public partial class TiltSeries
         OptimizeElevation();
 
         OptimizeAngles();
+        OptimizeElevation();
 
         OptimizeAlignment();
 
