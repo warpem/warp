@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
 using Warp.Workers.WorkerController;
-using TaskStatus = Warp.Workers.WorkerController.TaskStatus;
+using Warp.Workers.Distribution;
 
 namespace WarpWorker
 {
@@ -45,8 +46,8 @@ namespace WarpWorker
         private readonly bool _persistentConnection;
         private volatile bool _hasEverConnected = false;
         
-        // Events for task execution
-        public event Action<NamedSerializableObject> TaskReceived;
+        // Events for work package execution
+        public event Action<WorkPackage> WorkPackageReceived;
         public event Action<string> ErrorOccurred;
         public event Action Connected;
         public event Action Disconnected;
@@ -85,14 +86,14 @@ namespace WarpWorker
                         Token = Token // Send our self-generated token
                     };
                     
-                    var json = JsonSerializer.Serialize(request);
+                    var json = JsonSerializer.Serialize(request, JsonSettings.Default);
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
                     
                     var response = await _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/register", content);
                     response.EnsureSuccessStatusCode();
                     
                     var responseJson = await response.Content.ReadAsStringAsync();
-                    var registrationResponse = JsonSerializer.Deserialize<JsonElement>(responseJson);
+                    var registrationResponse = JsonSerializer.Deserialize<JsonElement>(responseJson, JsonSettings.Default);
                     
                     WorkerId = registrationResponse.GetProperty("workerId").GetString();
                     // Keep our self-generated token
@@ -165,30 +166,26 @@ namespace WarpWorker
                             ResetFailureCount(); // Reset on successful communication
                         }
                         
-                        if (pollResponse?.Task != null)
+                        // Handle work package (new system)
+                        if (pollResponse?.WorkPackage != null)
                         {
-                            Console.WriteLine($"Received task: {pollResponse.Task.Command.Name}");
+                            Console.WriteLine($"Received work package: {pollResponse.WorkPackage.Id} with {pollResponse.WorkPackage.Commands.Count} commands");
                             
-                            // Update task status to Running
-                            UpdateTaskStatus(pollResponse.Task.TaskId, TaskStatus.Running, null, null);
-                            
-                            // Execute the task
+                            // Execute the work package
                             try
                             {
-                                TaskReceived?.Invoke(pollResponse.Task.Command);
-                                
-                                // Update task status to Completed
-                                UpdateTaskStatus(pollResponse.Task.TaskId, TaskStatus.Completed, null, null);
+                                WorkPackageReceived?.Invoke(pollResponse.WorkPackage);
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"Task execution failed: {ex.Message}");
-                                UpdateTaskStatus(pollResponse.Task.TaskId, TaskStatus.Failed, ex.Message, null);
+                                Console.WriteLine($"Work package execution failed: {ex.Message}");
+                                UpdateWorkPackageStatus(pollResponse.WorkPackage.Id, WorkPackageStatus.Failed, 0, ex.Message);
                             }
                             
-                            // Poll immediately for next task
+                            // Poll immediately for next work
                             continue;
                         }
+                        
                         
                         // No task available, wait before polling again
                         Thread.Sleep(pollResponse?.NextPollDelayMs ?? 1000);
@@ -246,7 +243,7 @@ namespace WarpWorker
             _heartbeatThread.Start();
         }
         
-        private PollResponseData PollForTask()
+        private PollResponse PollForTask()
         {
             try
             {
@@ -259,7 +256,7 @@ namespace WarpWorker
                     ConsoleLines = newConsoleLines
                 };
                 
-                var json = JsonSerializer.Serialize(pollRequest);
+                var json = JsonSerializer.Serialize(pollRequest, JsonSettings.Default);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
                 var response = _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/poll", content).Result;
@@ -278,21 +275,17 @@ namespace WarpWorker
                 _lastSentConsoleLineIndex = allConsoleLines.Count;
                 
                 var responseJson = response.Content.ReadAsStringAsync().Result;
-                var pollResponse = JsonSerializer.Deserialize<JsonElement>(responseJson);
+                var pollResponse = JsonSerializer.Deserialize<JsonElement>(responseJson, JsonSettings.Default);
                 
-                PollResponseData result = new PollResponseData
+                PollResponse result = new PollResponse
                 {
                     NextPollDelayMs = pollResponse.TryGetProperty("nextPollDelayMs", out var delay) ? delay.GetInt32() : 5000
                 };
                 
-                if (pollResponse.TryGetProperty("task", out var taskElement) && taskElement.ValueKind != JsonValueKind.Null)
+                if (pollResponse.TryGetProperty("workPackage", out var workPackageElement) && 
+                    workPackageElement.ValueKind != JsonValueKind.Null)
                 {
-                    result.Task = new TaskData
-                    {
-                        TaskId = taskElement.GetProperty("taskId").GetString(),
-                        Command = JsonSerializer.Deserialize<NamedSerializableObject>(taskElement.GetProperty("command").GetRawText(), 
-                                                                                      JsonSettings.Default)
-                    };
+                    result.WorkPackage = JsonSerializer.Deserialize<WorkPackage>(workPackageElement.GetRawText(), JsonSettings.Default);
                 }
                 
                 return result;
@@ -314,10 +307,10 @@ namespace WarpWorker
                 {
                     Status = WorkerStatus.Idle, // Use proper enum instead of string
                     FreeMemoryMB = GPU.GetFreeMemory(_deviceId),
-                    CurrentTaskId = null
+                    CurrentWorkPackageId = null
                 };
                 
-                var json = JsonSerializer.Serialize(heartbeat);
+                var json = JsonSerializer.Serialize(heartbeat, JsonSettings.Default);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
                 var response = _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/heartbeat", content).Result;
@@ -333,36 +326,37 @@ namespace WarpWorker
             }
         }
         
-        private void UpdateTaskStatus(string taskId, TaskStatus status, string errorMessage, object result)
+
+        public void UpdateWorkPackageStatus(string workPackageId, WorkPackageStatus status, int currentCommandIndex, string errorMessage = null)
         {
             try
             {
-                TaskUpdateRequest updateRequest = new()
+                var updateRequest = new WorkPackageUpdateRequest
                 {
-                    Status = status, 
-                    ErrorMessage = errorMessage, 
-                    Result = result
+                    Status = status,
+                    CurrentCommandIndex = currentCommandIndex,
+                    ErrorMessage = errorMessage
                 };
                 
-                var json = JsonSerializer.Serialize(updateRequest);
+                var json = JsonSerializer.Serialize(updateRequest, JsonSettings.Default);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
                 
-                var response = _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/tasks/{taskId}/status", content).Result;
+                var response = _httpClient.PostAsync($"{_controllerEndpoint}/api/workers/{WorkerId}/workpackages/{workPackageId}/status", content).Result;
                 
                 if (!response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"Failed to update task status: {response.StatusCode}");
+                    Console.WriteLine($"Failed to update work package status: {response.StatusCode}");
                     var responseContent = response.Content.ReadAsStringAsync().Result;
                     Console.WriteLine($"Response: {responseContent}");
                 }
                 else
                 {
-                    Console.WriteLine($"Successfully updated task status to {status}");
+                    Console.WriteLine($"Successfully updated work package {workPackageId} status to {status}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Task status update failed: {ex.Message}");
+                Console.WriteLine($"Work package status update failed: {ex.Message}");
             }
         }
         
@@ -478,15 +472,4 @@ namespace WarpWorker
         }
     }
     
-    internal class PollResponseData
-    {
-        public TaskData Task { get; set; }
-        public int NextPollDelayMs { get; set; }
-    }
-    
-    internal class TaskData
-    {
-        public string TaskId { get; set; }
-        public NamedSerializableObject Command { get; set; }
-    }
 }

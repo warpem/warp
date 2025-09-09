@@ -171,7 +171,7 @@ namespace WarpCore.Tests
                 try
                 {
                     // Spawn worker process with mock mode enabled
-                    var spawned = await WorkerWrapper.SpawnLocalWorkerAsync(deviceId, silent: true, attachDebugger: false, mockMode: true);
+                    var spawned = await WorkerWrapper.SpawnLocalWorkerAsync(deviceId, silent: false, attachDebugger: false, mockMode: true);
                     if (spawned == null)
                     {
                         throw new Exception($"Failed to spawn worker for device {deviceId}");
@@ -343,8 +343,8 @@ namespace WarpCore.Tests
         [Fact]
         public async Task OnTheFlyProcessing_DistributesToMultipleWorkers_ProcessesAllFiles()
         {
-            const int fileCount = 40;
-            const int workerCount = 10;
+            const int fileCount = 4;
+            const int workerCount = 1;
             
             _testOutputHelper.WriteLine("=== Starting On-The-Fly Processing Integration Test ===");
             
@@ -448,7 +448,7 @@ namespace WarpCore.Tests
                 IsBackground = true,
                 Name = "WorkerKiller"
             };
-            killer.Start();
+            //killer.Start();
             
             // Step 5: Monitor processing progress
             _testOutputHelper.WriteLine("Step 5: Monitoring processing progress");

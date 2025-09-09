@@ -7,8 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Warp;
+using Warp.Tools;
 using Warp.Workers;
 using Warp.Workers.WorkerController;
+using Warp.Workers.Distribution;
 using WarpCore.Core.Processing;
 
 namespace WarpCore.Core
@@ -22,7 +24,7 @@ namespace WarpCore.Core
     public class ProcessingOrchestrator : IDisposable
     {
         private readonly ILogger<ProcessingOrchestrator> _logger;
-        private readonly WorkerPool _workerPool;
+        private readonly WorkerControllerService _workerControllerService;
         private readonly FileDiscoverer _fileDiscoverer;
         private readonly ChangeTracker _changeTracker;
         private readonly StartupOptions _startupOptions;
@@ -32,18 +34,16 @@ namespace WarpCore.Core
         private Task _processingTask;
         private readonly object _processingLock = new object();
 
-        // Processing components
+        // Processing components - new system
         private readonly ProcessingQueue _processingQueue;
-        private readonly ProcessingTaskDistributor _taskDistributor;
+        private readonly WorkDistributor _workDistributor;
         private readonly SettingsChangeHandler _settingsChangeHandler;
+        
         
         // Debounced change tracking
         private readonly Timer _changeTrackingTimer;
         private volatile bool _hasChangesToWrite;
         private readonly object _changeTrackingLock = new object();
-        
-        // Active movie assignment tracking to prevent duplicate processing
-        private readonly ConcurrentDictionary<string, string> _activeMovieAssignments = new();
 
         /// <summary>
         /// Gets a value indicating whether the processing system is currently active.
@@ -52,35 +52,33 @@ namespace WarpCore.Core
 
         /// <summary>
         /// Initializes the processing orchestrator with all required dependencies.
-        /// Sets up event subscriptions for worker management and file discovery.
+        /// Sets up event subscriptions for worker management, file discovery, and work distribution.
         /// </summary>
         /// <param name="logger">Logger for recording orchestration operations</param>
-        /// <param name="workerPool">Pool of workers for distributed processing</param>
+        /// <param name="workerControllerService">Worker controller service for distributed processing</param>
         /// <param name="fileDiscoverer">Service for discovering new files to process</param>
         /// <param name="changeTracker">Service for tracking processing state changes</param>
         /// <param name="startupOptions">Application startup configuration</param>
         /// <param name="processingQueue">Queue manager for discovered movies</param>
-        /// <param name="taskDistributor">Task assignment and distribution logic</param>
         /// <param name="settingsChangeHandler">Handler for processing settings changes</param>
         public ProcessingOrchestrator(
             ILogger<ProcessingOrchestrator> logger,
-            WorkerPool workerPool, 
+            WorkerControllerService workerControllerService, 
             FileDiscoverer fileDiscoverer,
             ChangeTracker changeTracker,
             StartupOptions startupOptions,
             ProcessingQueue processingQueue,
-            ProcessingTaskDistributor taskDistributor,
             SettingsChangeHandler settingsChangeHandler)
         {
             _logger = logger;
-            _workerPool = workerPool;
+            _workerControllerService = workerControllerService;
             _fileDiscoverer = fileDiscoverer;
             _changeTracker = changeTracker;
             _startupOptions = startupOptions;
             
             // Use DI-provided processing components
             _processingQueue = processingQueue;
-            _taskDistributor = taskDistributor;
+            _workDistributor = WorkDistribution.Instance;
             _settingsChangeHandler = settingsChangeHandler;
 
             _currentSettings = new OptionsWarp();
@@ -88,9 +86,12 @@ namespace WarpCore.Core
             // Initialize debounced change tracking (10 second debounce)
             _changeTrackingTimer = new Timer(WriteChangesCallback, null, Timeout.Infinite, Timeout.Infinite);
             
+            // Subscribe to work distributor events
+            _workDistributor.QueueRunningLow += OnQueueRunningLow;
+            
             // Subscribe to worker events for redistribution
-            _workerPool.WorkerConnected += OnWorkerConnected;
-            _workerPool.WorkerDisconnected += OnWorkerDisconnected;
+            _workerControllerService.WorkerRegistered += OnWorkerRegistered;
+            _workerControllerService.WorkerDisconnected += OnWorkerDisconnected;
             
             // Subscribe to file discovery events
             _fileDiscoverer.FileDiscovered += OnFileDiscovered;
@@ -117,6 +118,10 @@ namespace WarpCore.Core
 
             // Initialize file discovery
             await _fileDiscoverer.InitializeAsync(_startupOptions.DataDirectory, _currentSettings.Import.Extension, true);
+
+            // Set work distributor target based on available workers
+            var workerCount = _workerControllerService.GetActiveWorkers().Count();
+            _workDistributor.SetQueueTarget(Math.Max(4 * workerCount, 10)); // At least 10 packages
 
             // Start the main processing loop
             _processingTask = ProcessingLoopAsync(_processingCancellation.Token);
@@ -177,10 +182,13 @@ namespace WarpCore.Core
             var impact = _settingsChangeHandler.AnalyzeSettingsChange(oldSettings, newSettings);
             _settingsChangeHandler.ApplySettingsChange(_processingQueue, oldSettings, newSettings, impact);
             
-            // Trigger immediate redistribution if needed
+            // Purge work distributor queue if processing steps changed
             if (_settingsChangeHandler.ShouldTriggerImmediateRedistribution(impact))
             {
-                _ = Task.Run(() => RedistributeWorkAsync(oldSettings, newSettings));
+                _logger.LogInformation("Settings change detected, purging work distributor queue");
+                _workDistributor.PurgeQueue(); // Clear all pending work packages
+                
+                // Queue will be refilled automatically via QueueRunningLow event
             }
         }
 
@@ -200,7 +208,7 @@ namespace WarpCore.Core
         /// <returns>Statistics object containing processing metrics and status information</returns>
         public ProcessingStatistics GetStatistics()
         {
-            var workers = _workerPool.GetWorkers();
+            var workers = _workerControllerService.GetActiveWorkers();
             var allMovies = _processingQueue.GetAllMovies();
             
             var processedCount = allMovies.Count(m => _currentSettings.GetMovieProcessingStatus(m, false) == Warp.ProcessingStatus.Processed);
@@ -224,8 +232,9 @@ namespace WarpCore.Core
         }
 
         /// <summary>
-        /// Main processing loop that continuously monitors for work and coordinates task execution.
-        /// Handles stale task cleanup, assigns work to available workers, and manages error recovery.
+        /// Main processing loop that continuously monitors the processing system.
+        /// Refreshes processing queue statuses to maintain accurate state information.
+        /// Work distribution is handled automatically by the WorkDistributor.
         /// Runs until cancellation is requested.
         /// </summary>
         /// <param name="cancellationToken">Token for cancelling the processing loop</param>
@@ -238,14 +247,8 @@ namespace WarpCore.Core
             {
                 try
                 {
-                    // Clean up any stale tasks (timeout after 30 minutes)
-                    var staleMovies = _taskDistributor.CleanupStaleTasks(TimeSpan.FromMinutes(30));
-                    if (staleMovies.Any())
-                    {
-                        _logger.LogWarning($"Found {staleMovies.Count} stale tasks, movies will be reprocessed");
-                    }
 
-                    // Process items that need processing
+                    // Monitor processing status (work distribution is automatic via WorkDistributor)
                     await ProcessPendingItemsAsync(cancellationToken);
 
                     // Refresh processing queue statuses after completing tasks
@@ -270,129 +273,190 @@ namespace WarpCore.Core
 
         /// <summary>
         /// Processes all pending items that are ready for processing.
-        /// Checks for available workers, gets the next batch of movies from the queue,
-        /// assigns tasks to workers, and executes them in parallel.
+        /// Work distribution is now handled automatically by the WorkDistributor
+        /// via QueueRunningLow events and WorkPackage submission.
         /// </summary>
         /// <param name="cancellationToken">Token for cancelling the processing operation</param>
         /// <returns>Task representing the pending items processing operation</returns>
         private async Task ProcessPendingItemsAsync(CancellationToken cancellationToken)
         {
-            // Count available workers
-            var availableWorkerCount = _workerPool.GetWorkers()
-                .Count(w => w.Status == WorkerStatus.Idle);
-
-            if (availableWorkerCount == 0)
-                return;
-
-            // Get active movie assignments as a set for efficient filtering
-            var activeAssignments = _activeMovieAssignments.Keys.ToHashSet();
-
-            // Get movies that need processing, excluding those already being processed
-            var moviesToProcess = _processingQueue.GetNextBatch(availableWorkerCount, _currentSettings, activeAssignments);
-
-            if (!moviesToProcess.Any())
-                return;
-
-            _logger.LogInformation($"Processing {moviesToProcess.Count} items with {availableWorkerCount} available workers");
-
-            // Assign tasks to workers (WorkerPool handles reservation)
-            var assignedTasks = await _taskDistributor.AssignTasksAsync(moviesToProcess, _currentSettings);
-
-            // Track active assignments to prevent duplicate processing
-            foreach (var task in assignedTasks)
-            {
-                _activeMovieAssignments[task.Movie.Path] = task.WorkerId;
-                _logger.LogDebug($"Movie {task.Movie.Name} assigned to worker {task.WorkerId}");
-            }
-
-            // Execute tasks without waiting for completion - allows continuous assignment
-            foreach (var task in assignedTasks)
-                ProcessTaskAsync(task, cancellationToken);
+            // Work distribution is now handled automatically by the WorkDistributor via QueueRunningLow events
+            // This method is kept for any future direct processing needs
+            await Task.CompletedTask;
         }
 
+
         /// <summary>
-        /// Processes a single task by executing it on the assigned worker.
-        /// Handles task completion and failure scenarios, updating task status accordingly.
+        /// Event handler for when the work distributor queue is running low.
+        /// Submits new work packages from the processing queue to maintain optimal throughput.
         /// </summary>
-        /// <param name="task">Processing task to execute</param>
-        /// <param name="cancellationToken">Token for cancelling the task execution</param>
-        /// <returns>Task representing the processing operation</returns>
-        private async Task ProcessTaskAsync(ProcessingTask task, CancellationToken cancellationToken)
+        /// <param name="sender">Event sender (WorkDistributor)</param>
+        /// <param name="e">Event arguments containing queue size information</param>
+        private void OnQueueRunningLow(object sender, QueueLowEventArgs e)
         {
             try
             {
-                _logger.LogDebug($"Processing task {task.TaskId} for movie {task.Movie.Name}");
-
-                // Execute the processing task via WorkerPool
-                bool success = await _workerPool.ExecuteProcessingTaskAsync(task, _currentSettings);
-
-                if (success)
+                var moviesToProcess = _processingQueue.GetNextBatch(e.PackagesNeeded, _currentSettings);
+                
+                foreach (var movie in moviesToProcess)
                 {
-                    _taskDistributor.CompleteTask(task.TaskId);
-                    _logger.LogInformation($"Successfully completed processing {task.Movie.Name}");
-                    
-                    // Update movie status to processed
-                    task.Movie.ProcessingStatus = Warp.ProcessingStatus.Processed;
-                    
-                    // Schedule debounced change tracking for individual item completion
-                    ScheduleDebouncedChangeTracking();
+                    var workPackage = CreateMovieWorkPackage(movie, _currentSettings);
+                    _workDistributor.SubmitWorkPackage(workPackage);
                 }
-                else
+                
+                if (moviesToProcess.Any())
                 {
-                    _taskDistributor.FailTask(task.TaskId, "Processing failed");
-                    _logger.LogWarning($"Failed to process {task.Movie.Name}");
-                    
-                    // Mark movie as LeaveOut to prevent future processing attempts
-                    task.Movie.ProcessingStatus = Warp.ProcessingStatus.LeaveOut;
-                    task.Movie.SaveMeta(); // Persist the failed status
+                    _logger.LogDebug($"Submitted {moviesToProcess.Count} work packages to distributor");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error processing task {task.TaskId} for movie {task.Movie.Name}");
-                _taskDistributor.FailTask(task.TaskId, ex.Message);
-                
-                // Mark movie as LeaveOut due to exception
-                task.Movie.ProcessingStatus = Warp.ProcessingStatus.LeaveOut;
-                task.Movie.SaveMeta(); // Persist the failed status
-            }
-            finally
-            {
-                // Always remove from active assignments when processing completes (success or failure)
-                _activeMovieAssignments.TryRemove(task.Movie.Path, out _);
-                _logger.LogDebug($"Removed movie {task.Movie.Name} from active assignments");
+                _logger.LogError(ex, "Error handling queue running low event");
             }
         }
 
+        /// <summary>
+        /// Creates a work package for processing a single movie with all required steps.
+        /// </summary>
+        /// <param name="movie">Movie to create work package for</param>
+        /// <param name="settings">Current processing settings</param>
+        /// <returns>Work package containing all required processing commands</returns>
+        private WorkPackage CreateMovieWorkPackage(Movie movie, OptionsWarp settings)
+        {
+            var commands = new List<NamedSerializableObject>();
+            
+            // Determine what processing steps are needed and build command sequence
+            bool needsMovement = settings.ProcessMovement && 
+                (movie.OptionsMovement == null || !movie.OptionsMovement.Equals(settings.GetProcessingMovieMovement()));
+            
+            bool needsCTF = settings.ProcessCTF && 
+                (movie.OptionsCTF == null || !movie.OptionsCTF.Equals(settings.GetProcessingMovieCTF()));
+            
+            bool needsPicking = settings.ProcessPicking && 
+                (movie.OptionsBoxNet == null || !movie.OptionsBoxNet.Equals(settings.GetProcessingBoxNet()));
+
+            bool needsExport = (settings.GetProcessingMovieExport().DoAverage || 
+                               settings.GetProcessingMovieExport().DoStack || 
+                               settings.GetProcessingMovieExport().DoDeconv) &&
+                (movie.OptionsMovieExport == null || 
+                 !movie.OptionsMovieExport.Equals(settings.GetProcessingMovieExport()) || 
+                 needsMovement);
+
+            // Determine if we need to load the stack
+            bool needStack = needsCTF || needsMovement || needsExport || 
+                            (needsPicking && settings.GetProcessingBoxNet().ExportParticles);
+
+            // Build command sequence
+            if (needStack)
+            {
+                decimal scaleFactor = 1M / (decimal)Math.Pow(2, (double)settings.Import.BinTimes);
+                commands.Add(new NamedSerializableObject("LoadStack", 
+                    movie.DataPath, 
+                    scaleFactor, 
+                    settings.GetProcessingMovieExport().EERGroupFrames, 
+                    true // CorrectGain
+                ));
+            }
+
+            if (needsMovement)
+            {
+                commands.Add(new NamedSerializableObject("MovieProcessMovement", 
+                    movie.Path, 
+                    settings.GetProcessingMovieMovement()
+                ));
+            }
+
+            if (needsCTF)
+            {
+                commands.Add(new NamedSerializableObject("MovieProcessCTF", 
+                    movie.Path, 
+                    settings.GetProcessingMovieCTF()
+                ));
+            }
+
+            if (needsExport)
+            {
+                commands.Add(new NamedSerializableObject("MovieExportMovie", 
+                    movie.Path, 
+                    settings.GetProcessingMovieExport()
+                ));
+            }
+
+            if (needsPicking)
+            {
+                commands.Add(new NamedSerializableObject("MoviePickBoxNet", 
+                    movie.Path, 
+                    settings.GetProcessingBoxNet()
+                ));
+            }
+
+            if (settings.Picking.DoExport)
+            {
+                commands.Add(new NamedSerializableObject("MovieExportParticles", 
+                    movie.Path, 
+                    settings.GetProcessingParticleExport(),
+                    new[] { new float2(0, 0), new float2(1, 2) }
+                ));
+            }
+
+            var workPackage = new WorkPackage
+            {
+                Commands = commands,
+                MaxRetries = 2,
+                OnStart = (pkg, workerId) => 
+                {
+                    _logger.LogInformation($"Movie {movie.Name} processing started on worker {workerId}");
+                },
+                OnSuccess = (pkg) => 
+                {
+                    // Reload metadata to pick up processing options set by the worker
+                    movie.LoadMeta();
+                    ScheduleDebouncedChangeTracking();
+                    _logger.LogInformation($"Movie {movie.Name} processing completed successfully");
+                },
+                OnFailure = (pkg, error) => 
+                {
+                    movie.ProcessingStatus = Warp.ProcessingStatus.LeaveOut;
+                    movie.UnselectManual = true;
+                    movie.SaveMeta();
+                    _logger.LogWarning($"Movie {movie.Name} processing failed: {error}");
+                }
+            };
+
+            return workPackage;
+        }
 
         /// <summary>
         /// Event handler for when a new worker connects to the system.
         /// Triggers work redistribution to take advantage of the new capacity.
         /// </summary>
-        /// <param name="sender">Event sender (WorkerPool)</param>
+        /// <param name="sender">Event sender (WorkerControllerService)</param>
         /// <param name="e">Event arguments containing worker information</param>
-        private void OnWorkerConnected(object sender, WorkerEventArgs e)
+        private void OnWorkerRegistered(object sender, WorkerInfo e)
         {
-            _logger.LogInformation($"Worker {e.Worker.WorkerId} connected, redistributing work");
-            _ = Task.Run(() => RedistributeWorkAsync());
+            _logger.LogInformation($"Worker {e.WorkerId} connected, adjusting queue target");
+            
+            // Adjust queue target based on new worker count
+            var workerCount = _workerControllerService.GetActiveWorkers().Count();
+            _workDistributor.SetQueueTarget(Math.Max(4 * workerCount, 10));
         }
 
         /// <summary>
         /// Event handler for when a worker disconnects from the system.
         /// Reassigns any tasks that were running on the disconnected worker back to the queue.
         /// </summary>
-        /// <param name="sender">Event sender (WorkerPool)</param>
+        /// <param name="sender">Event sender (WorkerControllerService)</param>
         /// <param name="e">Event arguments containing worker information</param>
-        private void OnWorkerDisconnected(object sender, WorkerEventArgs e)
+        private void OnWorkerDisconnected(object sender, WorkerInfo e)
         {
-            _logger.LogWarning($"Worker {e.Worker.WorkerId} disconnected, reassigning tasks");
+            _logger.LogWarning($"Worker {e.WorkerId} disconnected, adjusting queue target");
             
-            // Reassign any tasks that were running on the disconnected worker
-            var reassignedMovies = _taskDistributor.ReassignTasksFromWorker(e.Worker.WorkerId);
-            if (reassignedMovies.Any())
-            {
-                _logger.LogInformation($"Reassigned {reassignedMovies.Count} movies from disconnected worker");
-            }
+            // Work distributor automatically handles work package reassignment
+            // Just need to adjust queue target for remaining workers
+            var workerCount = _workerControllerService.GetActiveWorkers().Count();
+            _workDistributor.SetQueueTarget(Math.Max(4 * workerCount, 10));
+            
+            // Work distributor automatically handles work package reassignment for disconnected workers
         }
 
         /// <summary>
@@ -519,8 +583,9 @@ namespace WarpCore.Core
         public void Dispose()
         {
             // Unsubscribe from events to prevent memory leaks and duplicate handlers
-            _workerPool.WorkerConnected -= OnWorkerConnected;
-            _workerPool.WorkerDisconnected -= OnWorkerDisconnected;
+            _workDistributor.QueueRunningLow -= OnQueueRunningLow;
+            _workerControllerService.WorkerRegistered -= OnWorkerRegistered;
+            _workerControllerService.WorkerDisconnected -= OnWorkerDisconnected;
             _fileDiscoverer.FileDiscovered -= OnFileDiscovered;
             
             // Cancel any ongoing processing

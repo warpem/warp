@@ -20,7 +20,7 @@ namespace WarpCore.Controllers
     {
         private readonly ILogger<WarpCoreController> _logger;
         private readonly ProcessingOrchestrator _orchestrator;
-        private readonly WorkerPool _workerPool;
+        private readonly WorkerControllerService _workerControllerService;
         private readonly ChangeTracker _changeTracker;
         private readonly FileDiscoverer _fileDiscoverer;
 
@@ -29,19 +29,19 @@ namespace WarpCore.Controllers
         /// </summary>
         /// <param name="logger">Logger for recording API operations and errors</param>
         /// <param name="orchestrator">Main processing orchestrator that coordinates all operations</param>
-        /// <param name="workerPool">Worker pool manager for distributed processing</param>
+        /// <param name="workerControllerService">Worker controller service for distributed processing</param>
         /// <param name="changeTracker">Change tracking service for monitoring processing state</param>
         /// <param name="fileDiscoverer">File discovery service for monitoring input data</param>
         public WarpCoreController(
             ILogger<WarpCoreController> logger,
             ProcessingOrchestrator orchestrator,
-            WorkerPool workerPool,
+            WorkerControllerService workerControllerService,
             ChangeTracker changeTracker,
             FileDiscoverer fileDiscoverer)
         {
             _logger = logger;
             _orchestrator = orchestrator;
-            _workerPool = workerPool;
+            _workerControllerService = workerControllerService;
             _changeTracker = changeTracker;
             _fileDiscoverer = fileDiscoverer;
         }
@@ -165,20 +165,8 @@ namespace WarpCore.Controllers
         {
             try
             {
-                var workers = _workerPool.GetWorkers();
-                var workerInfos = workers.Select(w => new WorkerInfo
-                {
-                    WorkerId = w.WorkerId,
-                    DeviceId = w.DeviceID,
-                    Host = w.Host ?? "localhost",
-                    Status = w.Status,
-                    LastHeartbeat = w.LastHeartbeat,
-                    RegisteredAt = w.ConnectedAt,
-                    CurrentTaskId = w.CurrentTask,
-                    FreeMemoryMB = 0 // WorkerWrapper doesn't track memory
-                }).ToList();
-                
-                return Ok(workerInfos);
+                var workers = _workerControllerService.GetActiveWorkers();
+                return Ok(workers);
             }
             catch (Exception ex)
             {
@@ -197,7 +185,7 @@ namespace WarpCore.Controllers
         {
             try
             {
-                var logs = await _workerPool.GetWorkerLogsAsync(workerId);
+                var logs = _workerControllerService.GetWorkerConsoleLines(workerId);
                 return Ok(new { workerId = workerId, logs = logs });
             }
             catch (Exception ex)

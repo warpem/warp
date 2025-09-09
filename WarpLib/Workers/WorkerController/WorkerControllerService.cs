@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using Warp.Tools;
+using Warp.Workers.Distribution;
 using ZLinq;
 
 namespace Warp.Workers.WorkerController
@@ -10,33 +11,31 @@ namespace Warp.Workers.WorkerController
     public class WorkerControllerService : IDisposable
     {
         private readonly ConcurrentDictionary<string, WorkerInfo> _workers;
-        private readonly ConcurrentDictionary<string, ConcurrentQueue<TaskInfo>> _workerTaskQueues;
-        private readonly ConcurrentDictionary<string, TaskInfo> _activeTasks;
         private readonly ConcurrentDictionary<string, List<LogEntry>> _workerConsoleLines;
         private readonly Timer _heartbeatMonitor;
-        private readonly Timer _taskMonitor;
         private volatile bool _disposed;
         private readonly int _maxConsoleLines = 10000;
 
-        private readonly object _assignmentLock = new object();
+        // Work distribution
+        private readonly WorkDistributor _workDistributor;
         
         public event EventHandler<WorkerInfo> WorkerRegistered;
         public event EventHandler<WorkerInfo> WorkerDisconnected;
-        public event EventHandler<TaskInfo> TaskCompleted;
-        public event EventHandler<TaskInfo> TaskFailed;
 
-        public WorkerControllerService()
+        /// <summary>
+        /// Gets the work distributor for submitting work packages directly.
+        /// </summary>
+        public WorkDistributor WorkDistributor => _workDistributor;
+
+        public WorkerControllerService(WorkDistributor workDistributor)
         {
+            _workDistributor = workDistributor ?? throw new ArgumentNullException(nameof(workDistributor));
+            
             _workers = new ConcurrentDictionary<string, WorkerInfo>();
-            _workerTaskQueues = new ConcurrentDictionary<string, ConcurrentQueue<TaskInfo>>();
-            _activeTasks = new ConcurrentDictionary<string, TaskInfo>();
             _workerConsoleLines = new ConcurrentDictionary<string, List<LogEntry>>();
 
             // Monitor worker heartbeats every 1 second for immediate failure detection
             _heartbeatMonitor = new Timer(MonitorWorkerHeartbeats, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-            
-            // Monitor task timeouts every 1 second
-            _taskMonitor = new Timer(MonitorTaskTimeouts, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
 
         #region Worker Management
@@ -47,15 +46,13 @@ namespace Warp.Workers.WorkerController
             {
                 Host = request.Host,
                 DeviceId = request.DeviceId,
-                FreeMemoryMB = request.FreeMemoryMB,
-                Status = WorkerStatus.Idle
+                Status = WorkerStatus.Idle,
+                LastHeartbeat = DateTime.UtcNow
             };
 
             _workers[worker.WorkerId] = worker;
-            _workerTaskQueues[worker.WorkerId] = new ConcurrentQueue<TaskInfo>();
             
             Console.WriteLine($"Worker {worker.WorkerId} registered from {worker.Host}, GPU #{worker.DeviceId}");
-            //Console.WriteLine($"WorkerControllerService: FIRING EVENT, subscribers: {WorkerRegistered?.GetInvocationList().Length}");
             WorkerRegistered?.Invoke(this, worker);
 
             return new WorkerRegistrationResponse
@@ -72,9 +69,7 @@ namespace Warp.Workers.WorkerController
 
             worker.LastHeartbeat = DateTime.UtcNow;
             worker.Status = heartbeat.Status;
-            worker.FreeMemoryMB = heartbeat.FreeMemoryMB;
-            worker.CurrentTaskId = heartbeat.CurrentTaskId;
-            //Console.WriteLine("❤️ from heartbeat");
+            worker.CurrentWorkPackageId = heartbeat.CurrentWorkPackageId;
 
             return true;
         }
@@ -95,44 +90,11 @@ namespace Warp.Workers.WorkerController
 
             foreach (var worker in disconnectedWorkers)
             {
-                Console.WriteLine($"Worker {worker.WorkerId} missed heartbeat, marking as offline");
+                Console.WriteLine($"[HEARTBEAT] Worker {worker.WorkerId} missed heartbeat (last: {worker.LastHeartbeat}, cutoff: {cutoff}), marking as offline");
                 worker.Status = WorkerStatus.Offline;
                 
-                lock (_assignmentLock)
-                {
-                    // Fail any active tasks
-                    if (!string.IsNullOrEmpty(worker.CurrentTaskId))
-                    {
-                        if (_activeTasks.TryGetValue(worker.CurrentTaskId, out var task))
-                        {
-                            task.Status = TaskStatus.Failed;
-                            task.CompletedAt = DateTime.UtcNow;
-                            task.ErrorMessage = "Worker disconnected during task execution";
-                            _activeTasks.TryRemove(task.TaskId, out _);
-                            Console.WriteLine($"Task {task.TaskId} failed due to worker disconnection");
-                            TaskFailed?.Invoke(this, task);
-                        }
-                    }
-                    
-                    // Fail all queued tasks for this worker
-                    if (_workerTaskQueues.TryGetValue(worker.WorkerId, out var workerQueue))
-                    {
-                        var queuedTasks = new List<TaskInfo>();
-                        while (workerQueue.TryDequeue(out var queuedTask))
-                        {
-                            queuedTasks.Add(queuedTask);
-                        }
-                        
-                        foreach (var queuedTask in queuedTasks)
-                        {
-                            queuedTask.Status = TaskStatus.Failed;
-                            queuedTask.CompletedAt = DateTime.UtcNow;
-                            queuedTask.ErrorMessage = "Worker disconnected before task could be executed";
-                            Console.WriteLine($"Queued task {queuedTask.TaskId} failed due to worker disconnection");
-                            TaskFailed?.Invoke(this, queuedTask);
-                        }
-                    }
-                }
+                // Report worker death to work distributor for work package handling
+                _workDistributor.ReportWorkerDeath(worker.WorkerId);
 
                 WorkerDisconnected?.Invoke(this, worker);
                 
@@ -143,25 +105,7 @@ namespace Warp.Workers.WorkerController
 
         #endregion
 
-        #region Task Management
-
-        public string SubmitTaskToWorker(string workerId, NamedSerializableObject command)
-        {
-            if (!_workers.TryGetValue(workerId, out var worker))
-                throw new ArgumentException($"Worker {workerId} not found");
-
-            if (worker.Status == WorkerStatus.Offline)
-                throw new ArgumentException($"Worker {workerId} is offline");
-
-            if (!_workerTaskQueues.TryGetValue(workerId, out var workerQueue))
-                throw new ArgumentException($"Worker {workerId} queue not found");
-
-            var task = new TaskInfo(command);
-            workerQueue.Enqueue(task);
-            
-            Console.WriteLine($"Task {task.TaskId} queued for worker {workerId}: {command.Name}");
-            return task.TaskId;
-        }
+        #region Work Package Management
 
         public PollResponse PollForTask(string workerId, PollRequest pollRequest = null)
         {
@@ -169,7 +113,6 @@ namespace Warp.Workers.WorkerController
                 return new PollResponse(); // Worker not registered
 
             worker.LastHeartbeat = DateTime.UtcNow;
-            //Console.WriteLine("❤️ from poll");
 
             // Store console lines if provided
             if (pollRequest?.ConsoleLines != null && pollRequest.ConsoleLines.Count > 0)
@@ -189,36 +132,26 @@ namespace Warp.Workers.WorkerController
                 }
             }
 
-            // Check worker's own queue for tasks
-            if (_workerTaskQueues.TryGetValue(workerId, out var workerQueue))
+            // Get work package from distributor
+            var workPackage = _workDistributor.GetNextWork(workerId);
+            if (workPackage != null)
             {
-                lock (_assignmentLock)
-                {
-                    if (workerQueue.TryDequeue(out var task))
-                    {
-                        // Assign task to worker
-                        task.WorkerId = workerId;
-                        task.Status = TaskStatus.Assigned;
-                        task.AssignedAt = DateTime.UtcNow;
-                        
-                        _activeTasks[task.TaskId] = task;
-                        worker.Status = WorkerStatus.Working;
-                        worker.CurrentTaskId = task.TaskId;
-
-                        Console.WriteLine($"Task {task.TaskId} assigned to worker {workerId}");
-                        
-                        return new PollResponse 
-                        { 
-                            Task = task,
-                            NextPollDelayMs = 100 // Poll quickly after receiving a task
-                        };
-                    }
-                }
+                worker.Status = WorkerStatus.Working;
+                worker.CurrentWorkPackageId = workPackage.Id;
+                Console.WriteLine($"Work package {workPackage.Id} assigned to worker {workerId}");
+                
+                return new PollResponse 
+                { 
+                    WorkPackage = workPackage,
+                    NextPollDelayMs = 100 // Poll quickly after receiving work
+                };
             }
 
-            // No tasks available, set worker to idle
-            if (worker.Status == WorkerStatus.Working && string.IsNullOrEmpty(worker.CurrentTaskId))
+            // No work available, set worker to idle
+            if (worker.Status == WorkerStatus.Working && string.IsNullOrEmpty(worker.CurrentWorkPackageId))
+            {
                 worker.Status = WorkerStatus.Idle;
+            }
 
             return new PollResponse 
             { 
@@ -226,95 +159,37 @@ namespace Warp.Workers.WorkerController
             };
         }
 
-        public bool UpdateTaskStatus(string workerId, string taskId, TaskUpdateRequest update)
+        public bool UpdateWorkPackageStatus(string workerId, string workPackageId, WorkPackageUpdateRequest update)
         {
             if (!_workers.TryGetValue(workerId, out var worker))
                 return false;
 
-            if (!_activeTasks.TryGetValue(taskId, out var task))
-                return false;
-
-            if (task.WorkerId != workerId)
-                return false; // Task not assigned to this worker
-
             worker.LastHeartbeat = DateTime.UtcNow;
-            //Console.WriteLine("❤️ from task update");
-
-            var oldStatus = task.Status;
-            task.Status = update.Status;
-
+            
+            // Update work package status through distributor
+            _workDistributor.UpdateProgress(workPackageId, update);
+            
+            // Update worker state based on package status
             switch (update.Status)
             {
-                case TaskStatus.Running:
-                    if (oldStatus == TaskStatus.Assigned)
-                        task.StartedAt = DateTime.UtcNow;
-                    break;
-
-                case TaskStatus.Completed:
-                    task.CompletedAt = DateTime.UtcNow;
-                    task.Result = update.Result;
-                    _activeTasks.TryRemove(taskId, out _);
+                case WorkPackageStatus.Completed:
+                case WorkPackageStatus.Failed:
                     worker.Status = WorkerStatus.Idle;
-                    worker.CurrentTaskId = null;
-                    Console.WriteLine($"Task {taskId} completed by worker {workerId}");
-                    TaskCompleted?.Invoke(this, task);
+                    worker.CurrentWorkPackageId = null;
+                    Console.WriteLine($"Work package {workPackageId} {update.Status.ToString().ToLower()} on worker {workerId}");
                     break;
-
-                case TaskStatus.Failed:
-                    task.CompletedAt = DateTime.UtcNow;
-                    task.ErrorMessage = update.ErrorMessage;
-                    _activeTasks.TryRemove(taskId, out _);
-                    worker.Status = WorkerStatus.Idle;
-                    worker.CurrentTaskId = null;
-                    Console.WriteLine($"Task {taskId} failed on worker {workerId}: {update.ErrorMessage}");
-                    TaskFailed?.Invoke(this, task);
-                    break;
-
-                case TaskStatus.Cancelled:
-                    task.CompletedAt = DateTime.UtcNow;
-                    _activeTasks.TryRemove(taskId, out _);
-                    worker.Status = WorkerStatus.Idle;
-                    worker.CurrentTaskId = null;
-                    Console.WriteLine($"Task {taskId} cancelled on worker {workerId}");
+                    
+                case WorkPackageStatus.Executing:
+                    worker.Status = WorkerStatus.Working;
                     break;
             }
-
-            if (!string.IsNullOrEmpty(update.ProgressMessage))
-                Console.WriteLine($"Task {taskId} progress: {update.ProgressMessage}");
 
             return true;
         }
 
-        public TaskInfo GetTask(string taskId)
-        {
-            lock (_assignmentLock)
-            {
-                // First check active tasks
-                if (_activeTasks.TryGetValue(taskId, out var task))
-                    return task;
-                
-                // Check all worker queues for the task
-                foreach (var workerQueue in _workerTaskQueues.Values)
-                {
-                    var queuedTasks = workerQueue.ToArray();
-                    var queuedTask = queuedTasks.FirstOrDefault(t => t.TaskId == taskId);
-                    if (queuedTask != null)
-                        return queuedTask;
-                }
-                    
-                return null; // Task not found anywhere - likely completed and removed
-            }
-        }
+        #endregion
 
-        public IEnumerable<TaskInfo> GetActiveTasks()
-        {
-            return _activeTasks.Values.ToList();
-        }
-
-        public int GetQueueLength()
-        {
-            return _workerTaskQueues.Values.Sum(q => q.Count);
-        }
+        #region Console Management
 
         public List<LogEntry> GetWorkerConsoleLines(string workerId)
         {
@@ -339,40 +214,6 @@ namespace Warp.Workers.WorkerController
             return allLines.Skip(start).Take(count).ToList();
         }
 
-        private void MonitorTaskTimeouts(object state)
-        {
-            if (_disposed) return;
-
-            // Check for tasks that have been running too long (configurable, default 30 minutes)
-            var cutoff = DateTime.UtcNow.AddMinutes(-30);
-            var timedOutTasks = _activeTasks.Values
-                .Where(t => t.Status == TaskStatus.Running && t.StartedAt.HasValue && t.StartedAt < cutoff)
-                .ToList();
-
-            foreach (var task in timedOutTasks)
-            {
-                Console.WriteLine($"Task {task.TaskId} timed out, reassigning");
-                
-                // Mark worker as failed if it has a timed-out task
-                if (_workers.TryGetValue(task.WorkerId, out var worker))
-                {
-                    worker.Status = WorkerStatus.Failed;
-                    worker.CurrentTaskId = null;
-                }
-
-                // Mark the timed-out task as failed
-                lock (_assignmentLock)
-                {
-                    task.Status = TaskStatus.Failed;
-                    task.CompletedAt = DateTime.UtcNow;
-                    task.ErrorMessage = "Task timed out after 30 minutes";
-                    _activeTasks.TryRemove(task.TaskId, out _);
-                    Console.WriteLine($"Task {task.TaskId} failed due to timeout");
-                    TaskFailed?.Invoke(this, task);
-                }
-            }
-        }
-
         #endregion
 
         #region Status and Statistics
@@ -380,7 +221,7 @@ namespace Warp.Workers.WorkerController
         public object GetStatus()
         {
             var workers = _workers.Values.ToList();
-            var tasks = _activeTasks.Values.ToList();
+            var distributorStats = _workDistributor.GetStatistics();
 
             return new
             {
@@ -392,12 +233,11 @@ namespace Warp.Workers.WorkerController
                     Working = workers.Count(w => w.Status == WorkerStatus.Working),
                     Failed = workers.Count(w => w.Status == WorkerStatus.Failed)
                 },
-                Tasks = new
+                WorkPackages = new
                 {
-                    Queued = GetQueueLength(),
-                    Active = tasks.Count,
-                    Running = tasks.Count(t => t.Status == TaskStatus.Running),
-                    Assigned = tasks.Count(t => t.Status == TaskStatus.Assigned)
+                    Queued = distributorStats.QueuedPackages,
+                    Active = distributorStats.ActivePackages,
+                    TargetQueueSize = distributorStats.TargetQueueSize
                 },
                 Timestamp = DateTime.UtcNow
             };
@@ -411,7 +251,6 @@ namespace Warp.Workers.WorkerController
             _disposed = true;
 
             _heartbeatMonitor?.Dispose();
-            _taskMonitor?.Dispose();
 
             // Notify all workers to stop
             foreach (var worker in _workers.Values)

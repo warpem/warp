@@ -172,19 +172,20 @@ namespace WarpWorker
 
             var controllerClient = new ControllerClient(options.Controller, DeviceID, GPU.GetFreeMemory(DeviceID), options.Persistent);
             
-            // Handle task execution
-            controllerClient.TaskReceived += (command) => 
+            // Handle work package execution (new system)
+            controllerClient.WorkPackageReceived += (workPackage) =>
             {
                 try
                 {
-                    EvaluateCommand(command);
+                    ExecuteWorkPackage(workPackage, controllerClient);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Command execution failed: {ex}");
+                    Console.WriteLine($"Work package execution failed: {ex}");
                     throw; // Re-throw so the controller client can report it as failed
                 }
             };
+
 
             controllerClient.ErrorOccurred += (error) =>
             {
@@ -221,6 +222,43 @@ namespace WarpWorker
                     break;
                 }
             }
+        }
+
+        static void ExecuteWorkPackage(Warp.Workers.Distribution.WorkPackage workPackage, ControllerClient controllerClient)
+        {
+            Console.WriteLine($"Executing work package {workPackage.Id} with {workPackage.Commands.Count} commands");
+            
+            // Report package as started
+            controllerClient.UpdateWorkPackageStatus(workPackage.Id, Warp.Workers.Distribution.WorkPackageStatus.Executing, 0);
+            
+            for (int i = 0; i < workPackage.Commands.Count; i++)
+            {
+                var command = workPackage.Commands[i];
+                try
+                {
+                    Console.WriteLine($"Executing command {i + 1}/{workPackage.Commands.Count}: {command.Name}");
+                    
+                    // Update progress to current command
+                    controllerClient.UpdateWorkPackageStatus(workPackage.Id, Warp.Workers.Distribution.WorkPackageStatus.Executing, i);
+                    
+                    // Execute the command
+                    EvaluateCommand(command);
+                    
+                    Console.WriteLine($"Command {command.Name} completed successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Command {command.Name} failed: {ex.Message}");
+                    
+                    // Report package as failed
+                    controllerClient.UpdateWorkPackageStatus(workPackage.Id, Warp.Workers.Distribution.WorkPackageStatus.Failed, i, ex.Message);
+                    throw; // Re-throw to stop package execution
+                }
+            }
+            
+            // All commands completed successfully
+            Console.WriteLine($"Work package {workPackage.Id} completed successfully");
+            controllerClient.UpdateWorkPackageStatus(workPackage.Id, Warp.Workers.Distribution.WorkPackageStatus.Completed, workPackage.Commands.Count);
         }
 
         #endregion

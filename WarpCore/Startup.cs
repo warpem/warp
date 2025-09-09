@@ -6,6 +6,9 @@ using Microsoft.Extensions.Hosting;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Distribution;
+using Warp.Workers.WorkerController;
 using WarpCore.Core;
 using WarpCore.Core.Processing;
 
@@ -48,16 +51,26 @@ public class Startup
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = JsonSettings.Default.PropertyNameCaseInsensitive;
                 });
 
+        // Register work distribution system
+        services.AddSingleton(WorkDistribution.Instance);
+        
+        // Use the same WorkerControllerService instance that WorkerWrapper creates
+        services.AddSingleton(serviceProvider => 
+        {
+            // Ensure the shared controller is started (this will create the service instance)
+            WorkerWrapper.EnsureControllerStarted();
+            return WorkerWrapper.GetSharedControllerService();
+        });
+        
         // Register core services
         services.AddSingleton<ProcessingOrchestrator>();
-        services.AddSingleton<WorkerPool>();
         services.AddSingleton<ChangeTracker>();
         services.AddSingleton<FileDiscoverer>();
             
         // Register processing components
         services.AddSingleton<ProcessingQueue>();
-        services.AddSingleton<ProcessingTaskDistributor>();
         services.AddSingleton<SettingsChangeHandler>();
+        
     }
 
     /// <summary>
@@ -75,7 +88,6 @@ public class Startup
         }
 
         // Eagerly initialize core services to ensure they subscribe to events before workers connect
-        _ = app.ApplicationServices.GetRequiredService<WorkerPool>();
         _ = app.ApplicationServices.GetRequiredService<ProcessingOrchestrator>();
             
         app.UseRouting();

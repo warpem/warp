@@ -2,6 +2,7 @@ using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Warp.Tools;
+using Warp.Workers.Distribution;
 
 namespace Warp.Workers.WorkerController
 {
@@ -65,6 +66,8 @@ namespace Warp.Workers.WorkerController
                 var success = _controllerService.UpdateHeartbeat(workerId, heartbeat);
                 if (!success)
                     return NotFound("Worker not found");
+                
+                //Console.WriteLine("❤️ from heartbeat");
 
                 return Ok();
             }
@@ -75,28 +78,27 @@ namespace Warp.Workers.WorkerController
             }
         }
 
-        [HttpPost("{workerId}/tasks/{taskId}/status")]
-        public IActionResult UpdateTaskStatus(string workerId, string taskId, [FromBody] TaskUpdateRequest update)
+
+        [HttpPost("{workerId}/workpackages/{workPackageId}/status")]
+        public IActionResult UpdateWorkPackageStatus(string workerId, string workPackageId, [FromBody] WorkPackageUpdateRequest update)
         {
             try
             {
-                //Console.WriteLine($"STATUS: Received task status update from worker {workerId}, task {taskId}: {update.Status}");
-                
                 if (string.IsNullOrEmpty(workerId))
                     return BadRequest("Worker ID is required");
 
-                if (string.IsNullOrEmpty(taskId))
-                    return BadRequest("Task ID is required");
+                if (string.IsNullOrEmpty(workPackageId))
+                    return BadRequest("Work package ID is required");
 
-                var success = _controllerService.UpdateTaskStatus(workerId, taskId, update);
+                var success = _controllerService.UpdateWorkPackageStatus(workerId, workPackageId, update);
                 if (!success)
-                    return NotFound("Worker or task not found");
+                    return NotFound("Worker not found");
 
                 return Ok();
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error updating task status for worker {WorkerId}, task {TaskId}", workerId, taskId);
+                _logger?.LogError(ex, "Error updating work package status for worker {WorkerId}, package {WorkPackageId}", workerId, workPackageId);
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -131,37 +133,5 @@ namespace Warp.Workers.WorkerController
             }
         }
 
-        [HttpGet("tasks")]
-        public IActionResult GetActiveTasks()
-        {
-            try
-            {
-                var tasks = _controllerService.GetActiveTasks();
-                return Ok(tasks);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Error getting active tasks");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        [HttpGet("tasks/{taskId}")]
-        public IActionResult GetTask(string taskId)
-        {
-            try
-            {
-                var task = _controllerService.GetTask(taskId);
-                if (task == null)
-                    return NotFound("Task not found");
-
-                return Ok(task);
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Error getting task {TaskId}", taskId);
-                return StatusCode(500, "Internal server error");
-            }
-        }
     }
 }

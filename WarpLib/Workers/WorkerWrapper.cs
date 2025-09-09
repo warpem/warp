@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using Warp.Tools;
 using Warp.Workers.WorkerController;
 using ZLinq;
-using TaskStatus = Warp.Workers.WorkerController.TaskStatus;
 
 
 namespace Warp.Workers
@@ -77,7 +76,7 @@ namespace Warp.Workers
 
         #region Static Controller Management
         
-        private static void EnsureControllerStarted(int port = 0)
+        public static void EnsureControllerStarted(int port = 0)
         {
             lock (_controllerLock)
             {
@@ -110,15 +109,13 @@ namespace Warp.Workers
             int deviceId, 
             bool silent = false, 
             bool attachDebugger = false, 
-            bool mockMode = false,
-            TimeSpan? startupTimeout = null)
+            bool mockMode = false)
         {
             // Ensure controller is running
             EnsureControllerStarted();
             
             bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             string controllerEndpoint = $"localhost:{_controllerPort}";
-            var timeout = startupTimeout ?? TimeSpan.FromSeconds(attachDebugger ? 200 : 30);
             
             ProcessStartInfo startInfo;
             if (isWindows)
@@ -207,6 +204,17 @@ namespace Warp.Workers
             return _controllerPort;
         }
         
+        public static WorkerControllerService GetSharedControllerService()
+        {
+            lock (_controllerLock)
+            {
+                if (_sharedController == null)
+                    throw new InvalidOperationException("Shared controller has not been started yet. Call EnsureControllerStarted() first.");
+                    
+                return _sharedController.GetService();
+            }
+        }
+        
         private static void OnSharedControllerWorkerRegistered(object sender, WorkerInfo workerInfo)
         {
             WorkerWrapper workerWrapper = null;
@@ -277,21 +285,8 @@ namespace Warp.Workers
                             
                             if (!workerStillActive)
                             {
-                                // Worker is no longer registered with controller - mark any active tasks as failed
-                                var activeTasks = controllerService.GetActiveTasks().Where(t => t.WorkerId == _workerId).ToList();
-                                foreach (var task in activeTasks)
-                                {
-                                    try
-                                    {
-                                        controllerService.UpdateTaskStatus(_workerId, task.TaskId, new TaskUpdateRequest
-                                        {
-                                            Status = TaskStatus.Failed,
-                                            ErrorMessage = "Worker disconnected during task execution"
-                                        });
-                                    }
-                                    catch { } // Task might already be completed/failed
-                                }
-                                
+                                // Worker is no longer registered with controller
+                                // Work packages are automatically handled by the WorkDistributor when worker dies
                                 ReportDeath();
                                 IsAlive = false;
                                 break;
@@ -318,55 +313,15 @@ namespace Warp.Workers
 
         void SendCommand(NamedSerializableObject command)
         {
-            // All workers now use controller task submission to specific worker
-            var controllerService = _sharedController.GetService();
-            
-            string taskId;
-            try
-            {
-                taskId = controllerService.SubmitTaskToWorker(_workerId, command);
-            }
-            catch (ArgumentException ex) when (ex.Message.Contains("offline"))
-            {
-                throw new Exception($"Worker {_workerId} is offline and cannot accept new tasks");
-            }
-
-            // Wait for task completion with timeout
-            var timeout = DateTime.UtcNow.AddMinutes(30);
-            
-            while (DateTime.UtcNow < timeout)
-            {
-                var task = controllerService.GetTask(taskId);
-                if (task == null) // Task completed and removed
-                    return;
-
-                if (task.Status == TaskStatus.Completed)
-                    return;
-
-                if (task.Status == TaskStatus.Failed)
-                    throw new Exception($"Task failed: {task.ErrorMessage}");
-
-                // Only check worker health if task is actively running
-                // Pending/Assigned tasks will be handled by disposal logic
-                if (task.Status == TaskStatus.Running && !IsAlive)
-                    throw new Exception($"Worker {_workerId} died during task execution, status was {task.Status}");
-
-                Thread.Sleep(50);
-            }
-            
-            // If we get here, we timed out
-            throw new Exception($"Task execution timed out after 30 minutes");
+            // Legacy method - individual commands are no longer supported
+            // All work is now handled via WorkPackages through the WorkDistributor
+            throw new NotSupportedException("Individual command execution is no longer supported. Use WorkPackages instead.");
         }
 
         void SendExit()
         {
-            // All workers now use controller for exit commands
-            try
-            {
-                var controllerService = _sharedController.GetService();
-                controllerService.SubmitTaskToWorker(_workerId, new NamedSerializableObject("Exit"));
-            }
-            catch { }
+            // Exit is handled automatically when workers disconnect
+            // No explicit exit command needed with the new architecture
         }
 
         
@@ -389,29 +344,9 @@ namespace Warp.Workers
                         var controllerService = _sharedController.GetService();
                         var deadline = DateTime.UtcNow.AddSeconds(1);
                         
-                        while (DateTime.UtcNow < deadline)
-                        {
-                            var activeTasks = controllerService.GetActiveTasks().Where(t => t.WorkerId == _workerId).ToList();
-                            if (!activeTasks.Any())
-                                break; // No active tasks, safe to dispose
-                                
-                            Thread.Sleep(50); // Check every 50ms
-                        }
-                        
-                        // After timeout, mark any remaining tasks as failed
-                        var remainingTasks = controllerService.GetActiveTasks().Where(t => t.WorkerId == _workerId).ToList();
-                        foreach (var task in remainingTasks)
-                        {
-                            try
-                            {
-                                controllerService.UpdateTaskStatus(_workerId, task.TaskId, new TaskUpdateRequest
-                                {
-                                    Status = TaskStatus.Failed,
-                                    ErrorMessage = "Worker disposed during task execution"
-                                });
-                            }
-                            catch { } // Task might already be completed/failed
-                        }
+                        // WorkDistributor automatically handles work package cleanup when worker dies
+                        // Just wait a moment for graceful shutdown
+                        Thread.Sleep(100);
                     }
                     catch { } // Controller might already be disposed
                 }

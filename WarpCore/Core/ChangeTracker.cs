@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Warp;
+using WarpCore.Core.Processing;
 
 namespace WarpCore.Core
 {
@@ -20,6 +21,7 @@ namespace WarpCore.Core
         private readonly ILogger<ChangeTracker> _logger;
         private readonly StartupOptions _startupOptions;
         private readonly FileDiscoverer _fileDiscoverer;
+        private readonly ProcessingQueue _processingQueue;
         
         private DateTime _lastModified = DateTime.UtcNow;
         private readonly object _timestampLock = new object();
@@ -45,11 +47,13 @@ namespace WarpCore.Core
         /// <param name="logger">Logger for recording change tracking operations</param>
         /// <param name="startupOptions">Application startup configuration containing directory paths</param>
         /// <param name="fileDiscoverer">File discoverer service (currently unused but available for future features)</param>
-        public ChangeTracker(ILogger<ChangeTracker> logger, StartupOptions startupOptions, FileDiscoverer fileDiscoverer)
+        /// <param name="processingQueue">Processing queue containing movie data</param>
+        public ChangeTracker(ILogger<ChangeTracker> logger, StartupOptions startupOptions, FileDiscoverer fileDiscoverer, ProcessingQueue processingQueue)
         {
             _logger = logger;
             _startupOptions = startupOptions;
             _fileDiscoverer = fileDiscoverer;
+            _processingQueue = processingQueue;
         }
 
         /// <summary>
@@ -78,8 +82,7 @@ namespace WarpCore.Core
         {
             try
             {
-                // TODO: Need to get movies from somewhere else since FileDiscoverer is now generic
-                var movies = new List<Movie>();
+                var movies = _processingQueue.GetAllMovies();
                 
                 var processedItems = movies.Where(m => m.ProcessingStatus == ProcessingStatus.Processed).ToList();
                 var failedItems = movies.Where(m => m.ProcessingStatus == ProcessingStatus.LeaveOut || m.UnselectManual == true).ToList();
@@ -114,9 +117,7 @@ namespace WarpCore.Core
         {
             try
             {
-                // TODO: Need to get movies from somewhere else since FileDiscoverer is now generic
-                var movies = new List<Movie>();
-                var movieList = movies.ToList();
+                var movieList = _processingQueue.GetAllMovies();
                 
                 var processedCount = movieList.Count(m => m.ProcessingStatus == ProcessingStatus.Processed);
                 var failedCount = movieList.Count(m => m.ProcessingStatus == ProcessingStatus.LeaveOut || m.UnselectManual == true);
