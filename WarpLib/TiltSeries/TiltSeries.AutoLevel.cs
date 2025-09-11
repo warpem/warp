@@ -164,7 +164,7 @@ public partial class TiltSeries
                 int OptIterations = 0;
                 Func<double[], double[]> Grad = (input) =>
                 {
-                    double Delta = 0.1;
+                    double Delta = 0.01;
                     double[] Result = new double[input.Length];
 
                     if (OptIterations++ > 9)
@@ -340,10 +340,11 @@ public partial class TiltSeries
 
         var OptimizeAlignment = () =>
         {
-            if (GridMovementX == null || GridMovementX.Values.Length != NTilts)
+            if (GridMovementX == null || 
+                GridMovementX.Values.Length != NTilts * options.GridSize * options.GridSize)
             {
-                GridMovementX = new CubicGrid(new int3(1, 1, NTilts));
-                GridMovementY = new CubicGrid(new int3(1, 1, NTilts));
+                GridMovementX = new CubicGrid(new int3(options.GridSize, options.GridSize, NTilts));
+                GridMovementY = new CubicGrid(new int3(options.GridSize, options.GridSize, NTilts));
             }
 
             foreach (float lowpassFraction in new float[] { 1.0f })
@@ -354,6 +355,7 @@ public partial class TiltSeries
                 {
                     float[] OriginalShiftX = GridMovementX.FlatValues.ToArray();
                     float[] OriginalShiftY = GridMovementY.FlatValues.ToArray();
+                    int ElementsSlice = (int)GridMovementX.Dimensions.ElementsSlice();
 
                     float LowpassFraction = lowpassFraction;
 
@@ -364,13 +366,15 @@ public partial class TiltSeries
                     {
                         var UpdatedX = OriginalShiftX.ToArray();
                         foreach (var tiltId in tiltIds)
-                            UpdatedX[tiltId] += (float)input[0];
+                            for (int i = 0; i < ElementsSlice; i++)
+                                UpdatedX[tiltId * ElementsSlice + i] += (float)input[i * 2 + 0];
                         var UpdatedY = OriginalShiftY.ToArray();
                         foreach (var tiltId in tiltIds)
-                            UpdatedY[tiltId] += (float)input[1];
+                            for (int i = 0; i < ElementsSlice; i++)
+                                UpdatedY[tiltId * ElementsSlice + i] += (float)input[i * 2 + 1];
 
-                        GridMovementX = new CubicGrid(new int3(1, 1, NTilts), UpdatedX);
-                        GridMovementY = new CubicGrid(new int3(1, 1, NTilts), UpdatedY);
+                        GridMovementX = new CubicGrid(new int3(options.GridSize, options.GridSize, NTilts), UpdatedX);
+                        GridMovementY = new CubicGrid(new int3(options.GridSize, options.GridSize, NTilts), UpdatedY);
                     };
 
                     Func<double[], double> Eval = (input) =>
@@ -468,7 +472,7 @@ public partial class TiltSeries
                         return Result;
                     };
 
-                    double[] StartParams = new double[2];
+                    double[] StartParams = new double[ElementsSlice * 2];
                     BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(StartParams.Length, Eval, Grad);
                     Optimizer.Maximize(StartParams);
 
@@ -513,14 +517,16 @@ public partial class TiltSeries
 
         Console.WriteLine($"Final leveling angles: X = {LevelAngleX}, Y = {LevelAngleY}");
 
-        SaveMeta();
+        //SaveMeta();
     }
 }
 
 [Serializable]
 public class ProcessingOptionsTomoAutoLevel : TomoProcessingOptionsBase
 {
-    [WarpSerializable] public int RegionSize { get; set; }
+    [WarpSerializable] public int RegionSize { get; set; } = 500;
+
+    [WarpSerializable] public int GridSize { get; set; } = 3;
 
     public override bool Equals(object obj)
     {
@@ -533,7 +539,8 @@ public class ProcessingOptionsTomoAutoLevel : TomoProcessingOptionsBase
     protected bool Equals(ProcessingOptionsTomoAutoLevel other)
     {
         return base.Equals(other) &&
-               RegionSize == other.RegionSize;
+               RegionSize == other.RegionSize &&
+               GridSize == other.GridSize;
     }
 
     public static bool operator ==(ProcessingOptionsTomoAutoLevel left, ProcessingOptionsTomoAutoLevel right)
