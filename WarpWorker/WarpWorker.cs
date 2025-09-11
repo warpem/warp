@@ -1032,7 +1032,7 @@ namespace WarpWorker
                 header.Dimensions.Z /= EERGroupFrames;
             }
 
-            HeaderEER.SuperResolution = EERSupersample;
+            //HeaderEER.SuperResolution = EERSupersample;
 
             int2 SourceDims = new int2(header.Dimensions);
             if (IsEER)
