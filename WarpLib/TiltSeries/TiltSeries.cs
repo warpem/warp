@@ -111,6 +111,10 @@ namespace Warp
 
         public float3 PlaneNormal;
 
+        // Level angles used to make sample parallel to XY plane
+        public float LevelAngleX = 0;
+        public float LevelAngleY = 0;
+
         #region Grids
 
         private LinearGrid4D _GridVolumeWarpX = new LinearGrid4D(new int4(1, 1, 1, 1));
@@ -387,96 +391,6 @@ namespace Warp
             return GetPositionInAllTilts(PerTiltCoords);
         }
 
-        public float3[] GetPositionInAllTiltsOld(float3[] coords)
-        {
-            float3[] Result = new float3[coords.Length];
-
-            float3 VolumeCenter = VolumeDimensionsPhysical / 2;
-            float2 ImageCenter = ImageDimensionsPhysical / 2;
-
-            float GridStep = 1f / (NTilts - 1);
-            float DoseStep = 1f / (MaxDose - MinDose);
-            float _MinDose = MinDose;
-
-            float3[] GridCoords = new float3[coords.Length];
-            float4[] TemporalGridCoords4 = new float4[coords.Length];
-            for (int i = 0; i < coords.Length; i++)
-            {
-                int t = i % NTilts;
-
-                GridCoords[i] = new float3(coords[i].X / VolumeDimensionsPhysical.X, coords[i].Y / VolumeDimensionsPhysical.Y, t * GridStep);
-                TemporalGridCoords4[i] = new float4(GridCoords[i].X, GridCoords[i].Y, coords[i].Z / VolumeDimensionsPhysical.Z, (Dose[t] - _MinDose) * DoseStep);
-            }
-
-            float[] GridVolumeWarpXInterp = GridVolumeWarpX.GetInterpolated(TemporalGridCoords4);
-            float[] GridVolumeWarpYInterp = GridVolumeWarpY.GetInterpolated(TemporalGridCoords4);
-            float[] GridVolumeWarpZInterp = GridVolumeWarpZ.GetInterpolated(TemporalGridCoords4);
-
-            float[] GridDefocusInterp = GridCTFDefocus.GetInterpolatedNative(GridCoords.Take(NTilts).ToArray());
-
-            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
-            Matrix3[] TiltMatricesFlipped = null;
-            if (AreAnglesInverted)
-                TiltMatricesFlipped = Helper.ArrayOfFunction(t => Matrix3.Euler(0, -Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
-
-            float3[] TransformedCoords = new float3[coords.Length];
-
-            for (int i = 0; i < coords.Length; i++)
-            {
-                int t = i % NTilts;
-                float3 Centered = coords[i] - VolumeCenter;
-
-                Matrix3 Rotation = TiltMatrices[t];
-
-                float3 SampleWarping = new float3(GridVolumeWarpXInterp[i],
-                                                  GridVolumeWarpYInterp[i],
-                                                  GridVolumeWarpZInterp[i]);
-                Centered += SampleWarping;
-
-                float3 Transformed = (Rotation * Centered);
-
-                Transformed.X += TiltAxisOffsetX[t];   // Tilt axis offset is in image space
-                Transformed.Y += TiltAxisOffsetY[t];
-
-                Transformed.X += ImageCenter.X;
-                Transformed.Y += ImageCenter.Y;
-
-                TransformedCoords[i] = new float3(Transformed.X / ImageDimensionsPhysical.X, Transformed.Y / ImageDimensionsPhysical.Y, t * GridStep);
-
-                Result[i] = Transformed;
-
-                // Do the same, but now with Z coordinate and tilt angle flipped
-                if (AreAnglesInverted)
-                {
-                    Rotation = TiltMatricesFlipped[t];
-                    Centered.Z *= -1;
-
-                    Transformed = (Rotation * Centered);
-
-                    Result[i].Z = Transformed.Z;
-                }
-            }
-
-            float[] GridMovementXInterp = GridMovementX.GetInterpolatedNative(TransformedCoords);
-            float[] GridMovementYInterp = GridMovementY.GetInterpolatedNative(TransformedCoords);
-
-            for (int i = 0; i < coords.Length; i++)
-            {
-                int t = i % NTilts;
-
-                // Additional stage shift determined for this tilt
-                Result[i].X -= GridMovementXInterp[i];
-                Result[i].Y -= GridMovementYInterp[i];
-
-                // Coordinates are in Angstrom, can be converted directly in um
-                Result[i].Z = GridDefocusInterp[t] + 1e-4f * Result[i].Z;
-
-                Result[i] *= SizeRoundingFactors;
-            }
-
-            return Result;
-        }
-
         Spandex<float3> BuffersCoords3 = new Spandex<float3>();
         Spandex<float4> BuffersCoords4 = new Spandex<float4>();
         Spandex<float> BuffersValues = new Spandex<float>();
@@ -510,10 +424,18 @@ namespace Warp
             Span<float> GridDefocusInterp = GridCTFDefocus.GetInterpolated(GridCoords.Slice(0, NTilts), BuffersValues.Rent(NTilts));
             BuffersCoords3.Return(GridCoords);
 
-            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
+            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, 
+                                                                               (Angles[t] + LevelAngleY) * Helper.ToRad, 
+                                                                               -TiltAxisAngles[t] * Helper.ToRad) *
+                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad),
+                                                                 NTilts);
             Matrix3[] TiltMatricesFlipped = null;
             if (AreAnglesInverted)
-                TiltMatricesFlipped = Helper.ArrayOfFunction(t => Matrix3.Euler(0, -Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
+                TiltMatricesFlipped = Helper.ArrayOfFunction(t => Matrix3.Euler(0,
+                                                                               -(Angles[t] + LevelAngleY) * Helper.ToRad,
+                                                                               -TiltAxisAngles[t] * Helper.ToRad) *
+                                                                 Matrix3.RotateX(-LevelAngleX * Helper.ToRad),
+                                                                 NTilts);
 
             Span<float3> TransformedCoords = BuffersCoords3.Rent(coords.Length);
 
@@ -626,7 +548,11 @@ namespace Warp
             BuffersCoords3.Return(GridCoords);
 
 
-            Matrix3[] OverallRotations = Helper.ArrayOfFunction(t => Matrix3.Euler(0, Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
+            Matrix3[] OverallRotations = Helper.ArrayOfFunction(t => Matrix3.Euler(0, 
+                                                                                   (Angles[t] + LevelAngleY) * Helper.ToRad,
+                                                                                   -TiltAxisAngles[t] * Helper.ToRad) *
+                                                                     Matrix3.RotateX(LevelAngleX * Helper.ToRad), 
+                                                                     NTilts);
             Span<float3> OverallOffsets = BuffersCoords3.Rent(NTilts);
             for (int t = 0; t < NTilts; t++)
                 OverallOffsets[t] = new float3(TiltAxisOffsetX[t] + ImageCenter.X - GridMovementXInterp[t],
@@ -665,8 +591,10 @@ namespace Warp
             float DoseStep = 1f / (MaxDose - MinDose);
             float _MinDose = MinDose;
 
-            Matrix3 TiltMatrix = Matrix3.Euler(0, Angles[tiltID] * Helper.ToRad, -TiltAxisAngles[tiltID] * Helper.ToRad);
-            Matrix3 TiltMatrixFlipped = AreAnglesInverted ? Matrix3.Euler(0, -Angles[tiltID] * Helper.ToRad, -TiltAxisAngles[tiltID] * Helper.ToRad) : Matrix3.Zero();
+            Matrix3 TiltMatrix = Matrix3.Euler(0, (Angles[tiltID] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[tiltID] * Helper.ToRad) *
+                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad);
+            Matrix3 TiltMatrixFlipped = Matrix3.Euler(0, -(Angles[tiltID] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[tiltID] * Helper.ToRad) *
+                                        Matrix3.RotateX(-LevelAngleX * Helper.ToRad);
 
             for (int p = 0; p < coords.Length; p++)
             {
@@ -750,7 +678,9 @@ namespace Warp
             float[] GridAngleYInterp = GridAngleY.GetInterpolatedNative(GridCoords);
             float[] GridAngleZInterp = GridAngleZ.GetInterpolatedNative(GridCoords);
 
-            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
+            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, (Angles[t] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad) *
+                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad), 
+                                                            NTilts);
 
             for (int i = 0; i < coords.Length; i++)
             {
@@ -786,7 +716,9 @@ namespace Warp
             float[] GridAngleYInterp = GridAngleY.GetInterpolatedNative(GridCoords);
             float[] GridAngleZInterp = GridAngleZ.GetInterpolatedNative(GridCoords);
 
-            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, Angles[t] * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad), NTilts);
+            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, (Angles[t] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad) *
+                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad), 
+                                                            NTilts);
 
             for (int i = 0; i < coords.Length; i++)
             {
@@ -849,7 +781,8 @@ namespace Warp
                                                        particleAngles[p].Y * Helper.ToRad,
                                                        particleAngles[p].Z * Helper.ToRad);
 
-                Matrix3 TiltMatrix = Matrix3.Euler(0, Angles[tiltID] * Helper.ToRad, -TiltAxisAngles[tiltID] * Helper.ToRad);
+                Matrix3 TiltMatrix = Matrix3.Euler(0, (Angles[tiltID] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[tiltID] * Helper.ToRad) *
+                                     Matrix3.RotateX(LevelAngleX * Helper.ToRad);
 
                 Matrix3 CorrectionMatrix = Matrix3.RotateZ(GridAngleZ.GetInterpolated(GridCoords) * Helper.ToRad) *
                                            Matrix3.RotateY(GridAngleY.GetInterpolated(GridCoords) * Helper.ToRad) *
@@ -1484,6 +1417,8 @@ namespace Warp
             return Result;
         }
 
+        #region Data loading
+
         static Image[] _RawDataBuffers = null;
         static Image[] RawDataBuffers
         {
@@ -1924,6 +1859,8 @@ namespace Warp
 
         #endregion
 
+        #endregion
+
         #region Load/save meta
 
         public override void LoadMeta()
@@ -1948,6 +1885,9 @@ namespace Warp
 
                     AreAnglesInverted = XMLHelper.LoadAttribute(Reader, "AreAnglesInverted", AreAnglesInverted);
                     PlaneNormal = XMLHelper.LoadAttribute(Reader, "PlaneNormal", PlaneNormal);
+
+                    LevelAngleX = XMLHelper.LoadAttribute(Reader, "LevelAngleX", LevelAngleX);
+                    LevelAngleY = XMLHelper.LoadAttribute(Reader, "LevelAngleY", LevelAngleY);
 
                     GlobalBfactor = XMLHelper.LoadAttribute(Reader, "Bfactor", GlobalBfactor);
                     GlobalWeight = XMLHelper.LoadAttribute(Reader, "Weight", GlobalWeight);
@@ -2199,6 +2139,9 @@ namespace Warp
 
                 Writer.WriteAttributeString("AreAnglesInverted", AreAnglesInverted.ToString());
                 Writer.WriteAttributeString("PlaneNormal", PlaneNormal.ToString());
+
+                Writer.WriteAttributeString("LevelAngleX", LevelAngleX.ToString(CultureInfo.InvariantCulture));
+                Writer.WriteAttributeString("LevelAngleY", LevelAngleY.ToString(CultureInfo.InvariantCulture));
 
                 Writer.WriteAttributeString("Bfactor", GlobalBfactor.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("Weight", GlobalWeight.ToString(CultureInfo.InvariantCulture));

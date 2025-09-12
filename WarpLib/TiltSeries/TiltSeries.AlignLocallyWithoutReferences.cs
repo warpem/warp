@@ -26,11 +26,11 @@ public partial class TiltSeries
             TiltMasks[z]?.FreeDevice();
 
             TiltData[z].SubtractMeanGrid(new int2(1));
-            //TiltData[z] = TiltData[z].AsPaddedClamped(new int2(TiltData[z].Dims) * 2).AndDisposeParent();
-            //TiltData[z].MaskRectangularly((TiltData[z].Dims / 2).Slice(), MathF.Min(TiltData[z].Dims.X / 4, TiltData[z].Dims.Y / 4), false);
+            TiltData[z] = TiltData[z].AsPaddedClamped(new int2(TiltData[z].Dims) * 2).AndDisposeParent();
+            TiltData[z].MaskRectangularly((TiltData[z].Dims / 2).Slice(), MathF.Min(TiltData[z].Dims.X / 4, TiltData[z].Dims.Y / 4), false);
             //TiltData[z].WriteMRC("d_tiltdata.mrc", true);
             TiltData[z].Bandpass(1f / (SizeRegion / 2), 1f, false, 1f / (SizeRegion / 2));
-            //TiltData[z] = TiltData[z].AsPadded(new int2(TiltData[z].Dims) / 2).AndDisposeParent();
+            TiltData[z] = TiltData[z].AsPadded(new int2(TiltData[z].Dims) / 2).AndDisposeParent();
             //TiltData[z].WriteMRC("d_tiltdatabp.mrc", true);
 
             GPU.Normalize(TiltData[z].GetDevice(Intent.Read),
