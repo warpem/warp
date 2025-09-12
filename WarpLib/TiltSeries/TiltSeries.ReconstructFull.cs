@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Warp.Tools;
 
@@ -439,7 +440,10 @@ public partial class TiltSeries
                 Image FullRecDeconv = FullRecFT.AsIFFT_CPU(true);
                 FullRecFT.Dispose();
 
-                OutputRecDeconv = FullRecDeconv.GetHost(Intent.Read);
+                var newData = FullRecDeconv.GetHost(Intent.Read);
+                for (int i = 0; i < newData.Length; i++)
+                    Array.Copy(newData[i], 0, OutputRecDeconv[i], 0, newData[i].Length);
+                
                 FullRecDeconv.Dispose();
             }
 
@@ -467,7 +471,10 @@ public partial class TiltSeries
                     Image FullRecDeconv = FullRecFT.AsIFFT_CPU(true);
                     FullRecFT.Dispose();
 
-                    OutputRecHalves[ihalf] = FullRecDeconv.GetHost(Intent.Read);
+                    var newData = FullRecDeconv.GetHost(Intent.Read);
+                    for (int i = 0; i < newData.Length; i++)
+                        Array.Copy(newData[i], 0, OutputRecHalves[ihalf][i], 0, newData[i].Length);
+                    
                     FullRecDeconv.Dispose();
                 }
             }
