@@ -495,9 +495,9 @@ public partial class TiltSeries
         OptimizeElevation();
 
         OptimizeAngles();
-        OptimizeElevation();
+        //OptimizeElevation();
 
-        OptimizeAlignment();
+        //OptimizeAlignment();
 
         #endregion
 
