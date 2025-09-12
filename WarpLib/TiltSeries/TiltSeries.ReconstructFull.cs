@@ -98,15 +98,21 @@ public partial class TiltSeries
 
         Image CTFCoords = CTF.GetCTFCoords(SizeSubPadded, SizeSubPadded);
 
-        float[][] OutputRec = Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z);
-        float[][] OutputRecDeconv = null;
+        Image OutputRecVolume = new Image(DimsVolumeCropped);
+        float[][] OutputRec = OutputRecVolume.GetHost(Intent.ReadWrite);
+        
+        Image OutputRecDeconvVolume = options.DoDeconv ? new Image(DimsVolumeCropped) : null;
+        float[][] OutputRecDeconv = OutputRecDeconvVolume?.GetHost(Intent.ReadWrite);
+        
+        Image OutputRecOddVolume = options.PrepareDenoising ? new Image(DimsVolumeCropped) : null;
+        Image OutputRecEvenVolume = options.PrepareDenoising ? new Image(DimsVolumeCropped) : null;
         float[][][] OutputRecHalves = null;
         if (options.PrepareDenoising)
         {
             OutputRecHalves = new[]
             {
-                Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z),
-                Helper.ArrayOfFunction(i => new float[DimsVolumeCropped.ElementsSlice()], DimsVolumeCropped.Z)
+                OutputRecOddVolume.GetHost(Intent.ReadWrite),
+                OutputRecEvenVolume.GetHost(Intent.ReadWrite)
             };
         }
 
@@ -508,9 +514,8 @@ public partial class TiltSeries
 
         IsCanceled = progressCallback(Grid, (int)Grid.Elements(), "Writing...");
 
-        Image OutputRecImage = new Image(OutputRec, DimsVolumeCropped);
         {
-            Image OutputFlat = OutputRecImage.AsSliceXY(OutputRecImage.Dims.Z / 2);
+            Image OutputFlat = OutputRecVolume.AsSliceXY(OutputRecVolume.Dims.Z / 2);
             float2 MeanStd;
             {
                 Image CentralQuarter = OutputFlat.AsPadded(new int2(OutputFlat.Dims) / 2);
@@ -524,25 +529,22 @@ public partial class TiltSeries
             OutputFlat.WritePNG(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".png"));
             OutputFlat.Dispose();
         }
-        OutputRecImage.WriteMRC16b(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
-        OutputRecImage.Dispose();
+        OutputRecVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+        OutputRecVolume.Dispose();
 
         if (options.DoDeconv)
         {
-            Image OutputRecDeconvImage = new Image(OutputRecDeconv, DimsVolumeCropped);
-            OutputRecDeconvImage.WriteMRC16b(System.IO.Path.Combine(ReconstructionDeconvDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
-            OutputRecDeconvImage.Dispose();
+            OutputRecDeconvVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionDeconvDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+            OutputRecDeconvVolume.Dispose();
         }
 
         if (options.PrepareDenoising)
         {
-            Image OutputRecOddImage = new Image(OutputRecHalves[0], DimsVolumeCropped);
-            OutputRecOddImage.WriteMRC16b(System.IO.Path.Combine(ReconstructionOddDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
-            OutputRecOddImage.Dispose();
+            OutputRecOddVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionOddDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+            OutputRecOddVolume.Dispose();
 
-            Image OutputRecEvenImage = new Image(OutputRecHalves[1], DimsVolumeCropped);
-            OutputRecEvenImage.WriteMRC16b(System.IO.Path.Combine(ReconstructionEvenDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
-            OutputRecEvenImage.Dispose();
+            OutputRecEvenVolume.WriteMRC16b(System.IO.Path.Combine(ReconstructionEvenDir, NameWithRes + ".mrc"), (float)options.BinnedPixelSizeMean, true);
+            OutputRecEvenVolume.Dispose();
         }
 
         IsCanceled = progressCallback(Grid, (int)Grid.Elements(), "Done.");
