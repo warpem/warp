@@ -47,6 +47,7 @@ public partial class TiltSeries
             if (options.Normalize)
                 TiltData[z].Normalize();
         }
+        GPU.CheckGPUExceptions();
 
         int2 DimsImage = new int2(TiltData[0].Dims);
 
@@ -57,11 +58,12 @@ public partial class TiltSeries
         int PlanForwParticles = GPU.CreateFFTPlan(new int3(SizeRegion, SizeRegion, 1), (uint)NParticles);
         int PlanBackParticles = GPU.CreateIFFTPlan(new int3(SizeRegion, SizeRegion, 1), (uint)NParticles);
 
-        Image Images = new(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NTilts));
+        Image Images = new(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NParticles));
         Image ImagesFT = new(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NParticles), true, true);
 
         Image CTFCoords = CTF.GetCTFCoords(SizeRegion, SizeRegion, Matrix2.Identity());
         Image CTFs = new Image(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NParticles), true);
+        GPU.CheckGPUExceptions();
 
         #endregion
 
@@ -71,6 +73,7 @@ public partial class TiltSeries
             template = template.AsScaled(new int3(SizeRegion)).AndDisposeParent();
 
         Projector Projector = new Projector(template, 2);
+        GPU.CheckGPUExceptions();
 
         #endregion
 
@@ -93,8 +96,10 @@ public partial class TiltSeries
                                                     false, 
                                                     Images, 
                                                     ImagesFT);
+            GPU.CheckGPUExceptions();
 
             Image References = Projector.Project(new int2(SizeRegion), ParticleAnglesInImage);
+            GPU.CheckGPUExceptions();
 
             GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
                               ParticlePositionsInImage.Select(v => v.Z).ToArray(),
@@ -104,12 +109,16 @@ public partial class TiltSeries
                               t,
                               CTFs);
             References.Multiply(CTFs);
+            GPU.CheckGPUExceptions();
 
             ImagesFT.MultiplyConj(References);
+            GPU.CheckGPUExceptions();
 
             GPU.IFFT(ImagesFT.GetDevice(Intent.Read), Images.GetDevice(Intent.Write), new int3(SizeRegion).Slice(), (uint)NParticles, PlanBackParticles, true);
+            GPU.CheckGPUExceptions();
 
             using Image Average = Images.AsReducedAlongZ();
+            GPU.CheckGPUExceptions();
             GPU.CopyDeviceToHost(Average.GetDevice(Intent.Read), TiltPeaks.GetHost(Intent.Write)[t], Average.ElementsReal);
 
             References.Dispose();
@@ -172,6 +181,8 @@ public partial class TiltSeries
             img?.Dispose();
 
         #endregion
+
+        GPU.CheckGPUExceptions();
     }
 }
 
