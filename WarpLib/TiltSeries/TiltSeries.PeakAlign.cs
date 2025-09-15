@@ -115,7 +115,7 @@ public partial class TiltSeries
             References.Dispose();
         }
 
-        //TiltPeaks.WriteMRC("d_tiltpeaks.mrc", true);
+        TiltPeaks.WriteMRC($"d_tiltpeaks_{RootName}.mrc", true);
 
         int SubpixelFactor = 10;
         TiltPeaks = TiltPeaks.AsScaled(new int2(TiltPeaks.Dims) * SubpixelFactor).AndDisposeParent();
