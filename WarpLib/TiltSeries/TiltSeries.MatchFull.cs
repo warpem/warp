@@ -417,7 +417,8 @@ public partial class TiltSeries
 
                 for (int st = 0; st < CurBatch; st++)
                 {
-                    float[][] SubtomoData = new float[SizeSub][];
+                    Image Subtomo = new Image(new int3(SizeSub));
+                    float[][] SubtomoData = Subtomo.GetHost(Intent.ReadWrite);
 
                     int XStart = (int)GridCoords[b + st].X - SizeSub / 2;
                     int YStart = (int)GridCoords[b + st].Y - SizeSub / 2;
@@ -442,8 +443,6 @@ public partial class TiltSeries
                             }
                         }
                     }
-
-                    Image Subtomo = new Image(SubtomoData, new int3(SizeSub));
 
                     // Re-use FFT plan created previously for CTF reconstruction since it has the right size
                     GPU.FFT(Subtomo.GetDevice(Intent.Read),
