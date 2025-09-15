@@ -114,7 +114,22 @@ public partial class TiltSeries
             ImagesFT.MultiplyConj(References);
             GPU.CheckGPUExceptions();
 
-            GPU.IFFT(ImagesFT.GetDevice(Intent.Read), Images.GetDevice(Intent.Write), new int3(SizeRegion).Slice(), (uint)NParticles, PlanBackParticles, true);
+            //using Image Abs = ImagesFT.AsAmplitudes();
+            //Abs.Max(1e-10f);
+            //ImagesFT.Divide(Abs);
+
+            //GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
+            //                  ParticlePositionsInImage.Select(v => v.Z).ToArray(),
+            //                  ParticlePositionsInImage,
+            //                  CTFCoords,
+            //                  null,
+            //                  t,
+            //                  CTFs,
+            //                  weighted: true,
+            //                  weightsonly: true);
+            //ImagesFT.Multiply(CTFs);
+
+            GPU.IFFT(ImagesFT.GetDevice(Intent.Read), Images.GetDevice(Intent.Write), new int3(SizeRegion).Slice(), (uint)NParticles, PlanBackParticles, normalize: false);
             GPU.CheckGPUExceptions();
 
             using Image Average = Images.AsReducedAlongZ();
@@ -124,7 +139,7 @@ public partial class TiltSeries
             References.Dispose();
         }
 
-        TiltPeaks.WriteMRC($"d_tiltpeaks_{RootName}.mrc", true);
+        //TiltPeaks.WriteMRC($"d_tiltpeaks_{RootName}.mrc", true);
 
         int SubpixelFactor = 10;
         TiltPeaks = TiltPeaks.AsScaled(new int2(TiltPeaks.Dims) * SubpixelFactor).AndDisposeParent();
