@@ -39,11 +39,6 @@ namespace WarpWorker
         static long HeaderlessOffset = 0;
         static string HeaderlessType = "float32";
 
-        static float[][] RawLayers = null;
-
-        static string OriginalStackOwner = "";
-        static Image OriginalStack = null;
-
         static BoxNetTorch BoxNetModel = null;
 
         static Population MPAPopulation = null;
@@ -777,6 +772,24 @@ namespace WarpWorker
 
                     Console.WriteLine($"Processed auto-leveling for {Path}");
                 }
+                else if (Command.Name == "TomoPeakAlign")
+                {
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTomoPeakAlign Options = (ProcessingOptionsTomoPeakAlign)Command.Content[1];
+                    var TemplatePath = (string)Command.Content[2];
+                    float3[] Positions = (float3[])Command.Content[3];
+                    float3[] Angles = (float3[])Command.Content[4];
+
+                    Image Template = Image.FromFile(TemplatePath);
+
+                    TiltSeries T = new TiltSeries(Path);
+                    T.PeakAlign(Options, Template, Positions, Angles);
+                    T.SaveMeta();
+
+                    Template.Dispose();
+
+                    Console.WriteLine($"Performed alignment to peaks for {Path}");
+                }
                 else if (Command.Name == "TomoAlignLocallyWithoutReferences")
                 {
                     string Path = (string)Command.Content[0];
@@ -998,6 +1011,10 @@ namespace WarpWorker
             return Model;
         }
 
+        static float[][] RawLayers = null;
+        static string OriginalStackOwner = "";
+        static Image OriginalStack = null;
+
         static Image LoadAndPrepareStack(string path, decimal scaleFactor, bool correctGain, int maxThreads = 8)
         {
             Image stack = null;
@@ -1017,7 +1034,6 @@ namespace WarpWorker
                     if (header.Dimensions.X != GainRef.Dims.X || header.Dimensions.Y != GainRef.Dims.Y)
                         throw new Exception($"Gain reference dimensions ({GainRef.Dims.X}x{GainRef.Dims.Y}) do not match image ({header.Dimensions.X}x{header.Dimensions.Y}).");
 
-            int EERSupersample = 4; // EER super-resolution now fixed to 4x
             int EERGroupFrames = 1;
             if (IsEER)
             {
@@ -1039,7 +1055,9 @@ namespace WarpWorker
             { 
                 SourceDims *= 4;
 
-                if (GainRef != null && correctGain)
+                if (GainRef != null && 
+                    correctGain && 
+                    new int2(GainRef.Dims) != SourceDims)
                     GainRef = GainRef.AsScaled(SourceDims).AndDisposeParent();
             }
 
@@ -1127,6 +1145,7 @@ namespace WarpWorker
                 {
                     OriginalStack?.Dispose();
                     OriginalStack = new Image(ScaledDims);
+                    Console.WriteLine($"Allocating original stack of size {header.Dimensions} for {path} on device {CurrentDevice}");
                 }
 
                 stack = OriginalStack;

@@ -72,7 +72,7 @@ namespace Warp
             {
                 if (_DeviceData == IntPtr.Zero)
                 {
-                    _DeviceData = GpuArrayPool.Rent(ElementsReal);
+                    _DeviceData = GPU.MallocDevice(ElementsReal);// GpuArrayPool.Rent(ElementsReal);
 
                     lock (GlobalSync)
                         OnDeviceObjects.Add(this);
@@ -521,7 +521,8 @@ namespace Warp
                     if (IsDeviceDirty)
                         for (int z = 0; z < Dims.Z; z++)
                             GPU.CopyDeviceToHost(new IntPtr((long)DeviceData + ElementsSliceReal * z * sizeof(float)), HostData[z], ElementsSliceReal);
-                    GpuArrayPool.Return(DeviceData);
+                    //GpuArrayPool.Return(DeviceData);
+                    GPU.FreeDevice(_DeviceData);
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
@@ -830,7 +831,8 @@ namespace Warp
 
                 if (_DeviceData != IntPtr.Zero)
                 {
-                    GpuArrayPool.Return(_DeviceData);
+                    //GpuArrayPool.Return(_DeviceData);
+                    GPU.FreeDevice(_DeviceData);
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;

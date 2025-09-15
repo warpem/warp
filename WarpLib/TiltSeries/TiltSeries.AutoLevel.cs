@@ -37,8 +37,6 @@ public partial class TiltSeries
         }
 
         int2 DimsImage = new int2(TiltData[0].Dims);
-        int SizeReconstruction = Math.Max(DimsImage.X, DimsImage.Y);
-        int SizeReconstructionPadded = SizeReconstruction * 2;
 
         #endregion
 

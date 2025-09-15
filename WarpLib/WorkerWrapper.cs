@@ -425,6 +425,16 @@ namespace Warp
                                                     options));
         }
 
+        public void TomoPeakAlign(string path, ProcessingOptionsTomoPeakAlign options, string templatePath, float3[] positions, float3[] angles)
+        {
+            SendCommand(new NamedSerializableObject("TomoPeakAlign",
+                                                    path,
+                                                    options,
+                                                    templatePath,
+                                                    positions,
+                                                    angles));
+        }
+
         public void TomoProcessCTF(string path, ProcessingOptionsMovieCTF options)
         {
             SendCommand(new NamedSerializableObject("TomoProcessCTF",
