@@ -883,16 +883,16 @@ namespace Warp
 
         #region GetCTFs methods
 
-        public override Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3 coords, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
+        public override Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3 coords, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null, string outputpath = "")
         {
             float3[] PerTiltCoords = new float3[NTilts];
             for (int i = 0; i < NTilts; i++)
                 PerTiltCoords[i] = coords;
 
-            return GetCTFsForOneParticle(options, PerTiltCoords, ctfCoords, gammaCorrection, weighted, weightsonly, useglobalweights, result);
+            return GetCTFsForOneParticle(options, PerTiltCoords, ctfCoords, gammaCorrection, weighted, weightsonly, useglobalweights, result, outputpath);
         }
 
-        public override Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3[] coordsMoving, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null)
+        public override Image GetCTFsForOneParticle(ProcessingOptionsBase options, float3[] coordsMoving, Image ctfCoords, Image gammaCorrection, bool weighted = true, bool weightsonly = false, bool useglobalweights = false, Image result = null, string outputpath = "")
         {
             float3[] ImagePositions = GetPositionInAllTilts(coordsMoving);
 
@@ -953,6 +953,25 @@ namespace Warp
                 }
 
                 Params[t] = CurrCTF.ToStruct();
+            }
+
+            if (outputpath != "")
+            {
+                using (StreamWriter writer = new StreamWriter(outputpath))
+                {
+                    string output = string.Join(", ", typeof(CTFStruct)
+                                .GetFields()
+                                .Select(field => $"{field.Name}"));
+                    writer.WriteLine($"TiltAngle, X, Y, Z, {output}");
+
+                    for (int t = 0; t < NTilts; t++)
+                    {
+                        string output_t = string.Join(", ", typeof(CTFStruct)
+                                .GetFields()
+                                .Select(field => $"{field.GetValue(Params[t])}"));
+                        writer.WriteLine($"{Angles[t]}, {coordsMoving[t].X}, {coordsMoving[t].Y}, {coordsMoving[t].Z}, {output_t}");
+                    }
+                }
             }
 
             Image Result = result == null ? new Image(IntPtr.Zero, new int3(ctfCoords.Dims.X, ctfCoords.Dims.Y, NTilts), true) : result;
