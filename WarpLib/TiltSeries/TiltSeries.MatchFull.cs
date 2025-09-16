@@ -23,7 +23,7 @@ public partial class TiltSeries
         string NameWithRes = TiltSeries.ToTomogramWithPixelSize(Path, options.BinnedPixelSizeMean);
 
         float3[] HealpixAngles = Helper.GetHealpixAngles(options.HealpixOrder, options.Symmetry).Select(a => a * Helper.ToRad).ToArray();
-        if (options.TiltRange >= 0)
+        if (options.TiltRange > 0)
         {
             float Limit = MathF.Sin((float)options.TiltRange * Helper.ToRad);
             HealpixAngles = HealpixAngles.Where(a => MathF.Abs(Matrix3.Euler(a).C3.Z) <= Limit).ToArray();
@@ -91,7 +91,7 @@ public partial class TiltSeries
         #region Get correlation and angles either by calculating them from scratch, or by loading precalculated volumes
 
         string CorrVolumePath = System.IO.Path.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_corr.mrc");
-        string AngleIDVolumePath = System.IO.Path.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_angleid.tif");
+        string AngleIDVolumePath = System.IO.Path.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_angleid.mrc");
 
         if (!File.Exists(System.IO.Path.Combine(ReconstructionDir, NameWithRes + ".mrc")))
             throw new FileNotFoundException("A reconstruction at the desired resolution was not found.");
@@ -711,7 +711,7 @@ public partial class TiltSeries
 
             // Store correlation values and angle IDs for re-use later
             CorrVolume.WriteMRC16b(CorrVolumePath, (float)options.BinnedPixelSizeMean, true);
-            AngleIDVolume.WriteTIFF(AngleIDVolumePath, (float)options.BinnedPixelSizeMean, typeof(float));
+            AngleIDVolume.WriteMRC(AngleIDVolumePath, (float)options.BinnedPixelSizeMean, true);
 
             #endregion
         }
@@ -742,8 +742,9 @@ public partial class TiltSeries
 
         progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Extracting best peaks...");
 
-        int3[] InitialPeaks = new int3[0];
+        (int3 pos, float3 ang, float score)[] Peaks;
         {
+            int3[] InitialPeaks = new int3[0];
             float Max = CorrVolume.GetHostContinuousCopy().Max();
 
             for (float s = Max * 0.9f; s > Max * 0.1f; s -= Max * 0.05f)
@@ -754,7 +755,23 @@ public partial class TiltSeries
                 if (InitialPeaks.Length >= options.NResults)
                     break;
             }
+
+            List<(int3 pos, float3 ang, float score)> PeakList = new(InitialPeaks.Length);
+
+            for (int i = 0; i < InitialPeaks.Length; i++)
+            {
+                int z = InitialPeaks[i].Z;
+                int xy = InitialPeaks[i].Y * DimsVolumeScaled.X + InitialPeaks[i].X;
+                int angleId = (int)(AngleIDData[z][xy] + 0.5f);
+                float3 Angles = HealpixAngles[angleId] * Helper.ToDeg;
+                float Score = CorrData[z][xy];
+                PeakList.Add((InitialPeaks[i], Angles, Score));
+            }
+
+            PeakList = PeakList.OrderByDescending(p => p.score).Take(options.NResults).ToList();
+            Peaks = PeakList.OrderBy(p => p.pos.Z).ThenBy(p => p.pos.Y).ThenBy(p => p.pos.X).ToArray();
         }
+        GPU.CheckGPUExceptions();
 
         #endregion
 
@@ -775,7 +792,6 @@ public partial class TiltSeries
         ).AsReducedAlongZ().AndDisposeParent();
 
         // write images showing particle picks at different thresholds
-        float[] AllPeakScores = new float[InitialPeaks.Count()];
         float[] Thresholds = { 3f, 4f, 5f, 6f, 7f, 8f, 9f };
         string PickingImageDirectory = System.IO.Path.Combine(MatchingDir, NameWithRes + "_" + options.TemplateName + "_picks");
         Directory.CreateDirectory(PickingImageDirectory);
@@ -792,18 +808,9 @@ public partial class TiltSeries
 
         foreach (float threshold in Thresholds)
         {
-            // get positions with score >= thresold
-            for (int i = 0; i < InitialPeaks.Count(); i++)
-            {
-                float3 Position = new float3(InitialPeaks[i]);
-                AllPeakScores[i] = CorrData[InitialPeaks[i].Z][InitialPeaks[i].Y * DimsVolumeScaled.X + InitialPeaks[i].X];
-            }
-
-            var filteredPositions = InitialPeaks.Zip(AllPeakScores, (position, score) => new { Position = position, Score = score })
-                .Where(item => item.Score >= threshold)
-                .Where(item => (item.Position.Z >= _ZMin && item.Position.Z <= _ZMax))
-                .Select(item => item.Position)
-                .ToArray();
+            var filteredPositions = Peaks.Where(p => p.score >= threshold && p.pos.Z >= _ZMin && p.pos.Z <= _ZMax)
+                                         .Select(p => p.pos)
+                                         .ToArray();
 
             // write PNG with image and draw particle circles
             using (SKBitmap SliceImage = new SKBitmap(TomogramSlice.Dims.X, TomogramSlice.Dims.Y, SKColorType.Bgra8888, SKAlphaType.Opaque))
@@ -869,22 +876,22 @@ public partial class TiltSeries
         });
 
         {
-            for (int n = 0; n < InitialPeaks.Length; n++)
+            for (int n = 0; n < Peaks.Length; n++)
             {
                 //float3 Position = RefinedPositions[n] / new float3(DimsVolumeCropped);
                 //float Score = RefinedScores[n];
                 //float3 Angle = RefinedAngles[n] * Helper.ToDeg;
 
-                float3 Position = new float3(InitialPeaks[n]);
-                float Score = CorrData[(int)Position.Z][(int)Position.Y * DimsVolumeScaled.X + (int)Position.X];
-                float3 Angle = HealpixAngles[(int)(AngleIDData[(int)Position.Z][(int)Position.Y * DimsVolumeScaled.X + (int)Position.X] + 0.5f)] * Helper.ToDeg;
-                Position /= new float3(DimsVolumeScaled);
+                int3 Position = Peaks[n].pos;
+                float Score = Peaks[n].score;
+                float3 Angle = Peaks[n].ang;
+                float3 PositionF = new float3(Position) / new float3(DimsVolumeScaled - 1);
 
                 TableOut.AddRow(new string[]
                 {
-                    Position.X.ToString(CultureInfo.InvariantCulture),
-                    Position.Y.ToString(CultureInfo.InvariantCulture),
-                    Position.Z.ToString(CultureInfo.InvariantCulture),
+                    PositionF.X.ToString(CultureInfo.InvariantCulture),
+                    PositionF.Y.ToString(CultureInfo.InvariantCulture),
+                    PositionF.Z.ToString(CultureInfo.InvariantCulture),
                     Angle.X.ToString(CultureInfo.InvariantCulture),
                     Angle.Y.ToString(CultureInfo.InvariantCulture),
                     Angle.Z.ToString(CultureInfo.InvariantCulture),
