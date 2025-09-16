@@ -347,6 +347,14 @@ public partial class TiltSeries
             Optimizer.Maximize(StartParams);
 
             SetPositions(BestInput);
+            
+            var Shifts = new float3[NParticles];
+            for (int p = 0; p < NParticles; p++)
+                Shifts[p] = new float3((float)BestInput[p * NParamsParticles + 0],
+                                       (float)BestInput[p * NParamsParticles + 1],
+                                       (float)BestInput[p * NParamsParticles + 2]);
+            float ShiftRMS = MathF.Sqrt(Shifts.Select(v => v.LengthSq()).Average());
+            Console.WriteLine($"Particle shift RMS: {ShiftRMS.ToString("F2", CultureInfo.InvariantCulture)} A");
         };
 
         var OptimizeTilts = () =>
@@ -419,6 +427,12 @@ public partial class TiltSeries
 
                 Corrections[t] = -PeakPos * ((float)options.BinnedPixelSizeMean / SubpixelFactor);
             }
+            
+            Console.WriteLine("Tilt shift corrections (X, Y):");
+            for (int t = 0; t < NTilts; t++)
+                Console.WriteLine($"Tilt {t}: " +
+                                  $"{Corrections[t].X.ToString("F2", CultureInfo.InvariantCulture)}, " +
+                                  $"{Corrections[t].Y.ToString("F2", CultureInfo.InvariantCulture)} A");
 
             if (GridMovementX != null)
                 GridMovementX = GridMovementX.Resize(new int3(1, 1, NTilts));
@@ -440,7 +454,8 @@ public partial class TiltSeries
             #endregion
         };
 
-        OptimizeParticles(false);
+        if (options.OptimizeParticlePoses)
+            OptimizeParticles(false);
         OptimizeTilts();
 
         //OptimizeParticles(true);
@@ -474,6 +489,7 @@ public class ProcessingOptionsTomoPeakAlign : TomoProcessingOptionsBase
     [WarpSerializable] public bool Normalize { get; set; }
     [WarpSerializable] public decimal TemplatePixel { get; set; }
     [WarpSerializable] public decimal TemplateDiameter { get; set; }
+    [WarpSerializable] public bool OptimizeParticlePoses { get; set; }
     [WarpSerializable] public bool WhitenSpectrum { get; set; }
     [WarpSerializable] public decimal Lowpass { get; set; }
     [WarpSerializable] public decimal LowpassSigma { get; set; }

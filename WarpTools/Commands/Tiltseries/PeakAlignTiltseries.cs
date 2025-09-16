@@ -26,8 +26,7 @@ namespace WarpTools.Commands
         public string InputStarFile { get; set; }
 
         [Option("input_directory",
-                HelpText =
-                    "Directory containing multiple STAR files each with particle poses to be exported")]
+                HelpText = "Directory containing multiple STAR files each with particle poses to be exported")]
         public string InputDirectory { get; set; }
 
         [Option("input_pattern",
@@ -49,6 +48,9 @@ namespace WarpTools.Commands
         [OptionGroup("Correlation options")]
         [Option("corr_angpix", Default = 10.0, HelpText = "Pixel size at which to calculate the correlation")]
         public double CorrAngPix { get; set; }
+        
+        [Option("optimize_poses", HelpText = "Quickly optimize particle poses before performing tilt image alignment")]
+        public bool OptimizePoses { get; set; }
 
         [OptionGroup("Template options")]
         [Option("template_path", Required = true, HelpText = "Path to the template file")]
@@ -102,6 +104,8 @@ namespace WarpTools.Commands
             optionsAlign.BinTimes = (decimal)Math.Log(cli.CorrAngPix / (double)cli.Options.Import.PixelSize, 2.0);
             optionsAlign.Normalize = true;
             optionsAlign.Invert = true;
+            optionsAlign.OptimizeParticlePoses = cli.OptimizePoses;
+            optionsAlign.TemplateDiameter = cli.TemplateDiameter;
 
             #region Parse input
 
