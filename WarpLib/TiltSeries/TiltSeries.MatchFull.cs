@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Accord;
+using Accord.Math.Optimization;
 using MathNet.Numerics.Statistics;
 using SkiaSharp;
 using Warp.Tools;
@@ -44,8 +45,8 @@ public partial class TiltSeries
         int PeakDistance = (int)(options.PeakDistance / options.BinnedPixelSizeMean);
 
         int3 DimsVolumeScaled = new int3((int)Math.Round(options.DimensionsPhysical.X / (float)options.BinnedPixelSizeMean / 2) * 2,
-            (int)Math.Round(options.DimensionsPhysical.Y / (float)options.BinnedPixelSizeMean / 2) * 2,
-            (int)Math.Round(options.DimensionsPhysical.Z / (float)options.BinnedPixelSizeMean / 2) * 2);
+                                         (int)Math.Round(options.DimensionsPhysical.Y / (float)options.BinnedPixelSizeMean / 2) * 2,
+                                         (int)Math.Round(options.DimensionsPhysical.Z / (float)options.BinnedPixelSizeMean / 2) * 2);
 
         VolumeDimensionsPhysical = options.DimensionsPhysical;
 
@@ -78,11 +79,11 @@ public partial class TiltSeries
         int3 Grid = (DimsVolumeScaled - SizeParticle + SizeUseful - 1) / SizeUseful;
         List<float3> GridCoords = new List<float3>();
         for (int z = 0; z < Grid.Z; z++)
-        for (int x = 0; x < Grid.X; x++)
-        for (int y = 0; y < Grid.Y; y++)
-            GridCoords.Add(new float3(x * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
-                y * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
-                z * SizeUseful + SizeUseful / 2 + SizeParticle / 2));
+            for (int x = 0; x < Grid.X; x++)
+                for (int y = 0; y < Grid.Y; y++)
+                    GridCoords.Add(new float3(x * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
+                                              y * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
+                                              z * SizeUseful + SizeUseful / 2 + SizeParticle / 2));
 
         progressCallback?.Invoke(Grid, (int)Grid.Elements(), $"Using {Grid} sub-volumes");
 
@@ -121,9 +122,9 @@ public partial class TiltSeries
                     OnesComplex.Fill(new float2(1, 0));
                     Image Ones = OnesComplex.AsReal();
                     Reconstructor.BackProject(OnesComplex,
-                        Ones,
-                        GetAnglesInOneTilt([VolumeDimensionsPhysical * 0.5f], [new float3(0)], IndicesSortedDose[0]),
-                        Matrix2.Identity());
+                                              Ones,
+                                              GetAnglesInOneTilt([VolumeDimensionsPhysical * 0.5f], [new float3(0)], IndicesSortedDose[0]),
+                                              Matrix2.Identity());
                     OnesComplex.Dispose();
                     Ones.Dispose();
                     Reconstructor.Weights.Fill(1);
@@ -217,12 +218,12 @@ public partial class TiltSeries
                 template.FreeDevice();
 
                 GPU.SphereMask(TemplateScaled.GetDevice(Intent.Read),
-                    TemplateScaled.GetDevice(Intent.Write),
-                    TemplateScaled.Dims,
-                    SizeParticle / 2,
-                    Math.Max(5, 20 / (float)options.BinnedPixelSizeMean),
-                    false,
-                    1);
+                               TemplateScaled.GetDevice(Intent.Write),
+                               TemplateScaled.Dims,
+                               SizeParticle / 2,
+                               Math.Max(5, 20 / (float)options.BinnedPixelSizeMean),
+                               false,
+                               1);
 
                 float TemplateMax = TemplateScaled.GetHost(Intent.Read).Select(a => a.Max()).Max();
                 TemplateMask = TemplateScaled.GetCopyGPU();
@@ -281,8 +282,8 @@ public partial class TiltSeries
                         TemplateRandomPadded = TemplateRandomPadded.AsSpectrumMultiplied(true, SpectrumWhitening).AndDisposeParent();
 
                     TemplateRandomPadded.Bandpass(2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 1.5f,
-                        2, true,
-                        2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
+                                                  2, true,
+                                                  2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
                 }
 
                 #endregion
@@ -304,7 +305,8 @@ public partial class TiltSeries
                 if (options.Lowpass < 0.999M)
                     TemplatePadded.BandpassGauss(0, (float)options.Lowpass, true, (float)options.LowpassSigma);
 
-                TemplatePadded.Bandpass(2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 1.5f, 2, true, 2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
+                TemplatePadded.Bandpass(2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 1.5f, 2, true,
+                                        2 * (float)(options.BinnedPixelSizeMean / options.TemplateDiameter) * 0.5f);
                 //TemplatePadded.WriteMRC("d_template_highpass.mrc", true);
 
                 //TemplateRandomPadded = TemplateRandomPadded.AsSpectrumMultiplied(true, Sinc2).AndDisposeParent();
@@ -447,10 +449,10 @@ public partial class TiltSeries
 
                     // Re-use FFT plan created previously for CTF reconstruction since it has the right size
                     GPU.FFT(Subtomo.GetDevice(Intent.Read),
-                        Subtomos.GetDeviceSlice(SizeSub * st, Intent.Write),
-                        Subtomo.Dims,
-                        1,
-                        PlanForwCTF);
+                            Subtomos.GetDeviceSlice(SizeSub * st, Intent.Write),
+                            Subtomo.Dims,
+                            1,
+                            PlanForwCTF);
 
                     Subtomo.Dispose();
                 }
@@ -464,26 +466,26 @@ public partial class TiltSeries
                 //    SubtomoCTF.WriteMRC16b("d_ctf.mrc", true);
 
                 Timer ProgressTimer = new Timer((a) =>
-                    progressCallback?.Invoke(Grid, b + ProgressFraction[0] * CurBatch, "Matching..."), null, 1000, 1000);
+                                                    progressCallback?.Invoke(Grid, b + ProgressFraction[0] * CurBatch, "Matching..."), null, 1000, 1000);
 
                 Image BestCorrelation = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
                 Image BestAngle = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
 
                 GPU.CorrelateSubTomos(ProjectorReference.t_DataRe,
-                    ProjectorReference.t_DataIm,
-                    ProjectorReference.Oversampling,
-                    ProjectorReference.Data.Dims,
-                    Subtomos.GetDevice(Intent.Read),
-                    SubtomoCTF.GetDevice(Intent.Read),
-                    new int3(SizeSub),
-                    (uint)CurBatch,
-                    Helper.ToInterleaved(HealpixAngles),
-                    (uint)HealpixAngles.Length,
-                    (uint)options.BatchAngles,
-                    SizeParticle / 2,
-                    BestCorrelation.GetDevice(Intent.Write),
-                    BestAngle.GetDevice(Intent.Write),
-                    ProgressFraction);
+                                      ProjectorReference.t_DataIm,
+                                      ProjectorReference.Oversampling,
+                                      ProjectorReference.Data.Dims,
+                                      Subtomos.GetDevice(Intent.Read),
+                                      SubtomoCTF.GetDevice(Intent.Read),
+                                      new int3(SizeSub),
+                                      (uint)CurBatch,
+                                      Helper.ToInterleaved(HealpixAngles),
+                                      (uint)HealpixAngles.Length,
+                                      (uint)options.BatchAngles,
+                                      SizeParticle / 2,
+                                      BestCorrelation.GetDevice(Intent.Write),
+                                      BestAngle.GetDevice(Intent.Write),
+                                      ProgressFraction);
 
 
                 //Image BestCorrelationRandom = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
@@ -591,12 +593,12 @@ public partial class TiltSeries
             {
                 Image LocalStd = new Image(IntPtr.Zero, TomoRec.Dims);
                 GPU.LocalStd(TomoRec.GetDevice(Intent.Read),
-                    TomoRec.Dims,
-                    SizeParticle / 2,
-                    LocalStd.GetDevice(Intent.Write),
-                    IntPtr.Zero,
-                    0,
-                    0);
+                             TomoRec.Dims,
+                             SizeParticle / 2,
+                             LocalStd.GetDevice(Intent.Write),
+                             IntPtr.Zero,
+                             0,
+                             0);
 
                 Image Center = LocalStd.AsPadded(LocalStd.Dims / 2);
                 float Median = Center.GetHostContinuousCopy().Median();
@@ -643,10 +645,10 @@ public partial class TiltSeries
                 float3[] ImagePositions = new float3[DimsUndersampled.ElementsSlice() * NTilts];
                 float3[] VolumePositions = new float3[DimsUndersampled.ElementsSlice()];
                 for (int y = 0; y < DimsUndersampled.Y; y++)
-                for (int x = 0; x < DimsUndersampled.X; x++)
-                    VolumePositions[y * DimsUndersampled.X + x] = new float3((x + 0.5f) * Undersample * BinnedAngPix,
-                        (y + 0.5f) * Undersample * BinnedAngPix,
-                        0);
+                    for (int x = 0; x < DimsUndersampled.X; x++)
+                        VolumePositions[y * DimsUndersampled.X + x] = new float3((x + 0.5f) * Undersample * BinnedAngPix,
+                                                                                 (y + 0.5f) * Undersample * BinnedAngPix,
+                                                                                 0);
 
                 float[][] OccupancyMask = Helper.ArrayOfFunction(z => Helper.ArrayOfConstant(1f, VolumePositions.Length), DimsUndersampled.Z);
 
@@ -742,7 +744,7 @@ public partial class TiltSeries
 
         progressCallback?.Invoke(Grid, (int)Grid.Elements(), "Extracting best peaks...");
 
-        (int3 pos, float3 ang, float score)[] Peaks;
+        ParticlePeak[] Peaks;
         {
             int3[] InitialPeaks = new int3[0];
             float Max = CorrVolume.GetHostContinuousCopy().Max();
@@ -756,7 +758,7 @@ public partial class TiltSeries
                     break;
             }
 
-            List<(int3 pos, float3 ang, float score)> PeakList = new(InitialPeaks.Length);
+            List<ParticlePeak> PeakList = new(InitialPeaks.Length);
 
             for (int i = 0; i < InitialPeaks.Length; i++)
             {
@@ -765,13 +767,295 @@ public partial class TiltSeries
                 int angleId = (int)(AngleIDData[z][xy] + 0.5f);
                 float3 Angles = HealpixAngles[angleId] * Helper.ToDeg;
                 float Score = CorrData[z][xy];
-                PeakList.Add((InitialPeaks[i], Angles, Score));
+                PeakList.Add(new(InitialPeaks[i], Angles, Score));
             }
 
-            PeakList = PeakList.OrderByDescending(p => p.score).Take(options.NResults).ToList();
-            Peaks = PeakList.OrderBy(p => p.pos.Z).ThenBy(p => p.pos.Y).ThenBy(p => p.pos.X).ToArray();
+            PeakList = PeakList.OrderByDescending(p => p.Score).Take(options.NResults).ToList();
+            Peaks = PeakList.OrderBy(p => p.Position.Z).ThenBy(p => p.Position.Y).ThenBy(p => p.Position.X).ToArray();
         }
         GPU.CheckGPUExceptions();
+
+        #endregion
+        
+        #region Optionally refine peak positions and angles using gradient descent
+
+        if (options.OptimizePoses)
+        {
+            #region Dimensions
+
+            VolumeDimensionsPhysical = options.DimensionsPhysical;
+
+            int SizeRegion = (int)(template.Dims.X * (float)options.TemplatePixel / (float)options.BinnedPixelSizeMean / 2 + 1) * 2;
+
+            #endregion
+
+            #region Load and preprocess data
+
+            Image[] TiltData;
+            Image[] TiltMasks;
+            LoadMovieData(options, out _, out TiltData, false, out _, out _);
+            LoadMovieMasks(options, out TiltMasks);
+            for (int z = 0; z < NTilts; z++)
+            {
+                EraseDirt(TiltData[z], TiltMasks[z]);
+                TiltMasks[z]?.FreeDevice();
+
+                TiltData[z].SubtractMeanGrid(new int2(1));
+                TiltData[z] = TiltData[z].AsPaddedClampedSoft(new int2(TiltData[z].Dims) * 2, 32).AndDisposeParent();
+                TiltData[z].MaskRectangularly((TiltData[z].Dims / 2).Slice(), MathF.Min(TiltData[z].Dims.X / 4, TiltData[z].Dims.Y / 4), false);
+                //TiltData[z].WriteMRC("d_tiltdata.mrc", true);
+                TiltData[z].Bandpass(1f / (SizeRegion / 2), 1f, false, 1f / (SizeRegion / 2));
+                TiltData[z] = TiltData[z].AsPadded(new int2(TiltData[z].Dims) / 2).AndDisposeParent();
+                //TiltData[z].WriteMRC("d_tiltdatabp.mrc", true);
+
+                if (!options.DontInvert)
+                    TiltData[z].Multiply(-1f);
+
+                TiltData[z].Normalize();
+            }
+            GPU.CheckGPUExceptions();
+
+            #endregion
+
+            #region Projector
+
+            Image TemplateScaled = template.Dims.X != SizeRegion ? 
+                                       template.AsScaled(new int3(SizeRegion)) : 
+                                       template.GetCopy();
+
+            Projector Projector = new Projector(TemplateScaled, 2);
+            GPU.CheckGPUExceptions();
+
+            #endregion
+            
+            Func<ParticlePeak[], ParticlePeak[]> OptimizeParticles = (peaks) =>
+            {
+                int NParticles = peaks.Length;
+                var positions = peaks.Select(p => new float3(p.Position)).ToArray();
+                var angles = peaks.Select(p => p.Angles).ToArray();
+
+                #region Memory and FFT plan allocation
+
+                int PlanForwParticles = GPU.CreateFFTPlan(new int3(SizeRegion, SizeRegion, 1), (uint)NParticles);
+                int PlanBackParticles = GPU.CreateIFFTPlan(new int3(SizeRegion, SizeRegion, 1), (uint)NParticles);
+
+                using Image Images = new(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NParticles));
+                using Image ImagesFT = new(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NParticles), true, true);
+
+                using Image CTFCoords = CTF.GetCTFCoords(SizeRegion, SizeRegion, Matrix2.Identity());
+                using Image CTFs = new Image(IntPtr.Zero, new int3(SizeRegion, SizeRegion, NParticles), true);
+                GPU.CheckGPUExceptions();
+
+                #endregion
+
+                float3[] PositionsOri = positions.ToArray();
+                float3[] AnglesOri = angles.ToArray();
+
+                int NParamsParticles = NParticles * 6;
+
+                double BestScore = double.NegativeInfinity;
+                double[] BestInput = null;
+
+                var SetPositions = (double[] input) =>
+                {
+                    for (int p = 0; p < NParticles; p++)
+                        for (int t = 0; t < NTilts; t++)
+                        {
+                            positions[p * NTilts + t].X = (float)input[p * 6 + 0] + PositionsOri[p * NTilts + t].X;
+                            positions[p * NTilts + t].Y = (float)input[p * 6 + 1] + PositionsOri[p * NTilts + t].Y;
+                            positions[p * NTilts + t].Z = (float)input[p * 6 + 2] + PositionsOri[p * NTilts + t].Z;
+
+                            var UpdatedRotation = Matrix3.Euler(AnglesOri[p * NTilts + t] * Helper.ToRad) *
+                                                  Matrix3.RotateX((float)input[p * 6 + 3] * Helper.ToRad) *
+                                                  Matrix3.RotateY((float)input[p * 6 + 4] * Helper.ToRad) *
+                                                  Matrix3.RotateZ((float)input[p * 6 + 5] * Helper.ToRad);
+                            var UpdatedAngles = Matrix3.EulerFromMatrix(UpdatedRotation) * Helper.ToDeg;
+
+                            angles[p * NTilts + t].X = UpdatedAngles.X;
+                            angles[p * NTilts + t].Y = UpdatedAngles.Y;
+                            angles[p * NTilts + t].Z = UpdatedAngles.Z;
+                        }
+                };
+
+                Func<double[], double[]> EvalParticles = (input) =>
+                {
+                    SetPositions(input);
+
+                    double[] Result = new double[NParticles];
+
+                    for (int t = 0; t < NTilts; t++)
+                    {
+                        float3[] ParticlePositions = Enumerable.Range(0, NParticles).Select(p => positions[p * NTilts + t]).ToArray();
+                        float3[] ParticleAngles = Enumerable.Range(0, NParticles).Select(p => angles[p * NTilts + t]).ToArray();
+
+                        float3[] ParticlePositionsInImage = GetPositionsInOneTilt(ParticlePositions, t);
+                        float3[] ParticleAnglesInImage = GetAnglesInOneTilt(ParticlePositions, ParticleAngles, t);
+
+                        GetParticleImagesFromOneTilt(options,
+                                                     TiltData,
+                                                     t,
+                                                     SizeRegion,
+                                                     ParticlePositions,
+                                                     PlanForwParticles,
+                                                     true,
+                                                     Images,
+                                                     ImagesFT);
+                        GPU.CheckGPUExceptions();
+
+                        using Image References = Projector.Project(new int2(SizeRegion), ParticleAnglesInImage);
+                        GPU.CheckGPUExceptions();
+
+                        GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
+                                          ParticlePositionsInImage.Select(v => v.Z).ToArray(),
+                                          ParticlePositionsInImage,
+                                          CTFCoords,
+                                          null,
+                                          t,
+                                          CTFs);
+                        References.Multiply(CTFs);
+                        GPU.CheckGPUExceptions();
+
+                        GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
+                                          ParticlePositionsInImage.Select(v => v.Z).ToArray(),
+                                          ParticlePositionsInImage,
+                                          CTFCoords,
+                                          null,
+                                          t,
+                                          CTFs,
+                                          weighted: true,
+                                          weightsonly: true);
+                        ImagesFT.Multiply(CTFs);
+
+                        GPU.IFFT(ImagesFT.GetDevice(Intent.ReadWrite),
+                                 Images.GetDevice(Intent.Write),
+                                 new int3(SizeRegion).Slice(),
+                                 (uint)NParticles,
+                                 PlanBackParticles,
+                                 normalize: false);
+                        Images.Normalize();
+                        Images.MaskSpherically((float)(options.TemplateDiameter / options.BinnedPixelSizeMean),
+                                               (float)(40 / options.BinnedPixelSizeMean),
+                                               false,
+                                               true);
+                        Images.Normalize();
+
+                        using Image ReferencesIFT = References.AsIFFT(false, PlanBackParticles);
+                        ReferencesIFT.Normalize();
+
+                        Images.Multiply(ReferencesIFT);
+                        var Sums = Images.AsSum2D();
+                        var SumsData = Sums.GetHostContinuousCopy();
+                        for (int p = 0; p < NParticles; p++)
+                            Result[p] += SumsData[p];
+                    }
+
+                    return Result.Select(v => v / (SizeRegion * SizeRegion * NTilts)).ToArray();
+                };
+
+                Func<double[], double> Eval = (input) =>
+                {
+                    double[] Indiv = EvalParticles(input);
+                    double Result = Indiv.Sum();
+                    Console.WriteLine($"Current score: {Result}");
+
+                    if (Result > BestScore)
+                    {
+                        BestScore = Result;
+                        BestInput = input.ToArray();
+                    }
+
+                    return Result;
+                };
+
+                int OptIterations = 0;
+                Func<double[], double[]> Grad = (input) =>
+                {
+                    double[] Result = new double[input.Length];
+                    double Delta = 0.05;
+
+                    if (++OptIterations > 15)
+                        return Result;
+
+                    for (int icomp = 0; icomp < 6; icomp++)
+                    {
+                        double[] InputPlus = input.ToArray();
+                        for (int p = 0; p < NParticles; p++)
+                            InputPlus[p * 6 + icomp] += Delta;
+                        double[] EvalPlus = EvalParticles(InputPlus);
+
+                        double[] InputMinus = input.ToArray();
+                        for (int p = 0; p < NParticles; p++)
+                            InputMinus[p * 6 + icomp] -= Delta;
+                        double[] EvalMinus = EvalParticles(InputMinus);
+
+                        for (int p = 0; p < NParticles; p++)
+                            Result[p * 6 + icomp] = (EvalPlus[p] - EvalMinus[p]) / (2 * Delta);
+                    }
+
+                    return Result;
+                };
+                
+                double[] InitialScores = EvalParticles(new double[NParamsParticles]);
+
+                double[] StartParams = new double[NParamsParticles];
+                BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(StartParams.Length, Eval, Grad);
+                Optimizer.Maximize(StartParams);
+
+                SetPositions(BestInput);
+                
+                double[] FinalScores = EvalParticles(BestInput);
+
+                var Shifts = new float3[NParticles];
+                for (int p = 0; p < NParticles; p++)
+                    Shifts[p] = new float3((float)BestInput[p * NParamsParticles + 0],
+                                           (float)BestInput[p * NParamsParticles + 1],
+                                           (float)BestInput[p * NParamsParticles + 2]);
+                float ShiftRMS = MathF.Sqrt(Shifts.Select(v => v.LengthSq()).Average());
+                Console.WriteLine($"Particle shift RMS: {ShiftRMS.ToString("F2", CultureInfo.InvariantCulture)} A");
+                
+                #region Teardown
+
+                GPU.DestroyFFTPlan(PlanForwParticles);
+                GPU.DestroyFFTPlan(PlanBackParticles);
+                
+                #endregion
+                
+                for (int p = 0; p < NParticles; p++)
+                {
+                    if (!double.IsFinite(FinalScores[p]) || FinalScores[p] == 0 || 
+                        !double.IsFinite(InitialScores[p]) || InitialScores[p] == 0)
+                        throw new Exception("Non-finite score encountered during optimization.");
+                    
+                    peaks[p].Score *= (float)(FinalScores[p] / InitialScores[p]);
+                }
+
+                return peaks;
+            };
+
+            int BatchSize = Math.Min(128, Peaks.Length);
+            for (int b = 0; b < Peaks.Length; b += BatchSize)
+            {
+                int CurrentBatch = Math.Min(BatchSize, Peaks.Length - b);
+                var Batch = Peaks.Skip(b).Take(CurrentBatch).ToArray();
+                
+                var Optimized = OptimizeParticles(Batch);
+                
+                for (int n = 0; n < CurrentBatch; n++)
+                    Peaks[b + n] = Optimized[n];
+            }
+
+            #region Teardown
+
+            Projector.Dispose();
+            foreach (var img in TiltData)
+                img.Dispose();
+            foreach (var img in TiltMasks)
+                img?.Dispose();
+
+            GPU.CheckGPUExceptions();
+
+            #endregion
+        }
 
         #endregion
 
@@ -808,8 +1092,8 @@ public partial class TiltSeries
 
         foreach (float threshold in Thresholds)
         {
-            var filteredPositions = Peaks.Where(p => p.score >= threshold && p.pos.Z >= _ZMin && p.pos.Z <= _ZMax)
-                                         .Select(p => p.pos)
+            var filteredPositions = Peaks.Where(p => p.Score >= threshold && p.Position.Z >= _ZMin && p.Position.Z <= _ZMax)
+                                         .Select(p => p.Position)
                                          .ToArray();
 
             // write PNG with image and draw particle circles
@@ -882,9 +1166,9 @@ public partial class TiltSeries
                 //float Score = RefinedScores[n];
                 //float3 Angle = RefinedAngles[n] * Helper.ToDeg;
 
-                int3 Position = Peaks[n].pos;
-                float Score = Peaks[n].score;
-                float3 Angle = Peaks[n].ang;
+                int3 Position = Peaks[n].Position;
+                float Score = Peaks[n].Score;
+                float3 Angle = Peaks[n].Angles;
                 float3 PositionF = new float3(Position) / new float3(DimsVolumeScaled - 1);
 
                 TableOut.AddRow(new string[]
@@ -937,4 +1221,20 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
     [WarpSerializable] public bool NormalizeScores { get; set; }
     [WarpSerializable] public bool ReuseCorrVolumes { get; set; }
     [WarpSerializable] public string OverrideSuffix { get; set; }
+    [WarpSerializable] public bool OptimizePoses { get; set; }
+    [WarpSerializable] public bool DontInvert { get; set; }
 }
+
+struct ParticlePeak
+{
+    public int3 Position;
+    public float3 Angles;
+    public float Score;
+    
+    public ParticlePeak(int3 position, float3 angles, float score)
+    {
+        Position = position;
+        Angles = angles;
+        Score = score;
+    }
+};

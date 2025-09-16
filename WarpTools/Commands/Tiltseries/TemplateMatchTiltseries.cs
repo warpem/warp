@@ -43,6 +43,9 @@ namespace WarpTools.Commands
         [Option("subdivisions", Default = 3, HelpText = "Number of subdivisions defining the angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on")]
         public int HealpixOrder { get; set; }
 
+        [Option("optimize_poses", HelpText = "Additionally optimize poses for each detected position using a local gradient-descent search")]
+        public bool OptimizePoses { get; set; }
+
         [Option("tilt_range", HelpText = "Limit the range of angles between the reference's Z axis and the tomogram's XY plane to plus/minus this value, in °; " +
                                          "useful for matching filaments lying flat in the XY plane")]
         public double? TiltRange { get; set; }
@@ -185,6 +188,7 @@ namespace WarpTools.Commands
 
             var OptionsMatch = Options.GetProcessingTomoFullMatch();
 
+            OptionsMatch.OptimizePoses = CLI.OptimizePoses;
             OptionsMatch.TiltRange = CLI.TiltRange != null ? (decimal)CLI.TiltRange.Value : -1;
             OptionsMatch.SubVolumeSize = CLI.SubVolumeSize;
             OptionsMatch.Supersample = 1;
