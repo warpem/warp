@@ -1214,10 +1214,10 @@ public partial class TiltSeries
                 //float Score = RefinedScores[n];
                 //float3 Angle = RefinedAngles[n] * Helper.ToDeg;
 
-                int3 Position = Peaks[n].Position;
+                float3 Position = Peaks[n].PositionF;
                 float Score = Peaks[n].Score;
                 float3 Angle = Peaks[n].Angles;
-                float3 PositionF = new float3(Position) / VolumeDimensionsPhysical;
+                float3 PositionF = Position / VolumeDimensionsPhysical;
 
                 TableOut.AddRow(new string[]
                 {
