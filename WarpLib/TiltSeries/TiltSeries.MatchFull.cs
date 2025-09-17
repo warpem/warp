@@ -1016,7 +1016,7 @@ public partial class TiltSeries
 
                 SetPositions(BestInput);
                 
-                double[] FinalScores = EvalParticles(BestInput, 0);
+                double[] FinalScores = EvalParticles(BestInput, 0).Select(v => v * NParticles).ToArray();
 
                 var Shifts = new float3[NParticles];
                 for (int p = 0; p < NParticles; p++)
