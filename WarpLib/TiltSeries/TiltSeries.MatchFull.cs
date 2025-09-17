@@ -767,7 +767,11 @@ public partial class TiltSeries
                 int angleId = (int)(AngleIDData[z][xy] + 0.5f);
                 float3 Angles = HealpixAngles[angleId] * Helper.ToDeg;
                 float Score = CorrData[z][xy];
-                PeakList.Add(new(InitialPeaks[i], Angles, Score));
+
+                PeakList.Add(new(InitialPeaks[i], 
+                                 new float3(InitialPeaks[i]) * (float)options.BinnedPixelSizeMean, 
+                                 Angles, 
+                                 Score));
             }
 
             PeakList = PeakList.OrderByDescending(p => p.Score).Take(options.NResults).ToList();
@@ -828,10 +832,10 @@ public partial class TiltSeries
 
             #endregion
             
-            Func<ParticlePeak[], ParticlePeak[]> OptimizeParticles = (peaks) =>
+            Func<ParticlePeak[], float, int, ParticlePeak[]> OptimizeParticles = (peaks, shiftSigma, iterations) =>
             {
                 int NParticles = peaks.Length;
-                var positions = peaks.Select(p => new float3(p.Position)).ToArray();
+                var positions = peaks.Select(p => p.PositionF).ToArray();
                 var angles = peaks.Select(p => p.Angles).ToArray();
 
                 #region Memory and FFT plan allocation
@@ -859,25 +863,24 @@ public partial class TiltSeries
                 var SetPositions = (double[] input) =>
                 {
                     for (int p = 0; p < NParticles; p++)
-                        for (int t = 0; t < NTilts; t++)
-                        {
-                            positions[p * NTilts + t].X = (float)input[p * 6 + 0] + PositionsOri[p * NTilts + t].X;
-                            positions[p * NTilts + t].Y = (float)input[p * 6 + 1] + PositionsOri[p * NTilts + t].Y;
-                            positions[p * NTilts + t].Z = (float)input[p * 6 + 2] + PositionsOri[p * NTilts + t].Z;
+                    {
+                        positions[p].X = (float)input[p * 6 + 0] + PositionsOri[p].X;
+                        positions[p].Y = (float)input[p * 6 + 1] + PositionsOri[p].Y;
+                        positions[p].Z = (float)input[p * 6 + 2] + PositionsOri[p].Z;
 
-                            var UpdatedRotation = Matrix3.Euler(AnglesOri[p * NTilts + t] * Helper.ToRad) *
-                                                  Matrix3.RotateX((float)input[p * 6 + 3] * Helper.ToRad) *
-                                                  Matrix3.RotateY((float)input[p * 6 + 4] * Helper.ToRad) *
-                                                  Matrix3.RotateZ((float)input[p * 6 + 5] * Helper.ToRad);
-                            var UpdatedAngles = Matrix3.EulerFromMatrix(UpdatedRotation) * Helper.ToDeg;
+                        var UpdatedRotation = Matrix3.Euler(AnglesOri[p] * Helper.ToRad) *
+                                                Matrix3.RotateX((float)input[p * 6 + 3] * Helper.ToRad) *
+                                                Matrix3.RotateY((float)input[p * 6 + 4] * Helper.ToRad) *
+                                                Matrix3.RotateZ((float)input[p * 6 + 5] * Helper.ToRad);
+                        var UpdatedAngles = Matrix3.EulerFromMatrix(UpdatedRotation) * Helper.ToDeg;
 
-                            angles[p * NTilts + t].X = UpdatedAngles.X;
-                            angles[p * NTilts + t].Y = UpdatedAngles.Y;
-                            angles[p * NTilts + t].Z = UpdatedAngles.Z;
-                        }
+                        angles[p].X = UpdatedAngles.X;
+                        angles[p].Y = UpdatedAngles.Y;
+                        angles[p].Z = UpdatedAngles.Z;
+                    }
                 };
 
-                Func<double[], double[]> EvalParticles = (input) =>
+                Func<double[], float, double[]> EvalParticles = (input, shiftSigma) =>
                 {
                     SetPositions(input);
 
@@ -885,8 +888,8 @@ public partial class TiltSeries
 
                     for (int t = 0; t < NTilts; t++)
                     {
-                        float3[] ParticlePositions = Enumerable.Range(0, NParticles).Select(p => positions[p * NTilts + t]).ToArray();
-                        float3[] ParticleAngles = Enumerable.Range(0, NParticles).Select(p => angles[p * NTilts + t]).ToArray();
+                        float3[] ParticlePositions = positions.ToArray();
+                        float3[] ParticleAngles = angles.ToArray();
 
                         float3[] ParticlePositionsInImage = GetPositionsInOneTilt(ParticlePositions, t);
                         float3[] ParticleAnglesInImage = GetAnglesInOneTilt(ParticlePositions, ParticleAngles, t);
@@ -934,7 +937,7 @@ public partial class TiltSeries
                                  normalize: false);
                         Images.Normalize();
                         Images.MaskSpherically((float)(options.TemplateDiameter / options.BinnedPixelSizeMean),
-                                               (float)(40 / options.BinnedPixelSizeMean),
+                                               (float)(60 / options.BinnedPixelSizeMean),
                                                false,
                                                true);
                         Images.Normalize();
@@ -943,18 +946,28 @@ public partial class TiltSeries
                         ReferencesIFT.Normalize();
 
                         Images.Multiply(ReferencesIFT);
-                        var Sums = Images.AsSum2D();
-                        var SumsData = Sums.GetHostContinuousCopy();
+                        using var Sums = Images.AsSum2D();
+                        var SumsData = Sums.GetHost(Intent.Read)[0];
                         for (int p = 0; p < NParticles; p++)
                             Result[p] += SumsData[p];
                     }
 
-                    return Result.Select(v => v / (SizeRegion * SizeRegion * NTilts)).ToArray();
+                    float[] Priors = Enumerable.Repeat(1f, NParticles).ToArray();
+                    if (shiftSigma > 0)
+                    {
+                        for (int p = 0; p < NParticles; p++)
+                        {
+                            float Shift2 = (positions[p] - PositionsOri[p]).LengthSq();
+                            Priors[p] = MathF.Exp(-Shift2 / (2 * shiftSigma * shiftSigma));
+                        }
+                    }
+
+                    return Result.Select((v, i) => v / (SizeRegion * SizeRegion * NTilts * NParticles) * Priors[i] * 100).ToArray();
                 };
 
                 Func<double[], double> Eval = (input) =>
                 {
-                    double[] Indiv = EvalParticles(input);
+                    double[] Indiv = EvalParticles(input, shiftSigma);
                     double Result = Indiv.Sum();
                     Console.WriteLine($"Current score: {Result}");
 
@@ -973,7 +986,7 @@ public partial class TiltSeries
                     double[] Result = new double[input.Length];
                     double Delta = 0.05;
 
-                    if (++OptIterations > 15)
+                    if (++OptIterations > iterations)
                         return Result;
 
                     for (int icomp = 0; icomp < 6; icomp++)
@@ -981,12 +994,12 @@ public partial class TiltSeries
                         double[] InputPlus = input.ToArray();
                         for (int p = 0; p < NParticles; p++)
                             InputPlus[p * 6 + icomp] += Delta;
-                        double[] EvalPlus = EvalParticles(InputPlus);
+                        double[] EvalPlus = EvalParticles(InputPlus, shiftSigma);
 
                         double[] InputMinus = input.ToArray();
                         for (int p = 0; p < NParticles; p++)
                             InputMinus[p * 6 + icomp] -= Delta;
-                        double[] EvalMinus = EvalParticles(InputMinus);
+                        double[] EvalMinus = EvalParticles(InputMinus, shiftSigma);
 
                         for (int p = 0; p < NParticles; p++)
                             Result[p * 6 + icomp] = (EvalPlus[p] - EvalMinus[p]) / (2 * Delta);
@@ -995,7 +1008,7 @@ public partial class TiltSeries
                     return Result;
                 };
                 
-                double[] InitialScores = EvalParticles(new double[NParamsParticles]);
+                double[] InitialScores = EvalParticles(new double[NParamsParticles], 0);
 
                 double[] StartParams = new double[NParamsParticles];
                 BroydenFletcherGoldfarbShanno Optimizer = new BroydenFletcherGoldfarbShanno(StartParams.Length, Eval, Grad);
@@ -1003,13 +1016,13 @@ public partial class TiltSeries
 
                 SetPositions(BestInput);
                 
-                double[] FinalScores = EvalParticles(BestInput);
+                double[] FinalScores = EvalParticles(BestInput, 0);
 
                 var Shifts = new float3[NParticles];
                 for (int p = 0; p < NParticles; p++)
-                    Shifts[p] = new float3((float)BestInput[p * NParamsParticles + 0],
-                                           (float)BestInput[p * NParamsParticles + 1],
-                                           (float)BestInput[p * NParamsParticles + 2]);
+                    Shifts[p] = new float3((float)BestInput[p * 6 + 0],
+                                           (float)BestInput[p * 6 + 1],
+                                           (float)BestInput[p * 6 + 2]);
                 float ShiftRMS = MathF.Sqrt(Shifts.Select(v => v.LengthSq()).Average());
                 Console.WriteLine($"Particle shift RMS: {ShiftRMS.ToString("F2", CultureInfo.InvariantCulture)} A");
                 
@@ -1026,7 +1039,9 @@ public partial class TiltSeries
                         !double.IsFinite(InitialScores[p]) || InitialScores[p] == 0)
                         throw new Exception("Non-finite score encountered during optimization.");
                     
-                    peaks[p].Score *= (float)(FinalScores[p] / InitialScores[p]);
+                    peaks[p].Score = (float)FinalScores[p];
+                    peaks[p].PositionF = positions[p];
+                    peaks[p].Angles = angles[p];
                 }
 
                 return peaks;
@@ -1038,10 +1053,43 @@ public partial class TiltSeries
                 int CurrentBatch = Math.Min(BatchSize, Peaks.Length - b);
                 var Batch = Peaks.Skip(b).Take(CurrentBatch).ToArray();
                 
-                var Optimized = OptimizeParticles(Batch);
+                var Optimized = OptimizeParticles(Batch, (float)options.BinnedPixelSizeMean * 3, 15);
                 
                 for (int n = 0; n < CurrentBatch; n++)
                     Peaks[b + n] = Optimized[n];
+            }
+
+            List<ParticlePeak> BackgroundPeaks = new();
+            for (int b = 0; b < 10; b++)
+            {
+                List<int3> RandomPositions = new();
+                int i = 0;
+                while (RandomPositions.Count < BatchSize && i < BatchSize * 100)
+                {
+                    i++;
+                    int z = Random.Shared.Next(DimsVolumeScaled.Z);
+                    int y = Random.Shared.Next(DimsVolumeScaled.Y);
+                    int x = Random.Shared.Next(DimsVolumeScaled.X);
+                    if (CorrData[z][y * DimsVolumeScaled.X + x] != 0)
+                        RandomPositions.Add(new(x, y, z));
+                }
+
+                var InitialPeaks = RandomPositions.Select(p => new ParticlePeak(position: p, 
+                                                                                positionf: new float3(p) * (float)options.BinnedPixelSizeMean,
+                                                                                angles: HealpixAngles[(int)(AngleIDData[p.Z][p.Y * DimsVolumeScaled.X + p.X] + 0.5f)], 
+                                                                                score: 0)).ToArray();
+                var OptimizedPeaks = OptimizeParticles(InitialPeaks, 
+                                                       (float)options.BinnedPixelSizeMean * 1, 
+                                                       0);
+                BackgroundPeaks.AddRange(OptimizedPeaks);
+            }
+
+            float2 MedianStd = MathHelper.MedianAndStd(BackgroundPeaks.Select(p => p.Score).ToArray());
+
+            for (int n = 0; n < Peaks.Length; n++)
+            {
+                float ZScore = (Peaks[n].Score - MedianStd.X) / MedianStd.Y;
+                Peaks[n].Score = ZScore;
             }
 
             #region Teardown
@@ -1169,7 +1217,7 @@ public partial class TiltSeries
                 int3 Position = Peaks[n].Position;
                 float Score = Peaks[n].Score;
                 float3 Angle = Peaks[n].Angles;
-                float3 PositionF = new float3(Position) / new float3(DimsVolumeScaled - 1);
+                float3 PositionF = new float3(Position) / VolumeDimensionsPhysical;
 
                 TableOut.AddRow(new string[]
                 {
@@ -1228,12 +1276,14 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
 struct ParticlePeak
 {
     public int3 Position;
+    public float3 PositionF;
     public float3 Angles;
     public float Score;
     
-    public ParticlePeak(int3 position, float3 angles, float score)
+    public ParticlePeak(int3 position, float3 positionf, float3 angles, float score)
     {
         Position = position;
+        PositionF = positionf;
         Angles = angles;
         Score = score;
     }
