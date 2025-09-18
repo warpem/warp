@@ -328,9 +328,102 @@ public partial class TiltSeries
             #endregion
         };
 
+        var OptimizeScales = () =>
+        {
+            float[] NewScales = new float[NTilts];
+
+            Image MaskDC = new(new int3(SizeRegion, SizeRegion, 1), true);
+            MaskDC.Fill(1f);
+            MaskDC.GetHost(Intent.ReadWrite)[0][0] = 0f;
+
+            for (int t = 0; t < NTilts; t++)
+            {
+                float3[] ParticlePositions = Enumerable.Range(0, NParticles).Select(p => positions[p * NTilts + t]).ToArray();
+                float3[] ParticleAngles = Enumerable.Range(0, NParticles).Select(p => angles[p * NTilts + t]).ToArray();
+
+                float3[] ParticlePositionsInImage = GetPositionsInOneTilt(ParticlePositions, t);
+                float3[] ParticleAnglesInImage = GetAnglesInOneTilt(ParticlePositions, ParticleAngles, t);
+
+                ImagesFT = GetParticleImagesFromOneTilt(options,
+                                                        TiltData,
+                                                        t,
+                                                        SizeRegion,
+                                                        ParticlePositions,
+                                                        PlanForwParticles,
+                                                        doDecenter: true,
+                                                        Images,
+                                                        ImagesFT);
+
+                GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
+                                  ParticlePositionsInImage.Select(v => v.Z).ToArray(),
+                                  ParticlePositionsInImage,
+                                  CTFCoords,
+                                  null,
+                                  t,
+                                  CTFs,
+                                  weighted: true,
+                                  weightsonly: true);
+                ImagesFT.Multiply(CTFs);
+                ImagesFT.MultiplySlices(MaskDC);
+                GPU.CheckGPUExceptions();
+
+                using Image References = Projector.Project(new int2(SizeRegion), ParticleAnglesInImage);
+                GPU.CheckGPUExceptions();
+
+                GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
+                                  ParticlePositionsInImage.Select(v => v.Z).ToArray(),
+                                  ParticlePositionsInImage,
+                                  CTFCoords,
+                                  null,
+                                  t,
+                                  CTFs);
+                References.Multiply(CTFs);
+                References.MultiplySlices(MaskDC);
+                GPU.CheckGPUExceptions();
+
+                //var Weights = GetCTFParamsForOneTilt((float)options.BinnedPixelSizeMean,
+                //                                       ParticlePositionsInImage.Select(v => v.Z).Take(1).ToArray(),
+                //                                       [VolumeDimensionsPhysical * 0.5f],
+                //                                       t,
+                //                                       weighted: true,
+                //                                       weightsonly: true).First();
+                //References.Multiply(1f / (float)Weights.Scale);
+
+                using Image Num = ImagesFT.GetCopyGPU();
+                GPU.MultiplySlices(Num.GetDevice(Intent.Read), 
+                                   References.GetDevice(Intent.Read), 
+                                   Num.GetDevice(Intent.Write), 
+                                   Num.ElementsReal, 1);
+
+                using Image NumSum = new Image(new int3(1, 1, 1));
+                GPU.Sum(Num.GetDevice(Intent.Read), NumSum.GetDevice(Intent.Write), (uint)Num.ElementsReal, 1);
+                float NumSumValue = NumSum.GetHost(Intent.Read)[0][0];
+
+                using Image Denom = ImagesFT.GetCopyGPU();
+                GPU.MultiplySlices(Denom.GetDevice(Intent.Read),
+                                   Denom.GetDevice(Intent.Read),
+                                   Denom.GetDevice(Intent.Write),
+                                   Denom.ElementsReal, 1);
+
+                using Image DenomSum = new Image(new int3(1, 1, 1));
+                GPU.Sum(Denom.GetDevice(Intent.Read), DenomSum.GetDevice(Intent.Write), (uint)Denom.ElementsReal, 1);
+                float DenomSumValue = DenomSum.GetHost(Intent.Read)[0][0];
+
+                float ScalingFactor = NumSumValue / DenomSumValue;
+                NewScales[t] = ScalingFactor;
+            }
+
+            float MaxScale = NewScales.Max();
+            NewScales = NewScales.Select(v => v / MaxScale).ToArray();
+
+            GridTiltSignalScale = new CubicGrid(new int3(1, 1, NTilts), NewScales);
+        };
+
         if (options.OptimizeParticlePoses)
             OptimizeParticles(false);
         OptimizeTilts();
+
+        OptimizeScales();
 
         //OptimizeParticles(true);
 

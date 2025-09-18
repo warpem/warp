@@ -43,6 +43,8 @@ namespace WarpWorker
 
         static Population MPAPopulation = null;
 
+        static Projector[] Reconstructions = null;
+
         static async Task Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
@@ -877,6 +879,92 @@ namespace WarpWorker
                         TableOut.Save(PathTableOut);
 
                     Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+                }
+                else if (Command.Name == "InitReconstructions")
+                {
+                    if (Reconstructions != null)
+                        foreach (var rec in Reconstructions)
+                            rec.Dispose();
+
+                    int NReconstructions = (int)Command.Content[0];
+                    int BoxSize = (int)Command.Content[1];
+                    int Oversample = (int)Command.Content[2];
+
+                    Reconstructions = Helper.ArrayOfFunction(i => new Projector(new int3(BoxSize), Oversample), 
+                                                             NReconstructions);
+
+                    Console.WriteLine($"Initialized reconstructions");
+                }
+                else if (Command.Name == "TomoAddToReconstructions")
+                {
+                    if (Reconstructions == null)
+                        throw new Exception("Reconstructions not initialized");
+
+                    string Path = (string)Command.Content[0];
+                    var Options = (ProcessingOptionsTomoAddToReconstruction)Command.Content[1];
+                    float3[][] Positions = (float3[][])Command.Content[2];
+                    float3[][] Angles = (float3[][])Command.Content[3];
+
+                    if (Positions.Length != Angles.Length ||
+                        Positions.Length != Reconstructions.Length)
+                        throw new Exception("The number of reconstructions, and particle position and angle sets must match");
+
+                    TiltSeries T = new TiltSeries(Path);
+                    T.AddToReconstruction(Options, Reconstructions, Positions, Angles);
+
+                    Console.WriteLine($"Added particles from {Path} to reconstructions");
+                }
+                else if (Command.Name == "SaveIntermediateReconstructions")
+                {
+                    if (Reconstructions == null)
+                        throw new Exception("Reconstructions not initialized");
+
+                    string[] Paths = (string[])Command.Content[0];
+                    
+                    if (Reconstructions.Length != Paths.Length)
+                        throw new Exception("The number of reconstructions and output paths must match");
+
+                    for (int irec = 0; irec < Reconstructions.Length; irec++)
+                        Reconstructions[irec].WriteMRC(Paths[irec]);
+
+                    Console.WriteLine($"Saved intermediate reconstructions");
+                }
+                else if (Command.Name == "FinishReconstructions")
+                {
+                    if (Reconstructions == null)
+                        throw new Exception("Reconstructions not initialized");
+
+                    string[][] ResultPaths = (string[][])Command.Content[0];
+                    string[] Symmetries = (string[])Command.Content[1];
+                    string[] OutputPaths = (string[])Command.Content[2];
+
+                    if (ResultPaths.Length != Symmetries.Length ||
+                        Reconstructions.Length != Symmetries.Length ||
+                        Symmetries.Length != OutputPaths.Length)
+                        throw new Exception("The number of reconstructions, intermediate results, symmetry definitions, and output paths must match");
+
+                    for (int irec = 0; irec < Reconstructions.Length; irec++)
+                    {
+                        if (ResultPaths[irec].Length > 0)
+                            foreach (var path in ResultPaths[irec])
+                            {
+                                Projector Result = Projector.FromFile(path);
+                                Reconstructions[irec].Data.Add(Result.Data);
+                                Reconstructions[irec].Weights.Add(Result.Weights);
+
+                                Result.Dispose();
+                            }
+
+                        using Image Reconstruction = Reconstructions[irec].Reconstruct(false, Symmetries[irec]);
+                        Reconstruction.WriteMRC(OutputPaths[irec]);
+
+                        Reconstructions[irec].Dispose();
+                        Console.WriteLine($"Wrote reconstruction {irec} to {OutputPaths[irec]}");
+                    }
+
+                    Reconstructions = null;
+
+                    Console.WriteLine($"Finished reconstructions");
                 }
                 else if (Command.Name == "MPAPrepareSpecies")
                 {

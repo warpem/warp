@@ -484,6 +484,42 @@ namespace Warp
                                                     pathTableOut));
         }
 
+        public void InitReconstructions(int nreconstructions, int boxSize, int oversample)
+        {
+            SendCommand(new NamedSerializableObject("InitReconstructions",
+                                                    nreconstructions,
+                                                    boxSize,
+                                                    oversample));
+        }
+
+        public void TomoAddToReconstructions(string path, 
+                                             ProcessingOptionsTomoAddToReconstruction options, 
+                                             float3[][] positions, 
+                                             float3[][] angles)
+        {
+            SendCommand(new NamedSerializableObject("TomoAddToReconstructions",
+                                                    path,
+                                                    options,
+                                                    positions,
+                                                    angles));
+        }
+
+        public void SaveIntermediateReconstructions(string[] paths)
+        {
+            SendCommand(new NamedSerializableObject("SaveIntermediateReconstructions",
+                                                    paths));
+        }
+
+        public void FinishReconstructions(string[][] resultPaths,
+                                          string[] symmetries,
+                                          string[] outputPaths)
+        {
+            SendCommand(new NamedSerializableObject("FinishReconstructions",
+                                                    resultPaths,
+                                                    symmetries,
+                                                    outputPaths));
+        }
+
         public void MPAPrepareSpecies(string path, string stagingSave)
         {
             SendCommand(new NamedSerializableObject("MPAPrepareSpecies",
