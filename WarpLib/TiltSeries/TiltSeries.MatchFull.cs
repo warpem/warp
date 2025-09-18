@@ -888,6 +888,13 @@ public partial class TiltSeries
 
                     for (int t = 0; t < NTilts; t++)
                     {
+                        var Weights = GetCTFParamsForOneTilt((float)options.BinnedPixelSizeMean,
+                                                             [1f],
+                                                             [VolumeDimensionsPhysical * 0.5f],
+                                                             t,
+                                                             weighted: true,
+                                                             weightsonly: true)[0];
+                        
                         float3[] ParticlePositions = positions.ToArray();
                         float3[] ParticleAngles = angles.ToArray();
 
@@ -949,7 +956,7 @@ public partial class TiltSeries
                         using var Sums = Images.AsSum2D();
                         var SumsData = Sums.GetHost(Intent.Read)[0];
                         for (int p = 0; p < NParticles; p++)
-                            Result[p] += SumsData[p];
+                            Result[p] += SumsData[p] * (float)Weights.Scale;
                     }
 
                     float[] Priors = Enumerable.Repeat(1f, NParticles).ToArray();
