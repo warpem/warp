@@ -938,10 +938,9 @@ namespace WarpWorker
                     string[] Symmetries = (string[])Command.Content[1];
                     string[] OutputPaths = (string[])Command.Content[2];
 
-                    if (ResultPaths.Length != Symmetries.Length ||
-                        Reconstructions.Length != Symmetries.Length ||
+                    if (Reconstructions.Length != Symmetries.Length ||
                         Symmetries.Length != OutputPaths.Length)
-                        throw new Exception("The number of reconstructions, intermediate results, symmetry definitions, and output paths must match");
+                        throw new Exception("The number of reconstructions, symmetry definitions, and output paths must match");
 
                     for (int irec = 0; irec < Reconstructions.Length; irec++)
                     {

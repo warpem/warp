@@ -68,13 +68,13 @@ public partial class TiltSeries
 
         for (int irec = 0; irec < reconstructions.Length; irec++)
         {
-            int NParticles = positions[irec].Length;
+            int NParticles = positions[irec].Length / NTilts;
 
             for (int b = 0; b < NParticles; b+= options.BatchSize)
             {
                 int CurBatch = Math.Min(options.BatchSize, NParticles - b);
 
-                int[] ParticleIndices = Enumerable.Range(b, b + CurBatch).ToArray();
+                int[] ParticleIndices = Enumerable.Range(b, CurBatch).ToArray();
                 if (CurBatch < options.BatchSize)
                     ParticleIndices = Helper.Combine(ParticleIndices, new int[options.BatchSize - CurBatch]);
 
@@ -109,6 +109,7 @@ public partial class TiltSeries
                                       t,
                                       CTFs,
                                       weighted: true);
+                    GPU.CheckGPUExceptions();
 
                     GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
                                       ParticlePositionsInImage.Select(v => v.Z).ToArray(),
@@ -118,16 +119,17 @@ public partial class TiltSeries
                                       t,
                                       CTFsUnweighted,
                                       weighted: false);
+                    GPU.CheckGPUExceptions();
 
                     ImagesFT.Multiply(CTFs);
                     CTFs.Multiply(CTFsUnweighted);
+                    GPU.CheckGPUExceptions();
 
                     reconstructions[irec].BackProject(ImagesFT, 
                                                  CTFs, 
-                                                 ParticleAnglesInImage.Take(CurBatch)
-                                                                      .Select(a => a * Helper.ToRad)
-                                                                      .ToArray(),
+                                                 ParticleAnglesInImage.Take(CurBatch).ToArray(),
                                                  MagnificationCorrection);
+                    GPU.CheckGPUExceptions();
                 }
 
                 GPU.CheckGPUExceptions();
