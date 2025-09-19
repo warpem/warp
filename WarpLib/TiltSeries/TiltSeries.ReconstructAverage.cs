@@ -84,6 +84,9 @@ public partial class TiltSeries
 
                 foreach (var t in RelevantTilts)
                 {
+                    if (!UseTilt[t])
+                        continue;
+
                     float3[] ParticlePositions = ParticleIndices.Select(p => positions[irec][p * NTilts + t]).ToArray();
                     float3[] ParticleAngles = ParticleIndices.Select(p => angles[irec][p * NTilts + t]).ToArray();
 

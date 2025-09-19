@@ -17,7 +17,7 @@ namespace WarpTools.Commands
     [VerbGroup("Tilt series")]
     [Verb("ts_reconstruct_average",
           HelpText = "Reconstructs one or multiple volumes using particles from tilt series.")]
-    [CommandRunner(typeof(ReconstructAverageTiltseriesOptions))]
+    [CommandRunner(typeof(ReconstructAverageTiltseries))]
     class ReconstructAverageTiltseriesOptions : DistributedOptions
     {
         [OptionGroup("STAR files with particle coordinates")]
@@ -70,6 +70,9 @@ namespace WarpTools.Commands
 
         [Option("oversample", Default = 2, HelpText = "Oversample by this factor to improve interpolation accuracy at the expense of a higher memory footprint")]
         public int Oversample { get; set; }
+
+        [Option("batchsize", Default = 128, HelpText = "Particles are processed in batches of this size. Reducing it will decrease the memory footprint")]
+        public int BatchSize { get; set; }
     }
 
     class ReconstructAverageTiltseries : BaseCommand
@@ -101,6 +104,9 @@ namespace WarpTools.Commands
             if (cli.BoxSize <= 0 || cli.BoxSize % 2 != 0)
                 throw new Exception("Box size must be a positive even integer.");
 
+            if (cli.BatchSize <= 0)
+                throw new Exception("Batch size must be a positive integer.");
+
             Symmetry sym;
             try
             { 
@@ -128,6 +134,8 @@ namespace WarpTools.Commands
             optionsBackproject.Invert = true;
             optionsBackproject.BoxSize = cli.BoxSize;
             optionsBackproject.LimitFirstNTilts = cli.FirstNTilts ?? 0;
+            optionsBackproject.BatchSize = cli.BatchSize;
+
 
             #region Parse input
 
@@ -209,14 +217,20 @@ namespace WarpTools.Commands
 
             #region Initialise reconstructions
 
+            Console.Write("Initialising reconstructions...");
+
             Task.WaitAll(Workers.Select(w => Task.Run(() =>
             {
                 w.InitReconstructions(nreconstructions, cli.BoxSize, cli.Oversample);
             })).ToArray());
 
+            Console.WriteLine(" Done");
+
             #endregion
 
             #region Perform back-projection from individual tilt series
+
+            Console.WriteLine("Extracting particles from tilt series and back-projecting...");
 
             IterateOverItems<TiltSeries>(Workers, cli, (worker, t) =>
             {

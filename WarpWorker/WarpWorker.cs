@@ -910,6 +910,15 @@ namespace WarpWorker
                         throw new Exception("The number of reconstructions, and particle position and angle sets must match");
 
                     TiltSeries T = new TiltSeries(Path);
+
+                    for (int irec = 0; irec < Reconstructions.Length; irec++)
+                    {
+                        if (Positions[irec].Length != Angles[irec].Length)
+                            throw new Exception("The number of particle positions and angles must match for each reconstruction");
+
+                        Console.WriteLine($"Adding {Positions[irec].Length / T.NTilts} particles to reconstruction {irec}");
+                    }
+
                     T.AddToReconstruction(Options, Reconstructions, Positions, Angles);
 
                     Console.WriteLine($"Added particles from {Path} to reconstructions");
