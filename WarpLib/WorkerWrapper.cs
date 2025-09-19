@@ -225,6 +225,7 @@ namespace Warp
 
                 string Json = JsonSerializer.Serialize(command);
                 var Content = new StringContent(Json, Encoding.UTF8, "application/json");
+                //System.Console.WriteLine(Json);
 
                 HttpResponseMessage Response = httpClient.PostAsync("v1/Service/EvaluateCommand", Content).GetAwaiter().GetResult();
 
@@ -507,7 +508,8 @@ namespace Warp
         public void SaveIntermediateReconstructions(string[] paths)
         {
             SendCommand(new NamedSerializableObject("SaveIntermediateReconstructions",
-                                                    paths));
+                                                    paths,
+                                                    1));    // Dummy object so the string[] doesn't get serialized as multiple parameters
         }
 
         public void FinishReconstructions(string[][] resultPaths,

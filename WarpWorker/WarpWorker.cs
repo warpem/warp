@@ -953,7 +953,8 @@ namespace WarpWorker
 
                     for (int irec = 0; irec < Reconstructions.Length; irec++)
                     {
-                        if (ResultPaths[irec].Length > 0)
+                        if (ResultPaths.Length == Reconstructions.Length &&
+                            ResultPaths[irec].Length > 0)
                             foreach (var path in ResultPaths[irec])
                             {
                                 Projector Result = Projector.FromFile(path);

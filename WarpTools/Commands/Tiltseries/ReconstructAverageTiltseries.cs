@@ -136,7 +136,6 @@ namespace WarpTools.Commands
             optionsBackproject.LimitFirstNTilts = cli.FirstNTilts ?? 0;
             optionsBackproject.BatchSize = cli.BatchSize;
 
-
             #region Parse input
 
             bool handleSingleFile =
@@ -325,8 +324,8 @@ namespace WarpTools.Commands
             // We only need to do this if we combine intermediate results from multiple workers
             if (Workers.Length > 1)
             {
-                tempFolder = Path.Combine(Directory.GetCurrentDirectory(),
-                                                 $"temp-{Guid.NewGuid().ToString().Substring(0, 8)}");
+                tempFolder = Path.Combine(cli.Options.Import.ProcessingFolder,
+                                         $"temp-{Guid.NewGuid().ToString().Substring(0, 8)}");
                 Directory.CreateDirectory(tempFolder);
 
                 intermediatePaths = new string[nreconstructions][];
@@ -361,9 +360,9 @@ namespace WarpTools.Commands
             string[] symmetries = Enumerable.Repeat(cli.Symmetry, nreconstructions).ToArray();
             string[] outputPaths = nreconstructions > 1 ?
                                      Enumerable.Range(1, nreconstructions)
-                                               .Select(half => Path.Combine(Directory.GetCurrentDirectory(), $"{cli.OutputName}_half{half}.mrc"))
+                                               .Select(half => Path.Combine(cli.Options.Import.ProcessingFolder, $"{cli.OutputName}_half{half}.mrc"))
                                                .ToArray() :
-                                     [Path.Combine(Directory.GetCurrentDirectory(), $"{cli.OutputName}.mrc")];
+                                     [Path.Combine(cli.Options.Import.ProcessingFolder, $"{cli.OutputName}.mrc")];
 
             Console.Write("Finalizing reconstructions...");
 
