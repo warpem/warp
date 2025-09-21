@@ -514,12 +514,14 @@ namespace Warp
 
         public void FinishReconstructions(string[][] resultPaths,
                                           string[] symmetries,
-                                          string[] outputPaths)
+                                          string[] outputPaths,
+                                          float pixelSize)
         {
             SendCommand(new NamedSerializableObject("FinishReconstructions",
                                                     resultPaths,
                                                     symmetries,
-                                                    outputPaths));
+                                                    outputPaths,
+                                                    pixelSize));
         }
 
         public void MPAPrepareSpecies(string path, string stagingSave)

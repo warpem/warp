@@ -366,7 +366,7 @@ namespace WarpTools.Commands
 
             Console.Write("Finalizing reconstructions...");
 
-            Workers.First().FinishReconstructions(intermediatePaths, symmetries, outputPaths);
+            Workers.First().FinishReconstructions(intermediatePaths, symmetries, outputPaths, (float)optionsBackproject.BinnedPixelSizeMean);
 
             if (!string.IsNullOrEmpty(tempFolder))
                 Directory.Delete(tempFolder, recursive: true);

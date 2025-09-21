@@ -929,7 +929,7 @@ namespace WarpWorker
                         throw new Exception("Reconstructions not initialized");
 
                     string[] Paths = (string[])Command.Content[0];
-                    
+
                     if (Reconstructions.Length != Paths.Length)
                         throw new Exception("The number of reconstructions and output paths must match");
 
@@ -946,6 +946,7 @@ namespace WarpWorker
                     string[][] ResultPaths = (string[][])Command.Content[0];
                     string[] Symmetries = (string[])Command.Content[1];
                     string[] OutputPaths = (string[])Command.Content[2];
+                    float PixelSize = (float)Command.Content[3];
 
                     if (Reconstructions.Length != Symmetries.Length ||
                         Symmetries.Length != OutputPaths.Length)
@@ -965,7 +966,7 @@ namespace WarpWorker
                             }
 
                         using Image Reconstruction = Reconstructions[irec].Reconstruct(false, Symmetries[irec]);
-                        Reconstruction.WriteMRC(OutputPaths[irec]);
+                        Reconstruction.WriteMRC(OutputPaths[irec], PixelSize, true);
 
                         Reconstructions[irec].Dispose();
                         Console.WriteLine($"Wrote reconstruction {irec} to {OutputPaths[irec]}");
