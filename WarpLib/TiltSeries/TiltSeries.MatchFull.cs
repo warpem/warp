@@ -70,7 +70,7 @@ public partial class TiltSeries
 
             SizeSub = BestSizeSub;
 
-            progressCallback?.Invoke(new int3(1), 0, $"Using {BestSizeSub} sub-volumes for matching, resulting in {((float)BestVoxels / DimsVolumeScaled.Elements() * 100 - 100):F0} % overhead");
+            progressCallback?.Invoke(new int3(1), 0, $"Using {BestSizeSub} px sub-volume size for matching, resulting in {((float)BestVoxels / DimsVolumeScaled.Elements() * 100 - 100):F0} % overhead");
         }
 
         int SizeSubPadded = SizeSub * 2;
@@ -85,7 +85,7 @@ public partial class TiltSeries
                                               y * SizeUseful + SizeUseful / 2 + SizeParticle / 2,
                                               z * SizeUseful + SizeUseful / 2 + SizeParticle / 2));
 
-        progressCallback?.Invoke(Grid, (int)Grid.Elements(), $"Using {Grid} sub-volumes");
+        progressCallback?.Invoke(Grid, (int)Grid.Elements(), $"Using {Grid} grid of sub-volumes");
 
         #endregion
 
@@ -419,14 +419,14 @@ public partial class TiltSeries
 
                 for (int st = 0; st < CurBatch; st++)
                 {
-                    float[][] SubtomoData = new float[SizeSub][];
+                    using Image Subtomo = new Image(new int3(SizeSub));
+                    float[][] SubtomoData = Subtomo.GetHost(Intent.Write);
 
                     int XStart = (int)GridCoords[b + st].X - SizeSub / 2;
                     int YStart = (int)GridCoords[b + st].Y - SizeSub / 2;
                     int ZStart = (int)GridCoords[b + st].Z - SizeSub / 2;
                     for (int z = 0; z < SizeSub; z++)
                     {
-                        SubtomoData[z] = new float[SizeSub * SizeSub];
                         int zz = ZStart + z;
 
                         for (int y = 0; y < SizeSub; y++)
@@ -445,7 +445,6 @@ public partial class TiltSeries
                         }
                     }
 
-                    Image Subtomo = new Image(SubtomoData, new int3(SizeSub));
 
                     // Re-use FFT plan created previously for CTF reconstruction since it has the right size
                     GPU.FFT(Subtomo.GetDevice(Intent.Read),
@@ -453,8 +452,6 @@ public partial class TiltSeries
                             Subtomo.Dims,
                             1,
                             PlanForwCTF);
-
-                    Subtomo.Dispose();
                 }
                 //Subtomos.Multiply(1f / (SizeSub * SizeSub * SizeSub));
 
@@ -468,8 +465,8 @@ public partial class TiltSeries
                 Timer ProgressTimer = new Timer((a) =>
                                                     progressCallback?.Invoke(Grid, b + ProgressFraction[0] * CurBatch, "Matching..."), null, 1000, 1000);
 
-                Image BestCorrelation = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
-                Image BestAngle = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
+                using Image BestCorrelation = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
+                using Image BestAngle = new Image(IntPtr.Zero, new int3(SizeSub, SizeSub, SizeSub * CurBatch));
 
                 GPU.CorrelateSubTomos(ProjectorReference.t_DataRe,
                                       ProjectorReference.t_DataIm,
@@ -522,13 +519,13 @@ public partial class TiltSeries
                 for (int st = 0; st < CurBatch; st++)
                 {
                     Image ThisCorrelation = new Image(BestCorrelation.GetDeviceSlice(SizeSub * st, Intent.Read), new int3(SizeSub));
-                    Image CroppedCorrelation = ThisCorrelation.AsPadded(new int3(SizeUseful)).AndDisposeParent();
+                    using Image CroppedCorrelation = ThisCorrelation.AsPadded(new int3(SizeUseful)).AndDisposeParent();
 
                     Image ThisAngle = new Image(BestAngle.GetDeviceSlice(SizeSub * st, Intent.Read), new int3(SizeSub));
-                    Image CroppedAngle = ThisAngle.AsPadded(new int3(SizeUseful)).AndDisposeParent();
+                    using Image CroppedAngle = ThisAngle.AsPadded(new int3(SizeUseful)).AndDisposeParent();
 
-                    float[] SubCorr = CroppedCorrelation.GetHostContinuousCopy();
-                    float[] SubAngle = CroppedAngle.GetHostContinuousCopy();
+                    float[][] SubCorr = CroppedCorrelation.GetHost(Intent.Read);
+                    float[][] SubAngle = CroppedAngle.GetHost(Intent.Read);
                     int3 Origin = new int3(GridCoords[b + st]) - SizeUseful / 2;
                     float Norm = 1f; // / (SizeSub * SizeSub * SizeSub * SizeSub);
                     for (int z = 0; z < SizeUseful; z++)
@@ -549,14 +546,11 @@ public partial class TiltSeries
                                 if (xVol >= DimsVolumeScaled.X - SizeParticle / 2)
                                     continue;
 
-                                CorrData[zVol][yVol * DimsVolumeScaled.X + xVol] = SubCorr[(z * SizeUseful + y) * SizeUseful + x] * Norm;
-                                AngleIDData[zVol][yVol * DimsVolumeScaled.X + xVol] = SubAngle[(z * SizeUseful + y) * SizeUseful + x];
+                                CorrData[zVol][yVol * DimsVolumeScaled.X + xVol] = SubCorr[z][y * SizeUseful + x] * Norm;
+                                AngleIDData[zVol][yVol * DimsVolumeScaled.X + xVol] = SubAngle[z][y * SizeUseful + x];
                             }
                         }
                     }
-
-                    CroppedCorrelation.Dispose();
-                    CroppedAngle.Dispose();
                 }
 
                 #endregion
@@ -564,8 +558,6 @@ public partial class TiltSeries
                 Subtomos.Dispose();
                 SubtomoCTF.Dispose();
 
-                BestCorrelation.Dispose();
-                BestAngle.Dispose();
                 //BestCorrelationRandom.Dispose();
                 //BestAngleRandom.Dispose();
 
@@ -601,7 +593,7 @@ public partial class TiltSeries
                              0);
 
                 Image Center = LocalStd.AsPadded(LocalStd.Dims / 2);
-                float Median = Center.GetHostContinuousCopy().Median();
+                float Median = Center.GetHost(Intent.Read)[Center.Dims.Z / 2].Median();
                 Center.Dispose();
 
                 LocalStd.Max(MathF.Max(1e-10f, Median));
@@ -621,11 +613,17 @@ public partial class TiltSeries
             {
                 Image Center = CorrVolume.AsPadded(CorrVolume.Dims / 2);
                 Center.Abs();
-                float[] Sorted = Center.GetHostContinuousCopy().OrderBy(v => v).ToArray();
-                float Percentile = Sorted[(int)(Sorted.Length * 0.68f)];
-                Center.Dispose();
+                float[] Sorted = ArrayPool<float>.Rent((int)Center.ElementsReal);
+                for (int z = 0; z < Center.Dims.Z; z++)
+                    Array.Copy(Center.GetHost(Intent.Read)[z], 0, 
+                               Sorted, z * Center.Dims.Y * Center.Dims.X, 
+                               Center.Dims.Y * Center.Dims.X);
+                float Percentile = Sorted.OrderBy(v => v).Skip((int)(Sorted.Length * 0.68f)).First();
 
                 CorrVolume.Multiply(1f / MathF.Max(1e-20f, Percentile));
+
+                Center.Dispose();
+                ArrayPool<float>.Return(Sorted);
             }
 
             #endregion
@@ -650,7 +648,10 @@ public partial class TiltSeries
                                                                                  (y + 0.5f) * Undersample * BinnedAngPix,
                                                                                  0);
 
-                float[][] OccupancyMask = Helper.ArrayOfFunction(z => Helper.ArrayOfConstant(1f, VolumePositions.Length), DimsUndersampled.Z);
+                float[][] OccupancyMask = ArrayPool<float>.RentMultiple(VolumePositions.Length, DimsUndersampled.Z);
+                foreach (var slice in OccupancyMask)
+                    for (int i = 0; i < slice.Length; i++)
+                        slice[i] = 1;
 
                 float WidthNoMargin = ImageDimensionsPhysical.X - BinnedAngPix - Margin;
                 float HeightNoMargin = ImageDimensionsPhysical.Y - BinnedAngPix - Margin;
@@ -705,6 +706,8 @@ public partial class TiltSeries
                         }
                     }
                 }
+
+                ArrayPool<float>.ReturnMultiple(OccupancyMask);
             }
 
             #endregion
@@ -747,7 +750,7 @@ public partial class TiltSeries
         ParticlePeak[] Peaks;
         {
             int3[] InitialPeaks = new int3[0];
-            float Max = CorrVolume.GetHostContinuousCopy().Max();
+            float Max = CorrVolume.GetHost(Intent.Read).Select(a => a.Max()).Max();
 
             for (float s = Max * 0.9f; s > Max * 0.1f; s -= Max * 0.05f)
             {
@@ -828,6 +831,7 @@ public partial class TiltSeries
                                        template.GetCopy();
 
             Projector Projector = new Projector(TemplateScaled, 2);
+            TemplateScaled.Dispose();
             GPU.CheckGPUExceptions();
 
             #endregion
@@ -1241,6 +1245,7 @@ public partial class TiltSeries
         }
 
         CorrVolume?.Dispose();
+        AngleIDVolume?.Dispose();
 
         var TableName = string.IsNullOrWhiteSpace(options.OverrideSuffix) ?
                             $"{NameWithRes}_{options.TemplateName}.star" :
