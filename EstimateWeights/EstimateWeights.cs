@@ -563,9 +563,9 @@ namespace EstimateWeights
                     Image FSC = Image.FromFile(path);
                     float[][] FSCData = FSC.GetHost(Intent.Read);
 
-                    AllAB.Add(FSCData[0]);
-                    AllA2.Add(FSCData[1]);
-                    AllB2.Add(FSCData[2]);
+                    AllAB.Add(FSCData[0].ToArray());
+                    AllA2.Add(FSCData[1].ToArray());
+                    AllB2.Add(FSCData[2].ToArray());
 
                     FSC.Dispose();
                     NDone++;

@@ -1526,9 +1526,13 @@ namespace Warp
 
                     for (int i = 0; i < CurBatch; i++)
                     {
-                        CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
-                        CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
-                        CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
+                        Array.Copy(corrAB.GetHost(Intent.Read)[b + i], CorrABBatch.GetHost(Intent.Write)[i], corrAB.ElementsSliceReal);
+                        Array.Copy(corrA2.GetHost(Intent.Read)[b + i], CorrA2Batch.GetHost(Intent.Write)[i], corrA2.ElementsSliceReal);
+                        Array.Copy(corrB2.GetHost(Intent.Read)[b + i], CorrB2Batch.GetHost(Intent.Write)[i], corrB2.ElementsSliceReal);
+                        
+                        //CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
+                        //CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
+                        //CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
                     }
 
                     GPU.CopyDeviceToDevice(CorrABBatch.GetDevice(Intent.Read), CorrPremultBatch.GetDevice(Intent.Write), CorrABBatch.ElementsReal);
