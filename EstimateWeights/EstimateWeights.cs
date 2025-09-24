@@ -572,6 +572,12 @@ namespace EstimateWeights
                     VirtualConsole.ClearLastLine();
                     Console.Write($"Loading correlation data... {NDone}/{SourcePaths.Length}");
                 }
+                if (AllAB.Any(a => a.All(v => v == 0)))
+                    throw new Exception("All correlation data is zero. Cannot estimate weights.");
+                if (AllA2.Any(a => a.All(v => v == 0)))
+                    throw new Exception("All correlation data is zero. Cannot estimate weights.");
+                if (AllB2.Any(a => a.All(v => v == 0)))
+                    throw new Exception("All correlation data is zero. Cannot estimate weights.");
 
                 Console.WriteLine();
 
