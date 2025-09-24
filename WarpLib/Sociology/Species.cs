@@ -271,7 +271,26 @@ namespace Warp.Sociology
 
         #region Particles
 
-        public Particle[] Particles = new Particle[0];
+        private Particle[] _Particles = null;
+
+        public Particle[] Particles
+        {
+            get
+            {
+                if (_Particles == null)
+                {
+                    if (!File.Exists(PathParticleFile))
+                        return [];
+                    _Particles = ParticlesFromStar(new Star(PathParticleFile));
+                }
+                return _Particles;
+            }
+            set
+            {
+                if (value != _Particles)
+                    _Particles = value; OnPropertyChanged();
+            }
+        }
         public int NParticles => Particles.Length;
 
         public Particle[] DescendantParticles => Children.Count == 0 ? Particles.ToArray() : Children.SelectMany(c => c.DescendantParticles).ToArray();
@@ -2398,7 +2417,7 @@ namespace Warp.Sociology
                     }
                 }
 
-                Particles = ParticlesFromStar(new Star(PathParticleFile));
+                //Particles = ParticlesFromStar(new Star(PathParticleFile));
             }
         }
 
