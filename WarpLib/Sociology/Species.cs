@@ -953,10 +953,10 @@ namespace Warp.Sociology
 
         public Species(Image halfMap1, Image halfMap2, Image mask) : this()
         {
-            HalfMap1 = halfMap1.GetCopy();
-            HalfMap2 = halfMap2.GetCopy();
+            HalfMap1 = halfMap1?.GetCopy();
+            HalfMap2 = halfMap2?.GetCopy();
 
-            Mask = mask.GetCopy();
+            Mask = mask?.GetCopy();
         }
 
         #region Particle operations
