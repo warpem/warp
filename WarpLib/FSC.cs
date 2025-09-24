@@ -1474,6 +1474,7 @@ namespace Warp
                 while (K1 < FSCLength - 1 && CorrABData[K1] != 0)
                     K1++;
             }
+            Console.WriteLine($"K0 = {K0}, K1 = {K1}");
 
             Image Mask = new Image(corrAB.Dims.Slice(), true);
             {
@@ -1646,8 +1647,8 @@ namespace Warp
 
                 double[] Result = new double[input.Length];
 
-                //float[] Scores0 = EvalIndividually(input);
-                //Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
+                float[] Scores0 = EvalIndividually(input);
+                Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
 
                 double[] InputAltered = input.ToList().ToArray();
 
