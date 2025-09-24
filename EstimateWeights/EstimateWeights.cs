@@ -206,9 +206,9 @@ namespace EstimateWeights
                                     {
                                         if (AllAB.Count <= z)
                                         {
-                                            AllAB.Add(FSCData[z * 3 + 0]);
-                                            AllA2.Add(FSCData[z * 3 + 1]);
-                                            AllB2.Add(FSCData[z * 3 + 2]);
+                                            AllAB.Add(FSCData[z * 3 + 0].ToArray());
+                                            AllA2.Add(FSCData[z * 3 + 1].ToArray());
+                                            AllB2.Add(FSCData[z * 3 + 2].ToArray());
                                         }
                                         else
                                         {

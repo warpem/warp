@@ -1648,7 +1648,7 @@ namespace Warp
                 double[] Result = new double[input.Length];
 
                 float[] Scores0 = EvalIndividually(input);
-                Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
+                //Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
 
                 double[] InputAltered = input.ToList().ToArray();
 
