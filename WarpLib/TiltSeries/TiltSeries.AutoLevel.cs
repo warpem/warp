@@ -500,7 +500,7 @@ public partial class TiltSeries
         foreach (var im in TiltData)
             im.Dispose();
         foreach (var im in TiltMasks)
-            im.Dispose();
+            im?.Dispose();
         foreach (var im in ExtractedRegions)
             im.Dispose();
         foreach (var im in ExtractedRegionsFT)
