@@ -389,7 +389,9 @@ public partial class Movie
             float[] CTFSpectraScaleData = CTFSpectraScale.GetHost(Intent.Write)[0];
 
             // Trim polar to relevant frequencies, and populate coordinates.
-            Parallel.For(0, DimsRegion.X, y =>
+            Parallel.For(0, DimsRegion.X, 
+                         new ParallelOptions { MaxDegreeOfParallelism = 8 },
+                         y =>
             {
                 float Angle = ((float)y / DimsRegion.X + 0.5f) * (float)Math.PI;
                 for (int x = 0; x < NFreq; x++)
@@ -553,7 +555,8 @@ public partial class Movie
                         LocalGradients[i] = ResultPlus[i] - ResultMinus[i];
 
                     // Now compute gradients per grid anchor point using the precomputed individual gradients and wiggle factors.
-                    Parallel.For(0, GridCTFDefocus.Dimensions.Elements(), i => Result[i] = MathHelper.ReduceWeighted(LocalGradients, WiggleWeights[i]) / (2f * Step));
+                    Parallel.For(0, GridCTFDefocus.Dimensions.Elements(), new ParallelOptions { MaxDegreeOfParallelism = 8 }, 
+                                 i => Result[i] = MathHelper.ReduceWeighted(LocalGradients, WiggleWeights[i]) / (2f * Step));
                 }
 
                 // ... and take shortcut for phases.
@@ -597,7 +600,8 @@ public partial class Movie
                         LocalGradients[i] = ResultPlus[i] - ResultMinus[i];
 
                     // Now compute gradients per grid anchor point using the precomputed individual gradients and wiggle factors.
-                    Parallel.For(0, GridCTFPhase.Dimensions.Elements(), i => Result[i + GridCTFDefocus.Dimensions.Elements()] = MathHelper.ReduceWeighted(LocalGradients, WiggleWeightsPhase[i]) / (2f * Step));
+                    Parallel.For(0, GridCTFPhase.Dimensions.Elements(), new ParallelOptions { MaxDegreeOfParallelism = 8 },
+                                 i => Result[i + GridCTFDefocus.Dimensions.Elements()] = MathHelper.ReduceWeighted(LocalGradients, WiggleWeightsPhase[i]) / (2f * Step));
                 }
 
                 foreach (var i in Result)

@@ -304,42 +304,44 @@ public partial class TiltSeries
             float ZStep = Math.Max(0.01f, (ZMax - ZMin) / 200f);
 
             float BestZ = 0, BestPhase = 0, BestScore = -999;
-            Parallel.For(0, (int)((ZMax - ZMin + ZStep - 1e-6f) / ZStep), zi =>
-            {
-                float z = ZMin + zi * ZStep;
+            Parallel.For(0, (int)((ZMax - ZMin + ZStep - 1e-6f) / ZStep),
+                         new ParallelOptions { MaxDegreeOfParallelism = 8 },
+                         zi =>
+                         {
+                             float z = ZMin + zi * ZStep;
 
-                for (float p = PhaseMin; p <= PhaseMax; p += 0.01f)
-                {
-                    float Score = 0;
+                             for (float p = PhaseMin; p <= PhaseMax; p += 0.01f)
+                             {
+                                 float Score = 0;
 
-                    for (int s = 0; s < NPositions * NFrames; s++)
-                    {
-                        CTF CurrentParams = new CTF
-                        {
-                            PixelSize = options.BinnedPixelSizeMean,
+                                 for (int s = 0; s < NPositions * NFrames; s++)
+                                 {
+                                     CTF CurrentParams = new CTF
+                                     {
+                                         PixelSize = options.BinnedPixelSizeMean,
 
-                            Defocus = (decimal)(z + GridDeltas[s]),
-                            PhaseShift = (decimal)p,
+                                         Defocus = (decimal)(z + GridDeltas[s]),
+                                         PhaseShift = (decimal)p,
 
-                            Cs = options.Cs,
-                            Voltage = options.Voltage,
-                            Amplitude = options.Amplitude
-                        };
-                        float[] SimulatedCTF = CurrentParams.Get1D(GlobalPS1D.Length, true).Skip(MinFreqInclusive).Take(Math.Max(2, NFreq * 2 / 3)).ToArray();
-                        MathHelper.NormalizeInPlace(SimulatedCTF);
+                                         Cs = options.Cs,
+                                         Voltage = options.Voltage,
+                                         Amplitude = options.Amplitude
+                                     };
+                                     float[] SimulatedCTF = CurrentParams.Get1D(GlobalPS1D.Length, true).Skip(MinFreqInclusive).Take(Math.Max(2, NFreq * 2 / 3)).ToArray();
+                                     MathHelper.NormalizeInPlace(SimulatedCTF);
 
-                        Score += MathHelper.CrossCorrelate(SubtractedLocal1D[s], SimulatedCTF);
-                    }
+                                     Score += MathHelper.CrossCorrelate(SubtractedLocal1D[s], SimulatedCTF);
+                                 }
 
-                    lock(ForPS1D)
-                        if (Score > BestScore)
-                        {
-                            BestScore = Score;
-                            BestZ = z;
-                            BestPhase = p;
-                        }
-                }
-            });
+                                 lock (ForPS1D)
+                                     if (Score > BestScore)
+                                     {
+                                         BestScore = Score;
+                                         BestZ = z;
+                                         BestPhase = p;
+                                     }
+                             }
+                         });
 
             GlobalCTF = new CTF
             {
@@ -481,7 +483,9 @@ public partial class TiltSeries
                 float[] CTFSpectraScaleData = CTFSpectraScale.GetHost(Intent.Write)[0];
 
                 // Trim polar to relevant frequencies, and populate coordinates.
-                Parallel.For(0, DimsRegion.X, y =>
+                Parallel.For(0, DimsRegion.X, 
+                             new ParallelOptions { MaxDegreeOfParallelism = 8 }, 
+                             y =>
                 {
                     for (int x = 0; x < NFreq; x++)
                         CTFSpectraScaleData[y * NFreq + x] = CurrentScale[x + MinFreqInclusive];
