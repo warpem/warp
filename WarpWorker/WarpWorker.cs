@@ -237,7 +237,19 @@ namespace WarpWorker
 
                     HeaderEER.GroupNFrames = EERGroupFrames;
 
-                    OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain);
+                    int MaxThreads = int.MaxValue;
+                    if (Environment.GetEnvironmentVariable("WARP_EER_THREADS") != null)
+                        try
+                        {
+                            MaxThreads = int.Parse(Environment.GetEnvironmentVariable("WARP_EER_THREADS"));
+                            MaxThreads = Math.Max(MaxThreads, 1);
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"Couldn't parse WARP_EER_THREADS value: {Environment.GetEnvironmentVariable("WARP_EER_THREADS")}");
+                        }
+
+                    OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain, Math.Min(MaxThreads, 8));
                     OriginalStackOwner = Helper.PathToNameWithExtension(Path);
 
                     Console.WriteLine($"Loaded stack: {OriginalStack}, {ScaleFactor}");
