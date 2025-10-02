@@ -8,7 +8,7 @@ using CommandLine.Text;
 
 namespace Noise2Map
 {
-    class Options
+    public class Options
     {
         [Option('a', "observation1", Required = false, HelpText = "Relative path to a folder containing files with the first observation of the objects (e.g. first half-maps).")]
         public string Observation1Path { get; set; }
