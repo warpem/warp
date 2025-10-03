@@ -47,8 +47,9 @@ namespace Noise2Map
                 // Load mask
                 MaskProcessor.LoadMask(context, options);
 
-                // Load and prepare data
-                DataPreparator.LoadAndPrepareData(context, options);
+                // Prepare map metadata and create rotating pool
+                List<MapFileInfo> mapInfo = DataPreparator.PrepareMapMetadata(context, options);
+                context.MapPool = new RotatingMapPool(mapInfo, options.MaxLoadedMaps, options, context);
 
                 // Train model (or load existing)
                 string trainedModelName;
@@ -62,8 +63,8 @@ namespace Noise2Map
                     trainedModelName = coordinator.RunConcurrentTraining(numPreparationThreads: 3, queueCapacity: 6);
                 }
 
-                // Denoise maps
-                var denoiser = new Denoiser(context, options);
+                // Denoise maps (using streaming pipeline for memory efficiency)
+                var denoiser = new Denoiser(context, options, mapInfo);
                 denoiser.LoadModel(trainedModelName);
                 denoiser.DenoiseAll();
                 denoiser.Dispose();

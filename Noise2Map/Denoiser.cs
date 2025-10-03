@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Warp;
@@ -13,12 +14,14 @@ namespace Noise2Map
     {
         private readonly ProcessingContext context;
         private readonly Options options;
+        private readonly List<MapFileInfo> mapInfoList;
         private NoiseNet3DTorch model;
 
-        public Denoiser(ProcessingContext context, Options options)
+        public Denoiser(ProcessingContext context, Options options, List<MapFileInfo> mapInfoList = null)
         {
             this.context = context;
             this.options = options;
+            this.mapInfoList = mapInfoList;
         }
 
         /// <summary>
@@ -50,6 +53,15 @@ namespace Noise2Map
         /// </summary>
         public void DenoiseAll()
         {
+            // Use streaming pipeline if mapInfoList is available (memory-efficient)
+            if (mapInfoList != null && mapInfoList.Count > 0)
+            {
+                var pipeline = new DenoisingPipeline(mapInfoList, options, context, model);
+                pipeline.ProcessAll();
+                return;
+            }
+
+            // Legacy path: denoise from pre-loaded maps
             Directory.CreateDirectory(Path.Combine(context.WorkingDirectory, "denoised"));
 
             GPU.SetDevice(options.GPUPreprocess);

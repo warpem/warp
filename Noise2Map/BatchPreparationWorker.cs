@@ -24,7 +24,7 @@ namespace Noise2Map
             this.context = context;
             this.options = options;
             this.queue = queue;
-            this.nMapsPerBatch = Math.Min(8, context.Maps1.Count);
+            this.nMapsPerBatch = Math.Min(8, context.MapPool.CurrentPoolSize);
             this.mapSamples = options.BatchSize;
             this.dim = context.TrainingDims;
             this.dim2 = dim * 2;
@@ -41,9 +41,9 @@ namespace Noise2Map
 
             GPU.SetDevice(options.GPUPreprocess);
 
-            // Select random maps for this batch
+            // Select random maps from current pool for this batch
             int[] shuffledMapIDs = Helper.RandomSubset(
-                Helper.ArrayOfSequence(0, context.Maps1.Count, 1),
+                Helper.ArrayOfSequence(0, context.MapPool.CurrentPoolSize, 1),
                 nMapsPerBatch,
                 rand.Next(9999999));
 
@@ -110,11 +110,12 @@ namespace Noise2Map
         {
             for (int m = 0; m < shuffledMapIDs.Length; m++)
             {
-                int mapID = shuffledMapIDs[m];
-                Image map1 = context.Maps1[mapID];
-                Image map2 = context.Maps2[mapID];
-                int3 dimsMap = map1.Dims;
+                int poolIndex = shuffledMapIDs[m];
 
+                // Get maps from pool (thread-safe)
+                context.MapPool.GetMap(poolIndex, out Image map1, out Image map2, out Image mapCTF);
+
+                int3 dimsMap = map1.Dims;
                 int3 margin = dim / 2;
                 float3[] position = GenerateRandomPositions(dimsMap, margin);
                 float3[] angle = GenerateRandomAngles();
@@ -142,13 +143,12 @@ namespace Noise2Map
                 }
 
                 // Copy CTF
-                Image ctf = context.MapCTFs[mapID];
-                lock (ctf)  // Thread-safe access to shared CTF data
+                lock (mapCTF)  // Thread-safe access to shared CTF data
                 {
                     for (int i = 0; i < mapSamples; i++)
-                        GPU.CopyDeviceToDevice(ctf.GetDevice(Intent.Read),
+                        GPU.CopyDeviceToDevice(mapCTF.GetDevice(Intent.Read),
                                               extractedCTF[m].GetDeviceSlice(i * dim2.Z, Intent.Write),
-                                              ctf.ElementsReal);
+                                              mapCTF.ElementsReal);
                 }
             }
         }

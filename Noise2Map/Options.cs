@@ -84,5 +84,8 @@ namespace Noise2Map
 
         [Option("gpuid_preprocess", Default = 1, HelpText = "GPU ID used for data preprocessing. Ideally not the GPU used for training")]
         public int GPUPreprocess { get; set; }
+
+        [Option("max_loaded_maps", Default = 10, HelpText = "Maximum number of map pairs to keep in memory during training. Maps will be rotated to cover the full dataset. Decrease if running out of memory.")]
+        public int MaxLoadedMaps { get; set; }
     }
 }

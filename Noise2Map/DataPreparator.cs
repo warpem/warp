@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Warp;
@@ -13,7 +14,82 @@ namespace Noise2Map
     public static class DataPreparator
     {
         /// <summary>
-        /// Loads and prepares all maps for training and denoising
+        /// Enumerates all map files without loading them - preprocessing params calculated lazily on first load
+        /// </summary>
+        public static List<MapFileInfo> PrepareMapMetadata(ProcessingContext context, Options options)
+        {
+            Console.WriteLine("Enumerating map files:");
+
+            List<MapFileInfo> mapInfoList = new List<MapFileInfo>();
+            string[] oddMapPaths = GetOddMapPaths(context, options);
+
+            foreach (var file in oddMapPaths)
+            {
+                string mapName = Helper.PathToName(file);
+                string[] map2Paths = GetMap2Paths(context, options, mapName);
+
+                if (map2Paths == null || map2Paths.Length == 0)
+                    continue;
+
+                string mapCombinedPath = GetMapCombinedPath(context, options, mapName);
+                if (!string.IsNullOrEmpty(options.ObservationCombinedPath) && mapCombinedPath == null)
+                    continue;
+
+                UpdatePixelSizeFromHeader(context, options, file);
+                CheckIfFlattening(options, file);
+
+                // Just read header for dimensions and pixel size
+                MapHeader header = MapHeader.ReadFromFile(file);
+
+                // Determine CTF path
+                string ctfPath = null;
+                if (!string.IsNullOrEmpty(options.CTFPath))
+                {
+                    string potentialPath = Path.Combine(context.WorkingDirectory, options.CTFPath, mapName + ".mrc");
+                    if (File.Exists(potentialPath))
+                        ctfPath = potentialPath;
+                }
+
+                // Calculate crop box
+                int3 cropBox = new int3(-1);
+                if (!options.DontKeepDimensions)
+                    context.BoundsMax = int3.Min(context.BoundsMax, header.Dimensions);
+
+                if (options.DontKeepDimensions && context.CropBox.X > 0)
+                {
+                    cropBox = context.CropBox;
+                }
+
+                // Create MapFileInfo with paths only - spectrum/mean/std calculated on first load
+                var info = new MapFileInfo
+                {
+                    Map1Path = file,
+                    Map2Path = map2Paths.First(),
+                    MapCombinedPath = mapCombinedPath,
+                    MapName = mapName,
+                    PixelSize = header.PixelSize.X,
+                    MeanStd = new float2(0, 1), // Will be calculated on first load
+                    OriginalDims = header.Dimensions,
+                    CropBox = cropBox,
+                    SpectrumMultipliers = null, // Will be calculated on first load
+                    CTFPath = ctfPath,
+                    IsForDenoising = true
+                };
+
+                mapInfoList.Add(info);
+            }
+
+            context.Mask?.FreeDevice();
+
+            if (mapInfoList.Count == 0)
+                throw new Exception("No maps were found. Please make sure the paths are correct and the names are consistent between the two observations.");
+
+            Console.WriteLine($"Found {mapInfoList.Count} map pairs.\n");
+            return mapInfoList;
+        }
+
+        /// <summary>
+        /// Loads and prepares all maps for training and denoising (legacy - loads all into memory)
         /// </summary>
         public static void LoadAndPrepareData(ProcessingContext context, Options options)
         {

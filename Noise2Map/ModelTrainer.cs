@@ -139,6 +139,9 @@ namespace Noise2Map
                     watch.Restart();
 
                     iter++;
+
+                    // Rotate maps in pool to prevent overfitting
+                    context.MapPool?.RotateOldest();
                 }
                 finally
                 {

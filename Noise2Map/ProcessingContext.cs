@@ -10,12 +10,15 @@ namespace Noise2Map
     /// </summary>
     public class ProcessingContext
     {
-        // Maps and textures
+        // Maps and textures (legacy - for when all maps are loaded into memory)
         public List<Image> Maps1 { get; set; } = new List<Image>();
         public List<Image> Maps2 { get; set; } = new List<Image>();
         public List<Image> MapCTFs { get; set; } = new List<Image>();
         public List<ulong[]> Textures1 { get; set; } = new List<ulong[]>();
         public List<ulong[]> Textures2 { get; set; } = new List<ulong[]>();
+
+        // Rotating map pool (for memory-efficient training on large datasets)
+        public RotatingMapPool MapPool { get; set; }
 
         // Denoising data
         public List<Image> MapsForDenoising { get; set; } = new List<Image>();
@@ -43,6 +46,7 @@ namespace Noise2Map
         public void Dispose()
         {
             Mask?.Dispose();
+            MapPool?.Dispose();
 
             foreach (var map in Maps1)
                 map?.Dispose();
