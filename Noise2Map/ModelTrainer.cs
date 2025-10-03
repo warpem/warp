@@ -15,14 +15,16 @@ namespace Noise2Map
     {
         private readonly ProcessingContext context;
         private readonly Options options;
+        private readonly ConcurrentTrainingQueue batchQueue;
         private NoiseNet3DTorch trainModel;
 
         public string TrainedModelName { get; private set; }
 
-        public ModelTrainer(ProcessingContext context, Options options)
+        public ModelTrainer(ProcessingContext context, Options options, ConcurrentTrainingQueue batchQueue = null)
         {
             this.context = context;
             this.options = options;
+            this.batchQueue = batchQueue;
         }
 
         /// <summary>
@@ -94,19 +96,8 @@ namespace Noise2Map
             GPU.SetDevice(options.GPUPreprocess);
 
             Random rand = new Random(123);
-            int nMaps = context.Maps1.Count;
-            int nMapsPerBatch = Math.Min(8, nMaps);
+            int nMapsPerBatch = Math.Min(8, context.Maps1.Count);
             int mapSamples = options.BatchSize;
-
-            int3 dim = context.TrainingDims;
-            int3 dim2 = dim * 2;
-
-            Image[] extractedSource = Helper.ArrayOfFunction(i => new Image(new int3(dim.X, dim.Y, dim.Z * mapSamples)), nMapsPerBatch);
-            Image[] extractedSourceRand = Helper.ArrayOfFunction(i => new Image(new int3(dim.X, dim.Y, dim.Z * mapSamples)), nMapsPerBatch);
-            Image[] extractedTarget = Helper.ArrayOfFunction(i => new Image(new int3(dim.X, dim.Y, dim.Z * mapSamples)), nMapsPerBatch);
-            Image[] extractedTargetRand = Helper.ArrayOfFunction(i => new Image(new int3(dim.X, dim.Y, dim.Z * mapSamples)), nMapsPerBatch);
-            Image[] extractedCTF = Helper.ArrayOfFunction(i => new Image(new int3(dim2.X, dim2.Y, dim2.Z * mapSamples), true), nMapsPerBatch);
-            Image[] extractedCTFRand = Helper.ArrayOfFunction(i => new Image(new int3(dim2.X, dim2.Y, dim2.Z * mapSamples), true), nMapsPerBatch);
 
             foreach (var item in context.MapCTFs)
                 item.GetDevice(Intent.Read);
@@ -118,136 +109,68 @@ namespace Noise2Map
             Image predictedData = null;
             float[] loss = null;
 
-            ulong[] texture1 = new ulong[1];
-            ulong[] texture2 = new ulong[1];
-            ulong[] textureArray1 = new ulong[1];
-            ulong[] textureArray2 = new ulong[1];
+            int iter = 0;
+            int iterFine = 0;
+            double smoothedIterTime = 0;
 
-            for (int iter = 0, iterFine = 0; iter < options.NIterations; iter++)
+            while (iter < options.NIterations)
             {
-                int[] shuffledMapIDs = Helper.RandomSubset(Helper.ArrayOfSequence(0, nMaps, 1), nMapsPerBatch, rand.Next(9999999));
+                // Dequeue a prepared batch from the queue
+                TrainingBatch batch = batchQueue.Dequeue();
+                if (batch == null)
+                    break;  // No more batches available
 
-                ExtractTrainingData(shuffledMapIDs, extractedSource, extractedTarget, extractedCTF,
-                                   rand, mapSamples, dim, dim2, texture1, texture2, textureArray1, textureArray2,
-                                   ref iterFine, nMaps);
+                try
+                {
+                    double currentLearningRate = CalculateLearningRate(iter, iterFine);
 
-                ShuffleExamples(extractedSource, extractedTarget, extractedCTF, extractedSourceRand, extractedTargetRand, extractedCTFRand,
-                               rand, mapSamples, dim, dim2, nMapsPerBatch);
+                    TrainBatch(batch.ShuffledMapIDs, batch.ExtractedSourceRand, batch.ExtractedTargetRand, batch.ExtractedCTFRand,
+                              currentLearningRate, rand, mapSamples, losses, ref predictedData, ref loss, ref iterFine, nMapsPerBatch);
 
-                double currentLearningRate = CalculateLearningRate(iter, iterFine);
+                    double iterTime = watch.Elapsed.TotalSeconds;
+                    smoothedIterTime = UpdateSmoothedIterTime(smoothedIterTime, iterTime, iter);
 
-                TrainBatch(shuffledMapIDs, extractedSourceRand, extractedTargetRand, extractedCTFRand,
-                          currentLearningRate, rand, mapSamples, losses, ref predictedData, ref loss, ref iterFine);
+                    PrintProgress(iter, smoothedIterTime, losses, currentLearningRate);
 
-                PrintProgress(iter, watch, losses, currentLearningRate);
+                    if (float.IsNaN(loss[0]) || float.IsInfinity(loss[0]))
+                        throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
 
-                if (float.IsNaN(loss[0]) || float.IsInfinity(loss[0]))
-                    throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
+                    GPU.CheckGPUExceptions();
+                    watch.Restart();
 
-                GPU.CheckGPUExceptions();
-                watch.Restart();
-            }
-
-            if (nMaps == 1)
-            {
-                GPU.DestroyTexture(texture1[0], textureArray1[0]);
-                GPU.DestroyTexture(texture2[0], textureArray2[0]);
+                    iter++;
+                }
+                finally
+                {
+                    // Dispose the batch after training
+                    batch.Dispose();
+                }
             }
 
             watch.Stop();
         }
 
-        private void ExtractTrainingData(int[] shuffledMapIDs, Image[] extractedSource, Image[] extractedTarget, Image[] extractedCTF,
-                                        Random rand, int mapSamples, int3 dim, int3 dim2,
-                                        ulong[] texture1, ulong[] texture2, ulong[] textureArray1, ulong[] textureArray2,
-                                        ref int iterFine, int nMaps)
+        private double UpdateSmoothedIterTime(double previousSmoothed, double currentIterTime, int iter)
         {
-            for (int m = 0; m < shuffledMapIDs.Length; m++)
+            // Skip first 5 iterations (PyTorch warmup/optimization phase)
+            const int warmupIters = 5;
+
+            if (iter < warmupIters)
             {
-                int mapID = shuffledMapIDs[m];
-                Image map1 = context.Maps1[mapID];
-                Image map2 = context.Maps2[mapID];
-                int3 dimsMap = map1.Dims;
-
-                int3 margin = dim / 2;
-                float3[] position = GenerateRandomPositions(rand, dimsMap, margin, mapSamples);
-                float3[] angle = GenerateRandomAngles(rand, mapSamples);
-
-                // Extract from map1
-                if (nMaps > 1 || iterFine == 0)
-                    GPU.CreateTexture3D(map1.GetDevice(Intent.Read), map1.Dims, texture1, textureArray1, true);
-                if (nMaps > 4)
-                    map1.FreeDevice();
-
-                GPU.Rotate3DExtractAt(texture1[0], map1.Dims, extractedSource[m].GetDevice(Intent.Write),
-                                     dim, Helper.ToInterleaved(angle), Helper.ToInterleaved(position), (uint)mapSamples);
-
-                if (nMaps > 1)
-                    GPU.DestroyTexture(texture1[0], textureArray1[0]);
-
-                // Extract from map2
-                if (nMaps > 1 || iterFine == 0)
-                    GPU.CreateTexture3D(map2.GetDevice(Intent.Read), map2.Dims, texture2, textureArray2, true);
-                if (nMaps > 4)
-                    map2.FreeDevice();
-
-                GPU.Rotate3DExtractAt(texture2[0], map2.Dims, extractedTarget[m].GetDevice(Intent.Write),
-                                     dim, Helper.ToInterleaved(angle), Helper.ToInterleaved(position), (uint)mapSamples);
-
-                if (nMaps > 1)
-                    GPU.DestroyTexture(texture2[0], textureArray2[0]);
-
-                // Copy CTF
-                for (int i = 0; i < mapSamples; i++)
-                    GPU.CopyDeviceToDevice(context.MapCTFs[mapID].GetDevice(Intent.Read),
-                                          extractedCTF[m].GetDeviceSlice(i * dim2.Z, Intent.Write),
-                                          context.MapCTFs[mapID].ElementsReal);
+                // During warmup, return current time but don't use for estimation
+                return currentIterTime;
             }
-        }
-
-        private float3[] GenerateRandomPositions(Random rand, int3 dimsMap, int3 margin, int mapSamples)
-        {
-            if (context.BoundsMin == new int3(0))
-                return Helper.ArrayOfFunction(i => new float3((float)rand.NextDouble() * (dimsMap.X - margin.X * 2) + margin.X,
-                                                              (float)rand.NextDouble() * (dimsMap.Y - margin.Y * 2) + margin.Y,
-                                                              (float)rand.NextDouble() * (dimsMap.Z - margin.Z * 2) + margin.Z), mapSamples);
-            else
-                return Helper.ArrayOfFunction(i => new float3((float)rand.NextDouble() * (context.BoundsMax - context.BoundsMin).X + context.BoundsMin.X,
-                                                              (float)rand.NextDouble() * (context.BoundsMax - context.BoundsMin).Y + context.BoundsMin.Y,
-                                                              (float)rand.NextDouble() * (context.BoundsMax - context.BoundsMin).Z + context.BoundsMin.Z), mapSamples);
-        }
-
-        private float3[] GenerateRandomAngles(Random rand, int mapSamples)
-        {
-            if (options.DontAugment)
-                return Helper.ArrayOfFunction(i => new float3((float)Math.Round(rand.NextDouble()) * 0,
-                                                              (float)Math.Round(rand.NextDouble()) * 0,
-                                                              (float)Math.Round(rand.NextDouble()) * 0) * Helper.ToRad, mapSamples);
-            else
-                return Helper.ArrayOfFunction(i => new float3((float)rand.NextDouble() * 360,
-                                                              (float)rand.NextDouble() * 360,
-                                                              (float)rand.NextDouble() * 360) * Helper.ToRad, mapSamples);
-        }
-
-        private void ShuffleExamples(Image[] extractedSource, Image[] extractedTarget, Image[] extractedCTF,
-                                    Image[] extractedSourceRand, Image[] extractedTargetRand, Image[] extractedCTFRand,
-                                    Random rand, int mapSamples, int3 dim, int3 dim2, int nMapsPerBatch)
-        {
-            for (int b = 0; b < mapSamples; b++)
+            else if (iter < warmupIters + 10)
             {
-                int[] order = Helper.RandomSubset(Helper.ArrayOfSequence(0, nMapsPerBatch, 1), nMapsPerBatch, rand.Next(9999999));
-                for (int i = 0; i < order.Length; i++)
-                {
-                    GPU.CopyDeviceToDevice(extractedSource[i].GetDeviceSlice(b * dim.Z, Intent.Read),
-                                          extractedSourceRand[order[i]].GetDeviceSlice(b * dim.Z, Intent.Write),
-                                          dim.Elements());
-                    GPU.CopyDeviceToDevice(extractedTarget[i].GetDeviceSlice(b * dim.Z, Intent.Read),
-                                          extractedTargetRand[order[i]].GetDeviceSlice(b * dim.Z, Intent.Write),
-                                          dim.Elements());
-                    GPU.CopyDeviceToDevice(extractedCTF[i].GetDeviceSlice(b * dim2.Z, Intent.Read),
-                                          extractedCTFRand[order[i]].GetDeviceSlice(b * dim2.Z, Intent.Write),
-                                          (dim2.X / 2 + 1) * dim2.Y * dim2.Z);
-                }
+                // After warmup: use running average for quick convergence
+                int effectiveIter = iter - warmupIters;
+                return (previousSmoothed * effectiveIter + currentIterTime) / (effectiveIter + 1);
+            }
+            else
+            {
+                // Exponential moving average: smoothed = alpha * current + (1 - alpha) * previous
+                double alpha = 0.01;
+                return alpha * currentIterTime + (1 - alpha) * previousSmoothed;
             }
         }
 
@@ -265,7 +188,7 @@ namespace Noise2Map
 
         private void TrainBatch(int[] shuffledMapIDs, Image[] extractedSourceRand, Image[] extractedTargetRand, Image[] extractedCTFRand,
                                double currentLearningRate, Random rand, int mapSamples, Queue<float> losses,
-                               ref Image predictedData, ref float[] loss, ref int iterFine)
+                               ref Image predictedData, ref float[] loss, ref int iterFine, int nMapsPerBatch)
         {
             Image noiseMask = new Image(IntPtr.Zero, extractedSourceRand[0].Dims);
 
@@ -304,9 +227,11 @@ namespace Noise2Map
             noiseMask.Dispose();
         }
 
-        private void PrintProgress(int iter, Stopwatch watch, Queue<float> losses, double currentLearningRate)
+        private void PrintProgress(int iter, double smoothedIterTime, Queue<float> losses, double currentLearningRate)
         {
-            TimeSpan timeRemaining = watch.Elapsed * (options.NIterations - 1 - iter);
+            int remainingIters = options.NIterations - 1 - iter;
+            double totalSecondsRemaining = smoothedIterTime * remainingIters;
+            TimeSpan timeRemaining = TimeSpan.FromSeconds(totalSecondsRemaining);
 
             string toWrite = $"{iter + 1}/{options.NIterations}, " +
                             (timeRemaining.Days > 0 ? (timeRemaining.Days + " days ") : "") +

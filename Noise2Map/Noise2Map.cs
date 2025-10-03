@@ -28,8 +28,7 @@ namespace Noise2Map
 
             // Set up directories
             string programFolder = System.AppContext.BaseDirectory;
-            programFolder = programFolder.Substring(0, Math.Max(programFolder.LastIndexOf('\\'), programFolder.LastIndexOf('/')) + 1);
-            string workingDirectory = Environment.CurrentDirectory + "/";
+            string workingDirectory = Environment.CurrentDirectory;
 
             // Initialize processing context
             var context = new ProcessingContext
@@ -52,10 +51,16 @@ namespace Noise2Map
                 DataPreparator.LoadAndPrepareData(context, options);
 
                 // Train model (or load existing)
-                var trainer = new ModelTrainer(context, options);
-                trainer.Train();
-                string trainedModelName = trainer.TrainedModelName;
-                trainer.Dispose();
+                string trainedModelName;
+                if (!string.IsNullOrEmpty(options.OldModelName))
+                {
+                    trainedModelName = options.OldModelName;
+                }
+                else
+                {
+                    var coordinator = new TrainingCoordinator(context, options);
+                    trainedModelName = coordinator.RunConcurrentTraining(numPreparationThreads: 3, queueCapacity: 6);
+                }
 
                 // Denoise maps
                 var denoiser = new Denoiser(context, options);
