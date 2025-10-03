@@ -196,6 +196,48 @@ namespace Warp.Tools
             return new float2((float)sum / data.Length, MathF.Sqrt((float)Math.Max(0, data.Length * sum2 - sum * sum)) / data.Length);
         }
 
+        public static float2 MeanAndStd(float[][] data)
+        {
+            double sum = 0f;
+            double sum2 = 0f;
+
+            foreach (var subdata in data)
+            {
+                int count = subdata.Length;
+                if (count == 0)
+                    return new float2(0, 0);
+
+                Vector<float> sumVector = Vector<float>.Zero;
+                Vector<float> sum2Vector = Vector<float>.Zero;
+                int vectorSize = Vector<float>.Count;
+
+                int i;
+                for (i = 0; i <= count - vectorSize; i += vectorSize)
+                {
+                    var vector = new Vector<float>(subdata, i);
+                    sumVector += vector;
+                    sum2Vector += vector * vector;
+                }
+                for (int j = 0; j < vectorSize; j++)
+                {
+                    sum += sumVector[j];
+                    sum2 += sum2Vector[j];
+                }
+
+                // Process remaining elements
+                for (; i < count; i++)
+                {
+                    sum += subdata[i];
+                    sum2 += subdata[i] * subdata[i];
+                }
+            }
+
+            if (sum == sum2)
+                return new float2(0, 0);
+
+            return new float2((float)sum / data.Length, MathF.Sqrt((float)Math.Max(0, data.Length * sum2 - sum * sum)) / data.Length);
+        }
+
 
         public static float2 MeanAndStdNonZero(IEnumerable<float> data)
         {

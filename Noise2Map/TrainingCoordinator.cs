@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Warp.Tools.Async;
 
 namespace Noise2Map
 {
@@ -28,7 +29,7 @@ namespace Noise2Map
         /// <returns>The name of the trained model</returns>
         public string RunConcurrentTraining(int numPreparationThreads = 3, int queueCapacity = 6)
         {
-            using (var batchQueue = new ConcurrentTrainingQueue(queueCapacity))
+            using (var batchQueue = new BoundedQueue<TrainingBatch>(queueCapacity))
             {
                 var cancellationSource = new CancellationTokenSource();
 
@@ -64,7 +65,7 @@ namespace Noise2Map
             }
         }
 
-        private List<Task> StartPreparationWorkers(ConcurrentTrainingQueue batchQueue, int numThreads, CancellationTokenSource cancellationSource)
+        private List<Task> StartPreparationWorkers(BoundedQueue<TrainingBatch> batchQueue, int numThreads, CancellationTokenSource cancellationSource)
         {
             var tasks = new List<Task>();
 
@@ -83,6 +84,7 @@ namespace Noise2Map
 
                         for (int iter = 0; iter < batchesToPrepare; iter++)
                         {
+                            cancellationSource.Token.ThrowIfCancellationRequested();
                             worker.PrepareBatch(iter, cancellationSource.Token);
                         }
                     }

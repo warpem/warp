@@ -1,15 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using CommandLine;
-using CommandLine.Text;
 using Warp;
-using Warp.Headers;
 using Warp.Tools;
 
 namespace Noise2Map

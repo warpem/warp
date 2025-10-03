@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using Warp;
 using Warp.Tools;
+using Warp.Tools.Async;
 
 namespace Noise2Map
 {
@@ -12,14 +13,14 @@ namespace Noise2Map
     {
         private readonly ProcessingContext context;
         private readonly Options options;
-        private readonly ConcurrentTrainingQueue queue;
+        private readonly BoundedQueue<TrainingBatch> queue;
         private readonly int nMapsPerBatch;
         private readonly int mapSamples;
         private readonly int3 dim;
         private readonly int3 dim2;
         private readonly Random rand;
 
-        public BatchPreparationWorker(ProcessingContext context, Options options, ConcurrentTrainingQueue queue, int seed)
+        public BatchPreparationWorker(ProcessingContext context, Options options, BoundedQueue<TrainingBatch> queue, int seed)
         {
             this.context = context;
             this.options = options;
@@ -85,6 +86,9 @@ namespace Noise2Map
                     ExtractedTargetRand = extractedTargetRand,
                     ExtractedCTFRand = extractedCTFRand
                 };
+
+                // Check cancellation before attempting to enqueue
+                cancellationToken.ThrowIfCancellationRequested();
 
                 queue.Enqueue(batch, cancellationToken);
             }

@@ -17,7 +17,6 @@ namespace Noise2Map
         // Preprocessing metadata
         public float PixelSize { get; set; }
         public float2 MeanStd { get; set; }
-        public int3 OriginalDims { get; set; }
         public int3 CropBox { get; set; }
 
         // For spectral flattening
@@ -25,8 +24,5 @@ namespace Noise2Map
 
         // CTF path
         public string CTFPath { get; set; }
-
-        // Denoising metadata
-        public bool IsForDenoising { get; set; }
     }
 }

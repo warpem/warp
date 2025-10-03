@@ -49,86 +49,15 @@ namespace Noise2Map
         }
 
         /// <summary>
-        /// Denoises all prepared maps and saves the results
+        /// Denoises all maps using streaming pipeline
         /// </summary>
         public void DenoiseAll()
         {
-            // Use streaming pipeline if mapInfoList is available (memory-efficient)
-            if (mapInfoList != null && mapInfoList.Count > 0)
-            {
-                var pipeline = new DenoisingPipeline(mapInfoList, options, context, model);
-                pipeline.ProcessAll();
-                return;
-            }
+            if (mapInfoList == null || mapInfoList.Count == 0)
+                throw new Exception("No map information available for denoising. MapFileInfo list is required.");
 
-            // Legacy path: denoise from pre-loaded maps
-            Directory.CreateDirectory(Path.Combine(context.WorkingDirectory, "denoised"));
-
-            GPU.SetDevice(options.GPUPreprocess);
-
-            for (int imap = 0; imap < context.MapsForDenoising.Count; imap++)
-            {
-                DenoiseMap(imap);
-
-                if (options.DenoiseSeparately)
-                {
-                    DenoiseMap2(imap);
-                }
-            }
-
-            Console.WriteLine("\nAll done!");
-        }
-
-        private void DenoiseMap(int imap)
-        {
-            Console.Write($"Denoising {context.NamesForDenoising[imap]}... ");
-
-            Image map1 = context.MapsForDenoising[imap];
-            NoiseNet3DTorch.Denoise(map1, new NoiseNet3DTorch[] { model });
-
-            float2 meanStd = context.MeanStdForDenoising[imap];
-            map1.TransformValues(v => v * meanStd.Y + meanStd.X);
-
-            map1.PixelSize = context.PixelSizeForDenoising[imap];
-
-            ApplyMask(map1);
-
-            string savePath = Path.Combine(context.WorkingDirectory, "denoised",
-                                          context.NamesForDenoising[imap] + (options.DenoiseSeparately ? "_1" : "") + ".mrc");
-            map1.WriteMRC16b(savePath, true);
-            map1.Dispose();
-
-            Console.WriteLine("Done. Saved to " + savePath);
-        }
-
-        private void DenoiseMap2(int imap)
-        {
-            Console.Write($"Denoising {context.NamesForDenoising[imap]} (2nd observation)... ");
-
-            Image map2 = context.MapsForDenoising2[imap];
-            NoiseNet3DTorch.Denoise(map2, new NoiseNet3DTorch[] { model });
-
-            float2 meanStd = context.MeanStdForDenoising[imap];
-            map2.TransformValues(v => v * meanStd.Y + meanStd.X);
-
-            map2.PixelSize = context.PixelSizeForDenoising[imap];
-
-            ApplyMask(map2);
-
-            string savePath = Path.Combine(context.WorkingDirectory, "denoised",
-                                          context.NamesForDenoising[imap] + "_2.mrc");
-            map2.WriteMRC16b(savePath, true);
-            map2.Dispose();
-
-            Console.WriteLine("Done. Saved to " + savePath);
-        }
-
-        private void ApplyMask(Image map)
-        {
-            if (options.MaskOutput)
-                map.Multiply(context.Mask);
-            else if (context.Mask != null && !options.DontKeepDimensions)
-                map.MaskSpherically(map.Dims.X - 32, 16, true);
+            var pipeline = new DenoisingPipeline(mapInfoList, options, context, model);
+            pipeline.ProcessAll();
         }
 
         public void Dispose()

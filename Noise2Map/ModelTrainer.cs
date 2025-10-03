@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Warp;
 using Warp.Tools;
+using Warp.Tools.Async;
 
 namespace Noise2Map
 {
@@ -15,12 +15,12 @@ namespace Noise2Map
     {
         private readonly ProcessingContext context;
         private readonly Options options;
-        private readonly ConcurrentTrainingQueue batchQueue;
+        private readonly BoundedQueue<TrainingBatch> batchQueue;
         private NoiseNet3DTorch trainModel;
 
         public string TrainedModelName { get; private set; }
 
-        public ModelTrainer(ProcessingContext context, Options options, ConcurrentTrainingQueue batchQueue = null)
+        public ModelTrainer(ProcessingContext context, Options options, BoundedQueue<TrainingBatch> batchQueue = null)
         {
             this.context = context;
             this.options = options;
@@ -48,9 +48,10 @@ namespace Noise2Map
 
         private void AdjustIterations()
         {
-            if (options.BatchSize != 4 || context.Maps1.Count > 1)
+            int mapCount = context.MapPool?.CurrentPoolSize ?? 1;
+            if (options.BatchSize != 4 || mapCount > 1)
             {
-                options.NIterations = options.NIterations * 4 / options.BatchSize / Math.Min(8, context.Maps1.Count);
+                options.NIterations = options.NIterations * 4 / options.BatchSize / Math.Min(8, mapCount);
                 Console.WriteLine($"Adjusting the number of iterations to {options.NIterations} to match batch size and number of maps.\n");
             }
         }
@@ -96,14 +97,14 @@ namespace Noise2Map
             GPU.SetDevice(options.GPUPreprocess);
 
             Random rand = new Random(123);
-            int nMapsPerBatch = Math.Min(8, context.Maps1.Count);
             int mapSamples = options.BatchSize;
 
-            foreach (var item in context.MapCTFs)
-                item.GetDevice(Intent.Read);
-
-            Stopwatch watch = new Stopwatch();
-            watch.Start();
+            // Progress tracking
+            ProgressTracker progressTracker = new ProgressTracker(
+                totalItems: options.NIterations,
+                warmupItems: 5,
+                emaAlpha: 0.01,
+                clearLine: true);
 
             Queue<float> losses = new Queue<float>();
             Image predictedData = null;
@@ -111,7 +112,6 @@ namespace Noise2Map
 
             int iter = 0;
             int iterFine = 0;
-            double smoothedIterTime = 0;
 
             while (iter < options.NIterations)
             {
@@ -125,18 +125,18 @@ namespace Noise2Map
                     double currentLearningRate = CalculateLearningRate(iter, iterFine);
 
                     TrainBatch(batch.ShuffledMapIDs, batch.ExtractedSourceRand, batch.ExtractedTargetRand, batch.ExtractedCTFRand,
-                              currentLearningRate, rand, mapSamples, losses, ref predictedData, ref loss, ref iterFine, nMapsPerBatch);
-
-                    double iterTime = watch.Elapsed.TotalSeconds;
-                    smoothedIterTime = UpdateSmoothedIterTime(smoothedIterTime, iterTime, iter);
-
-                    PrintProgress(iter, smoothedIterTime, losses, currentLearningRate);
+                              currentLearningRate, rand, mapSamples, losses, ref predictedData, ref loss, ref iterFine);
 
                     if (float.IsNaN(loss[0]) || float.IsInfinity(loss[0]))
                         throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
 
                     GPU.CheckGPUExceptions();
-                    watch.Restart();
+
+                    // Update progress with training stats
+                    string statsMessage = $"log(loss) = {Math.Log(MathHelper.Mean(losses)):F4}, " +
+                                         $"lr = {currentLearningRate:F6}, " +
+                                         $"{GPU.GetFreeMemory(options.GPUNetwork.First())} MB free";
+                    progressTracker.Update(statsMessage);
 
                     iter++;
 
@@ -150,31 +150,7 @@ namespace Noise2Map
                 }
             }
 
-            watch.Stop();
-        }
-
-        private double UpdateSmoothedIterTime(double previousSmoothed, double currentIterTime, int iter)
-        {
-            // Skip first 5 iterations (PyTorch warmup/optimization phase)
-            const int warmupIters = 5;
-
-            if (iter < warmupIters)
-            {
-                // During warmup, return current time but don't use for estimation
-                return currentIterTime;
-            }
-            else if (iter < warmupIters + 10)
-            {
-                // After warmup: use running average for quick convergence
-                int effectiveIter = iter - warmupIters;
-                return (previousSmoothed * effectiveIter + currentIterTime) / (effectiveIter + 1);
-            }
-            else
-            {
-                // Exponential moving average: smoothed = alpha * current + (1 - alpha) * previous
-                double alpha = 0.01;
-                return alpha * currentIterTime + (1 - alpha) * previousSmoothed;
-            }
+            progressTracker.Complete();
         }
 
         private double CalculateLearningRate(int iter, int iterFine)
@@ -191,7 +167,7 @@ namespace Noise2Map
 
         private void TrainBatch(int[] shuffledMapIDs, Image[] extractedSourceRand, Image[] extractedTargetRand, Image[] extractedCTFRand,
                                double currentLearningRate, Random rand, int mapSamples, Queue<float> losses,
-                               ref Image predictedData, ref float[] loss, ref int iterFine, int nMapsPerBatch)
+                               ref Image predictedData, ref float[] loss, ref int iterFine)
         {
             Image noiseMask = new Image(IntPtr.Zero, extractedSourceRand[0].Dims);
 
@@ -228,31 +204,6 @@ namespace Noise2Map
             }
 
             noiseMask.Dispose();
-        }
-
-        private void PrintProgress(int iter, double smoothedIterTime, Queue<float> losses, double currentLearningRate)
-        {
-            int remainingIters = options.NIterations - 1 - iter;
-            double totalSecondsRemaining = smoothedIterTime * remainingIters;
-            TimeSpan timeRemaining = TimeSpan.FromSeconds(totalSecondsRemaining);
-
-            string toWrite = $"{iter + 1}/{options.NIterations}, " +
-                            (timeRemaining.Days > 0 ? (timeRemaining.Days + " days ") : "") +
-                            $"{timeRemaining.Hours}:{timeRemaining.Minutes:D2}:{timeRemaining.Seconds:D2} remaining, " +
-                            $"log(loss) = {Math.Log(MathHelper.Mean(losses)).ToString("F4")}, " +
-                            $"lr = {currentLearningRate:F6}, " +
-                            $"{GPU.GetFreeMemory(options.GPUNetwork.First())} MB free";
-
-            try
-            {
-                VirtualConsole.ClearLastLine();
-                Console.Write(toWrite);
-            }
-            catch
-            {
-                // When we're outputting to a text file when launched on HPC cluster
-                Console.WriteLine(toWrite);
-            }
         }
 
         private void SaveModel()
