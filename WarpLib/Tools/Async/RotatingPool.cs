@@ -19,13 +19,7 @@ namespace Warp.Tools.Async
     {
         public delegate TItem LoadFunc(TMetadata metadata, CancellationToken ct);
 
-        private class LoadedEntry
-        {
-            public int MetadataIndex { get; set; }
-            public TItem Item { get; set; }
-        }
-
-        private class PreloadedEntry
+        private class PoolEntry
         {
             public int MetadataIndex { get; set; }
             public TItem Item { get; set; }
@@ -36,13 +30,14 @@ namespace Warp.Tools.Async
         private readonly LoadFunc loadFunction;
         private readonly int gpuDevice;
 
-        private readonly LoadedEntry[] loadedPool;
+        private readonly PoolEntry[] loadedPool;
         private readonly Queue<int> loadOrder; // FIFO queue of pool slot indices
         private readonly object poolLock = new object();
         private readonly Random rand = new Random(123);
 
         // Background preloader
-        private readonly BoundedQueue<PreloadedEntry> preloadedQueue;
+        private readonly BoundedQueue<PoolEntry> preloadedQueue;
+        private readonly HashSet<int> preloadingIndices = new HashSet<int>(); // Track what's currently being preloaded
         private readonly CancellationTokenSource preloaderCancellation;
         private readonly System.Threading.Tasks.Task preloaderTask;
 
@@ -66,14 +61,14 @@ namespace Warp.Tools.Async
             this.loadFunction = loadFunction;
             this.gpuDevice = gpuDevice;
 
-            this.loadedPool = new LoadedEntry[this.maxLoaded];
+            this.loadedPool = new PoolEntry[this.maxLoaded];
             this.loadOrder = new Queue<int>();
 
             // Load initial pool
             Console.Write($"Loading initial pool ({this.maxLoaded} items)");
             for (int i = 0; i < this.maxLoaded; i++)
             {
-                loadedPool[i] = new LoadedEntry
+                loadedPool[i] = new PoolEntry
                 {
                     MetadataIndex = i,
                     Item = loadFunction(allMetadata[i], CancellationToken.None)
@@ -87,7 +82,7 @@ namespace Warp.Tools.Async
             Console.WriteLine($" Done.");
 
             // Start background preloader
-            preloadedQueue = new BoundedQueue<PreloadedEntry>(preloadCapacity);
+            preloadedQueue = new BoundedQueue<PoolEntry>(preloadCapacity);
             preloaderCancellation = new CancellationTokenSource();
             preloaderTask = System.Threading.Tasks.Task.Run(() => PreloaderThread());
         }
@@ -128,7 +123,7 @@ namespace Warp.Tools.Async
                 return;
 
             // Try non-blocking get of preloaded item
-            if (!preloadedQueue.TryDequeue(out PreloadedEntry newEntry))
+            if (!preloadedQueue.TryDequeue(out PoolEntry newEntry))
             {
                 // No preloaded item ready, skip rotation to avoid blocking
                 return;
@@ -136,19 +131,18 @@ namespace Warp.Tools.Async
 
             lock (poolLock)
             {
+                // Remove from preloading set now that we've dequeued it
+                preloadingIndices.Remove(newEntry.MetadataIndex);
+
                 // Get oldest slot
                 int oldestSlot = loadOrder.Dequeue();
-                LoadedEntry oldEntry = loadedPool[oldestSlot];
+                PoolEntry oldEntry = loadedPool[oldestSlot];
 
                 // Dispose old item
                 oldEntry.Item?.Dispose();
 
                 // Instant swap with preloaded
-                loadedPool[oldestSlot] = new LoadedEntry
-                {
-                    MetadataIndex = newEntry.MetadataIndex,
-                    Item = newEntry.Item
-                };
+                loadedPool[oldestSlot] = newEntry;
 
                 // Re-enqueue as newest
                 loadOrder.Enqueue(oldestSlot);
@@ -187,11 +181,17 @@ namespace Warp.Tools.Async
                     // Load item
                     TItem item = loadFunction(allMetadata[metadataIndex], preloaderCancellation.Token);
 
-                    var entry = new PreloadedEntry
+                    var entry = new PoolEntry
                     {
                         MetadataIndex = metadataIndex,
                         Item = item
                     };
+
+                    // Add to preloading set before enqueueing
+                    lock (poolLock)
+                    {
+                        preloadingIndices.Add(metadataIndex);
+                    }
 
                     // This blocks if preload queue is full
                     preloadedQueue.Enqueue(entry, preloaderCancellation.Token);
@@ -214,21 +214,11 @@ namespace Warp.Tools.Async
                 // Get set of currently loaded indices
                 var loadedIndices = loadedPool.Select(e => e.MetadataIndex).ToHashSet();
 
-                // Get set of preloaded indices
-                var preloadedIndices = new HashSet<int>();
-                PreloadedEntry temp;
-                while (preloadedQueue.TryDequeue(out temp, timeoutMs: 0))
-                {
-                    preloadedIndices.Add(temp.MetadataIndex);
-                    // Re-add for later consumption
-                    preloadedQueue.TryEnqueue(temp, timeoutMs: 0);
-                }
-
-                // Find available indices
+                // Find available indices (not loaded and not currently being preloaded)
                 var availableIndices = new List<int>();
                 for (int i = 0; i < allMetadata.Count; i++)
                 {
-                    if (!loadedIndices.Contains(i) && !preloadedIndices.Contains(i))
+                    if (!loadedIndices.Contains(i) && !preloadingIndices.Contains(i))
                         availableIndices.Add(i);
                 }
 
