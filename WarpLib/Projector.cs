@@ -51,7 +51,7 @@ namespace Warp
 
             float[] Continuous = data.GetHostContinuousCopy();
             float2 Stats = MathHelper.MeanAndStd(Continuous);
-            Console.WriteLine("Continuous: " + Stats);
+            //Console.WriteLine("Continuous: " + Stats);
 
             IntPtr Initialized = CPU.HostMalloc((long)(DimsOversampled.X / 2 + 1) * DimsOversampled.Y * DimsOversampled.Z * 2);
 

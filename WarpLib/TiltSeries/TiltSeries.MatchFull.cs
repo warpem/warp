@@ -821,8 +821,8 @@ public partial class TiltSeries
 
                 TiltData[z].Normalize();
 
-                float2 Stats = MathHelper.MeanAndStd(TiltData[z].GetHost(Intent.Read)[0]);
-                Console.WriteLine($"Tilt {z}: {Stats.X} +- {Stats.Y}");
+                //float2 Stats = MathHelper.MeanAndStd(TiltData[z].GetHost(Intent.Read)[0]);
+                //Console.WriteLine($"Tilt {z}: {Stats.X} +- {Stats.Y}");
             }
             GPU.CheckGPUExceptions();
 
@@ -840,7 +840,7 @@ public partial class TiltSeries
                 Console.WriteLine($"Template stats: {Stats.X} +- {Stats.Y}");
             }
 
-            Projector Projector = new Projector(TemplateScaled, 2);
+            Projector Projector = new Projector(TemplateScaled, 2, true);
             TemplateScaled.Dispose();
             GPU.CheckGPUExceptions();
 
