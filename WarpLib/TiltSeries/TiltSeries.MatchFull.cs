@@ -834,9 +834,21 @@ public partial class TiltSeries
                                        template.AsScaled(new int3(SizeRegion)) : 
                                        template.GetCopy();
 
+            {
+                float2 Stats = MathHelper.MeanAndStd(TemplateScaled.GetHost(Intent.Read));
+                Console.WriteLine($"Template dims: {TemplateScaled.Dims}");
+                Console.WriteLine($"Template stats: {Stats.X} +- {Stats.Y}");
+            }
+
             Projector Projector = new Projector(TemplateScaled, 2);
             TemplateScaled.Dispose();
             GPU.CheckGPUExceptions();
+
+            {
+                using Image Proj = Projector.ProjectToRealspace(new int2(TemplateScaled.Dims.X), [new float3(0, 0, 0)]);
+                float2 Stats = MathHelper.MeanAndStd(Proj.GetHost(Intent.Read));
+                Console.WriteLine($"Proj stats: {Stats.X} +- {Stats.Y}");
+            }
 
             #endregion
             
@@ -930,7 +942,7 @@ public partial class TiltSeries
                                           null,
                                           t,
                                           CTFs);
-                        //References.Multiply(CTFs);
+                        References.Multiply(CTFs);
                         GPU.CheckGPUExceptions();
 
                         GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
@@ -967,12 +979,12 @@ public partial class TiltSeries
                         //    Console.WriteLine($"{Stats.X} +- {Stats.Y}");
                         //}
 
-                        Console.WriteLine($"ReferencesIFT stats:");
-                        foreach (var layer in ReferencesIFT.GetHost(Intent.Read))
-                        {
-                            float2 Stats = MathHelper.MeanAndStd(layer);
-                            Console.WriteLine($"{Stats.X} +- {Stats.Y}");
-                        }
+                        //Console.WriteLine($"ReferencesIFT stats:");
+                        //foreach (var layer in ReferencesIFT.GetHost(Intent.Read))
+                        //{
+                        //    float2 Stats = MathHelper.MeanAndStd(layer);
+                        //    Console.WriteLine($"{Stats.X} +- {Stats.Y}");
+                        //}
 
                         Images.Multiply(ReferencesIFT);
                         using var Sums = Images.AsSum2D();
