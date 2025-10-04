@@ -10,6 +10,7 @@ using MathNet.Numerics.Statistics;
 using SkiaSharp;
 using Warp.Tools;
 using ZLinq;
+using IOPath = System.IO.Path;
 
 namespace Warp;
 
@@ -813,12 +814,15 @@ public partial class TiltSeries
                 //TiltData[z].WriteMRC("d_tiltdata.mrc", true);
                 TiltData[z].Bandpass(1f / (SizeRegion / 2), 1f, false, 1f / (SizeRegion / 2));
                 TiltData[z] = TiltData[z].AsPadded(new int2(TiltData[z].Dims) / 2).AndDisposeParent();
-                //TiltData[z].WriteMRC("d_tiltdatabp.mrc", true);
+                //TiltData[z].WriteMRC(IOPath.Combine(IOPath.GetDirectoryName(Path), $"d_tiltdatabp_{RootName}_{z}.mrc"), true);
 
                 if (!options.DontInvert)
                     TiltData[z].Multiply(-1f);
 
                 TiltData[z].Normalize();
+
+                float2 Stats = MathHelper.MeanAndStd(TiltData[z].GetHost(Intent.Read)[0]);
+                Console.WriteLine($"Tilt {z}: {Stats.X} +- {Stats.Y}");
             }
             GPU.CheckGPUExceptions();
 
@@ -955,6 +959,20 @@ public partial class TiltSeries
 
                         using Image ReferencesIFT = References.AsIFFT(false, PlanBackParticles);
                         ReferencesIFT.Normalize();
+
+                        Console.WriteLine($"Images stats:");
+                        foreach (var layer in Images.GetHost(Intent.Read))
+                        {
+                            float2 Stats = MathHelper.MeanAndStd(layer);
+                            Console.WriteLine($"{Stats.X} +- {Stats.Y}");
+                        }
+
+                        Console.WriteLine($"ReferencesIFT stats:");
+                        foreach (var layer in ReferencesIFT.GetHost(Intent.Read))
+                        {
+                            float2 Stats = MathHelper.MeanAndStd(layer);
+                            Console.WriteLine($"{Stats.X} +- {Stats.Y}");
+                        }
 
                         Images.Multiply(ReferencesIFT);
                         using var Sums = Images.AsSum2D();
