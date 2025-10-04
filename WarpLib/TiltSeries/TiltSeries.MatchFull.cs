@@ -930,7 +930,7 @@ public partial class TiltSeries
                                           null,
                                           t,
                                           CTFs);
-                        References.Multiply(CTFs);
+                        //References.Multiply(CTFs);
                         GPU.CheckGPUExceptions();
 
                         GetCTFsForOneTilt((float)options.BinnedPixelSizeMean,
@@ -960,12 +960,12 @@ public partial class TiltSeries
                         using Image ReferencesIFT = References.AsIFFT(false, PlanBackParticles);
                         ReferencesIFT.Normalize();
 
-                        Console.WriteLine($"Images stats:");
-                        foreach (var layer in Images.GetHost(Intent.Read))
-                        {
-                            float2 Stats = MathHelper.MeanAndStd(layer);
-                            Console.WriteLine($"{Stats.X} +- {Stats.Y}");
-                        }
+                        //Console.WriteLine($"Images stats:");
+                        //foreach (var layer in Images.GetHost(Intent.Read))
+                        //{
+                        //    float2 Stats = MathHelper.MeanAndStd(layer);
+                        //    Console.WriteLine($"{Stats.X} +- {Stats.Y}");
+                        //}
 
                         Console.WriteLine($"ReferencesIFT stats:");
                         foreach (var layer in ReferencesIFT.GetHost(Intent.Read))
