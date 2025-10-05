@@ -159,6 +159,18 @@ namespace Warp.Tools.Async
         /// </summary>
         public int TotalCount => allMetadata.Count;
 
+        /// <summary>
+        /// Adds new metadata to the pool (for dynamic expansion during online mode).
+        /// Thread-safe.
+        /// </summary>
+        public void AddMetadata(TMetadata metadata)
+        {
+            lock (poolLock)
+            {
+                allMetadata.Add(metadata);
+            }
+        }
+
         private void PreloaderThread()
         {
             try

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Warp;
 using Warp.Tools;
 using Warp.Tools.Async;
@@ -17,6 +18,7 @@ namespace Noise2Map
         private readonly Options options;
         private readonly BoundedQueue<TrainingBatch> batchQueue;
         private NoiseNet3DTorch trainModel;
+        private CancellationToken cancellationToken;
 
         public string TrainedModelName { get; private set; }
 
@@ -30,8 +32,10 @@ namespace Noise2Map
         /// <summary>
         /// Trains a new model or loads an existing one
         /// </summary>
-        public void Train()
+        public void Train(CancellationToken cancellationToken = default)
         {
+            this.cancellationToken = cancellationToken;
+
             if (!string.IsNullOrEmpty(options.OldModelName))
             {
                 TrainedModelName = options.OldModelName;
@@ -41,7 +45,17 @@ namespace Noise2Map
             AdjustIterations();
             LoadOrCreateModel();
             RunTrainingLoop();
-            SaveModel();
+
+            // Save model if not in online mode, or if cancelled in online mode
+            if (!options.OnlineMode)
+            {
+                SaveModel();
+            }
+            else if (cancellationToken.IsCancellationRequested)
+            {
+                Console.WriteLine("\nShutdown requested. Saving final model...");
+                SaveModelSafe();
+            }
 
             Console.WriteLine("\nDone training!\n");
         }
@@ -99,7 +113,7 @@ namespace Noise2Map
             Random rand = new Random(123);
             int mapSamples = options.BatchSize;
 
-            // Progress tracking
+            // Progress tracking - start with finite progress for LR convergence
             ProgressTracker progressTracker = new ProgressTracker(
                 totalItems: options.NIterations,
                 warmupItems: 5,
@@ -112,13 +126,16 @@ namespace Noise2Map
 
             int iter = 0;
             int iterFine = 0;
+            DateTime lastSave = DateTime.Now;
+            bool hasTransitionedToOnlineMode = false;
 
-            while (iter < options.NIterations)
+            // In online mode, run indefinitely; otherwise stop at NIterations
+            while ((options.OnlineMode || iter < options.NIterations) && !cancellationToken.IsCancellationRequested)
             {
                 // Dequeue a prepared batch from the queue
                 TrainingBatch batch = batchQueue.Dequeue();
-                if (batch == null)
-                    break;  // No more batches available
+                if (batch == null || cancellationToken.IsCancellationRequested)
+                    break;  // No more batches available or shutdown requested
 
                 try
                 {
@@ -132,16 +149,41 @@ namespace Noise2Map
 
                     GPU.CheckGPUExceptions();
 
+                    iter++;
+
+                    // Transition to indefinite online mode display after LR convergence
+                    if (options.OnlineMode && iter >= options.NIterations && !hasTransitionedToOnlineMode)
+                    {
+                        progressTracker.Complete();
+                        Console.WriteLine("\nLearning rate converged. Continuing online training indefinitely...\n");
+                        hasTransitionedToOnlineMode = true;
+                    }
+
                     // Update progress with training stats
+                    int totalMaps = context.MapPool?.TotalMapCount ?? 0;
                     string statsMessage = $"log(loss) = {Math.Log(MathHelper.Mean(losses)):F4}, " +
                                          $"lr = {currentLearningRate:F6}, " +
-                                         $"{GPU.GetFreeMemory(options.GPUNetwork.First())} MB free";
-                    progressTracker.Update(statsMessage);
+                                         $"{GPU.GetFreeMemory(options.GPUNetwork.First())} MB free" +
+                                         (options.OnlineMode ? $", {totalMaps} maps" : "");
 
-                    iter++;
+                    if (!hasTransitionedToOnlineMode)
+                    {
+                        progressTracker.Update(statsMessage);
+                    }
+                    else if (iter % 10 == 0)
+                    {
+                        Console.Write($"\rIter {iter}: {statsMessage}");
+                    }
 
                     // Rotate maps in pool to prevent overfitting
                     context.MapPool?.RotateOldest();
+
+                    // Periodic model saving in online mode
+                    if (options.OnlineMode && (DateTime.Now - lastSave).TotalMinutes >= options.SaveIntervalMinutes)
+                    {
+                        SaveModelSafe();
+                        lastSave = DateTime.Now;
+                    }
                 }
                 finally
                 {
@@ -150,14 +192,25 @@ namespace Noise2Map
                 }
             }
 
-            progressTracker.Complete();
+            if (!hasTransitionedToOnlineMode)
+                progressTracker.Complete();
         }
 
         private double CalculateLearningRate(int iter, int iterFine)
         {
-            double currentLearningRate = MathHelper.Lerp((float)options.LearningRateStart,
-                                                         (float)options.LearningRateFinish,
-                                                         iter / (float)options.NIterations);
+            double currentLearningRate;
+
+            // In online mode, freeze LR after convergence iterations
+            if (options.OnlineMode && iter >= options.NIterations)
+            {
+                currentLearningRate = options.LearningRateFinish;
+            }
+            else
+            {
+                currentLearningRate = MathHelper.Lerp((float)options.LearningRateStart,
+                                                     (float)options.LearningRateFinish,
+                                                     Math.Min(1.0f, iter / (float)options.NIterations));
+            }
 
             if (iterFine < 100)
                 currentLearningRate = MathHelper.Lerp(0, (float)currentLearningRate, iterFine / 99f);
@@ -211,7 +264,29 @@ namespace Noise2Map
             TrainedModelName = "NoiseNet3D_" + (!string.IsNullOrEmpty(options.StartModelName) ? (options.StartModelName + "_") : "") +
                               DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pt";
             trainModel.Save(Path.Combine(context.WorkingDirectory, TrainedModelName));
-            trainModel.Dispose();
+
+            if (!options.OnlineMode)
+                trainModel.Dispose();
+        }
+
+        /// <summary>
+        /// Saves model safely for online mode (temp file + atomic rename)
+        /// </summary>
+        private void SaveModelSafe()
+        {
+            string modelName = "NoiseNet3D_" + (!string.IsNullOrEmpty(options.StartModelName) ? (options.StartModelName + "_") : "") +
+                              DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pt";
+            string modelPath = Path.Combine(context.WorkingDirectory, modelName);
+            string tempPath = modelPath + ".tmp";
+
+            // Save to temp file first
+            trainModel.Save(tempPath);
+
+            // Atomic rename (safe for consumer to read)
+            File.Move(tempPath, modelPath, overwrite: true);
+
+            Console.WriteLine($"\nSaved model: {modelName}");
+            TrainedModelName = modelName;
         }
 
         public void Dispose()

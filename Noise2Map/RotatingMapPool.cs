@@ -37,6 +37,8 @@ namespace Noise2Map
         private readonly Options options;
         private readonly ProcessingContext context;
         private readonly RotatingPool<LoadedMapData, MapFileInfo> pool;
+        private readonly Queue<MapFileInfo> pendingMaps = new Queue<MapFileInfo>();
+        private readonly object pendingLock = new object();
 
         public int TotalMapCount => pool.TotalCount;
         public int CurrentPoolSize => pool.LoadedCount;
@@ -223,6 +225,44 @@ namespace Noise2Map
             map1 = data.Map1;
             map2 = data.Map2;
             mapCTF = data.MapCTF;
+        }
+
+        /// <summary>
+        /// Adds a new map to the pending queue for online mode. Thread-safe.
+        /// </summary>
+        public void AddNewMap(MapFileInfo mapInfo)
+        {
+            lock (pendingLock)
+            {
+                pendingMaps.Enqueue(mapInfo);
+            }
+
+            ProcessPendingMaps();
+        }
+
+        /// <summary>
+        /// Processes pending maps and adds them to the pool's metadata list
+        /// </summary>
+        private void ProcessPendingMaps()
+        {
+            lock (pendingLock)
+            {
+                while (pendingMaps.Count > 0)
+                {
+                    MapFileInfo newMap = pendingMaps.Dequeue();
+
+                    // Check for duplicates (by map name)
+                    if (allMapInfo.Any(m => m.MapName == newMap.MapName))
+                    {
+                        Console.WriteLine($"Skipping duplicate map: {newMap.MapName}");
+                        continue;
+                    }
+
+                    // Add to pool metadata (allMapInfo and pool.allMetadata share the same list reference)
+                    pool.AddMetadata(newMap);
+                    Console.WriteLine($"Added new map to pool: {newMap.MapName} (Total: {TotalMapCount})");
+                }
+            }
         }
 
         public void Dispose()

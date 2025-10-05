@@ -8,11 +8,21 @@ namespace Noise2Map
 {
     class Noise2Map
     {
+        private static System.Threading.CancellationTokenSource shutdownTokenSource = new System.Threading.CancellationTokenSource();
+
         static void Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
             VirtualConsole.AttachToConsole();
+
+            // Set up graceful shutdown handler
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                e.Cancel = true;  // Prevent immediate termination
+                Console.WriteLine("\n\nShutdown signal received. Finishing current batch and saving model...");
+                shutdownTokenSource.Cancel();
+            };
 
             // Parse and validate configuration
             if (!ConfigurationManager.ParseAndValidate(args, out Options options))
@@ -41,25 +51,58 @@ namespace Noise2Map
 
                 // Prepare map metadata and create rotating pool
                 List<MapFileInfo> mapInfo = DataPreparator.PrepareMapMetadata(context, options);
+
+                // In online mode, wait for at least 1 map pair before starting
+                if (options.OnlineMode && mapInfo.Count == 0)
+                {
+                    Console.WriteLine("Online mode: Waiting for at least 1 map pair to appear...");
+                    while (mapInfo.Count == 0)
+                    {
+                        System.Threading.Thread.Sleep(5000);
+                        mapInfo = DataPreparator.PrepareMapMetadata(context, options);
+                    }
+                    Console.WriteLine($"Found {mapInfo.Count} map pair(s). Starting training...\n");
+                }
+
                 context.MapPool = new RotatingMapPool(mapInfo, options.MaxLoadedMaps, options, context);
 
-                // Train model (or load existing)
-                string trainedModelName;
-                if (!string.IsNullOrEmpty(options.OldModelName))
+                // Set up file watcher for online mode
+                MapFileWatcher watcher = null;
+                if (options.OnlineMode)
                 {
-                    trainedModelName = options.OldModelName;
-                }
-                else
-                {
-                    var coordinator = new TrainingCoordinator(context, options);
-                    trainedModelName = coordinator.RunConcurrentTraining(numPreparationThreads: 3, queueCapacity: 6);
+                    watcher = new MapFileWatcher(context, options, context.MapPool);
                 }
 
-                // Denoise maps (using streaming pipeline for memory efficiency)
-                var denoiser = new Denoiser(context, options, mapInfo);
-                denoiser.LoadModel(trainedModelName);
-                denoiser.DenoiseAll();
-                denoiser.Dispose();
+                try
+                {
+                    // Train model (or load existing)
+                    string trainedModelName;
+                    if (!string.IsNullOrEmpty(options.OldModelName))
+                    {
+                        trainedModelName = options.OldModelName;
+                    }
+                    else
+                    {
+                        var coordinator = new TrainingCoordinator(context, options);
+                        trainedModelName = coordinator.RunConcurrentTraining(
+                            numPreparationThreads: 1,
+                            queueCapacity: 6,
+                            externalCancellationToken: shutdownTokenSource.Token);
+                    }
+
+                    // Denoise maps (skip in online mode)
+                    if (!options.OnlineMode)
+                    {
+                        var denoiser = new Denoiser(context, options, mapInfo);
+                        denoiser.LoadModel(trainedModelName);
+                        denoiser.DenoiseAll();
+                        denoiser.Dispose();
+                    }
+                }
+                finally
+                {
+                    watcher?.Dispose();
+                }
             }
             finally
             {

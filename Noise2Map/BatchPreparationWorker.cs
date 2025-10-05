@@ -175,9 +175,9 @@ namespace Noise2Map
         {
             if (options.DontAugment)
                 return Helper.ArrayOfFunction(i => new float3(
-                    (float)Math.Round(rand.NextDouble()) * 0,
-                    (float)Math.Round(rand.NextDouble()) * 0,
-                    (float)Math.Round(rand.NextDouble()) * 0) * Helper.ToRad, mapSamples);
+                    rand.Next(2) * 180,
+                    rand.Next(2) * 180,
+                    rand.Next(2) * 180) * Helper.ToRad, mapSamples);
             else
                 return Helper.ArrayOfFunction(i => new float3(
                     (float)rand.NextDouble() * 360,

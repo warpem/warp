@@ -26,22 +26,26 @@ namespace Noise2Map
         /// </summary>
         /// <param name="numPreparationThreads">Number of threads to use for preparing batches</param>
         /// <param name="queueCapacity">Maximum number of batches to buffer in queue</param>
+        /// <param name="externalCancellationToken">Optional external cancellation token for graceful shutdown</param>
         /// <returns>The name of the trained model</returns>
-        public string RunConcurrentTraining(int numPreparationThreads = 3, int queueCapacity = 6)
+        public string RunConcurrentTraining(int numPreparationThreads = 1, int queueCapacity = 6, CancellationToken externalCancellationToken = default)
         {
             using (var batchQueue = new BoundedQueue<TrainingBatch>(queueCapacity))
             {
-                var cancellationSource = new CancellationTokenSource();
+                var cancellationSource = CancellationTokenSource.CreateLinkedTokenSource(externalCancellationToken);
 
                 // Start preparation worker threads
                 var preparationTasks = StartPreparationWorkers(batchQueue, numPreparationThreads, cancellationSource);
 
-                // Signal completion when all preparation threads are done
-                Task.Run(async () =>
+                // Signal completion when all preparation threads are done (only in non-online mode)
+                if (!options.OnlineMode)
                 {
-                    await Task.WhenAll(preparationTasks);
-                    batchQueue.CompleteAdding();
-                });
+                    Task.Run(async () =>
+                    {
+                        await Task.WhenAll(preparationTasks);
+                        batchQueue.CompleteAdding();
+                    });
+                }
 
                 // Train on prepared batches (runs on main thread)
                 var trainer = new ModelTrainer(context, options, batchQueue);
@@ -49,7 +53,7 @@ namespace Noise2Map
 
                 try
                 {
-                    trainer.Train();
+                    trainer.Train(cancellationSource.Token);
                     trainedModelName = trainer.TrainedModelName;
                 }
                 finally
@@ -78,14 +82,28 @@ namespace Noise2Map
                 {
                     try
                     {
-                        int batchesPerThread = options.NIterations / numThreads;
-                        int extraBatches = options.NIterations % numThreads;
-                        int batchesToPrepare = batchesPerThread + (threadId < extraBatches ? 1 : 0);
-
-                        for (int iter = 0; iter < batchesToPrepare; iter++)
+                        if (options.OnlineMode)
                         {
-                            cancellationSource.Token.ThrowIfCancellationRequested();
-                            worker.PrepareBatch(iter, cancellationSource.Token);
+                            // In online mode, run indefinitely
+                            int iter = 0;
+                            while (!cancellationSource.Token.IsCancellationRequested)
+                            {
+                                worker.PrepareBatch(iter, cancellationSource.Token);
+                                iter++;
+                            }
+                        }
+                        else
+                        {
+                            // Standard mode: prepare fixed number of batches
+                            int batchesPerThread = options.NIterations / numThreads;
+                            int extraBatches = options.NIterations % numThreads;
+                            int batchesToPrepare = batchesPerThread + (threadId < extraBatches ? 1 : 0);
+
+                            for (int iter = 0; iter < batchesToPrepare; iter++)
+                            {
+                                cancellationSource.Token.ThrowIfCancellationRequested();
+                                worker.PrepareBatch(iter, cancellationSource.Token);
+                            }
                         }
                     }
                     catch (OperationCanceledException)
