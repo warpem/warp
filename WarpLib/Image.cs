@@ -169,7 +169,7 @@ namespace Warp
                 throw new DimensionMismatchException();
 
             for (int z = 0, i = 0; z < dims.Z; z++)
-                Array.Copy(data, z * dims.X * dims.Y, HostData[z], 0, dims.X * dims.Y);
+                Array.Copy(data, z * ElementsSliceReal, HostData[z], 0, ElementsSliceReal);
             IsHostDirty = true;
 
             if (EnableObjectLogging)
