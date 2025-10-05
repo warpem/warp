@@ -26,7 +26,7 @@ namespace Warp.Tools.Async
         }
 
         private readonly List<TMetadata> allMetadata;
-        private readonly int maxLoaded;
+        private readonly int maxLoaded; // Desired maximum
         private readonly LoadFunc loadFunction;
         private readonly int gpuDevice;
 
@@ -34,6 +34,8 @@ namespace Warp.Tools.Async
         private readonly Queue<int> loadOrder; // FIFO queue of pool slot indices
         private readonly object poolLock = new object();
         private readonly Random rand = new Random(123);
+
+        private int currentLoadedCount; // Actual current pool size (can grow to maxLoaded)
 
         // Background preloader
         private readonly BoundedQueue<PoolEntry> preloadedQueue;
@@ -57,16 +59,17 @@ namespace Warp.Tools.Async
             int gpuDevice = -1)
         {
             this.allMetadata = allMetadata;
-            this.maxLoaded = Math.Min(maxLoaded, allMetadata.Count);
+            this.maxLoaded = maxLoaded; // Store desired max (don't cap)
             this.loadFunction = loadFunction;
             this.gpuDevice = gpuDevice;
 
-            this.loadedPool = new PoolEntry[this.maxLoaded];
+            this.loadedPool = new PoolEntry[maxLoaded]; // Size array to desired max
             this.loadOrder = new Queue<int>();
 
-            // Load initial pool
-            Console.Write($"Loading initial pool ({this.maxLoaded} items)");
-            for (int i = 0; i < this.maxLoaded; i++)
+            // Load initial pool (only what's available)
+            this.currentLoadedCount = Math.Min(maxLoaded, allMetadata.Count);
+            Console.Write($"Loading initial pool ({this.currentLoadedCount} items)");
+            for (int i = 0; i < this.currentLoadedCount; i++)
             {
                 loadedPool[i] = new PoolEntry
                 {
@@ -76,7 +79,7 @@ namespace Warp.Tools.Async
                 loadOrder.Enqueue(i);
 
                 // Show progress
-                if ((i + 1) % Math.Max(1, this.maxLoaded / 10) == 0 || i == this.maxLoaded - 1)
+                if ((i + 1) % Math.Max(1, this.currentLoadedCount / 10) == 0 || i == this.currentLoadedCount - 1)
                     Console.Write($".");
             }
             Console.WriteLine($" Done.");
@@ -88,14 +91,14 @@ namespace Warp.Tools.Async
         }
 
         /// <summary>
-        /// Thread-safe access to item by pool index (0 to maxLoaded-1)
+        /// Thread-safe access to item by pool index (0 to currentLoadedCount-1)
         /// </summary>
         public void GetItem(int poolIndex, out TItem item)
         {
             lock (poolLock)
             {
-                if (poolIndex < 0 || poolIndex >= maxLoaded)
-                    throw new ArgumentException($"Pool index {poolIndex} out of range [0, {maxLoaded})");
+                if (poolIndex < 0 || poolIndex >= currentLoadedCount)
+                    throw new ArgumentException($"Pool index {poolIndex} out of range [0, {currentLoadedCount})");
 
                 item = loadedPool[poolIndex].Item;
             }
@@ -108,6 +111,9 @@ namespace Warp.Tools.Async
         {
             lock (poolLock)
             {
+                if (poolIndex < 0 || poolIndex >= currentLoadedCount)
+                    throw new ArgumentException($"Pool index {poolIndex} out of range [0, {currentLoadedCount})");
+
                 return loadedPool[poolIndex].MetadataIndex;
             }
         }
@@ -119,7 +125,7 @@ namespace Warp.Tools.Async
         public void RotateOldest()
         {
             // If pool covers all items, no need to rotate
-            if (allMetadata.Count <= maxLoaded)
+            if (allMetadata.Count <= currentLoadedCount)
                 return;
 
             // Try non-blocking get of preloaded item
@@ -152,7 +158,7 @@ namespace Warp.Tools.Async
         /// <summary>
         /// Gets current size of loaded pool
         /// </summary>
-        public int LoadedCount => maxLoaded;
+        public int LoadedCount => currentLoadedCount;
 
         /// <summary>
         /// Gets total number of items in dataset
@@ -161,6 +167,7 @@ namespace Warp.Tools.Async
 
         /// <summary>
         /// Adds new metadata to the pool (for dynamic expansion during online mode).
+        /// If pool is below max capacity, immediately loads and adds to pool.
         /// Thread-safe.
         /// </summary>
         public void AddMetadata(TMetadata metadata)
@@ -168,6 +175,21 @@ namespace Warp.Tools.Async
             lock (poolLock)
             {
                 allMetadata.Add(metadata);
+
+                // Expand pool if we have room and this is a new item beyond current pool
+                if (currentLoadedCount < maxLoaded && allMetadata.Count > currentLoadedCount)
+                {
+                    int newIndex = currentLoadedCount;
+                    loadedPool[newIndex] = new PoolEntry
+                    {
+                        MetadataIndex = allMetadata.Count - 1, // Index of the newly added metadata
+                        Item = loadFunction(metadata, CancellationToken.None)
+                    };
+                    loadOrder.Enqueue(newIndex);
+                    currentLoadedCount++;
+
+                    Console.WriteLine($"\nExpanded pool to {currentLoadedCount} loaded items");
+                }
             }
         }
 
@@ -223,8 +245,12 @@ namespace Warp.Tools.Async
         {
             lock (poolLock)
             {
-                // Get set of currently loaded indices
-                var loadedIndices = loadedPool.Select(e => e.MetadataIndex).ToHashSet();
+                // Get set of currently loaded indices (only from active pool slots)
+                var loadedIndices = new HashSet<int>();
+                for (int i = 0; i < currentLoadedCount; i++)
+                {
+                    loadedIndices.Add(loadedPool[i].MetadataIndex);
+                }
 
                 // Find available indices (not loaded and not currently being preloaded)
                 var availableIndices = new List<int>();
@@ -257,9 +283,9 @@ namespace Warp.Tools.Async
             // Dispose all loaded items
             if (loadedPool != null)
             {
-                foreach (var entry in loadedPool)
+                for (int i = 0; i < currentLoadedCount; i++)
                 {
-                    entry?.Item?.Dispose();
+                    loadedPool[i]?.Item?.Dispose();
                 }
             }
         }

@@ -14,7 +14,6 @@ namespace Noise2Map
         private readonly ProcessingContext context;
         private readonly Options options;
         private readonly BoundedQueue<TrainingBatch> queue;
-        private readonly int nMapsPerBatch;
         private readonly int mapSamples;
         private readonly int3 dim;
         private readonly int3 dim2;
@@ -25,7 +24,6 @@ namespace Noise2Map
             this.context = context;
             this.options = options;
             this.queue = queue;
-            this.nMapsPerBatch = Math.Min(8, context.MapPool.CurrentPoolSize);
             this.mapSamples = options.BatchSize;
             this.dim = context.TrainingDims;
             this.dim2 = dim * 2;
@@ -33,7 +31,9 @@ namespace Noise2Map
         }
 
         /// <summary>
-        /// Prepares a single training batch and adds it to the queue
+        /// Prepares training batches and adds them to the queue.
+        /// Dynamically determines number of maps to shuffle based on current pool size.
+        /// Enqueues one batch per map with samples shuffled across maps.
         /// </summary>
         public void PrepareBatch(int iterationNumber, CancellationToken cancellationToken)
         {
@@ -41,6 +41,9 @@ namespace Noise2Map
                 return;
 
             GPU.SetDevice(options.GPUPreprocess);
+
+            // Dynamically determine number of maps for shuffling (cap at batch size)
+            int nMapsPerBatch = Math.Min(options.BatchSize, context.MapPool.CurrentPoolSize);
 
             // Select random maps from current pool for this batch
             int[] shuffledMapIDs = Helper.RandomSubset(
@@ -71,26 +74,27 @@ namespace Noise2Map
 
                 // Shuffle examples across maps
                 ShuffleExamples(extractedSource, extractedTarget, extractedCTF,
-                               extractedSourceRand, extractedTargetRand, extractedCTFRand);
+                               extractedSourceRand, extractedTargetRand, extractedCTFRand, nMapsPerBatch);
 
                 // Dispose temporary non-shuffled buffers
                 foreach (var img in extractedSource) img.Dispose();
                 foreach (var img in extractedTarget) img.Dispose();
                 foreach (var img in extractedCTF) img.Dispose();
 
-                // Create batch and add to queue
-                var batch = new TrainingBatch
+                // Enqueue one batch per map (samples already shuffled across maps)
+                for (int i = 0; i < nMapsPerBatch; i++)
                 {
-                    ShuffledMapIDs = shuffledMapIDs,
-                    ExtractedSourceRand = extractedSourceRand,
-                    ExtractedTargetRand = extractedTargetRand,
-                    ExtractedCTFRand = extractedCTFRand
-                };
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                // Check cancellation before attempting to enqueue
-                cancellationToken.ThrowIfCancellationRequested();
+                    var batch = new TrainingBatch
+                    {
+                        ExtractedSource = extractedSourceRand[i],
+                        ExtractedTarget = extractedTargetRand[i],
+                        ExtractedCTF = extractedCTFRand[i]
+                    };
 
-                queue.Enqueue(batch, cancellationToken);
+                    queue.Enqueue(batch, cancellationToken);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -186,7 +190,8 @@ namespace Noise2Map
         }
 
         private void ShuffleExamples(Image[] extractedSource, Image[] extractedTarget, Image[] extractedCTF,
-                                    Image[] extractedSourceRand, Image[] extractedTargetRand, Image[] extractedCTFRand)
+                                    Image[] extractedSourceRand, Image[] extractedTargetRand, Image[] extractedCTFRand,
+                                    int nMapsPerBatch)
         {
             for (int b = 0; b < mapSamples; b++)
             {

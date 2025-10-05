@@ -42,7 +42,6 @@ namespace Noise2Map
                 return;
             }
 
-            AdjustIterations();
             LoadOrCreateModel();
             RunTrainingLoop();
 
@@ -58,16 +57,6 @@ namespace Noise2Map
             }
 
             Console.WriteLine("\nDone training!\n");
-        }
-
-        private void AdjustIterations()
-        {
-            int mapCount = context.MapPool?.CurrentPoolSize ?? 1;
-            if (options.BatchSize != 4 || mapCount > 1)
-            {
-                options.NIterations = options.NIterations * 4 / options.BatchSize / Math.Min(8, mapCount);
-                Console.WriteLine($"Adjusting the number of iterations to {options.NIterations} to match batch size and number of maps.\n");
-            }
         }
 
         private void LoadOrCreateModel()
@@ -111,7 +100,6 @@ namespace Noise2Map
             GPU.SetDevice(options.GPUPreprocess);
 
             Random rand = new Random(123);
-            int mapSamples = options.BatchSize;
 
             // Progress tracking - start with finite progress for LR convergence
             ProgressTracker progressTracker = new ProgressTracker(
@@ -141,8 +129,7 @@ namespace Noise2Map
                 {
                     double currentLearningRate = CalculateLearningRate(iter, iterFine);
 
-                    TrainBatch(batch.ShuffledMapIDs, batch.ExtractedSourceRand, batch.ExtractedTargetRand, batch.ExtractedCTFRand,
-                              currentLearningRate, rand, mapSamples, losses, ref predictedData, ref loss, ref iterFine);
+                    TrainBatch(batch, currentLearningRate, rand, losses, ref predictedData, ref loss, ref iterFine);
 
                     if (float.IsNaN(loss[0]) || float.IsInfinity(loss[0]))
                         throw new Exception("The loss function has reached an invalid value because something went wrong during training.");
@@ -218,45 +205,36 @@ namespace Noise2Map
             return currentLearningRate;
         }
 
-        private void TrainBatch(int[] shuffledMapIDs, Image[] extractedSourceRand, Image[] extractedTargetRand, Image[] extractedCTFRand,
-                               double currentLearningRate, Random rand, int mapSamples, Queue<float> losses,
+        private void TrainBatch(TrainingBatch batch, double currentLearningRate, Random rand, Queue<float> losses,
                                ref Image predictedData, ref float[] loss, ref int iterFine)
         {
-            Image noiseMask = new Image(IntPtr.Zero, extractedSourceRand[0].Dims);
+            bool twist = rand.Next(2) == 0;
 
-            for (int m = 0; m < shuffledMapIDs.Length; m++)
-            {
-                int mapID = m;
-                bool twist = rand.Next(2) == 0;
+            if (context.IsTomo)
+                trainModel.TrainDeconv(twist ? batch.ExtractedSource : batch.ExtractedTarget,
+                                      twist ? batch.ExtractedTarget : batch.ExtractedSource,
+                                      batch.ExtractedCTF,
+                                      (float)currentLearningRate,
+                                      false,
+                                      null,
+                                      null,
+                                      out predictedData,
+                                      out _,
+                                      out _,
+                                      out loss,
+                                      out _);
+            else
+                trainModel.Train(twist ? batch.ExtractedSource : batch.ExtractedTarget,
+                                twist ? batch.ExtractedTarget : batch.ExtractedSource,
+                                (float)currentLearningRate,
+                                out predictedData,
+                                out loss);
 
-                if (context.IsTomo)
-                    trainModel.TrainDeconv((twist ? extractedSourceRand : extractedTargetRand)[mapID],
-                                          (twist ? extractedTargetRand : extractedSourceRand)[mapID],
-                                          extractedCTFRand[mapID],
-                                          (float)currentLearningRate,
-                                          false,
-                                          null,
-                                          null,
-                                          out predictedData,
-                                          out _,
-                                          out _,
-                                          out loss,
-                                          out _);
-                else
-                    trainModel.Train((twist ? extractedSourceRand : extractedTargetRand)[mapID],
-                                    (twist ? extractedTargetRand : extractedSourceRand)[mapID],
-                                    (float)currentLearningRate,
-                                    out predictedData,
-                                    out loss);
+            losses.Enqueue(loss[0]);
+            if (losses.Count > 10)
+                losses.Dequeue();
 
-                losses.Enqueue(loss[0]);
-                if (losses.Count > 10)
-                    losses.Dequeue();
-
-                iterFine++;
-            }
-
-            noiseMask.Dispose();
+            iterFine++;
         }
 
         private void SaveModel()

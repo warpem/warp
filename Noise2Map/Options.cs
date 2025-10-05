@@ -88,7 +88,7 @@ namespace Noise2Map
         [Option("max_loaded_maps", Default = 10, HelpText = "Maximum number of map pairs to keep in memory during training. Maps will be rotated to cover the full dataset. Decrease if running out of memory.")]
         public int MaxLoadedMaps { get; set; }
 
-        [Option("online_mode", Default = false, HelpText = "Enable continuous online training mode. Training never ends, monitors data folders for new maps, and periodically saves model.")]
+        [Option("online", Default = false, HelpText = "Enable continuous online training mode. Training never ends, monitors data folders for new maps, and periodically saves model.")]
         public bool OnlineMode { get; set; }
 
         [Option("save_interval_minutes", Default = 30, HelpText = "In online mode, how often (in minutes) to save a new version of the trained model.")]

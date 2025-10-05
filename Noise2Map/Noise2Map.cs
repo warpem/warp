@@ -85,7 +85,7 @@ namespace Noise2Map
                     {
                         var coordinator = new TrainingCoordinator(context, options);
                         trainedModelName = coordinator.RunConcurrentTraining(
-                            numPreparationThreads: 1,
+                            numPreparationThreads: 3,
                             queueCapacity: 6,
                             externalCancellationToken: shutdownTokenSource.Token);
                     }

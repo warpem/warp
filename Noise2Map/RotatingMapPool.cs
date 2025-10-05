@@ -260,7 +260,7 @@ namespace Noise2Map
 
                     // Add to pool metadata (allMapInfo and pool.allMetadata share the same list reference)
                     pool.AddMetadata(newMap);
-                    Console.WriteLine($"Added new map to pool: {newMap.MapName} (Total: {TotalMapCount})");
+                    Console.WriteLine($"New map added: {newMap.MapName} (Total: {TotalMapCount})");
                 }
             }
         }

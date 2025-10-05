@@ -28,7 +28,7 @@ namespace Noise2Map
         /// <param name="queueCapacity">Maximum number of batches to buffer in queue</param>
         /// <param name="externalCancellationToken">Optional external cancellation token for graceful shutdown</param>
         /// <returns>The name of the trained model</returns>
-        public string RunConcurrentTraining(int numPreparationThreads = 1, int queueCapacity = 6, CancellationToken externalCancellationToken = default)
+        public string RunConcurrentTraining(int numPreparationThreads = 3, int queueCapacity = 6, CancellationToken externalCancellationToken = default)
         {
             using (var batchQueue = new BoundedQueue<TrainingBatch>(queueCapacity))
             {
