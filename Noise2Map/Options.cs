@@ -40,6 +40,9 @@ namespace Noise2Map
         [Option("old_model", Default = "", HelpText = "Name of the folder with the pre-trained model. Leave empty to train a new one.")]
         public string OldModelName { get; set; }
 
+        [Option("save_model_name", Default = "NoiseNet3D", HelpText = "Suffix used to name the saved model file. In online mode, a timestamp will be added.")]
+        public string SaveModelName { get; set; }
+
         [Option("learningrate_start", Default = 0.0001, HelpText = "Initial learning rate that will be decreased exponentially to reach the final learning rate.")]
         public double LearningRateStart { get; set; }
 

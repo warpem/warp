@@ -239,8 +239,7 @@ namespace Noise2Map
 
         private void SaveModel()
         {
-            TrainedModelName = "NoiseNet3D_" + (!string.IsNullOrEmpty(options.StartModelName) ? (options.StartModelName + "_") : "") +
-                              DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pt";
+            TrainedModelName = options.SaveModelName + ".pt";
             trainModel.Save(Path.Combine(context.WorkingDirectory, TrainedModelName));
 
             if (!options.OnlineMode)
@@ -252,7 +251,7 @@ namespace Noise2Map
         /// </summary>
         private void SaveModelSafe()
         {
-            string modelName = "NoiseNet3D_" + (!string.IsNullOrEmpty(options.StartModelName) ? (options.StartModelName + "_") : "") +
+            string modelName = options.SaveModelName + "_" +
                               DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pt";
             string modelPath = Path.Combine(context.WorkingDirectory, modelName);
             string tempPath = modelPath + ".tmp";
