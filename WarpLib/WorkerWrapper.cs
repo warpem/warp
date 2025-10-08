@@ -443,6 +443,26 @@ namespace Warp
                                                     options));
         }
 
+        public void LoadTomoDenoiser(string path, int3 windowSize, int batchSize)
+        {
+            SendCommand(new NamedSerializableObject("LoadTomoDenoiser",
+                                                    path,
+                                                    windowSize,
+                                                    batchSize));
+        }
+
+        public void DropTomoDenoiser()
+        {
+            SendCommand(new NamedSerializableObject("DropTomoDenoiser"));
+        }
+
+        public void TomoDenoise(string path, ProcessingOptionsTomoDenoise options)
+        {
+            SendCommand(new NamedSerializableObject("TomoDenoise",
+                                                    path,
+                                                    options));
+        }
+
         public void TomoAlignLocallyWithoutReferences(string path, ProcessingOptionsTomoFullReconstruction options)
         {
             SendCommand(new NamedSerializableObject("TomoAlignLocallyWithoutReferences",

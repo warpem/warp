@@ -41,6 +41,8 @@ namespace WarpWorker
 
         static BoxNetTorch BoxNetModel = null;
 
+        static NoiseNet3DTorch DenoiserModel = null;
+
         static Population MPAPopulation = null;
 
         static Projector[] Reconstructions = null;
@@ -272,6 +274,38 @@ namespace WarpWorker
                     BoxNetModel?.Dispose();
 
                     Console.WriteLine("Model dropped");
+                }
+                else if (Command.Name == "LoadTomoDenoiser")
+                {
+                    DenoiserModel?.Dispose();
+
+                    string Path = (string)Command.Content[0];
+                    int3 WindowSize = (int3)Command.Content[1];
+                    int BatchSize = (int)Command.Content[2];
+
+                    DenoiserModel = new NoiseNet3DTorch(WindowSize, new[] { DeviceID }, BatchSize);
+                    DenoiserModel.Load(Path);
+
+                    Console.WriteLine($"Denoiser model with window size = {WindowSize}, batch size = {BatchSize} loaded from {Path}");
+                }
+                else if (Command.Name == "DropTomoDenoiser")
+                {
+                    DenoiserModel?.Dispose();
+
+                    Console.WriteLine("Denoiser model dropped");
+                }
+                else if (Command.Name == "TomoDenoise")
+                {
+                    if (DenoiserModel == null)
+                        throw new Exception("No denoiser model loaded");
+
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTomoDenoise Options = (ProcessingOptionsTomoDenoise)Command.Content[1];
+
+                    TiltSeries T = new TiltSeries(Path);
+                    T.Denoise(Options, DenoiserModel);
+
+                    Console.WriteLine($"Denoised {Path}");
                 }
                 else if (Command.Name == "MovieProcessCTF")
                 {

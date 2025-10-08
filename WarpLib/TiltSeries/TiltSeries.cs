@@ -67,6 +67,11 @@ namespace Warp
         public static readonly string ReconstructionEvenDirName = IOPath.Combine(ReconstructionDirName, "even");
         public string ReconstructionEvenDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionEvenDirName);
         public static string ToReconstructionEvenPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionEvenDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
+        
+        public static readonly string ReconstructionDenoisedDirName = "denoised";
+        public string ReconstructionDenoisedDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDenoisedDirName);
+        public static string ToReconstructionDenoisedTomogramPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDenoisedDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
+        public static string ToReconstructionDenoisedThumbnailPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDenoisedDirName, ToTomogramWithPixelSize(name, pixelSize) + ".png");
 
         public static readonly string ReconstructionCTFDirName = IOPath.Combine(ReconstructionDirName, "ctf");
         public string ReconstructionCTFDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionCTFDirName);
