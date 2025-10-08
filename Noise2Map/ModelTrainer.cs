@@ -155,9 +155,10 @@ namespace Noise2Map
 
                     if (!hasTransitionedToOnlineMode)
                     {
-                        progressTracker.Update(statsMessage);
+                        if ((iter < 100 && iter % 10 == 0) || (iter >= 100 && iter % 100 == 0))
+                            progressTracker.Update(statsMessage);
                     }
-                    else if (iter % 10 == 0)
+                    else if ((iter < 100 && iter % 10 == 0) || (iter >= 100 && iter % 100 == 0))
                     {
                         Console.Write($"\rIter {iter}: {statsMessage}");
                     }
