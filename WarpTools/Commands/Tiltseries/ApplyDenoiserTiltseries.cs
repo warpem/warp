@@ -78,8 +78,6 @@ namespace WarpTools.Commands
                 IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
                 {
                     worker.TomoDenoise(m.Path, OptionsDenoise);
-
-                    worker.GcCollect();
                 });
             }
             finally
