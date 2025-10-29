@@ -858,6 +858,19 @@ namespace WarpWorker
 
                     TiltSeries T = new TiltSeries(Path);
                     T.ReconstructParticleSeries(Options, Coordinates, Angles, PathsRelativeTo, out TableOut);
+                    
+                    Dictionary<string, string[]> AdditionalColumns = null;
+                    if (Command.Content.Length > 6)
+                        AdditionalColumns = (Dictionary<string, string[]>)Command.Content[6];
+
+                    if (AdditionalColumns != null)
+                    {
+                        foreach (var col in AdditionalColumns)
+                        {
+                            TableOut.AddColumn(col.Key, col.Value);
+                        }
+                    }
+                    
                     T.SaveMeta();
 
                     if (!string.IsNullOrEmpty(PathTableOut))

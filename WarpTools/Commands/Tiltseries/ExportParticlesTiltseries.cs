@@ -102,6 +102,8 @@ namespace WarpTools.Commands
 
     class ExportParticlesTiltseries : BaseCommand
     {
+        private Dictionary<string, string[]> _additionalColumns;
+
         public override async Task Run(object options)
         {
             await base.Run(options);
@@ -167,6 +169,12 @@ namespace WarpTools.Commands
             }
 
             ValidateInputStar(inputStar);
+            _additionalColumns = new Dictionary<string, string[]>();
+            if (inputStar.HasColumn("rlnUnknownLabel"))
+            {
+                _additionalColumns.Add("rlnUnknownLabel", inputStar.GetColumn("rlnUnknownLabel"));
+            }
+
             string[] tiltSeriesIDs = inputStar.HasColumn("rlnMicrographName") ? inputStar.GetColumn("rlnMicrographName") : inputStar.GetColumn("rlnTomoName");
             Dictionary<string, List<int>> tiltSeriesIdToParticleIndices =
                 GroupParticles(tiltSeriesIDs);
@@ -236,6 +244,21 @@ namespace WarpTools.Commands
                 float3[] tsParticleXyzAngstroms = new float3[tsParticleIdx.Count];
                 float3[] tsParticleRotTiltPsi = new float3[tsParticleIdx.Count];
 
+                Dictionary<string, string[]> tsAdditionalColumns = new Dictionary<string, string[]>();
+                if (_additionalColumns.Count > 0)
+                {
+                    foreach (var col in _additionalColumns)
+                    {
+                        var colData = new string[tsParticleIdx.Count];
+                        for (int i = 0; i < tsParticleIdx.Count; i++)
+                        {
+                            colData[i] = col.Value[tsParticleIdx[i]];
+                        }
+                        tsAdditionalColumns.Add(col.Key, colData);
+                    }
+                }
+
+
                 if (Helper.IsDebug)
                     Console.WriteLine($"{tsParticleIdx.Count} particles for {tiltSeries.Name}");
 
@@ -279,7 +302,8 @@ namespace WarpTools.Commands
                                                                     inputHasEulerAngles: inputHasEulerAngles,
                                                                     outputPixelSize: cli.OutputPixelSize,
                                                                     relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
-                                                                    particleStarFile: cli.OutputStarFile);
+                                                                    particleStarFile: cli.OutputStarFile,
+                                                                    additionalColumns: tsAdditionalColumns);
                     lock (OutputStarTables)
                         OutputStarTables.Add(tiltSeries.Name, TiltSeriesTable);
                 }
@@ -302,7 +326,8 @@ namespace WarpTools.Commands
                                                             pathTableOut: TempTiltSeriesParticleStarPath,
                                                             pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
                                                                                  Path.GetFullPath(OutputStarPath) :
-                                                                                 Directory.GetCurrentDirectory());
+                                                                                 Directory.GetCurrentDirectory(),
+                                                            additionalColumns: tsAdditionalColumns);
 
                             // generate necessary metadata for particles.star
                             if (Helper.IsDebug)
@@ -697,7 +722,8 @@ namespace WarpTools.Commands
             bool inputHasEulerAngles,
             float outputPixelSize,
             bool relativeToParticleStarFile, // default is relative to working directory 
-            string? particleStarFile
+            string? particleStarFile,
+            Dictionary<string, string[]> additionalColumns
         )
         {
             int nParticles = xyz.Length;
@@ -805,6 +831,14 @@ namespace WarpTools.Commands
                 table.RemoveColumn("rlnAngleRot");
                 table.RemoveColumn("rlnAngleTilt");
                 table.RemoveColumn("rlnAnglePsi");
+            }
+
+            if (additionalColumns != null)
+            {
+                foreach (var pair in additionalColumns)
+                {
+                    table.AddColumn(pair.Key, pair.Value);
+                }
             }
 
             return table;
