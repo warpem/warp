@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Accord.Math.Optimization;
 using Warp.Headers;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -596,8 +597,8 @@ public partial class TiltSeries
 
                 #region Retrieve parameters
 
-                GlobalCTF.Defocus = (decimal)MathHelper.Mean(Optimizer.Solution.Skip(5).Take(NFrames).Select(v => (float)v));
-                GlobalCTF.PhaseShift = (decimal)MathHelper.Mean(Optimizer.Solution.Skip(5 + NFrames).Take(Math.Max(1, NFrames / 3)).Select(v => (float)v));
+                GlobalCTF.Defocus = (decimal)Optimizer.Solution.Skip(5).Take(NFrames).Select(v => (float)v).Average();
+                GlobalCTF.PhaseShift = (decimal)Optimizer.Solution.Skip(5 + NFrames).Take(Math.Max(1, NFrames / 3)).Select(v => (float)v).Average();
                 GlobalCTF.DefocusDelta = (decimal)(Optimizer.Solution[2]) / 1;
                 GlobalCTF.DefocusAngle = (decimal)(Optimizer.Solution[4] * 20 * Helper.ToDeg);
 

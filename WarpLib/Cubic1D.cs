@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Accord.Math.Optimization;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp
 {
@@ -196,7 +197,7 @@ namespace Warp
                 return;
             }
 
-            float MinX = MathHelper.Min(data.Select(p => p.X)), MaxX = MathHelper.Max(data.Select(p => p.X)), ScaleX = 1f / (MaxX - MinX);
+            float MinX = data.Select(p => p.X).Min(), MaxX = data.Select(p => p.X).Max(), ScaleX = 1f / (MaxX - MinX);
 
             peaks = peaks.Where(v => v >= MinX && v <= MaxX).Where((v, i) => i % 1 == 0).ToArray();
             zeros = zeros.Where(v => v >= MinX && v <= MaxX).Where((v, i) => i % 1 == 0).ToArray();

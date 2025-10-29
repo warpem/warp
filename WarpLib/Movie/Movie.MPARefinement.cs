@@ -8,6 +8,7 @@ using Accord.Math.Optimization;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 
@@ -87,8 +88,8 @@ public partial class Movie
                 ImageDimensionsPhysical = new float2(new int2(gainRef.Dims)) * (float)dataSource.PixelSizeMean;
         }
 
-        float SmallestAngPix = MathHelper.Min(allSpecies.Select(s => (float)s.PixelSize));
-        float LargestBox = MathHelper.Max(allSpecies.Select(s => s.DiameterAngstrom)) * 2 / SmallestAngPix;
+        float SmallestAngPix = allSpecies.Select(s => (float)s.PixelSize).Min();
+        float LargestBox = allSpecies.Select(s => s.DiameterAngstrom).Max() * 2 / SmallestAngPix;
 
         float[] DoseInterpolationSteps = Helper.ArrayOfFunction(i => (float)i / Math.Max(1, NFrames - 1), NFrames);
 
@@ -818,9 +819,9 @@ public partial class Movie
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
                             int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                            var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray());
+                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray());
 
                             for (int f = 0; f < RedNFrames; f++)
                             {
@@ -1293,8 +1294,8 @@ public partial class Movie
 
             Matrix2 OriginalMagnification = MagnificationCorrection.GetCopy();
 
-            float3[][] OriginalParticlePositions = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Coordinates))).ToArray();
-            float3[][] OriginalParticleAngles = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Angles))).ToArray();
+            float3[][] OriginalParticlePositions = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Coordinates).ToArray())).ToArray();
+            float3[][] OriginalParticleAngles = allSpecies.Select(s => Helper.Combine(SpeciesParticles[s].Select(p => p.Angles).ToArray())).ToArray();
 
             int BFGSIterations = 0;
             WarpOptimizationTypes CurrentOptimizationTypeWarp = 0;
@@ -2048,9 +2049,9 @@ public partial class Movie
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray());
+                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray());
 
                         for (int f = 0; f < RedNFrames; f++)
                         {
@@ -2317,9 +2318,9 @@ public partial class Movie
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                        float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                         for (int f = 0; f < RedNFrames; f++)
                         {
@@ -2811,9 +2812,9 @@ public partial class Movie
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                        float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                         List<float4>[] AllSearchValues = Helper.ArrayOfFunction(i => new List<float4>(), CurBatch);
                         List<float4>[] CurrentSearchValues = Helper.ArrayOfFunction(i => new List<float4>(), CurBatch);
@@ -3196,9 +3197,9 @@ public partial class Movie
                         for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                         {
                             int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                            IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                            float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                            float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                            var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                            float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                            float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                             for (int i = 0; i < CurBatch; i++)
                             {
@@ -3524,9 +3525,9 @@ public partial class Movie
                     for (int batchStart = 0; batchStart < NParticles; batchStart += BatchSize)
                     {
                         int CurBatch = Math.Min(BatchSize, NParticles - batchStart);
-                        IEnumerable<Particle> BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
-                        float3[] CoordinatesMoving = Helper.Combine(BatchParticles.Select(p => p.GetCoordinateSeries(DoseInterpolationSteps)));
-                        float3[] AnglesMoving = Helper.Combine(BatchParticles.Select(p => p.GetAngleSeries(DoseInterpolationSteps)));
+                        var BatchParticles = Particles.Skip(batchStart).Take(CurBatch);
+                        float3[] CoordinatesMoving = BatchParticles.SelectMany(p => p.GetCoordinateSeries(DoseInterpolationSteps)).ToArray();
+                        float3[] AnglesMoving = BatchParticles.SelectMany(p => p.GetAngleSeries(DoseInterpolationSteps)).ToArray();
 
                         for (int f = 0; f < RedNFrames; f++)
                         {

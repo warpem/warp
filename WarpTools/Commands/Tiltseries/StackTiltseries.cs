@@ -59,6 +59,8 @@ namespace WarpTools.Commands
             IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
             {
                 worker.TomoStack(m.Path, OptionsStack);
+
+                worker.GcCollect();
             });
 
             Console.Write("Saying goodbye to all workers...");

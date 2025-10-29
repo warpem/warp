@@ -127,6 +127,8 @@ namespace WarpTools.Commands
             IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
             {
                 worker.TomoReconstruct(t.Path, OptionsReconstruction);
+
+                worker.GcCollect();
             });
 
             Console.Write("Saying goodbye to all workers...");

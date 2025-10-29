@@ -173,7 +173,7 @@ namespace M.Controls.Sociology.Dialogs
                         ParticleHashes[hash]++;
                     }
 
-                    HashSet<string> AvailableHashes = new HashSet<string>(Helper.Combine(ValidSources.Select(s => s.Files.Keys.ToArray())));
+                    HashSet<string> AvailableHashes = new HashSet<string>(Helper.Combine(ValidSources.Select(s => s.Files.Keys.ToArray()).ToArray()));
                     List<string> HashesNotFound = ParticleHashes.Keys.Where(hash => !AvailableHashes.Contains(hash)).ToList();
 
                     ParticlesUnmatched = HashesNotFound.Sum(h => ParticleHashes[h]);

@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Xml;
 using System.Xml.XPath;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp
 {

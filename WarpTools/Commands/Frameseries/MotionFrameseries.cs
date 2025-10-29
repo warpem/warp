@@ -96,6 +96,8 @@ namespace WarpTools.Commands
                 worker.MovieProcessMovement(m.Path, OptionsMovement);
                 if (CLI.Averages || CLI.AverageHalves)
                     worker.MovieExportMovie(m.Path, OptionsMovieExport);
+
+                worker.GcCollect();
             });
 
             Console.Write("Saying goodbye to all workers...");

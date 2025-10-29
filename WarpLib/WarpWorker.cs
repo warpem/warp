@@ -1,37 +1,27 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using CommandLine;
+using MathNet.Numerics.LinearAlgebra.Factorization;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Pipes;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
-using Warp;
+using System.Threading.Tasks;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Logging;
-using CommandLine;
-using System.IO.Pipes;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.Hosting.Server;
-using System.Runtime.InteropServices;
+using ZLinq;
 
-
-namespace WarpWorker
+namespace Warp
 {
-    static class WarpWorkerProcess
+    public static class WarpWorker
     {
-        static bool DebugMode = false;
-        static bool IsSilent = false;
-
         static int DeviceID = 0;
         static int Port = 0;
-
-        static Thread Heartbeat;
-        static Stopwatch PulseWatch;
-        static bool Terminating = false;
 
         static Image GainRef = null;
         static DefectModel DefectMap = null;
@@ -48,138 +38,12 @@ namespace WarpWorker
 
         static Population MPAPopulation = null;
 
-        static async Task Main(string[] args)
-        {
-            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-
-            OptionsCLI OptionsCLI = null;
-            Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(opts => OptionsCLI = opts);
-
-            if (OptionsCLI.DebugAttach && !Debugger.IsAttached)
-                Debugger.Launch();
-
-            VirtualConsole.AttachToConsole();
-
-            DeviceID = OptionsCLI.Device % GPU.GetDeviceCount();
-            Port = OptionsCLI.Port;
-            IsSilent = OptionsCLI.Silent;
-            DebugMode = OptionsCLI.Debug;
-
-            VirtualConsole.IsSilent = IsSilent;
-
-            GPU.SetDevice(DeviceID);
-
-            var Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder().ConfigureWebHostDefaults(webBuilder =>
-            {
-                webBuilder.UseKestrel(options =>
-                    {
-                        options.ListenAnyIP(Port);
-                        options.Limits.MaxRequestBodySize = 104857600; // 100 MB
-                    })
-                    .UseStartup<RESTStartup>()
-                    .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning));
-            }).Build();
-            Host.Start();
-
-            // Retrieve the actual port used by Kestrel
-            var Server = Host.Services.GetService(typeof(IServer)) as IServer;
-            var ServerFeatures = Server.Features.Get<IServerAddressesFeature>();
-
-            if (ServerFeatures == null || !ServerFeatures.Addresses.Any())
-                throw new InvalidOperationException("Unable to determine the server's address.");
-
-            // Ensure that we have a valid address to work with
-            var Address = ServerFeatures.Addresses.First();
-            if (string.IsNullOrEmpty(Address))
-                throw new InvalidOperationException("The server address is not valid.");
-
-            Port = new Uri(Address).Port;
-
-            if (!string.IsNullOrEmpty(OptionsCLI.Pipe))
-                await SendPort(OptionsCLI.Pipe, Port, 10_000);
-
-            Console.WriteLine($"Running on GPU #{DeviceID} ({GPU.GetFreeMemory(DeviceID)} MB free), port {Port}\n");
-            if (DebugMode)
-                Console.WriteLine("Debug mode");
-
-            #region Heartbeat
-
-            PulseWatch = new Stopwatch();
-            PulseWatch.Start();
-            Heartbeat = new Thread(new ThreadStart(() =>
-            {
-                while (true)
-                {
-                    long WaitedMS = PulseWatch.ElapsedMilliseconds;
-
-                    if (!DebugMode && WaitedMS > 10000)
-                    {
-                        Console.WriteLine($"{WaitedMS / 1000} seconds without heartbeat, exiting");
-
-                        Process.GetCurrentProcess().Kill();
-                    }
-                    else if (Terminating)
-                    {
-                        Console.WriteLine("Exiting");
-
-                        //Thread.Sleep(200);
-                        Process.GetCurrentProcess().Kill();
-                    }
-
-                    Thread.Sleep(100);
-                }
-            }));
-            Heartbeat.Start();
-
-            #endregion
-
-            while (true) Thread.Sleep(1);
-        }
-
-        static async Task SendPort(string pipeName, int port, int timeoutMilliseconds)
-        {
-            using (var client = new NamedPipeClientStream(pipeName))
-            using (var writer = new StreamWriter(client))
-            {
-                // Task to connect to the server
-                Task connectTask = client.ConnectAsync(timeoutMilliseconds);
-
-                // Wait for the connection or timeout
-                if (await Task.WhenAny(connectTask, Task.Delay(timeoutMilliseconds)) == connectTask)
-                {
-                    // Connection established within timeout
-                    await connectTask;  // Ensure any exceptions are propagated
-                    writer.WriteLine(port);
-                    await writer.FlushAsync();
-                }
-                else
-                {
-                    Console.WriteLine("Failed to connect to the master process within the timeout period.");
-                }
-            }
-        }
-
         #region Service
-
-        public static void SendPulse()
-        {
-            PulseWatch?.Restart();
-        }
-
-        public static void Exit()
-        {
-            Process.GetCurrentProcess().Kill();
-            //Terminating = true;
-        }
 
         public static void EvaluateCommand(NamedSerializableObject Command)
         {
             GPU.SetDevice(DeviceID);
             Console.WriteLine($"Received \"{Command.Name}\", with {Command.Content.Length} arguments, for GPU #{GPU.GetDevice()}, {GPU.GetFreeMemory(DeviceID)} MB free:");
-            if (DebugMode)
-                foreach (var item in Command.Content)
-                    Console.WriteLine($"{item.GetType().Name}: {item}");
 
             try
             {
@@ -194,12 +58,6 @@ namespace WarpWorker
                     GlobalTasks.WaitAll();
 
                     Console.WriteLine($" Done");
-                }
-                else if (Command.Name == "GcCollect")
-                {
-                    GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
-
-                    Console.WriteLine("Garbage collection performed");
                 }
                 else if (Command.Name == "SetHeaderlessParams")
                 {
@@ -233,6 +91,8 @@ namespace WarpWorker
                 }
                 else if (Command.Name == "LoadStack")
                 {
+                    OriginalStack?.Dispose();
+
                     string Path = (string)Command.Content[0];
                     decimal ScaleFactor = (decimal)Command.Content[1];
                     int EERGroupFrames = (int)Command.Content[2];
@@ -343,12 +203,12 @@ namespace WarpWorker
                     ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
                     Movie[] movies = paths.Select(p => new Movie(p)).ToArray();
-                    
+
                     // Create a temporary directory
                     string randomId = Path.GetRandomFileName().Replace(".", "");
                     string tempDir = Path.Combine(movies.First().MembraneSegmentationDir, $"temp_{randomId}");
                     Directory.CreateDirectory(tempDir);
-                    
+
                     // downsample images to 15Apx
                     string[] downsampledImagePaths = movies.Select(
                         m => Path.Combine(tempDir, m.RootName + "_15.00Apx.mrc")
@@ -357,23 +217,23 @@ namespace WarpWorker
                     {
                         // load average
                         Image average = Image.FromFile(movie.AveragePath);
-                        
+
                         // downsample to 15Apx
                         float averagePixelSize = average.PixelSize;
                         float targetPixelSize = 15;
                         int2 dimsOut = (new int2(average.Dims * averagePixelSize / targetPixelSize) + 1) / 2 * 2;
                         Image scaled = average.AsScaled(dimsOut);
-                        
+
                         // write out downsampled image, force header pixel size to 15.00
                         scaled.PixelSize = (float)15.00;
                         scaled.WriteMRC(outputPath);
                     }
-                    
+
                     // run tardis in tempdir
                     string Arguments = $"--path {tempDir} --output_format mrc_None --device {DeviceID} --patch_size 64";
                     Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
                     File.WriteAllText(Path.Combine(tempDir, "command.txt"), $"tardis_mem2d {Arguments}");
-                    
+
                     Process Tardis = new Process
                     {
                         StartInfo =
@@ -387,16 +247,16 @@ namespace WarpWorker
                             RedirectStandardError = true
                         }
                     };
-                    
+
                     using (var stdout = File.CreateText(Path.Combine(tempDir, "run.out")))
                     using (var stderr = File.CreateText(Path.Combine(tempDir, "run.err")))
                     {
-                        Tardis.OutputDataReceived += (sender, args) => 
+                        Tardis.OutputDataReceived += (sender, args) =>
                         {
                             if (args.Data != null) stdout.WriteLine(args.Data);
                         };
-    
-                        Tardis.ErrorDataReceived += (sender, args) => 
+
+                        Tardis.ErrorDataReceived += (sender, args) =>
                         {
                             if (args.Data != null) stderr.WriteLine(args.Data);
                         };
@@ -413,7 +273,7 @@ namespace WarpWorker
                         Tardis.BeginErrorReadLine();
                         Tardis.WaitForExit();
                     }
-                    
+
                     // copy files to correct directory
                     string[] membraneImageFiles = downsampledImagePaths.Select(
                         p =>
@@ -438,7 +298,7 @@ namespace WarpWorker
                             Console.WriteLine($"Error occurred copying file {membraneImageFile}: {ex.Message}");
                         }
                     }
-                    
+
                     // remove all files recursively from temp dir
                     Directory.Delete(tempDir, recursive: true);
                     Console.WriteLine($"Segmented membranes using TARDIS");
@@ -450,7 +310,6 @@ namespace WarpWorker
 
                     TiltSeries T = new TiltSeries(Path);
                     T.StackTilts(Options);
-                    T.SaveMeta();
 
                     Console.WriteLine($"Created tilt stack for {Path}");
                 }
@@ -500,66 +359,13 @@ namespace WarpWorker
 
                     Console.WriteLine($"Executed AreTomo for {SeriesPath}");
                 }
-                else if (Command.Name == "TomoAretomo3")
-                {
-                    string SeriesPath = (string)Command.Content[0];
-                    var Options = (ProcessingOptionsTomoAretomo3)Command.Content[1];
-
-                    TiltSeries T = new TiltSeries(SeriesPath);
-
-                    string StackDir = T.TiltStackDir;
-                    string StackPath = Path.GetFileName(T.TiltStackPath);
-
-                    // Build the AreTomo3 command
-                    // Use the actual stack path as the input for AreTomo3
-                    string BaseName = Path.GetFileNameWithoutExtension(StackPath);
-                    string InPrefix = BaseName;
-                    string InSuffix = ".st";
-                    string AtPatch = $"{Options.AtPatch[0]} {Options.AtPatch[1]}";
-                    string Axis = Options.AxisAngle.ToString() + (Options.DoAxisSearch ? " 0" : " -1");
-                    string AlignZ = Options.AlignZ.ToString();
-                    
-                    // VolZ is forced to 0 as per AreTomo3 requirements
-                    string Arguments = $"-InPrefix {InPrefix} -InSuffix {InSuffix} -OutDir {StackDir} " +
-                                     $"-TiltAxis {Axis} -AlignZ {AlignZ} -AtPatch {AtPatch} -VolZ 0 " +
-                                     $"-ExtZ 0 -OutImod 2 -TiltCor 1 -Cmd 1 -Serial 1 " +
-                                     $"-CorrCTF 0 0 -DarkTol 0 -Gpu {DeviceID}";
-
-                    Console.WriteLine($"Executing {Options.Executable} in {StackDir} with arguments: {Arguments}");
-
-                    Process AreTomo3 = new Process
-                    {
-                        StartInfo =
-                        {
-                            FileName = Options.Executable,
-                            CreateNoWindow = false,
-                            WindowStyle = ProcessWindowStyle.Minimized,
-                            WorkingDirectory = StackDir,
-                            Arguments = Arguments,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true
-                        }
-                    };
-                    DataReceivedEventHandler Handler = (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
-                    AreTomo3.OutputDataReceived += Handler;
-                    AreTomo3.ErrorDataReceived += Handler;
-
-                    AreTomo3.Start();
-
-                    AreTomo3.BeginOutputReadLine();
-                    AreTomo3.BeginErrorReadLine();
-
-                    AreTomo3.WaitForExit();
-
-                    Console.WriteLine($"Executed AreTomo3 for {SeriesPath}");
-                }
                 else if (Command.Name == "TomoEtomoPatchTrack")
                 {
                     string TiltSeriesPath = (string)Command.Content[0];
                     var Options = (ProcessingOptionsTomoEtomoPatch)Command.Content[1];
 
                     TiltSeries T = new TiltSeries(TiltSeriesPath);
-                    
+
                     // First generate a directive file to run Etomo automatically through batchruntomo
                     int PatchSize = (int)(Options.PatchSizeAngstroms / Options.TiltStackAngPix);
                     int RotOption = Options.DoAxisAngleSearch ? -1 : 0; // Fit single value (-1) or leave fixed (0)
@@ -584,7 +390,7 @@ namespace WarpWorker
                                     $"comparam.align.tiltalign.RobustFitting = 1\n" +
                                     $"comparam.align.tiltalign.WeightWholeTracks = 1\n";
                     File.WriteAllText(path: DirectiveFile, contents: BRTConfig);
-                    
+
                     // Then run batchruntomo
                     // Only do setup and alignment calculation if on second pass, otherwise do fiducial model generation too
                     int EndingStep = Options.DoPatchTracking ? 5 : 0;
@@ -599,7 +405,7 @@ namespace WarpWorker
                     bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     string BatchRunTomoExecutable = IsWindows ? "batchruntomo.cmd" : "batchruntomo";
                     Console.WriteLine($"Running '{BatchRunTomoExecutable} {Arguments}'");
-                    Process BatchRunTomo = new Process 
+                    Process BatchRunTomo = new Process
                     {
                         StartInfo =
                         {
@@ -622,7 +428,7 @@ namespace WarpWorker
                     BatchRunTomo.BeginErrorReadLine();
 
                     BatchRunTomo.WaitForExit();
-                    
+
                     // Run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
                     {
@@ -662,7 +468,7 @@ namespace WarpWorker
                     var Options = (ProcessingOptionsTomoEtomoFiducials)Command.Content[1];
 
                     TiltSeries T = new TiltSeries(TiltSeriesPath);
-                    
+
                     // first generate a directive file to run Etomo automatically through batchruntomo
                     int RotOption = Options.DoAxisAngleSearch ? -1 : 0; // fit single value (-1) or leave fixed (0)
                     var BRTConfig = $"setupset.copyarg.userawtlt = 1\n" +
@@ -685,7 +491,7 @@ namespace WarpWorker
                     var DirectiveFile = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
                     DirectiveFile = Path.ChangeExtension(DirectiveFile, ".adoc");
                     File.WriteAllText(path: DirectiveFile, contents: BRTConfig);
-                    
+
                     // then run batchruntomo
                     // only do setup and alignment calculation if on second pass, otherwise do fiducial model generation too
                     int EndingStep = Options.DoFiducialTracking ? 5 : 0;
@@ -698,7 +504,7 @@ namespace WarpWorker
                     bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     string BatchRunTomoExecutable = IsWindows ? "batchruntomo.cmd" : "batchruntomo";
                     Console.WriteLine($"Running '{BatchRunTomoExecutable} {Arguments}'");
-                    Process BatchRunTomo = new Process 
+                    Process BatchRunTomo = new Process
                     {
                         StartInfo =
                         {
@@ -765,17 +571,6 @@ namespace WarpWorker
                     T.SaveMeta();
 
                     Console.WriteLine($"Processed CTF for {Path}");
-                }
-                else if (Command.Name == "TomoAutoLevel")
-                {
-                    string Path = (string)Command.Content[0];
-                    ProcessingOptionsTomoAutoLevel Options = (ProcessingOptionsTomoAutoLevel)Command.Content[1];
-
-                    TiltSeries T = new TiltSeries(Path);
-                    T.AutoLevel(Options);
-                    T.SaveMeta();
-
-                    Console.WriteLine($"Processed auto-leveling for {Path}");
                 }
                 else if (Command.Name == "TomoAlignLocallyWithoutReferences")
                 {
@@ -1017,7 +812,18 @@ namespace WarpWorker
                     if (header.Dimensions.X != GainRef.Dims.X || header.Dimensions.Y != GainRef.Dims.Y)
                         throw new Exception($"Gain reference dimensions ({GainRef.Dims.X}x{GainRef.Dims.Y}) do not match image ({header.Dimensions.X}x{header.Dimensions.Y}).");
 
-            int EERSupersample = 4; // EER super-resolution now fixed to 4x
+            int EERSupersample = 1;
+            if (GainRef != null && correctGain && IsEER)
+            {
+                if (header.Dimensions.X == GainRef.Dims.X)
+                    EERSupersample = 1;
+                else if (header.Dimensions.X * 2 == GainRef.Dims.X)
+                    EERSupersample = 2;
+                else if (header.Dimensions.X * 4 == GainRef.Dims.X)
+                    EERSupersample = 3;
+                else
+                    throw new Exception("Invalid supersampling factor requested for EER based on gain reference dimensions");
+            }
             int EERGroupFrames = 1;
             if (IsEER)
             {
@@ -1032,15 +838,16 @@ namespace WarpWorker
                 header.Dimensions.Z /= EERGroupFrames;
             }
 
-            //HeaderEER.SuperResolution = EERSupersample;
+            HeaderEER.SuperResolution = EERSupersample;
 
             int2 SourceDims = new int2(header.Dimensions);
             if (IsEER)
-            { 
                 SourceDims *= 4;
 
-                if (GainRef != null && correctGain)
-                    GainRef = GainRef.AsScaled(SourceDims).AndDisposeParent();
+            if (IsEER && GainRef != null && correctGain)
+            {
+                header.Dimensions.X = GainRef.Dims.X;
+                header.Dimensions.Y = GainRef.Dims.Y;
             }
 
             int NThreads = (IsTiff || IsEER) ? maxThreads : 1;
@@ -1050,14 +857,13 @@ namespace WarpWorker
 
             if (RawLayers == null || RawLayers.Length < NThreads || RawLayers[0].Length < SourceDims.Elements())
             {
-                Console.WriteLine($"Allocating {NThreads} raw layers of size {SourceDims.Elements()} for {path} on device {CurrentDevice}");
                 if (RawLayers != null)
                     ArrayPool<float>.ReturnMultiple(RawLayers);
                 RawLayers = ArrayPool<float>.RentMultiple((int)SourceDims.Elements(), NThreads);
             }
 
-            Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims)), GPUThreads);
-            Image[] GPULayers2 = DefectMap != null ? Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims)), GPUThreads) : null;
+            Image[] GPULayers = Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads);
+            Image[] GPULayers2 = DefectMap != null ? Helper.ArrayOfFunction(i => new Image(IntPtr.Zero, new int3(SourceDims), true, true), GPUThreads) : null;
 
             if (scaleFactor == 1M && !IsEER)
             {
@@ -1065,7 +871,6 @@ namespace WarpWorker
                 {
                     OriginalStack?.Dispose();
                     OriginalStack = new Image(header.Dimensions);
-                    Console.WriteLine($"Allocating original stack of size {header.Dimensions} for {path} on device {CurrentDevice}");
                 }
 
                 stack = OriginalStack;
@@ -1077,7 +882,9 @@ namespace WarpWorker
                 {
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
-                    else 
+                    else if (IsEER)
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), EERSupersample, RawLayers[threadID]);
+                    else
                         IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
                                                      HeaderlessDims,
@@ -1094,7 +901,12 @@ namespace WarpWorker
                         GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), header.Dimensions.ElementsSlice());
 
                         if (GainRef != null && correctGain)
-                            GPULayers[GPUThreadID].MultiplySlices(GainRef);
+                        {
+                            //if (IsEER)
+                            //    GPULayers[GPUThreadID].DivideSlices(GainRef);
+                            //else
+                            GPULayers[GPUThreadID].MultiplySlices(GainRef); // EER .gain is now multiplicative??
+                        }
 
                         if (DefectMap != null)
                         {
@@ -1147,11 +959,7 @@ namespace WarpWorker
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
                     else if (IsEER)
-                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, 
-                                                 Math.Min(((HeaderEER)header).DimensionsUngrouped.Z,
-                                                          (z + 1) * EERGroupFrames), 
-                                                 3, // 3 = 4x super-resolution
-                                                 RawLayers[threadID]);
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, Math.Min(((HeaderEER)header).DimensionsUngrouped.Z, (z + 1) * EERGroupFrames), 3, RawLayers[threadID]);
                     else
                         IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
@@ -1169,7 +977,13 @@ namespace WarpWorker
                         GPU.CopyHostToDevice(RawLayers[threadID], GPULayers[GPUThreadID].GetDevice(Intent.Write), SourceDims.Elements());
 
                         if (GainRef != null && correctGain)
-                            GPULayers[GPUThreadID].MultiplySlices(GainRef); // Let's assume EER gain is always multiplicative now
+                        {
+                            //if (IsEER)
+                            //    GPULayers[GPUThreadID].DivideSlices(GainRef);
+                            //else
+                            if (!IsEER)
+                                GPULayers[GPUThreadID].MultiplySlices(GainRef);
+                        }
 
                         if (DefectMap != null && !IsEER)
                         {

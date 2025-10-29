@@ -311,8 +311,8 @@ namespace Warp.Headers
 
                     int NumberOfStrips = Image.NumberOfStrips();
 
-                    float[] ConvertedData = new float[Dimensions.ElementsSlice()];
-                    float[] ConvertedDataFlipY = DoFlipY ? new float[Dimensions.ElementsSlice()] : null;
+                    float[] ConvertedData = ArrayPool<float>.Rent((int)Dimensions.ElementsSlice());
+                    float[] ConvertedDataFlipY = DoFlipY ? ArrayPool<float>.Rent((int)Dimensions.ElementsSlice()) : null;
 
                     Image.SetDirectory(layers == null ? (short)slice : (short)layers[slice]);
 
@@ -437,6 +437,9 @@ namespace Warp.Headers
                     }
 
                     Slices[slice] = DoFlipY ? ConvertedDataFlipY : ConvertedData;
+
+                    if (DoFlipY)
+                        ArrayPool<float>.Return(ConvertedData);
                 }
             }
 

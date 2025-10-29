@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Accord.Math.Optimization;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp;
 

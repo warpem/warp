@@ -29,6 +29,12 @@ namespace MTools.Commands
 
         [Option("files", HelpText = "Optional STAR file with a list of files to intersect with the full list of frame or tilt series referenced by the settings.")]
         public string Files { get; set; }
+
+        [Option('o', "output", HelpText = "Optionally, override the default path where the .source file will be saved.")]
+        public string OutputPath { get; set; }
+        
+        [Option("dont_version", HelpText = "If set, the source will not be versioned.")]
+        public bool DontVersion { get; set; } = false;
     }
 
     class CreateSource : BaseCommand
@@ -67,29 +73,33 @@ namespace MTools.Commands
                 DimensionsZ = OptionsWarp.Tomo.DimensionsZ,
                 FrameLimit = 0,
 
-                GainPath = !string.IsNullOrEmpty(OptionsWarp.Import.GainPath) && OptionsWarp.Import.CorrectGain ? 
-                           Helper.PathCombine(Environment.CurrentDirectory, 
-                                              Path.GetDirectoryName(OptionsCLI.ProcessingSettings), 
-                                              OptionsWarp.Import.GainPath) : 
-                           "",
+                GainPath = !string.IsNullOrEmpty(OptionsWarp.Import.GainPath) && OptionsWarp.Import.CorrectGain ?
+                               Helper.PathCombine(Environment.CurrentDirectory,
+                                                  Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                                  OptionsWarp.Import.GainPath) :
+                               "",
                 GainFlipX = OptionsWarp.Import.GainFlipX,
                 GainFlipY = OptionsWarp.Import.GainFlipY,
                 GainTranspose = OptionsWarp.Import.GainTranspose,
 
-                DefectsPath = !string.IsNullOrEmpty(OptionsWarp.Import.DefectsPath) && OptionsWarp.Import.CorrectDefects ? 
-                              Helper.PathCombine(Environment.CurrentDirectory, 
-                                                 Path.GetDirectoryName(OptionsCLI.ProcessingSettings), 
-                                                 OptionsWarp.Import.DefectsPath) : 
-                              "",
+                DefectsPath = !string.IsNullOrEmpty(OptionsWarp.Import.DefectsPath) && OptionsWarp.Import.CorrectDefects ?
+                                  Helper.PathCombine(Environment.CurrentDirectory,
+                                                     Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                                     OptionsWarp.Import.DefectsPath) :
+                                  "",
 
                 DosePerAngstromFrame = OptionsWarp.Import.DosePerAngstromFrame,
                 EERGroupFrames = OptionsWarp.Import.EERGroupFrames,
 
                 Name = OptionsCLI.Name,
-                Path = Helper.PathCombine(Environment.CurrentDirectory,
-                                          Path.GetDirectoryName(OptionsCLI.ProcessingSettings), 
-                                          OptionsWarp.Import.ProcessingOrDataFolder, 
-                                          Helper.RemoveInvalidChars(OptionsCLI.Name) + ".source")
+                Path = string.IsNullOrWhiteSpace(OptionsCLI.OutputPath) ?
+                           Helper.PathCombine(Environment.CurrentDirectory,
+                                              Path.GetDirectoryName(OptionsCLI.ProcessingSettings),
+                                              OptionsWarp.Import.ProcessingOrDataFolder,
+                                              Helper.RemoveInvalidChars(OptionsCLI.Name) + ".source") :
+                           OptionsCLI.OutputPath,
+                
+                DontVersion = OptionsCLI.DontVersion
             };
 
             if (Population.Sources.Any(s => Path.GetFullPath(s.Path) == Path.GetFullPath(NewSource.Path)))
@@ -256,7 +266,7 @@ namespace MTools.Commands
             {
                 Console.Write("Checking for hash overlaps with existing data sources... ");
 
-                string[] Overlapping = Helper.Combine(Population.Sources.Select(s => s.Files.Where(f => NewSource.Files.ContainsKey(f.Key)).Select(f => f.Value).ToArray()));
+                string[] Overlapping = Population.Sources.SelectMany(s => s.Files.Where(f => NewSource.Files.ContainsKey(f.Key)).Select(f => f.Value).ToArray()).ToArray();
                 if (Overlapping.Length > 0)
                 {
                     string Offenders = "";

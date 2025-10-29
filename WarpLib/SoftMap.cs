@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Accord;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp
 {

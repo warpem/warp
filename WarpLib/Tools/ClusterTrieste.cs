@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ZLinq;
 
 namespace Warp.Tools
 {
@@ -96,7 +97,7 @@ namespace Warp.Tools
                     Ratio[i1] = DistanceToSuperior[i1] * LocalDensity[i1];
                 });
 
-                float MaxDistance = MathHelper.Max(DistanceToSuperior.Where(v => v < float.MaxValue));
+                float MaxDistance = DistanceToSuperior.Where(v => v < float.MaxValue).Max();
                 for (int i = 0; i < items.Length; i++)
                     if (SuperiorIndex[i] < 0)
                         DistanceToSuperior[i] = MaxDistance;

@@ -73,6 +73,15 @@ namespace MTools.Commands
 
         [Option("ignore_unmatched", HelpText = "Don't fail if there are particles that don't match any data sources.")]
         public bool IgnoreUnmatched { get; set; }
+
+        [Option("dont_use_denoiser", HelpText = "Use low-pass filtering for regularization instead of a denoiser.")]
+        public bool DontUseDenoiser { get; set; }
+        
+        [Option('o', "output", HelpText= "Optionally, override default path where the .species file and all data will be saved.")]
+        public string OutputPath { get; set; }
+        
+        [Option("dont_version", HelpText = "If set, the source will not be versioned.")]
+        public bool DontVersion { get; set; } = false;
     }
 
     class CreateSpecies : BaseCommand
@@ -304,12 +313,20 @@ namespace MTools.Commands
                 HelicalHeight = Options.HelicalHeight,
                 DiameterAngstrom = Options.Diameter,
                 TemporalResolutionMovement = Options.TemporalSamples,
-                TemporalResolutionRotation = Options.TemporalSamples
+                TemporalResolutionRotation = Options.TemporalSamples,
+                ApplyDenoising = !Options.DontUseDenoiser,
+                
+                DontVersion = Options.DontVersion
             };
 
-            NewSpecies.Path = Path.Combine(Population.SpeciesDir,
-                                           NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8),
-                                           NewSpecies.NameSafe + ".species");
+            NewSpecies.Path = string.IsNullOrWhiteSpace(Options.OutputPath) ?
+                                  Path.Combine(Population.SpeciesDir,
+                                               NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8),
+                                               NewSpecies.NameSafe + ".species") :
+                                  Options.OutputPath;
+
+            Directory.CreateDirectory(NewSpecies.FolderPath);
+            
             if (File.Exists(NewSpecies.Path))
             {
                 Console.Error.WriteLine($"{NewSpecies.Path} already exists. Please use a different name, or delete the old species.");
@@ -363,7 +380,7 @@ namespace MTools.Commands
                     ParticleHashes[hash]++;
                 }
 
-                HashSet<string> AvailableHashes = new HashSet<string>(Helper.Combine(Population.Sources.Select(s => s.Files.Keys.ToArray())));
+                HashSet<string> AvailableHashes = new HashSet<string>(Population.Sources.SelectMany(s => s.Files.Keys.ToArray()).ToArray());
                 List<string> HashesNotFound = ParticleHashes.Keys.Where(hash => !AvailableHashes.Contains(hash)).ToList();
 
                 ParticlesUnmatched = HashesNotFound.Sum(h => ParticleHashes[h]);
@@ -633,11 +650,6 @@ namespace MTools.Commands
             #region Calculate resolution
 
             Console.WriteLine("Calculating resolution and training denoiser model...");
-
-            NewSpecies.Path = Path.Combine(Population.SpeciesDir, 
-                                           NewSpecies.NameSafe + "_" + NewSpecies.GUID.ToString().Substring(0, 8), 
-                                           NewSpecies.NameSafe + ".species");
-            Directory.CreateDirectory(NewSpecies.FolderPath);
 
             NewSpecies.CalculateResolutionAndFilter(Options.Lowpass ?? -1, (message) => { VirtualConsole.ClearLastLine(); Console.Write(message); });
 

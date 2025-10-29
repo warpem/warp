@@ -477,10 +477,10 @@ namespace Warp.Controls
             IEnumerable<float> RelevantExperimental = ExperimentalData.Select(p => p.Y).Skip(MinN).Take(N);
             IEnumerable<float> RelevantSimulated = SimulatedData.Select(p => p.Y).Skip(MinN).Take(N);
 
-            float MinExperimental = MathHelper.Min(RelevantExperimental);
-            float MaxExperimental = MathHelper.Max(RelevantExperimental);
-            float MinSimulated = MathHelper.Min(RelevantSimulated);
-            float MaxSimulated = MathHelper.Max(RelevantSimulated);
+            float MinExperimental = RelevantExperimental.Min();
+            float MaxExperimental = RelevantExperimental.Max();
+            float MinSimulated = RelevantSimulated.Min();
+            float MaxSimulated = RelevantSimulated.Max();
 
             Plot1DAxisY.MinValue = Math.Min(MinExperimental, MinSimulated);
             Plot1DAxisY.MaxValue = Math.Max(MaxExperimental, MaxSimulated) * 1.25f;

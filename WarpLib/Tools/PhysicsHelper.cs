@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Accord.Math.Optimization;
+using ZLinq;
 
 namespace Warp.Tools
 {

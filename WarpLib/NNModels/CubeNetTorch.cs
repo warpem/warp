@@ -13,6 +13,7 @@ using static TorchSharp.NN.Functions;
 using static TorchSharp.NN.Losses;
 using static TorchSharp.ScalarExtensionMethods;
 using TorchSharp;
+using ZLinq;
 
 namespace Warp.NNModels
 {
@@ -453,7 +454,7 @@ namespace Warp.NNModels
                     Components.Add(Component);
                 }
 
-                Centroids = Components.Select(c => MathHelper.Mean(c.Select(v => new float3(v)))).ToList();
+                Centroids = Components.Select(c => MathHelper.Mean(c.Select(v => new float3(v)).ToArray())).ToList();
                 Extents = Components.Select(c => c.Count).ToList();
             }
 

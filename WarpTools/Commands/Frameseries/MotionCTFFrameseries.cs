@@ -213,9 +213,14 @@ namespace WarpTools.Commands
                 if (CLI.OutThumbnails.HasValue)
                     worker.MovieCreateThumbnail(m.Path, CLI.OutThumbnails.Value, 3);
 
+                if (Options.CTF.UseMovieSum)
+                    worker.WaitAsyncTasks();
+
                 if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
                     worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames, false);
                 worker.MovieProcessCTF(m.Path, OptionsCTF);
+
+                worker.GcCollect();
             });
 
             Console.Write("Saying goodbye to all workers...");

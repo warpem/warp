@@ -173,6 +173,8 @@ void render4K(float* image, std::vector<unsigned int>& positions, std::vector<un
 	const int y_shift = 12;
 	const int index_shift = 12;
 
+	int last_index = -1;
+
 	// Main AVX2 loop
 	for (; i <= n_electrons - vec_width; i += vec_width)
 	{
@@ -202,7 +204,16 @@ void render4K(float* image, std::vector<unsigned int>& positions, std::vector<un
 		// This part is not vectorized due to lack of scatter support
 		#pragma unroll // Suggest loop unrolling to the compiler
 		for (int j = 0; j < vec_width; ++j)
+		{
+			if (indices[j] == last_index)
+			{
+				std::cout << "Error: Index out of bounds." << std::endl;
+				throw std::runtime_error("Index out of bounds.");
+			}
+			last_index = indices[j];
+
 			image[indices[j]]++;
+		}
 	}
 
 	// Handle remaining elements (less than 8) with the original scalar code
@@ -215,13 +226,8 @@ void render4K(float* image, std::vector<unsigned int>& positions, std::vector<un
 }
 
 
-// image is cleared.
-// This function is thread-safe (except for timing).
-long long renderFrames(int frame_start, int frame_end, float* image);	
-
 __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrameInclusive, int lastFrameExclusive, int eer_upsampling, float* h_result)
-{
-	
+{	
 	TIFFSetWarningHandler(0);
 
 	if (eer_upsampling < 1 || eer_upsampling > 3)

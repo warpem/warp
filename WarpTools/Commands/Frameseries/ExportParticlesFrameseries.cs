@@ -472,6 +472,8 @@ namespace WarpTools.Commands.Frameseries
                 }
 
                 #endregion
+
+                worker.GcCollect();
             });
 
             Console.Write("Saving STAR file...");      

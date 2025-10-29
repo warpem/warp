@@ -73,7 +73,7 @@ public partial class Movie
                     if (ExportMovieWiener != null)
                         ExportMovieWiener.Dispose();
 
-                    float2[] CTFCoordsData = new float2[Dims.Slice().ElementsFFT()];
+                    float2[] CTFCoordsData = ArrayPool<float2>.Rent((int)Dims.Slice().ElementsFFT());
                     Helper.ForEachElementFTParallel(new int2(Dims), (x, y, xx, yy) =>
                     {
                         float xs = xx / (float)Dims.X;
@@ -103,6 +103,9 @@ public partial class Movie
                     });
 
                     ExportMovieWiener = new Image(CTF2D, Dims.Slice(), true);
+
+                    ArrayPool<float2>.Return(CTFCoordsData, false);
+                    ArrayPool<float>.Return(CTF2D, false);
                 }
             }
         }
@@ -152,9 +155,13 @@ public partial class Movie
             for (int x = 0; x < DimsWarp.X; x++)
                 InterpPoints[y * DimsWarp.X + x] = new float3((float)x / (DimsWarp.X - 1), (float)y / (DimsWarp.Y - 1), (z + FirstFrame) * StepZ);
 
-            float2[] WarpXY = GetShiftFromPyramid(InterpPoints);
-            float[] WarpX = WarpXY.Select(v => v.X / (float)options.BinnedPixelSizeMean).ToArray();
-            float[] WarpY = WarpXY.Select(v => v.Y / (float)options.BinnedPixelSizeMean).ToArray();
+            float[] WarpX = GetShiftXFromPyramid(InterpPoints);
+            float[] WarpY = GetShiftYFromPyramid(InterpPoints);
+            for (int i = 0; i < WarpX.Length; i++)
+            {
+                WarpX[i] /= (float)options.BinnedPixelSizeMean;
+                WarpY[i] /= (float)options.BinnedPixelSizeMean;
+            }
 
             OutputTimers[6].Finish(Timer6);
 
@@ -177,6 +184,9 @@ public partial class Movie
                 WarpY,
                 DimsWarp,
                 TempArray[threadID]);
+
+            ArrayPool<float>.Return(WarpX);
+            ArrayPool<float>.Return(WarpY);
 
             PS[threadID].Fill(1f);
             int nframe = z + FirstFrame;

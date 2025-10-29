@@ -9,6 +9,7 @@ using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using Warp.Headers;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp
 {
@@ -389,7 +390,7 @@ namespace Warp
             SegmentIndices = IndexLists.Select(l => l.ToArray()).ToArray();
 
             float3 Center = new float3(DimsVolume.X / 2, DimsVolume.Y / 2, DimsVolume.Z / 2);
-            SegmentCenters = SegmentIndices.Select(a => MathHelper.Mean(a.Select(i => Atoms[i])) - Center).ToArray();
+            SegmentCenters = SegmentIndices.Select(a => MathHelper.Mean(a.Select(i => Atoms[i]).ToArray()) - Center).ToArray();
             SegmentCenteredAtoms = Helper.ArrayOfFunction(s => SegmentIndices[s].Select(i => Atoms[i] - SegmentCenters[s] - Center).ToArray(), NSegments);
             SegmentModes = Helper.ArrayOfFunction(s => Modes.Select(m => SegmentIndices[s].Select(i => m[i]).ToArray()).ToArray(), NSegments);
         }
@@ -450,7 +451,7 @@ namespace Warp
                 return Neighbors.ToArray();
             };
 
-            Func<int, int[]> GetPartitionIndices = (id) => Helper.Combine(Partitions[id].Select(v => SegmentIndices[v]));
+            Func<int, int[]> GetPartitionIndices = (id) => Partitions[id].SelectMany(v => SegmentIndices[v]).ToArray();
 
             Func<int, float> GetPartitionError = (id) => MathHelper.Max(GetSegmentErrors(GetPartitionIndices(id)));
 

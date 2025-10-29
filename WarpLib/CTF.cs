@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp
 {
@@ -303,7 +304,7 @@ namespace Warp
 
         public float[] Get1D(int width, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
-            float[] Output = new float[width];
+            float[] Output = ArrayPool<float>.Rent(width);
 
             double ny = 0.5 / (double)PixelSize / width;
 
@@ -674,7 +675,7 @@ namespace Warp
 
         public float[] Get2DFromScaledCoords(float2[] coordinates, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
-            float[] Output = new float[coordinates.Length];
+            float[] Output = ArrayPool<float>.Rent(coordinates.Length);
 
             float voltage = (float)Voltage * 1e3f;
             float lambda = 12.2643247f / (float)Math.Sqrt(voltage * (1.0f + voltage * 0.978466e-6f));
@@ -1017,7 +1018,7 @@ namespace Warp
         {
             Image CTFCoords;
             {
-                float2[] CTFCoordsData = new float2[(size / 2 + 1) * size];
+                float2[] CTFCoordsData = ArrayPool<float2>.Rent((size / 2 + 1) * size);
                 for (int y = 0; y < size; y++)
                     for (int x = 0; x < size / 2 + 1; x++)
                     {
@@ -1036,6 +1037,7 @@ namespace Warp
                     }
 
                 CTFCoords = new Image(CTFCoordsData, new int3(size, size, 1), true);
+                ArrayPool<float2>.Return(CTFCoordsData);
             }
 
             return CTFCoords;

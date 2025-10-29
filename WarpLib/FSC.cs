@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Accord.Math.Optimization;
 using BitMiracle.LibTiff.Classic;
 using Warp.Tools;
+using ZLinq;
 
 namespace Warp
 {

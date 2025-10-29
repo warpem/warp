@@ -451,7 +451,7 @@ namespace Warp.Controls
                 if (ParticlesSuffix != null && Movie.PickingThresholds.ContainsKey(ParticlesSuffix))
                     ParticlesThreshold = Movie.PickingThresholds[ParticlesSuffix];
                 else if (Particles.Count > 0)
-                    ParticlesThreshold = (decimal)MathHelper.Min(Particles.Select(p => p.FOM));
+                    ParticlesThreshold = (decimal)Particles.Select(p => p.FOM).Min();
             }
             else
             {
@@ -1272,7 +1272,7 @@ namespace Warp.Controls
             if (Movie.PickingThresholds.ContainsKey(ParticlesSuffix))
                 ParticlesThreshold = Movie.PickingThresholds[ParticlesSuffix];
             else if (Particles.Count > 0)
-                ParticlesThreshold = (decimal)MathHelper.Min(Particles.Select(p => p.FOM));
+                ParticlesThreshold = (decimal)Particles.Select(p => p.FOM).Min();
 
             UpdateParticles();
         }
@@ -1512,8 +1512,8 @@ namespace Warp.Controls
 
             //ImageDisplay.ToolTip = "LEFT: Add/move particle\nMIDDLE: Pan view\nSCROLL: Zoom\nRIGHT: Delete particle";
 
-            float MinFOM = MathHelper.Min(Particles.Where(p => p.FOM >= (float)ParticlesThreshold).Select(p => p.FOM));
-            float MaxFOM = MathHelper.Max(Particles.Where(p => p.FOM >= (float)ParticlesThreshold).Select(p => p.FOM));
+            float MinFOM = Particles.Where(p => p.FOM >= (float)ParticlesThreshold).Select(p => p.FOM).Min();
+            float MaxFOM = Particles.Where(p => p.FOM >= (float)ParticlesThreshold).Select(p => p.FOM).Max();
             float RangeFOM = Math.Max(1e-6f, MaxFOM - MinFOM);
             double PreferredFOMHeight = (double)ParticlesDiameter / PixelSize * ScaleFactor / 3;
             float3 Color1 = new float3(20 / 360f, 1, 0.5f);
@@ -1722,7 +1722,7 @@ namespace Warp.Controls
             LoadParticles();
 
             if (Particles.Count > 0)
-                ParticlesThreshold = (decimal)MathHelper.Min(Particles.Select(p => p.FOM));
+                ParticlesThreshold = (decimal)Particles.Select(p => p.FOM).Min();
             ParticlesShow = true;
             UpdateParticles();
 

@@ -15,6 +15,7 @@ using Accord.Math.Optimization;
 using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
+using ZLinq;
 using IOPath = System.IO.Path;
 
 namespace Warp
@@ -712,7 +713,7 @@ namespace Warp
         #region Picking and particles
 
         public readonly Dictionary<string, decimal> PickingThresholds = new Dictionary<string, decimal>();
-        private readonly Dictionary<string, int> ParticleCounts = new Dictionary<string, int>();
+        public readonly Dictionary<string, int> ParticleCounts = new Dictionary<string, int>();
 
         public int GetParticleCount(string suffix)
         {
@@ -1096,7 +1097,7 @@ namespace Warp
                 if (PS1D != null)
                 {
                     Writer.WriteStartElement("PS1D");
-                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture))));
+                    Writer.WriteString(string.Join(";", PS1D.Select(v => v.X.ToString(CultureInfo.InvariantCulture) + "|" + v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -1106,7 +1107,7 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    _SimulatedBackground.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                          "|" +
-                                                                                         v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                         v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -1116,7 +1117,7 @@ namespace Warp
                     Writer.WriteString(string.Join(";",
                                                    _SimulatedScale.Data.Select(v => v.X.ToString(CultureInfo.InvariantCulture) +
                                                                                     "|" +
-                                                                                    v.Y.ToString(CultureInfo.InvariantCulture))));
+                                                                                    v.Y.ToString(CultureInfo.InvariantCulture)).ToArray()));
                     Writer.WriteEndElement();
                 }
 
@@ -1358,7 +1359,7 @@ namespace Warp
                     Arrays.Add(Helper.ToBytes(grid.FlatValues));
                 }
 
-            byte[] ArraysCombined = Helper.Combine(Arrays);
+            byte[] ArraysCombined = Arrays.SelectMany(a => a).ToArray();
             return MathHelper.GetSHA1(ArraysCombined);
         }
 
@@ -2342,6 +2343,72 @@ namespace Warp
             return Result;
         }
 
+        public float[] GetShiftXFromPyramid(float3[] coords, bool localOnly = false)
+        {
+            float[] Result = ArrayPool<float>.Rent(coords.Length);
+
+            if (!localOnly)
+            {
+                float[] X = GridMovementX.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += X[i];
+
+                ArrayPool<float>.Return(X);
+            }
+
+            {
+                float[] X = GridLocalX.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += X[i];
+
+                ArrayPool<float>.Return(X);
+            }
+
+            for (int p = 0; p < PyramidShiftX.Count; p++)
+            {
+                float[] X = PyramidShiftX[p].GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += X[i];
+
+                ArrayPool<float>.Return(X);
+            }
+
+            return Result;
+        }
+
+        public float[] GetShiftYFromPyramid(float3[] coords, bool localOnly = false)
+        {
+            float[] Result = ArrayPool<float>.Rent(coords.Length);
+
+            if (!localOnly)
+            {
+                float[] Y = GridMovementY.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += Y[i];
+
+                ArrayPool<float>.Return(Y);
+            }
+
+            {
+                float[] Y = GridLocalY.GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += Y[i];
+
+                ArrayPool<float>.Return(Y);
+            }
+
+            for (int p = 0; p < PyramidShiftY.Count; p++)
+            {
+                float[] Y = PyramidShiftY[p].GetInterpolated(coords);
+                for (int i = 0; i < Result.Length; i++)
+                    Result[i] += Y[i];
+
+                ArrayPool<float>.Return(Y);
+            }
+
+            return Result;
+        }
+
         public virtual int[] GetRelevantImageSizes(int fullSize, float weightingThreshold)
         {
             int[] Result = new int[NFrames];
@@ -2400,37 +2467,37 @@ namespace Warp
             Json["Path"] = Helper.PathToNameWithExtension(Path);
 
             // ProcessingStatus enum
-            Json["Stat"] = (int)ProcessingStatus;
+            Json["ProcessingStatus"] = (int)ProcessingStatus;
 
             // CTF
             {
                 // Defocus
-                Json["Def"] = CTF == null ? null : MathF.Round((float)CTF.Defocus, 4);
+                Json["Defocus"] = CTF == null ? null : MathF.Round((float)CTF.Defocus, 4);
 
                 // Phase shift
-                Json["Phs"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
+                Json["Phase"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
 
                 // Estimated resolution
-                Json["Rsn"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
+                Json["Resolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
 
                 // Astigmatism plot X and Y
-                Json["AsX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
-                Json["AsY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+                Json["AstigX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
+                Json["AstigY"] = CTF == null ? null : MathF.Round(MathF.Sin((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);
             }
 
             // Motion
             {
-                Json["Mtn"] = OptionsMovement == null ? null : (double)MeanFrameMovement;
+                Json["Motion"] = OptionsMovement == null ? null : (double)MeanFrameMovement;
             }
 
             // 💩 percentage
-            Json["Jnk"] = MaskPercentage < 0 ? null : MathF.Round((float)MaskPercentage, 1);
+            Json["Junk"] = MaskPercentage < 0 ? null : MathF.Round((float)MaskPercentage, 1);
 
             // Particle count for given suffix
             if (particleSuffix != null)
             {
                 int ParticleCount = GetParticleCount(particleSuffix);
-                Json["Ptc"] = ParticleCount < 0 ? null : ParticleCount;
+                Json["Particles"] = ParticleCount < 0 ? null : ParticleCount;
             }
 
             return Json;

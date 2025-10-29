@@ -287,6 +287,11 @@ namespace Warp
             SendCommand(new NamedSerializableObject(nameof(WaitAsyncTasks)));
         }
 
+        public void GcCollect()
+        {
+            SendCommand(new NamedSerializableObject("GcCollect"));
+        }
+
         public void SetHeaderlessParams(int2 dims, long offset, string type)
         {
             SendCommand(new NamedSerializableObject("SetHeaderlessParams",
@@ -392,6 +397,13 @@ namespace Warp
                                                     options));
         }
         
+        public void TomoAretomo3(string path, ProcessingOptionsTomoAretomo3 options)
+        {
+            SendCommand(new NamedSerializableObject("TomoAretomo3",
+                                                    path,
+                                                    options));
+        }
+        
         public void TomoEtomoPatchTrack(string path, ProcessingOptionsTomoEtomoPatch options)
         {
             SendCommand(new NamedSerializableObject("TomoEtomoPatchTrack",
@@ -404,6 +416,13 @@ namespace Warp
             SendCommand(new NamedSerializableObject("TomoEtomoFiducials",
                 path,
                 options));
+        }
+
+        public void TomoAutoLevel(string path, ProcessingOptionsTomoAutoLevel options)
+        {
+            SendCommand(new NamedSerializableObject("TomoAutoLevel",
+                                                    path,
+                                                    options));
         }
 
         public void TomoProcessCTF(string path, ProcessingOptionsMovieCTF options)
