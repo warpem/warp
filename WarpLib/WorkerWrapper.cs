@@ -463,7 +463,7 @@ namespace Warp
                                                     angles));
         }
 
-        public void TomoExportParticleSeries(string path, ProcessingOptionsTomoSubReconstruction options, float3[] coordinates, float3[] angles, string pathsRelativeTo, string pathTableOut)
+        public void TomoExportParticleSeries(string path, ProcessingOptionsTomoSubReconstruction options, float3[] coordinates, float3[] angles, string pathsRelativeTo, string pathTableOut, Dictionary<string, string[]> additionalColumns)
         {
             SendCommand(new NamedSerializableObject("TomoExportParticleSeries",
                                                     path,
@@ -471,7 +471,8 @@ namespace Warp
                                                     coordinates,
                                                     angles,
                                                     pathsRelativeTo,
-                                                    pathTableOut));
+                                                    pathTableOut,
+                                                    additionalColumns));
         }
 
         public void MPAPrepareSpecies(string path, string stagingSave)
