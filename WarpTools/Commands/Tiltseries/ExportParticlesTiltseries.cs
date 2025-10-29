@@ -170,9 +170,23 @@ namespace WarpTools.Commands
 
             ValidateInputStar(inputStar);
             _additionalColumns = new Dictionary<string, string[]>();
-            if (inputStar.HasColumn("rlnUnknownLabel"))
+            var knownColumns = new HashSet<string>
             {
-                _additionalColumns.Add("rlnUnknownLabel", inputStar.GetColumn("rlnUnknownLabel"));
+                "rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ",
+                "rlnMicrographName", "rlnTomoName",
+                "rlnOriginX", "rlnOriginXAngst",
+                "rlnOriginY", "rlnOriginYAngst",
+                "rlnOriginZ", "rlnOriginZAngst",
+                "rlnPixelSize", "rlnImagePixelSize",
+                "rlnAngleRot", "rlnAngleTilt", "rlnAnglePsi",
+                "rlnOpticsGroup", "rlnOpticsGroupName"
+            };
+            foreach (var columnName in inputStar.GetColumnNames())
+            {
+                if (!knownColumns.Contains(columnName))
+                {
+                    _additionalColumns.Add(columnName, inputStar.GetColumn(columnName));
+                }
             }
 
             string[] tiltSeriesIDs = inputStar.HasColumn("rlnMicrographName") ? inputStar.GetColumn("rlnMicrographName") : inputStar.GetColumn("rlnTomoName");
