@@ -326,8 +326,7 @@ namespace WarpTools.Commands
                                                             pathTableOut: TempTiltSeriesParticleStarPath,
                                                             pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
                                                                                  Path.GetFullPath(OutputStarPath) :
-                                                                                 Directory.GetCurrentDirectory(),
-                                                            additionalColumns: tsAdditionalColumns);
+                                                                                 Directory.GetCurrentDirectory());
 
                             // generate necessary metadata for particles.star
                             if (Helper.IsDebug)
