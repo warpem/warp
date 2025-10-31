@@ -101,7 +101,7 @@ namespace Noise2Map
                     {
                         var denoiser = new Denoiser(context, options, mapInfo);
                         denoiser.LoadModel(trainedModelName);
-                        denoiser.DenoiseAll();
+                        denoiser.DenoiseAll(shutdownTokenSource.Token);
                         denoiser.Dispose();
                     }
                 }

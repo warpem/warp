@@ -86,13 +86,25 @@ namespace Warp.Tools.Async
         /// </summary>
         public void ProcessAll(IEnumerable<TData> source)
         {
+            ProcessAll(source, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Processes all source items through the pipeline with external cancellation support
+        /// </summary>
+        public void ProcessAll(IEnumerable<TData> source, CancellationToken externalToken)
+        {
+            // Link external cancellation to internal cancellation
+            using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationSource.Token, externalToken);
+            var linkedToken = linkedSource.Token;
+
             // Start all background stages
             for (int i = 0; i < stages.Count; i++)
             {
                 if (stages[i].RunInBackground)
                 {
                     int stageIndex = i;
-                    stages[i].Task = Task.Run(() => RunStage(stageIndex));
+                    stages[i].Task = Task.Run(() => RunStageWithToken(stageIndex, linkedToken));
                 }
             }
 
@@ -106,14 +118,24 @@ namespace Warp.Tools.Async
                     // First stage is background, feed source to its input queue
                     foreach (var item in source)
                     {
-                        firstStage.InputQueue.Enqueue(item, cancellationSource.Token);
+                        linkedToken.ThrowIfCancellationRequested();
+                        firstStage.InputQueue.Enqueue(item, linkedToken);
                     }
                     firstStage.InputQueue.CompleteAdding();
                 }
                 else
                 {
                     // First stage runs on main thread
-                    RunFirstStageOnMainThread(source);
+                    RunFirstStageOnMainThreadWithToken(source, linkedToken);
+                }
+            }
+
+            // Run any non-background stages on main thread (e.g., last stage as consumer)
+            for (int i = 1; i < stages.Count; i++)
+            {
+                if (!stages[i].RunInBackground)
+                {
+                    RunStageWithToken(i, linkedToken);
                 }
             }
 
@@ -133,6 +155,11 @@ namespace Warp.Tools.Async
 
         private void RunFirstStageOnMainThread(IEnumerable<TData> source)
         {
+            RunFirstStageOnMainThreadWithToken(source, cancellationSource.Token);
+        }
+
+        private void RunFirstStageOnMainThreadWithToken(IEnumerable<TData> source, CancellationToken token)
+        {
             var firstStage = stages[0];
             var processor = (Func<TData, CancellationToken, object>)firstStage.Processor;
 
@@ -141,12 +168,13 @@ namespace Warp.Tools.Async
 
             foreach (var item in source)
             {
-                var result = processor(item, cancellationSource.Token);
+                token.ThrowIfCancellationRequested();
+                var result = processor(item, token);
 
                 if (stages.Count > 1)
                 {
-                    firstStage.OutputQueue.Enqueue(result, cancellationSource.Token);
-                    stages[1].InputQueue.Enqueue(result, cancellationSource.Token);
+                    firstStage.OutputQueue.Enqueue(result, token);
+                    stages[1].InputQueue.Enqueue(result, token);
                 }
             }
 
@@ -158,6 +186,11 @@ namespace Warp.Tools.Async
         }
 
         private void RunStage(int stageIndex)
+        {
+            RunStageWithToken(stageIndex, cancellationSource.Token);
+        }
+
+        private void RunStageWithToken(int stageIndex, CancellationToken token)
         {
             try
             {
@@ -175,19 +208,19 @@ namespace Warp.Tools.Async
                 BoundedQueue<object> output = stage.OutputQueue;
                 bool isLastStage = stageIndex == stages.Count - 1;
 
-                foreach (var item in input.GetConsumingEnumerable(cancellationSource.Token))
+                foreach (var item in input.GetConsumingEnumerable(token))
                 {
                     // Invoke processor
-                    var result = processMethod.Invoke(processor, new object[] { item, cancellationSource.Token });
+                    var result = processMethod.Invoke(processor, new object[] { item, token });
 
                     // Pass to next stage if not last
                     if (!isLastStage)
                     {
-                        output.Enqueue(result, cancellationSource.Token);
+                        output.Enqueue(result, token);
 
                         // Also feed to next stage's input if it exists
                         if (stageIndex + 1 < stages.Count)
-                            stages[stageIndex + 1].InputQueue.Enqueue(result, cancellationSource.Token);
+                            stages[stageIndex + 1].InputQueue.Enqueue(result, token);
                     }
                 }
 

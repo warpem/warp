@@ -51,13 +51,13 @@ namespace Noise2Map
         /// <summary>
         /// Denoises all maps using streaming pipeline
         /// </summary>
-        public void DenoiseAll()
+        public void DenoiseAll(System.Threading.CancellationToken cancellationToken = default)
         {
             if (mapInfoList == null || mapInfoList.Count == 0)
                 throw new Exception("No map information available for denoising. MapFileInfo list is required.");
 
             var pipeline = new DenoisingPipeline(mapInfoList, options, context, model);
-            pipeline.ProcessAll();
+            pipeline.ProcessAll(cancellationToken);
         }
 
         public void Dispose()

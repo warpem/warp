@@ -55,7 +55,7 @@ namespace Noise2Map
         /// <summary>
         /// Runs the full pipeline: loader thread → denoiser (main thread) → saver thread
         /// </summary>
-        public void ProcessAll()
+        public void ProcessAll(CancellationToken cancellationToken = default)
         {
             Directory.CreateDirectory(Path.Combine(context.WorkingDirectory, "denoised"));
 
@@ -72,7 +72,7 @@ namespace Noise2Map
 
             try
             {
-                pipeline.ProcessAll(mapInfoList);
+                pipeline.ProcessAll(mapInfoList, cancellationToken);
             }
             finally
             {
