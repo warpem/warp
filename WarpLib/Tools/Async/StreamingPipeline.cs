@@ -109,19 +109,31 @@ namespace Warp.Tools.Async
             }
 
             // Feed source data into first stage's input queue
+            Task sourceFeederTask = null;
             if (stages.Count > 0)
             {
                 var firstStage = stages[0];
 
                 if (firstStage.RunInBackground)
                 {
-                    // First stage is background, feed source to its input queue
-                    foreach (var item in source)
+                    // First stage is background, feed source to its input queue in a background task
+                    // to avoid blocking if there are non-background stages later
+                    sourceFeederTask = Task.Run(() =>
                     {
-                        linkedToken.ThrowIfCancellationRequested();
-                        firstStage.InputQueue.Enqueue(item, linkedToken);
-                    }
-                    firstStage.InputQueue.CompleteAdding();
+                        try
+                        {
+                            foreach (var item in source)
+                            {
+                                linkedToken.ThrowIfCancellationRequested();
+                                firstStage.InputQueue.Enqueue(item, linkedToken);
+                            }
+                            firstStage.InputQueue.CompleteAdding();
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Expected during cancellation
+                        }
+                    });
                 }
                 else
                 {
@@ -137,6 +149,16 @@ namespace Warp.Tools.Async
                 {
                     RunStageWithToken(i, linkedToken);
                 }
+            }
+
+            // Wait for source feeder task if it was created
+            if (sourceFeederTask != null)
+            {
+                try
+                {
+                    sourceFeederTask.Wait();
+                }
+                catch (AggregateException) { }
             }
 
             // Wait for all background tasks
