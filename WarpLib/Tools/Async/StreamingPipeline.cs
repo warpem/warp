@@ -195,14 +195,12 @@ namespace Warp.Tools.Async
 
                 if (stages.Count > 1)
                 {
-                    firstStage.OutputQueue.Enqueue(result, token);
                     stages[1].InputQueue.Enqueue(result, token);
                 }
             }
 
             if (stages.Count > 1)
             {
-                firstStage.OutputQueue.CompleteAdding();
                 stages[1].InputQueue.CompleteAdding();
             }
         }
@@ -236,24 +234,16 @@ namespace Warp.Tools.Async
                     var result = processMethod.Invoke(processor, new object[] { item, token });
 
                     // Pass to next stage if not last
-                    if (!isLastStage)
+                    if (!isLastStage && stageIndex + 1 < stages.Count)
                     {
-                        output.Enqueue(result, token);
-
-                        // Also feed to next stage's input if it exists
-                        if (stageIndex + 1 < stages.Count)
-                            stages[stageIndex + 1].InputQueue.Enqueue(result, token);
+                        stages[stageIndex + 1].InputQueue.Enqueue(result, token);
                     }
                 }
 
-                // Complete output queue
-                if (!isLastStage)
+                // Complete next stage's input
+                if (!isLastStage && stageIndex + 1 < stages.Count)
                 {
-                    output.CompleteAdding();
-
-                    // Also complete next stage's input
-                    if (stageIndex + 1 < stages.Count)
-                        stages[stageIndex + 1].InputQueue.CompleteAdding();
+                    stages[stageIndex + 1].InputQueue.CompleteAdding();
                 }
             }
             catch (OperationCanceledException)
