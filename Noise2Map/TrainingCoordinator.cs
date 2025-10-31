@@ -95,11 +95,14 @@ namespace Noise2Map
                         else
                         {
                             // Standard mode: prepare fixed number of batches
-                            int batchesPerThread = options.NIterations / numThreads;
-                            int extraBatches = options.NIterations % numThreads;
-                            int batchesToPrepare = batchesPerThread + (threadId < extraBatches ? 1 : 0);
+                            // Note: Each PrepareBatch() call produces batchSize batches (for shuffling across maps)
+                            // So we need NIterations / batchSize total calls to PrepareBatch()
+                            int totalPrepareCalls = (options.NIterations + options.BatchSize - 1) / options.BatchSize; // Ceiling division
+                            int callsPerThread = totalPrepareCalls / numThreads;
+                            int extraCalls = totalPrepareCalls % numThreads;
+                            int callsToPrepare = callsPerThread + (threadId < extraCalls ? 1 : 0);
 
-                            for (int iter = 0; iter < batchesToPrepare; iter++)
+                            for (int iter = 0; iter < callsToPrepare; iter++)
                             {
                                 cancellationSource.Token.ThrowIfCancellationRequested();
                                 worker.PrepareBatch(iter, cancellationSource.Token);
