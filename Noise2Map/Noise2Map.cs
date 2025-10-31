@@ -9,6 +9,7 @@ namespace Noise2Map
     class Noise2Map
     {
         private static System.Threading.CancellationTokenSource shutdownTokenSource = new System.Threading.CancellationTokenSource();
+        private static bool isOnlineMode = false;
 
         static void Main(string[] args)
         {
@@ -20,13 +21,18 @@ namespace Noise2Map
             Console.CancelKeyPress += (sender, e) =>
             {
                 e.Cancel = true;  // Prevent immediate termination
-                Console.WriteLine("\n\nShutdown signal received. Finishing current batch and saving model...");
+                if (isOnlineMode)
+                {
+                    Console.WriteLine("\n\nShutdown signal received. Finishing current batch and saving model...");
+                }
                 shutdownTokenSource.Cancel();
             };
 
             // Parse and validate configuration
             if (!ConfigurationManager.ParseAndValidate(args, out Options options))
                 return;
+
+            isOnlineMode = options.OnlineMode;
 
             // Set up directories
             string programFolder = System.AppContext.BaseDirectory;

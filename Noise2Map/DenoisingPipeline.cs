@@ -63,10 +63,11 @@ namespace Noise2Map
             progressTracker = new ProgressTracker(mapInfoList.Count, warmupItems: 1, emaAlpha: 0.1);
 
             // Build streaming pipeline: Load → Denoise → Save
+            // Note: Saver runs on main thread to ensure pipeline doesn't exit prematurely
             var pipeline = new StreamingPipeline<MapFileInfo>.Builder()
                 .AddStage<MapFileInfo, DenoisingItem>("Loader", LoadMap, QueueCapacity, runInBackground: true, gpuDevice: options.GPUPreprocess)
                 .AddStage<DenoisingItem, DenoisingItem>("Denoiser", DenoiseMap, QueueCapacity, runInBackground: true, gpuDevice: options.GPUPreprocess)
-                .AddStage<DenoisingItem, bool>("Saver", SaveMap, QueueCapacity, runInBackground: true, gpuDevice: -1)
+                .AddStage<DenoisingItem, bool>("Saver", SaveMap, QueueCapacity, runInBackground: false, gpuDevice: -1)
                 .Build();
 
             try
