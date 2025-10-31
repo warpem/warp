@@ -121,9 +121,11 @@ namespace Noise2Map
             while ((options.OnlineMode || iter < options.NIterations) && !cancellationToken.IsCancellationRequested)
             {
                 // Dequeue a prepared batch from the queue
+                Console.WriteLine($"[DEBUG] Training iter={iter}: Dequeuing batch...");
                 TrainingBatch batch = batchQueue.Dequeue();
                 if (batch == null || cancellationToken.IsCancellationRequested)
                     break;  // No more batches available or shutdown requested
+                Console.WriteLine($"[DEBUG] Training iter={iter}: Got batch, training...");
 
                 try
                 {
@@ -137,6 +139,7 @@ namespace Noise2Map
                     GPU.CheckGPUExceptions();
 
                     iter++;
+                    Console.WriteLine($"[DEBUG] Training iter={iter}: Completed iteration");
 
                     // Transition to indefinite online mode display after LR convergence
                     if (options.OnlineMode && iter >= options.NIterations && !hasTransitionedToOnlineMode)
