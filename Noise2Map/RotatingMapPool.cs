@@ -63,7 +63,6 @@ namespace Noise2Map
         /// </summary>
         private LoadedMapData LoadMapData(MapFileInfo info, CancellationToken cancellationToken)
         {
-            Console.WriteLine($"[DEBUG] RotatingMapPool: Loading map {info.MapName}");
             GPU.SetDevice(options.GPUPreprocess);
 
             // Load images

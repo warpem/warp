@@ -45,8 +45,6 @@ namespace Noise2Map
             // Dynamically determine number of maps for shuffling (cap at batch size)
             int nMapsPerBatch = Math.Min(options.BatchSize, context.MapPool.CurrentPoolSize);
 
-            Console.WriteLine($"[DEBUG] PrepareBatch iter={iterationNumber}: CurrentPoolSize={context.MapPool.CurrentPoolSize}, nMapsPerBatch={nMapsPerBatch}, will enqueue {nMapsPerBatch} batches");
-
             // Select random maps from current pool for this batch
             int[] shuffledMapIDs = Helper.RandomSubset(
                 Helper.ArrayOfSequence(0, context.MapPool.CurrentPoolSize, 1),
@@ -95,7 +93,6 @@ namespace Noise2Map
                         ExtractedCTF = extractedCTFRand[i]
                     };
 
-                    Console.WriteLine($"[DEBUG] Enqueuing batch {i+1}/{nMapsPerBatch} for iter {iterationNumber}");
                     queue.Enqueue(batch, cancellationToken);
                 }
             }

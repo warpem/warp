@@ -71,6 +71,45 @@ namespace Warp.Tools.Async
         }
 
         /// <summary>
+        /// Updates progress with explicit iteration number and current item name.
+        /// Use this when updates are called sporadically (not every iteration).
+        /// </summary>
+        public void Update(int currentIteration, string currentItemName)
+        {
+            double itemTime = watch.Elapsed.TotalSeconds;
+            int itemsSinceLastUpdate = currentIteration - completedItems;
+
+            if (itemsSinceLastUpdate > 0)
+            {
+                double timePerItem = itemTime / itemsSinceLastUpdate;
+
+                completedItems = currentIteration;
+
+                // Update smoothed time
+                if (completedItems <= warmupItems)
+                {
+                    // During warmup: just track current time, don't smooth
+                    smoothedItemTime = timePerItem;
+                }
+                else if (completedItems <= warmupItems + 10)
+                {
+                    // Post-warmup ramp: use simple average for stability
+                    int effectiveItem = completedItems - warmupItems;
+                    smoothedItemTime = (smoothedItemTime * (effectiveItem - 1) + timePerItem) / effectiveItem;
+                }
+                else
+                {
+                    // Steady state: exponential moving average
+                    smoothedItemTime = emaAlpha * timePerItem + (1 - emaAlpha) * smoothedItemTime;
+                }
+
+                PrintProgress(currentItemName);
+            }
+
+            watch.Restart();
+        }
+
+        /// <summary>
         /// Prints final completion message
         /// </summary>
         public void Complete()
