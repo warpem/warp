@@ -49,7 +49,7 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
 	int pertimegroup = nframes / ctfgrid.z;
 
 	// Temp spectra will be summed up to be averaged later
-	d_ValueFill(d_outputall, ElementsFFT2(dimsregionscaled) * nspectra, 0.0f);
+	d_ValueFill<float>(d_outputall, ElementsFFT2(dimsregionscaled) * nspectra, 0.0f);
 
 	cufftHandle ownplanforw = planforw > 0 ? planforw : d_FFTR2CGetPlan(2, toInt3(dimsregion), norigins);
 	cufftHandle ownplanback = planback > 0 ? planback : d_IFFTC2RGetPlan(2, toInt3(dimsregionscaled), norigins);
@@ -97,7 +97,7 @@ __declspec(dllexport) void CreateSpectra(float* d_frame,
     {
         tfloat* d_tempspectraaccumulated;
         cudaMalloc((void**)&d_tempspectraaccumulated, norigins * ElementsFFT2(dimsregion) * sizeof(tfloat));
-        d_ValueFill(d_tempspectraaccumulated, ElementsFFT2(dimsregion) * norigins, (tfloat)0);
+        d_ValueFill<tfloat>(d_tempspectraaccumulated, ElementsFFT2(dimsregion) * norigins, (tfloat)0);
 
         for (size_t z = 0; z < nframes; z++)
         {

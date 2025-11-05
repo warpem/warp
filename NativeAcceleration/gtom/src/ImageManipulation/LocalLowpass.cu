@@ -21,7 +21,7 @@ namespace gtom
 	{
 		tcomplex* d_inputft;
 		cudaMalloc((void**)&d_inputft, ElementsFFT(dims) * sizeof(tcomplex));
-		d_ValueFill(d_output, Elements(dims), (tfloat)0);
+		d_ValueFill<tfloat>(d_output, Elements(dims), (tfloat)0);
 		tcomplex* d_maskedft;
 		cudaMalloc((void**)&d_maskedft, ElementsFFT(dims) * sizeof(tcomplex));
 		tfloat* d_cleanresolution;
@@ -63,7 +63,7 @@ namespace gtom
 			tfloat res = (tfloat)b * binsize + minval;
 			tfloat freq = (tfloat)dims.x / res;
 
-			d_ValueFill(d_mask, Elements(dims), (tfloat)1);
+			d_ValueFill<tfloat>(d_mask, Elements(dims), (tfloat)1);
 			d_SphereMask(d_mask, d_mask, dims, &freq, 0, NULL, false);
 			d_RemapFull2HalfFFT(d_mask, d_maskhalf, dims);
 
@@ -93,5 +93,4 @@ namespace gtom
 	////////////////
 	//CUDA kernels//
 	////////////////
-
 }

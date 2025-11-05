@@ -284,12 +284,18 @@ namespace gtom
 		return CudaMallocValueFilled<tfloat>(elements, (tfloat)0.0);
 	}
 
+	// Explicitly instantiate d_ValueFill to prevent linker errors
+	template void d_ValueFill<float>(float* d_array, size_t elements, float value);
+	template void d_ValueFill<float2> (float2* d_array, size_t elements, float2 value);
+	template void d_ValueFill<double>(double* d_array, size_t elements, double value);
+
+
 	template <class T> T* CudaMallocValueFilled(size_t elements, T value)
 	{
 		T* d_array;
 		cudaMalloc((void**)&d_array, elements * sizeof(T));
 
-		d_ValueFill(d_array, elements, value);
+		d_ValueFill<T>(d_array, elements, value);
 
 		return d_array;
 	}
