@@ -76,7 +76,7 @@ namespace WarpWorker
                 webBuilder.UseKestrel(options =>
                     {
                         options.ListenAnyIP(Port);
-                        options.Limits.MaxRequestBodySize = 104857600; // 100 MB
+                        options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 100 MB
                     })
                     .UseStartup<RESTStartup>()
                     .ConfigureLogging(logging => logging.SetMinimumLevel(LogLevel.Warning));
