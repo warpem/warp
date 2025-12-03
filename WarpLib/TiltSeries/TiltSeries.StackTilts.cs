@@ -30,6 +30,8 @@ public partial class TiltSeries
             TiltData[z].FreeDevice();
         }
 
+        VolumeDimensionsPhysical = options.DimensionsPhysical;
+
         var UsedIndices = Enumerable.Range(0, NTilts).Where(i => UseTilt[i]).ToArray();
         var UsedTilts = UsedIndices.Select(i => TiltData[i]).ToArray();
         var UsedAngles = UsedIndices.Select(i => Angles[i]).ToArray();
