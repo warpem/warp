@@ -1904,6 +1904,9 @@ namespace Warp
                     GlobalWeight = XMLHelper.LoadAttribute(Reader, "Weight", GlobalWeight);
 
                     MagnificationCorrection = XMLHelper.LoadAttribute(Reader, "MagnificationCorrection", MagnificationCorrection);
+                    
+                    ImageDimensionsPhysical = XMLHelper.LoadAttribute(Reader, "ImageDimensionsAngstrom", ImageDimensionsPhysical);
+                    VolumeDimensionsPhysical = XMLHelper.LoadAttribute(Reader, "VolumeDimensionsAngstrom", VolumeDimensionsPhysical);
 
                     //_UnselectFilter = XMLHelper.LoadAttribute(Reader, "UnselectFilter", _UnselectFilter);
                     string UnselectManualString = XMLHelper.LoadAttribute(Reader, "UnselectManual", "null");
@@ -2158,6 +2161,9 @@ namespace Warp
                 Writer.WriteAttributeString("Weight", GlobalWeight.ToString(CultureInfo.InvariantCulture));
 
                 Writer.WriteAttributeString("MagnificationCorrection", MagnificationCorrection.ToString());
+                
+                Writer.WriteAttributeString("ImageDimensionsAngstrom", ImageDimensionsPhysical.ToString());
+                Writer.WriteAttributeString("VolumeDimensionsAngstrom", VolumeDimensionsPhysical.ToString());
 
                 Writer.WriteAttributeString("UnselectFilter", UnselectFilter.ToString());
                 Writer.WriteAttributeString("UnselectManual", UnselectManual.ToString());
