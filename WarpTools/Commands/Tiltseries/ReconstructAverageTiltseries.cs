@@ -234,11 +234,11 @@ namespace WarpTools.Commands
             IterateOverItems<TiltSeries>(Workers, cli, (worker, t) =>
             {
                 // Validate presence of CTF info and particles for this TS, early exit if not found
-                if (t.OptionsCTF == null)
-                {
-                    Console.WriteLine($"No CTF metadata found for {t.Name}, skipping...");
-                    return;
-                }
+                // if (t.OptionsCTF == null)
+                // {
+                //     Console.WriteLine($"No CTF metadata found for {t.Name}, skipping...");
+                //     return;
+                // }
 
                 if (!tiltSeriesIdToParticleIndices.ContainsKey(t.Name))
                 {
