@@ -125,6 +125,8 @@ namespace WarpTools.Commands
             {
                 worker.TomoStack(t.Path, OptionsStack);
                 worker.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack);
+                
+                t.LoadMeta();
                     
                 try
                 {
@@ -152,6 +154,8 @@ namespace WarpTools.Commands
                 IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                 {
                     worker.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack);
+                    
+                    t.LoadMeta();
                     
                     try
                     {

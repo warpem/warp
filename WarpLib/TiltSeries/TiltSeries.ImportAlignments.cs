@@ -16,6 +16,8 @@ public partial class TiltSeries
 
         UseTilt = Helper.ArrayOfConstant(true, NTilts);
 
+        VolumeDimensionsPhysical = options.DimensionsPhysical;
+
         #region Excluded tilts
 
         string CutviewsPath1 = System.IO.Path.Combine(ResultsDir, RootName + "_cutviews0.rawtlt");
