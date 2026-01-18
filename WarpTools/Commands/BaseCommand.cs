@@ -152,6 +152,9 @@ namespace WarpTools.Commands
             if (failedItems.Any())
                 WriteMiniJson(jsonFailFilePath, failedItems);
 
+            if (nFailed == cli.InputSeries.Length)
+                throw new Exception("All items failed to process. Check logs for more info.");
+
             Console.WriteLine();
             Console.WriteLine($"Finished processing in {TimeSpan.FromMilliseconds(timerOverall.ElapsedMilliseconds):hh\\:mm\\:ss}");
 
