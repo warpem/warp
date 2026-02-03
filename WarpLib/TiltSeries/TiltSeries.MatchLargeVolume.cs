@@ -125,9 +125,6 @@ public partial class TiltSeries
 
             Image TemplateCTF = null;
             {
-                int PlanForw, PlanBack, PlanForwCTF;
-                Projector.GetPlans(DimsVolumeCube, 3, out PlanForw, out PlanBack, out PlanForwCTF);
-
                 Image CTFCoords = CTF.GetCTFCoords(DimsVolumeCube.X, DimsVolumeCube.X);
 
                 Image CTFs = GetCTFsForOneParticle(options, VolumeDimensionsPhysical * 0.5f, CTFCoords, null, true, false, false);
@@ -205,6 +202,7 @@ public partial class TiltSeries
             #region Postflight
 
             ProjectorReference.Dispose();
+            TemplateCTF.Dispose();
 
             #region Normalize by local standard deviation of TomoRec
 
