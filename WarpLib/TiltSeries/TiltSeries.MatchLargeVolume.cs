@@ -112,7 +112,7 @@ public partial class TiltSeries
                 TemplateScaled.MaskSpherically(SizeParticle / 2, Math.Max(5, 20 / (float)options.BinnedPixelSizeMean), true);
 
                 Image TemplatePadded = TemplateScaled.AsPadded(DimsVolumeCube).AndDisposeParent();
-                TemplatePadded.WriteMRC("d_template.mrc", true);
+                //TemplatePadded.WriteMRC("d_template.mrc", true);
 
                 ProjectorReference = new Projector(TemplatePadded, 2, true, 3);
                 TemplatePadded.Dispose();
@@ -150,7 +150,7 @@ public partial class TiltSeries
 
                 TemplateCTF = ProjCTF.Reconstruct(true, "C1", null, -1, -1, -1, 0);
                 ProjCTF.Dispose();
-                TemplateCTF.WriteMRC("d_ctf.mrc", true);
+                //TemplateCTF.WriteMRC("d_ctf.mrc", true);
 
                 CTFs.Dispose();
                 CTFsAbs.Dispose();
