@@ -135,4 +135,107 @@ namespace gtom
 			d_bestangle[id] = bestangle;
 		}
 	}
+
+	void d_PickLargeVolume(
+		cudaTex t_projectordataRe,
+		cudaTex t_projectordataIm,
+		tfloat projectoroversample,
+		int3 dimsprojector,
+		tcomplex* d_experimentalft,
+		tfloat* d_ctf,
+		int3 dimsvolume,
+		tfloat3* h_angles,
+		uint nangles,
+		uint batchangles,
+		tfloat maskradius,
+		tfloat* d_bestcorrelation,
+		float* d_bestangle,
+		float* h_progressfraction)
+	{
+		uint batchsize = batchangles;
+		int3 dimsvolumecube = make_int3(dimsvolume.z, dimsvolume.z, dimsvolume.z);
+
+		d_ValueFill(d_bestcorrelation, Elements(dimsvolume), (tfloat)-1e30);
+		d_ValueFill(d_bestangle, Elements(dimsvolume), (float)0);
+
+		tcomplex* d_projectedftconv;
+		cudaMalloc((void**)&d_projectedftconv, ElementsFFT(dimsvolumecube) * batchsize * sizeof(tcomplex));
+		tfloat* d_projected;
+		cudaMalloc((void**)&d_projected, Elements(dimsvolumecube) * batchsize * sizeof(tfloat));
+		tfloat* d_projectedpadded;
+		cudaMalloc((void**)&d_projectedpadded, Elements(dimsvolume) * batchsize * sizeof(tfloat));
+
+		tcomplex* d_projectedftctfcorr;
+		cudaMalloc((void**)&d_projectedftctfcorr, ElementsFFT(dimsvolume) * batchsize * sizeof(tcomplex));
+
+		cufftHandle planbackcube = d_IFFTC2RGetPlan(3, dimsvolumecube, batchsize);
+
+		cufftHandle planforw = d_FFTR2CGetPlan(3, dimsvolume, batchsize);
+		cufftHandle planback = d_IFFTC2RGetPlan(3, dimsvolume, batchsize);
+
+		bool debug = false;
+
+		for (uint b = 0; b < nangles; b += batchsize)
+		{
+			uint curbatch = tmin(batchsize, nangles - b);
+
+			// d_projectedftconv will contain rotated reference volume multiplied by CTF
+			d_rlnProjectCTFMult(t_projectordataRe, t_projectordataIm, d_ctf, dimsprojector, d_projectedftconv, dimsvolumecube, h_angles + b, projectoroversample, curbatch);
+			d_NormFTMonolithic(d_projectedftconv, d_projectedftconv, ElementsFFT(dimsvolumecube), curbatch);
+
+			// IFFT and pad to dimsvolume
+			d_IFFTC2R(d_projectedftconv, d_projected, &planbackcube);
+			d_MultiplyByScalar(d_projected, d_projected, Elements(dimsvolumecube) * curbatch, 1.0f / (tfloat)Elements(dimsvolumecube));
+			if (debug && b == 0)
+				d_WriteMRC(d_projected, toInt3(dimsvolumecube.x, dimsvolumecube.y, dimsvolumecube.z * curbatch), "d_projected.mrc");
+
+			d_FFTFullPad(d_projected, d_projectedpadded, dimsvolumecube, dimsvolume, curbatch);
+			if (debug && b == 0)
+				d_WriteMRC(d_projectedpadded, toInt3(dimsvolume.x, dimsvolume.y, dimsvolume.z * curbatch), "d_projectedpadded.mrc");
+
+			// FFT back for cross-correlation
+			d_FFTR2C(d_projectedpadded, d_projectedftctfcorr, &planforw);
+
+			{
+				// Multiply current experimental volume by conjugate references
+				{
+					int TpB = 128;
+					dim3 grid = dim3(tmin((ElementsFFT(dimsvolume) + TpB - 1) / TpB, 2048), 1, 1);
+					BatchComplexConjMultiplyKernel << <grid, TpB >> > (d_experimentalft, d_projectedftctfcorr, d_projectedftctfcorr, ElementsFFT(dimsvolume), curbatch);
+				}
+
+				d_IFFTC2R(d_projectedftctfcorr, d_projectedpadded, &planback);
+
+				if (debug && b == 0)
+					d_WriteMRC(d_projectedpadded, toInt3(dimsvolume.x, dimsvolume.y, dimsvolume.z * curbatch), "d_corr.mrc");
+
+				// Update correlation and angles with best values
+				{
+					int TpB = 128;
+					dim3 grid = dim3(tmin((Elements(dimsvolume) + TpB - 1) / TpB, 2048), 1, 1);
+					UpdateCorrelationKernel << <grid, TpB >> > (d_projectedpadded,
+						Elements(dimsvolume),
+						curbatch,
+						b,
+						d_bestcorrelation,
+						d_bestangle);
+				}
+
+				//d_WriteMRC(d_bestcorrelation + Elements(dimsvolume) * v, dimsvolume, "d_correlation_best.mrc");
+			}
+
+			if (h_progressfraction)
+				*h_progressfraction = (float)(b + curbatch) / nangles;
+		}
+
+
+		cufftDestroy(planbackcube);
+		cufftDestroy(planforw);
+		cufftDestroy(planback);
+
+		cudaFree(d_projected);
+		cudaFree(d_projectedpadded);
+		cudaFree(d_projectedftctfcorr);
+		cudaFree(d_projectedftconv);
+	}
 }

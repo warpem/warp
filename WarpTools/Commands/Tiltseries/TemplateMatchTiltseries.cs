@@ -50,7 +50,7 @@ namespace WarpTools.Commands
                                          "useful for matching filaments lying flat in the XY plane")]
         public double? TiltRange { get; set; }
 
-        [Option("batch_angles", Default = 32, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; " +
+        [Option("batch_angles", Default = 8, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; " +
                                                          "higher than 32 probably won't lead to speed-ups")]
         public int BatchAngles { get; set; }
 

@@ -190,6 +190,22 @@ namespace Warp
                                                     IntPtr d_bestangle,
                                                     float[] h_progressfraction);
 
+        [DllImport("NativeAcceleration", EntryPoint = "CorrelateLargeVolume")]
+        public static extern void CorrelateLargeVolume(ulong t_projectordataRe,
+                                                       ulong t_projectordataIm,
+                                                       float projectoroversample,
+                                                       int3 dimsprojector,
+                                                       IntPtr d_experimentalft,
+                                                       IntPtr d_ctf,
+                                                       int3 dimsvolume,
+                                                       float[] h_angles,
+                                                       uint nangles,
+                                                       uint batchangles,
+                                                       float maskradius,
+                                                       IntPtr d_bestcorrelation,
+                                                       IntPtr d_bestangle,
+                                                       float[] h_progressfraction);
+
         [DllImport("NativeAcceleration", EntryPoint = "LocalPeaks")]
         public static extern IntPtr LocalPeaks(IntPtr d_input, int[] h_peaksnum, int3 dims, int localextent, float threshold);
 

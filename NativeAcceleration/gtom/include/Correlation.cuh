@@ -110,6 +110,21 @@ namespace gtom
 							float* d_bestangle,
 							float* h_progressfraction = NULL);
 
+	void d_PickLargeVolume(cudaTex t_projectordataRe,
+						   cudaTex t_projectordataIm,
+						   tfloat projectoroversample,
+						   int3 dimsprojector,
+						   tcomplex* d_experimentalft,
+						   tfloat* d_ctf,
+						   int3 dimsvolume,
+						   tfloat3* h_angles,
+						   uint nangles,
+						   uint batchangles,
+						   tfloat maskradius,
+						   tfloat* d_bestcorrelation,
+						   float* d_bestangle,
+						   float* h_progressfraction = NULL);
+
 	//Picker.cu:
 
 	struct Peak

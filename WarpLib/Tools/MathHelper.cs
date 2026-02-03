@@ -819,6 +819,23 @@ namespace Warp.Tools
             return ((value + factor - 1) / factor) * factor;
         }
 
+        public static int NextFFTFriendlySize(int value)
+        {
+            if (value % 2 != 0)
+                value++;
+
+            while (true)
+            {
+                int n = value;
+                while (n % 2 == 0) n /= 2;
+                while (n % 3 == 0) n /= 3;
+                while (n % 5 == 0) n /= 5;
+                while (n % 7 == 0) n /= 7;
+                if (n == 1) return value;
+                value += 2;
+            }
+        }
+
         public static float ReduceWeighted(float[] data, float[] weights)
         {
             float Sum = 0f;
