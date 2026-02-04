@@ -1308,12 +1308,17 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
     [WarpSerializable] public int BatchAngles { get; set; }
     [WarpSerializable] public int Supersample { get; set; }
     [WarpSerializable] public int NResults { get; set; }
+    [WarpSerializable] public int UseTophat { get; set; }
     [WarpSerializable] public bool NormalizeScores { get; set; }
     [WarpSerializable] public bool ReuseCorrVolumes { get; set; }
     [WarpSerializable] public string OverrideSuffix { get; set; }
     [WarpSerializable] public bool OptimizePoses { get; set; }
+    [WarpSerializable] public decimal? OptimizePosesAngPix { get; set; }
+    [WarpSerializable] public int OptimizePosesSteps { get; set; }
     [WarpSerializable] public bool DontInvert { get; set; }
-}
+    [WarpSerializable] public bool DontSaveCorrVolume { get; set; }
+    [WarpSerializable] public bool DontSaveAngleIDVolume { get; set; }
+    }
 
 struct ParticlePeak
 {
