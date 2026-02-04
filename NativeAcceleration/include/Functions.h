@@ -58,6 +58,8 @@ extern "C" __declspec(dllexport) void CorrelateLargeVolume(unsigned long long t_
                                                             int* d_bestangle,
                                                             float* h_progressfraction);
 
+extern "C" __declspec(dllexport) void TophatTransform(float* d_input, float* d_output, int3 dims, int connectivity);
+
 extern "C" __declspec(dllexport) int* LocalPeaks(float* d_input, int* h_peaksnum, int3 dims, int localextent, float threshold);
 extern "C" __declspec(dllexport) void SubpixelMax(float* d_input, float* d_output, int3 dims, int subpixsteps);
 

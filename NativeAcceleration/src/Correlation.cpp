@@ -65,6 +65,11 @@ __declspec(dllexport) void __stdcall CorrelateLargeVolume(unsigned long long t_p
                         h_progressfraction);
 }
 
+__declspec(dllexport) void __stdcall TophatTransform(float* d_input, float* d_output, int3 dims, int connectivity)
+{
+    d_TopHatTransform(d_input, d_output, dims, connectivity);
+}
+
 __declspec(dllexport) int* __stdcall LocalPeaks(float* d_input, int* h_peaksnum, int3 dims, int localextent, float threshold)
 {
     int* h_peaks = 0;

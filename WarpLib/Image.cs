@@ -2884,6 +2884,20 @@ namespace Warp
             return Result;
         }
 
+        public Image AsTophatFiltered(int connectivity)
+        {
+            if (connectivity < 1 || connectivity > 3)
+                throw new ArgumentOutOfRangeException("Connectivity must be between 1 and 3.");
+
+            Image Result = new Image(IntPtr.Zero, Dims);
+
+            GPU.TophatTransform(GetDevice(Intent.Read), Result.GetDevice(Intent.Write), Dims, connectivity);
+
+            Result.Parent = this;
+            Result.PixelSize = PixelSize;
+            return Result;
+        }
+
         #endregion
 
         #region In-place

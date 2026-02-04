@@ -206,6 +206,9 @@ namespace Warp
                                                        IntPtr d_bestangle,
                                                        float[] h_progressfraction);
 
+        [DllImport("NativeAcceleration", EntryPoint = "TophatTransform")]
+        public static extern void TophatTransform(IntPtr d_input, IntPtr d_output, int3 dims, int connectivity);
+
         [DllImport("NativeAcceleration", EntryPoint = "LocalPeaks")]
         public static extern IntPtr LocalPeaks(IntPtr d_input, int[] h_peaksnum, int3 dims, int localextent, float threshold);
 

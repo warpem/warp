@@ -125,6 +125,33 @@ namespace gtom
 						   float* d_bestangle,
 						   float* h_progressfraction = NULL);
 
+	/**
+	* \brief Performs 3D grayscale erosion (local minimum filter) on a volume
+	* \param[in] d_input	Array with input volume data
+	* \param[in] d_output	Array that will contain the eroded volume; d_output == d_input is not valid
+	* \param[in] dims	Volume dimensions
+	* \param[in] connectivity	Neighborhood connectivity: 1=6 face neighbors, 2=18 (faces+edges), 3=26 (full 3x3x3)
+	*/
+	void d_GreyscaleErode3D(tfloat* d_input, tfloat* d_output, int3 dims, int connectivity);
+
+	/**
+	* \brief Performs 3D grayscale dilation (local maximum filter) on a volume
+	* \param[in] d_input	Array with input volume data
+	* \param[in] d_output	Array that will contain the dilated volume; d_output == d_input is not valid
+	* \param[in] dims	Volume dimensions
+	* \param[in] connectivity	Neighborhood connectivity: 1=6 face neighbors, 2=18 (faces+edges), 3=26 (full 3x3x3)
+	*/
+	void d_GreyscaleDilate3D(tfloat* d_input, tfloat* d_output, int3 dims, int connectivity);
+
+	/**
+	* \brief Performs 3D grayscale top-hat transform (input - opening) to preserve sharp peaks while removing diffuse background
+	* \param[in] d_input	Array with input volume data
+	* \param[in] d_output	Array that will contain the top-hat filtered volume; d_output == d_input is not valid
+	* \param[in] dims	Volume dimensions
+	* \param[in] connectivity	Neighborhood connectivity: 1=6 face neighbors (tightest), 2=18 (faces+edges), 3=26 (gentlest)
+	*/
+	void d_TopHatTransform(tfloat* d_input, tfloat* d_output, int3 dims, int connectivity);
+
 	//Picker.cu:
 
 	struct Peak

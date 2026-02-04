@@ -1155,6 +1155,11 @@ namespace Warp.Tools
             return a + (b - a) * x;
         }
 
+        public static decimal Lerp(decimal a, decimal b, decimal x)
+        {
+            return a + (b - a) * x;
+        }
+
         public static float3 FitPlane(float3[] points)
         {
             double D = 0;
