@@ -66,6 +66,9 @@ namespace WarpTools.Commands
         [Option("npeaks", Default = 2000, HelpText = "Maximum number of peak positions to save")]
         public int PeakNumber { get; set; }
 
+        [Option("tophat", HelpText = "Filter peaks by applying tophat transform with this connectivity level. Valid values: 1, 2, 3")]
+        public int? Tophat { get; set; }
+
         [Option("dont_normalize", HelpText = "Don't set score distribution to median = 0, stddev = 1")]
         public bool DontNormalizeScores { get; set; }
 
@@ -200,6 +203,7 @@ namespace WarpTools.Commands
 
             var OptionsMatch = Options.GetProcessingTomoFullMatch();
 
+            OptionsMatch.UseTophat = CLI.Tophat ?? 0;
             OptionsMatch.OptimizePoses = CLI.OptimizePoses;
             OptionsMatch.OptimizePosesAngPix = (decimal?)CLI.OptimizePosesAngPix;
             OptionsMatch.OptimizePosesSteps = CLI.OptimizePosesSteps;
