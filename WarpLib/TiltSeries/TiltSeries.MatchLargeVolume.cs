@@ -732,6 +732,8 @@ public partial class TiltSeries
                     };
 
                     double[] InitialScores = EvalParticles(new double[NParamsParticles], 0);
+                    if (iterations <= 0)
+                        BestInput = new double[NParamsParticles];
 
                     if (iterations > 0)
                     {
@@ -744,17 +746,18 @@ public partial class TiltSeries
 
                     double[] FinalScores = iterations > 0 ?
                                                EvalParticles(BestInput, 0).Select(v => v * NParticles).ToArray() :
-                                               InitialScores.ToArray();
-                    if (iterations <= 0)
-                        BestInput = new double[NParamsParticles];
+                                               InitialScores.Select(v => v * NParticles).ToArray();
 
-                    var Shifts = new float3[NParticles];
-                    for (int p = 0; p < NParticles; p++)
-                        Shifts[p] = new float3((float)BestInput[p * 6 + 0],
-                                               (float)BestInput[p * 6 + 1],
-                                               (float)BestInput[p * 6 + 2]);
-                    float ShiftRMS = MathF.Sqrt(Shifts.Select(v => v.LengthSq()).Average());
-                    Console.WriteLine($"Particle shift RMS: {ShiftRMS.ToString("F2", CultureInfo.InvariantCulture)} A");
+                    if (iterations > 0)
+                    {
+                        var Shifts = new float3[NParticles];
+                        for (int p = 0; p < NParticles; p++)
+                            Shifts[p] = new float3((float)BestInput[p * 6 + 0],
+                                                   (float)BestInput[p * 6 + 1],
+                                                   (float)BestInput[p * 6 + 2]);
+                        float ShiftRMS = MathF.Sqrt(Shifts.Select(v => v.LengthSq()).Average());
+                        Console.WriteLine($"Particle shift RMS: {ShiftRMS.ToString("F2", CultureInfo.InvariantCulture)} A");
+                    }
 
                     #region Teardown
 
@@ -768,10 +771,14 @@ public partial class TiltSeries
 
                     #endregion
 
+                    if (InitialScores.All(s => s == 0) ||
+                        FinalScores.All(s => s == 0))
+                        throw new Exception("All scores are zero during optimization, likely indicating a problem with the data or parameters.");
+
                     for (int p = 0; p < NParticles; p++)
                     {
-                        if (!double.IsFinite(FinalScores[p]) || FinalScores[p] == 0 ||
-                            !double.IsFinite(InitialScores[p]) || InitialScores[p] == 0)
+                        if (!double.IsFinite(FinalScores[p]) ||
+                            !double.IsFinite(InitialScores[p]))
                             throw new Exception("Non-finite score encountered during optimization.");
 
                         peaks[p].Score = (float)FinalScores[p];
@@ -814,9 +821,10 @@ public partial class TiltSeries
                                                                                     angles: HealpixAngles[(int)(AngleIDData[p.Z][p.Y * DimsVolumeScaled.X + p.X] + 0.5f)],
                                                                                     score: 0)).ToArray();
                     var OptimizedPeaks = OptimizeParticles(InitialPeaks,
-                                                           (float)options.BinnedPixelSizeMean * 1,
+                                                           (float)options.BinnedPixelSizeMean * 3,
                                                            0);
                     BackgroundPeaks.AddRange(OptimizedPeaks);
+                    Console.WriteLine($"Estimating background correlation... {b + 1}/10");
                 }
 
                 float2 MedianStd = MathHelper.MedianAndStd(BackgroundPeaks.Select(p => p.Score).ToArray());
