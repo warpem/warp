@@ -1100,7 +1100,7 @@ namespace WarpWorker
                         {
                             GPU.CopyDeviceToDevice(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                                    GPULayers2[GPUThreadID].GetDevice(Intent.Write),
-                                                   header.Dimensions.Elements());
+                                                   header.Dimensions.ElementsSlice());
                             DefectMap.Correct(GPULayers2[GPUThreadID], GPULayers[GPUThreadID]);
                         }
 
