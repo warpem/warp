@@ -213,6 +213,7 @@ namespace gtom
 
 	__global__ void NormCustomScfKernel(tfloat* d_input, tfloat* d_output, imgstats5* d_imagestats, size_t elements, tfloat scf)
 	{
+#pragma nv_diag_suppress 20054
 		__shared__ imgstats5 stats;
 		if (threadIdx.x == 0)
 			stats = d_imagestats[blockIdx.y];
@@ -448,7 +449,7 @@ namespace gtom
 		d_input += elements * blockIdx.x;
 		d_output += elements * blockIdx.x;
 
-		double sum1 = 0.0, sum2 = 0.0;
+		double sum1 = 0.0;
 
 		for (int i = threadIdx.x; i < elements; i += blockDim.x)
 		{

@@ -42,11 +42,8 @@ namespace gtom
 	void d_CTFPeriodogram(tfloat* d_image, int2 dimsimage, int3* d_origins, int norigins, int2 dimsregion, int2 dimspadded, tfloat* d_output2d, bool dopost, cufftHandle planforw, tfloat* d_extracted, tcomplex* d_extractedft)
 	{
 		cufftHandle ownplanforw = planforw;
-		if (planforw == NULL)
+		if (planforw == 0)
 			ownplanforw = d_FFTR2CGetPlan(2, toInt3(dimspadded), norigins);
-
-		int memlimit = 128 << 20;
-		int batchsize = norigins; // tmin(norigins, memlimit / (int)(Elements2(dimsregion) * 2 * sizeof(tfloat)));
 
 		tfloat* d_ownextracted;
         if (d_extracted == NULL)
@@ -101,7 +98,7 @@ namespace gtom
         if (d_extracted == NULL)
 		    cudaFree(d_ownextracted);
 
-		if (planforw == NULL)
+		if (planforw == 0)
 			cufftDestroy(ownplanforw);
 	}
 }

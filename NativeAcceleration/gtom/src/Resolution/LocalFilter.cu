@@ -49,11 +49,11 @@ namespace gtom
 		d_Pad(d_resolution, d_accessibleresolution, dimsvolume, dimsaccessiblevolume, T_PAD_VALUE, (tfloat)0);
 
 		// Allocate buffers for batch window extraction
-		tfloat *d_extracts1, *d_extracts2;
+		tfloat *d_extracts1;
 		cudaMalloc((void**)&d_extracts1, Elements(dimswindow) * batchsize * sizeof(tfloat));
 
 		// ... and their FT
-		tcomplex* d_extractsft1, *d_extractsft2;
+		tcomplex* d_extractsft1;
 		cudaMalloc((void**)&d_extractsft1, ElementsFFT(dimswindow) * batchsize * sizeof(tcomplex));
 
 		// Hann mask for extracted portions

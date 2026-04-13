@@ -45,7 +45,6 @@ namespace gtom
 
 	std::vector<float3> GetEqualAngularSpacing(float2 phirange, float2 thetarange, float2 psirange, float increment)
 	{
-		int count = 0;
 		int rot_nstep = 0;
 
 		std::vector<float3> angles;

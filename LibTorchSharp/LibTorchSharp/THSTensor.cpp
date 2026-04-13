@@ -517,12 +517,12 @@ void* THSTensor_data(const Tensor tensor)
 
 float THSTensor_data_idx_float16(const Tensor tensor, const int64_t i)
 {
-    CATCH_RETURN(float, NULL, (float)(tensor->data_ptr<c10::Half>())[i]);
+    CATCH_RETURN(float, 0.0f, (float)(tensor->data_ptr<c10::Half>())[i]);
 }
 
 float THSTensor_data_idx_bfloat16(const Tensor tensor, const int64_t i)
 {
-    CATCH_RETURN(float, NULL, (float)(tensor->data_ptr<c10::BFloat16>())[i]);
+    CATCH_RETURN(float, 0.0f, (float)(tensor->data_ptr<c10::BFloat16>())[i]);
 }
 
 Tensor THSTensor_detach(const Tensor tensor)

@@ -96,7 +96,6 @@ namespace gtom
 			y = idy;
 		d_weights += y * (dims.x / 2 + 1);
 
-		int elements = (dims.x / 2 + 1) * dims.y;
 		glm::vec2 center = glm::vec2((float)(dims.x / 2), (float)(dims.y / 2));
 		glm::vec3 normalA = d_normals[index];
 
