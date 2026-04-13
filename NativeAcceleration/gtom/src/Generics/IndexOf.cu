@@ -37,10 +37,12 @@ namespace gtom
 		d_input += blockIdx.x * elements;
 
 		__shared__ tfloat indices[256];
-		__shared__ bool found;
+		__shared__ bool found, anybigger, nan;
 		if (threadIdx.x == 0)
 		{
 			found = false;
+			anybigger = false;
+			nan = false;
 		}
 		__syncthreads();
 
@@ -54,7 +56,13 @@ namespace gtom
 			current = d_input[n];
 			next = d_input[n + 1];
 			if (isnan(current) || isnan(next))
+			{
+				nan = true;
 				continue;
+			}
+
+			if (value < current)
+				anybigger = true;
 
 			if ((value <= current && value >= next) || (value >= current && value <= next))
 			{
@@ -100,10 +108,12 @@ namespace gtom
 		d_input += blockIdx.x * elements;
 
 		__shared__ tfloat indices[256];
-		__shared__ bool found;
+		__shared__ bool found, anybigger, nan;
 		if (threadIdx.x == 0)
 		{
 			found = false;
+			anybigger = false;
+			nan = false;
 		}
 		__syncthreads();
 
@@ -117,12 +127,18 @@ namespace gtom
 			current = d_input[n];
 			next = d_input[n + 1];
 			if (isnan(current) || isnan(next))
+			{
+				nan = true;
 				continue;
+			}
 
 			tfloat rootn0 = sqrt((tfloat)n);
 			tfloat rootn1 = sqrt((tfloat)(n + 1));
 			float value0 = n == 0 ? 0.99f : min(0.99f, (0.2071f + 1.9102f / rootn0) / (1.2071f + 0.9102f / rootn0));
 			float value1 = min(0.99f, (0.2071f + 1.9102f / rootn1) / (1.2071f + 0.9102f / rootn1));
+
+			if (value0 < current && value1 < next)
+				anybigger = true;
 
 			if ((value0 <= current && value1 >= next) || (value0 >= current && value1 <= next))
 			{
