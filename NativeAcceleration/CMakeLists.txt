@@ -33,6 +33,7 @@ SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-use_fast_math")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-lineinfo")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-std=c++11")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-cudart=static")
+SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Wno-deprecated-gpu-targets")
 #SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};--ptxas-options=-v")
 
 ADD_LIBRARY(NativeAcceleration SHARED ${SOURCES})
