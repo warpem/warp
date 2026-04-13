@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Sociology;
@@ -223,8 +224,7 @@ namespace WarpTools.Commands
 
             var OutputStarTables = new Dictionary<string, Star>();
             string OutputStarPath = Path.GetFullPath(cli.OutputStarFile);
-            int currentOpticsGroup = 1;
-            var opticsGroupLock = new object();
+            int nextOpticsGroup = 0;
 
             #endregion
 
@@ -314,55 +314,53 @@ namespace WarpTools.Commands
                 }
                 else if (OutputImageDimensionality == 2)
                 {
+                    // do export, save particle metadata to a temporary location
+                    string TempTiltSeriesParticleStarPath = Path.Combine(tiltSeries.ParticleSeriesDir,
+                                                                         tiltSeries.RootName + "_temp.star");
+
+                    if (Helper.IsDebug)
+                        Console.WriteLine($"Sending export options to worker for {tiltSeries.Name}");
+                    worker.TomoExportParticleSeries(path: tiltSeries.Path,
+                                                    options: ExportOptions,
+                                                    coordinates: tsParticleXYZAngstromsReplicated,
+                                                    angles: TSParticleRotTiltPsiReplicated,
+                                                    pathTableOut: TempTiltSeriesParticleStarPath,
+                                                    pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
+                                                                         Path.GetFullPath(OutputStarPath) :
+                                                                         Directory.GetCurrentDirectory());
+
+                    int opticsGroup = Interlocked.Increment(ref nextOpticsGroup);
+
+                    // generate necessary metadata for particles.star
+                    if (Helper.IsDebug)
+                        Console.WriteLine($"\nConstructing output table for {tiltSeries.Name}");
+                    Star ParticleTable = Construct2DParticleTable(tempParticleStarPath: TempTiltSeriesParticleStarPath,
+                                                                  opticsGroup: opticsGroup);
+
+                    if (tsAdditionalColumns != null)
+                        foreach (var pair in tsAdditionalColumns)
+                            ParticleTable.AddColumn(pair.Key, pair.Value);
+                    Star ParticleOpticsTable = Construct2DOpticsTable(tiltSeries: tiltSeries,
+                                                                      tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
+                                                                      downsamplingFactor: (float)ExportOptions.DownsampleFactor,
+                                                                      boxSize: ExportOptions.BoxSize,
+                                                                      opticsGroup: opticsGroup);
+
+                    // generate necessary metadata for tomograms.star
+                    Star TomogramsGeneralTable = Construct2DTomogramStarGeneralTable(tiltSeries: tiltSeries,
+                                                                                     exportOptions: ExportOptions,
+                                                                                     opticsGroup: opticsGroup);
+                    Star TomogramsTiltSeriesTable = Construct2DTomogramStarTiltSeriesTable(tiltSeries: tiltSeries,
+                                                                                           exportOptions: ExportOptions,
+                                                                                           opticsGroup: opticsGroup);
+
+                    // store per tilt-series metadata in dictionary
                     lock (OutputStarTables)
                     {
-                        lock (opticsGroupLock)
-                        {
-                            // do export, save particle metadata to a temporary location
-                            string TempTiltSeriesParticleStarPath = Path.Combine(tiltSeries.ParticleSeriesDir,
-                                                                                 tiltSeries.RootName + "_temp.star");
-
-                            if (Helper.IsDebug)
-                                Console.WriteLine($"Sending export options to worker for {tiltSeries.Name}");
-                            worker.TomoExportParticleSeries(path: tiltSeries.Path,
-                                                            options: ExportOptions,
-                                                            coordinates: tsParticleXYZAngstromsReplicated,
-                                                            angles: TSParticleRotTiltPsiReplicated,
-                                                            pathTableOut: TempTiltSeriesParticleStarPath,
-                                                            pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
-                                                                                 Path.GetFullPath(OutputStarPath) :
-                                                                                 Directory.GetCurrentDirectory());
-
-                            // generate necessary metadata for particles.star
-                            if (Helper.IsDebug)
-                                Console.WriteLine($"\nConstructing output table for {tiltSeries.Name}");
-                            Star ParticleTable = Construct2DParticleTable(tempParticleStarPath: TempTiltSeriesParticleStarPath,
-                                                                          opticsGroup: currentOpticsGroup);
-
-                            if (tsAdditionalColumns != null)
-                                foreach (var pair in tsAdditionalColumns)
-                                    ParticleTable.AddColumn(pair.Key, pair.Value);
-                            Star ParticleOpticsTable = Construct2DOpticsTable(tiltSeries: tiltSeries,
-                                                                              tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
-                                                                              downsamplingFactor: (float)ExportOptions.DownsampleFactor,
-                                                                              boxSize: ExportOptions.BoxSize,
-                                                                              opticsGroup: currentOpticsGroup);
-
-                            // generate necessary metadata for tomograms.star 
-                            Star TomogramsGeneralTable = Construct2DTomogramStarGeneralTable(tiltSeries: tiltSeries,
-                                                                                             exportOptions: ExportOptions,
-                                                                                             opticsGroup: currentOpticsGroup);
-                            Star TomogramsTiltSeriesTable = Construct2DTomogramStarTiltSeriesTable(tiltSeries: tiltSeries,
-                                                                                                   exportOptions: ExportOptions,
-                                                                                                   opticsGroup: currentOpticsGroup);
-
-                            // store per tilt-series metadata in dictionary and update optics group
-                            OutputStarTables.Add(tiltSeries.RootName + "_particles", ParticleTable);
-                            OutputStarTables.Add(tiltSeries.RootName + "_optics", ParticleOpticsTable);
-                            OutputStarTables.Add(tiltSeries.RootName + "_tomograms_global", TomogramsGeneralTable);
-                            OutputStarTables.Add(tiltSeries.RootName + "_tomograms_tiltseries", TomogramsTiltSeriesTable);
-                            currentOpticsGroup += 1;
-                        }
+                        OutputStarTables.Add(tiltSeries.RootName + "_particles", ParticleTable);
+                        OutputStarTables.Add(tiltSeries.RootName + "_optics", ParticleOpticsTable);
+                        OutputStarTables.Add(tiltSeries.RootName + "_tomograms_global", TomogramsGeneralTable);
+                        OutputStarTables.Add(tiltSeries.RootName + "_tomograms_tiltseries", TomogramsTiltSeriesTable);
                     }
                 }
 
