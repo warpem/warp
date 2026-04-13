@@ -1,0 +1,37 @@
+name: CI CUDA 12
+
+on:
+  push:
+
+# cancel in-progress runs that use the same workflow and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (CUDA 12)
+    runs-on: linux-cpu-x64-8core
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: package-build
+          create-args: >-
+            python=3.10
+            conda-build
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: 'all'
+
+      - name: Build conda package
+        shell: micromamba-shell {0}
+        env:
+          CONDA_OVERRIDE_CUDA: "12.9"
+        run: |
+          conda-build conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge

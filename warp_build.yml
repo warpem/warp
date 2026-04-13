@@ -1,19 +1,16 @@
 name: warp_build
 channels:
-  - nvidia/label/cuda-11.8.0
-  - pytorch
+  - nvidia/label/cuda-12.9.0
   - conda-forge
   - nodefaults
 dependencies:
-  - torchvision
   - libtiff
   - python
-  - pytorch-cuda=11.8
-  - pytorch=2.0.1
+  - pytorch
   - fftw
   - cmake
   - cxx-compiler=1.3
   - dotnet=8.0
-  - cuda-toolkit
+  - cuda-toolkit=12.9
   - mkl=2024.0.0
   

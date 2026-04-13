@@ -37,6 +37,6 @@ SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-cudart=static")
 
 ADD_LIBRARY(NativeAcceleration SHARED ${SOURCES})
 
-set_target_properties(NativeAcceleration PROPERTIES CUDA_ARCHITECTURES "52;61;75;86")
+set_target_properties(NativeAcceleration PROPERTIES CUDA_ARCHITECTURES "61;70;75;80;86;89;90;100;120")
 
 TARGET_LINK_LIBRARIES(NativeAcceleration ${FFTW_LIBRARIES} libtiff.so libcudart.so libcufft.so libcublas.so libcurand.so ${CMAKE_THREAD_LIBS_INIT})
