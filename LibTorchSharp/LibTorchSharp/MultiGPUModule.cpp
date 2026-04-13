@@ -1,5 +1,3 @@
-#pragma once
-
 #include "MultiGPUModule.h"
 
 void MultiGPUModule::syncronize_with(MultiGPUModule* replica, torch::Device device)

@@ -11,7 +11,6 @@ include_directories("${CMAKE_BINARY_DIR}/../../")
 
 #add_definitions(-Werror) # treat warnings as errors
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-add_compile_options(-Wno-unused-local-typedef)
 add_compile_options(-fPIC)
 add_compile_options(-fvisibility=hidden)
 

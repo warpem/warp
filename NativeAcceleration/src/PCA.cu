@@ -179,8 +179,6 @@ __global__ void PCALeastSqKernel(float* d_result,
 		float denom = (x1 - x2) * (x1 - x3) * (x2 - x3);
 		float A = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / denom;
 		float B = (x3 * x3 * (y1 - y2) + x2 * x2 * (y3 - y1) + x1 * x1 * (y2 - y3)) / denom;
-		float C = (x2 * x3 * (x2 - x3) * y1 + x3 * x1 * (x3 - x1) * y2 + x1 * x2 * (x1 - x2) * y3) / denom;
-
 		float xv = -B / (2 * A);
 		//float yv = C - B * B / (4 * A);
 

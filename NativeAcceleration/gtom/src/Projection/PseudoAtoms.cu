@@ -190,6 +190,7 @@ namespace gtom
 		d_normalmodefactors += blockIdx.y * nmodes;	// Offset to the current projection
 		d_proj += Elements2(dimsproj) * blockIdx.y;
 
+#pragma nv_diag_suppress 20054
 		__shared__ glm::mat3 rotation;
 		if (threadIdx.x == 0)
 			rotation = d_rotations[blockIdx.y];
@@ -254,6 +255,7 @@ namespace gtom
 		d_coarsedeltas += blockIdx.y * ncoarse;	// Offset to the current projection
 		d_proj += blockIdx.y * Elements2(dimsproj);
 
+#pragma nv_diag_suppress 20054
 		__shared__ glm::mat3 rotation;
 		if (threadIdx.x == 0)
 			rotation = d_rotations[blockIdx.y];

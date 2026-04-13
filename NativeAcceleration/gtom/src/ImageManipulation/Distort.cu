@@ -92,7 +92,7 @@ namespace gtom
 			}
 			else
 			{
-				cudaMemcpyToArray(a_input, 0, 0, d_input, dims.x * 1 * dims.y * 1 * sizeof(tfloat), cudaMemcpyDeviceToDevice);
+				cudaMemcpy2DToArray(a_input, 0, 0, d_input, dims.x * sizeof(tfloat), dims.x * sizeof(tfloat), dims.y, cudaMemcpyDeviceToDevice);
 				d_BindTextureToArray(a_input, t_image, dims * 1, cudaFilterModeLinear, false);
 			}
 

@@ -1,5 +1,4 @@
 #include "include/Functions.h"
-#include <device_functions.h>
 using namespace gtom;
 
 #define SHIFT_THREADS 128

@@ -151,8 +151,6 @@ __global__ void RealspaceProjectBackwardKernel(float* d_volume, int3 dimsvolume,
 			float c10 = (1.0f - pos.x) * c1;
 			float c11 = pos.x * c1;
 
-			float val = d_volume[id];
-
 			if (x0 >= 0 && y0 >= 0 && x0 < dimsproj.x && y0 < dimsproj.y)
 			{
 				sum += d_projections[b * Elements2(dimsproj) + y0 * dimsproj.x + x0] * c00;

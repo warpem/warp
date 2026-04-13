@@ -38,8 +38,6 @@ namespace gtom
 
 	void d_Bandpass(tcomplex* d_inputft, tcomplex* d_outputft, int3 dims, tfloat low, tfloat high, tfloat smooth, tfloat* d_mask, int batch)
 	{
-		int dimensions = DimensionCount(dims);
-
 		//Prepare mask:
 
 		tfloat* d_localmask;

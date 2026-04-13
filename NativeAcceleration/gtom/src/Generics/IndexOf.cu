@@ -192,12 +192,10 @@ namespace gtom
 		d_input += blockIdx.x * elements;
 
 		__shared__ tfloat indices[256];
-		__shared__ bool found, anybigger, nan;
+		__shared__ bool found;
 		if (threadIdx.x == 0)
 		{
 			found = false;
-			anybigger = false;
-			nan = false;
 		}
 		__syncthreads();
 
@@ -210,10 +208,7 @@ namespace gtom
 			right = d_input[n + 1];
 
 			if (isnan(left) || isnan(current) || isnan(right))
-			{
-				nan = true;
 				continue;
-			}
 
 			if (current < left && current < right)
 			{
