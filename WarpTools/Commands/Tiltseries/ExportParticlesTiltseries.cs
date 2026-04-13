@@ -167,6 +167,25 @@ namespace WarpTools.Commands
             }
 
             ValidateInputStar(inputStar);
+
+            var knownColumns = new HashSet<string>
+            {
+                "rlnCoordinateX", "rlnCoordinateY", "rlnCoordinateZ",
+                "rlnMicrographName", "rlnTomoName",
+                "rlnOriginX", "rlnOriginXAngst",
+                "rlnOriginY", "rlnOriginYAngst",
+                "rlnOriginZ", "rlnOriginZAngst",
+                "rlnPixelSize", "rlnImagePixelSize",
+                "rlnAngleRot", "rlnAngleTilt", "rlnAnglePsi",
+                "rlnOpticsGroup", "rlnOpticsGroupName"
+            };
+            var additionalColumns = new Dictionary<string, string[]>();
+            foreach (var columnName in inputStar.GetColumnNames())
+            {
+                if (!knownColumns.Contains(columnName))
+                    additionalColumns.Add(columnName, inputStar.GetColumn(columnName));
+            }
+
             string[] tiltSeriesIDs = inputStar.HasColumn("rlnMicrographName") ? inputStar.GetColumn("rlnMicrographName") : inputStar.GetColumn("rlnTomoName");
             Dictionary<string, List<int>> tiltSeriesIdToParticleIndices =
                 GroupParticles(tiltSeriesIDs);
@@ -236,6 +255,15 @@ namespace WarpTools.Commands
                 float3[] tsParticleXyzAngstroms = new float3[tsParticleIdx.Count];
                 float3[] tsParticleRotTiltPsi = new float3[tsParticleIdx.Count];
 
+                Dictionary<string, string[]> tsAdditionalColumns = new Dictionary<string, string[]>();
+                foreach (var col in additionalColumns)
+                {
+                    var colData = new string[tsParticleIdx.Count];
+                    for (int i = 0; i < tsParticleIdx.Count; i++)
+                        colData[i] = col.Value[tsParticleIdx[i]];
+                    tsAdditionalColumns.Add(col.Key, colData);
+                }
+
                 if (Helper.IsDebug)
                     Console.WriteLine($"{tsParticleIdx.Count} particles for {tiltSeries.Name}");
 
@@ -279,7 +307,8 @@ namespace WarpTools.Commands
                                                                     inputHasEulerAngles: inputHasEulerAngles,
                                                                     outputPixelSize: cli.OutputPixelSize,
                                                                     relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
-                                                                    particleStarFile: cli.OutputStarFile);
+                                                                    particleStarFile: cli.OutputStarFile,
+                                                                    additionalColumns: tsAdditionalColumns);
                     lock (OutputStarTables)
                         OutputStarTables.Add(tiltSeries.Name, TiltSeriesTable);
                 }
@@ -309,6 +338,10 @@ namespace WarpTools.Commands
                                 Console.WriteLine($"\nConstructing output table for {tiltSeries.Name}");
                             Star ParticleTable = Construct2DParticleTable(tempParticleStarPath: TempTiltSeriesParticleStarPath,
                                                                           opticsGroup: currentOpticsGroup);
+
+                            if (tsAdditionalColumns != null)
+                                foreach (var pair in tsAdditionalColumns)
+                                    ParticleTable.AddColumn(pair.Key, pair.Value);
                             Star ParticleOpticsTable = Construct2DOpticsTable(tiltSeries: tiltSeries,
                                                                               tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
                                                                               downsamplingFactor: (float)ExportOptions.DownsampleFactor,
@@ -696,8 +729,9 @@ namespace WarpTools.Commands
             float3[] eulerAngles,
             bool inputHasEulerAngles,
             float outputPixelSize,
-            bool relativeToParticleStarFile, // default is relative to working directory 
-            string? particleStarFile
+            bool relativeToParticleStarFile, // default is relative to working directory
+            string? particleStarFile,
+            Dictionary<string, string[]> additionalColumns
         )
         {
             int nParticles = xyz.Length;
@@ -806,6 +840,10 @@ namespace WarpTools.Commands
                 table.RemoveColumn("rlnAngleTilt");
                 table.RemoveColumn("rlnAnglePsi");
             }
+
+            if (additionalColumns != null)
+                foreach (var pair in additionalColumns)
+                    table.AddColumn(pair.Key, pair.Value);
 
             return table;
         }
