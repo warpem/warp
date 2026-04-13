@@ -34,5 +34,9 @@ jobs:
         env:
           CONDA_OVERRIDE_CUDA: "12.9"
         run: |
-          set +u  # work around dotnet deactivate.d/dotnet-root.sh referencing unbound $2
+          # Work around dotnet deactivate.d/dotnet-root.sh referencing unbound $2.
+          # BASH_ENV is sourced by every non-interactive bash subprocess, including
+          # the ones conda-build spawns for activation/deactivation scripts.
+          echo 'set +u' > /tmp/no-strict-unset.sh
+          export BASH_ENV=/tmp/no-strict-unset.sh
           conda-build conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge
