@@ -12,6 +12,7 @@ jobs:
   build:
     name: Build (CUDA 12)
     runs-on: linux-cpu-x64-8core
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
