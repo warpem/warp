@@ -37,8 +37,6 @@ public partial class TiltSeries
         }
 
         int2 DimsImage = new int2(TiltData[0].Dims);
-        int SizeReconstruction = Math.Max(DimsImage.X, DimsImage.Y);
-        int SizeReconstructionPadded = SizeReconstruction * 2;
 
         #endregion
 
@@ -144,10 +142,8 @@ public partial class TiltSeries
                     for (int irel = 0; irel < NRelevantTilts - 1; irel++)
                     {
                         ExtractedRegions[irel].Multiply(ExtractedRegions[irel + 1]);
-                        Image Sum = ExtractedRegions[irel].AsSum3D();
+                        using Image Sum = ExtractedRegions[irel].AsSum3D();
                         Result += Sum.GetHost(Intent.Read)[0][0] / (PositionGridPhysical.Length * SizeRegion * SizeRegion);
-
-                        Sum.Dispose();
                     }
 
                     Result = Result / (NRelevantTilts - 1) * 1000;
@@ -271,13 +267,11 @@ public partial class TiltSeries
                     for (int irel = 0; irel < NRelevantTilts - 1; irel++)
                     {
                         ExtractedRegions[irel].Multiply(ExtractedRegions[irel + 1]);
-                        Image Sums = ExtractedRegions[irel].AsSum2D();
+                        using Image Sums = ExtractedRegions[irel].AsSum2D();
                         float[] SumsData = Sums.GetHost(Intent.Read)[0];
 
                         for (int i = 0; i < SumsData.Length; i++)
                             Result[i] += SumsData[i] / (SizeRegion * SizeRegion);
-
-                        Sums.Dispose();
                     }
 
                     return Result.Select(v => v / (NRelevantTilts - 1) * 1000).ToArray();
@@ -330,7 +324,7 @@ public partial class TiltSeries
 
                 Image PositionsVis = new Image(PositionGridPhysical.Select(v => v.Z - VolumeDimensionsPhysical.Z / 2).ToArray(),
                                                 new int3(DimsPositionGrid.X, DimsPositionGrid.Y, 1));
-                PositionsVis.WriteMRC($"d_elevation_{LowpassFraction:F1}.mrc", true);
+                //PositionsVis.WriteMRC($"d_elevation_{LowpassFraction:F1}.mrc", true);
             }
         };
 
@@ -505,6 +499,8 @@ public partial class TiltSeries
 
         foreach (var im in TiltData)
             im.Dispose();
+        foreach (var im in TiltMasks)
+            im?.Dispose();
         foreach (var im in ExtractedRegions)
             im.Dispose();
         foreach (var im in ExtractedRegionsFT)

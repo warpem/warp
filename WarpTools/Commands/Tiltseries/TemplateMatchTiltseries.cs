@@ -43,11 +43,20 @@ namespace WarpTools.Commands
         [Option("subdivisions", Default = 3, HelpText = "Number of subdivisions defining the angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on")]
         public int HealpixOrder { get; set; }
 
+        [Option("optimize_poses", HelpText = "Additionally optimize poses for each detected position using a local gradient-descent search")]
+        public bool OptimizePoses { get; set; }
+
+        [Option("optimize_poses_angpix", HelpText = "Minimum pixel size to use for pose optimization. Leave empty to set it to --tomo_angpix")]
+        public double? OptimizePosesAngPix { get; set; }
+
+        [Option("optimize_poses_steps", Default = 1, HelpText = "Number of steps in which to decrease the pixel size from --tomo_angpix to --optimize_poses_angpix")]
+        public int OptimizePosesSteps { get; set; }
+
         [Option("tilt_range", HelpText = "Limit the range of angles between the reference's Z axis and the tomogram's XY plane to plus/minus this value, in °; " +
                                          "useful for matching filaments lying flat in the XY plane")]
         public double? TiltRange { get; set; }
 
-        [Option("batch_angles", Default = 32, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; " +
+        [Option("batch_angles", Default = 8, HelpText = "How many orientations to evaluate at once; memory consumption scales linearly with this; " +
                                                          "higher than 32 probably won't lead to speed-ups")]
         public int BatchAngles { get; set; }
 
@@ -56,6 +65,9 @@ namespace WarpTools.Commands
 
         [Option("npeaks", Default = 2000, HelpText = "Maximum number of peak positions to save")]
         public int PeakNumber { get; set; }
+
+        [Option("tophat", HelpText = "Filter peaks by applying tophat transform with this connectivity level. Valid values: 1, 2, 3")]
+        public int? Tophat { get; set; }
 
         [Option("dont_normalize", HelpText = "Don't set score distribution to median = 0, stddev = 1")]
         public bool DontNormalizeScores { get; set; }
@@ -88,6 +100,12 @@ namespace WarpTools.Commands
         [Option("override_suffix", HelpText = "Override the default STAR file suffix derived from the template name; " +
                                               "must include the leading underscore if you want to have it")]
         public string OverrideSuffix { get; set; } = "";
+
+        [Option("dont_save_corr", HelpText = "Don't save volume with correlation scores. Makes --reuse_results impossible later.")]
+        public bool DontSaveCorr { get; set; }
+
+        [Option("dont_save_angles", HelpText = "Don't save volume with angle information. Makes --reuse_results impossible later.")]
+        public bool DontSaveAngles { get; set; }
     }
 
     class TemplateMatchTiltseries : BaseCommand
@@ -185,6 +203,10 @@ namespace WarpTools.Commands
 
             var OptionsMatch = Options.GetProcessingTomoFullMatch();
 
+            OptionsMatch.UseTophat = CLI.Tophat ?? 0;
+            OptionsMatch.OptimizePoses = CLI.OptimizePoses;
+            OptionsMatch.OptimizePosesAngPix = (decimal?)CLI.OptimizePosesAngPix;
+            OptionsMatch.OptimizePosesSteps = CLI.OptimizePosesSteps;
             OptionsMatch.TiltRange = CLI.TiltRange != null ? (decimal)CLI.TiltRange.Value : -1;
             OptionsMatch.SubVolumeSize = CLI.SubVolumeSize;
             OptionsMatch.Supersample = 1;
@@ -194,6 +216,9 @@ namespace WarpTools.Commands
             OptionsMatch.LowpassSigma = (decimal)CLI.LowpassSigma;
             
             OptionsMatch.OverrideSuffix = CLI.OverrideSuffix ?? "";
+
+            OptionsMatch.DontSaveCorrVolume = CLI.DontSaveCorr;
+            OptionsMatch.DontSaveAngleIDVolume = CLI.DontSaveAngles;
 
             #endregion
 

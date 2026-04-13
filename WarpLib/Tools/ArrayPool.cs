@@ -16,6 +16,9 @@ namespace Warp.Tools
         // Stores stacks of available arrays, keyed by size.
         private static readonly ConcurrentDictionary<int, ConcurrentStack<T[]>> SAvailableArrays = new();
 
+        // Check if pooling is disabled via environment variable
+        private static readonly bool IsPoolingDisabled = Environment.GetEnvironmentVariable("WARP_NO_POOL") != null;
+
         /// <summary>
         /// Rents an array of the specified size from the pool.
         /// If no suitable array is available, a new one is allocated.
@@ -30,6 +33,9 @@ namespace Warp.Tools
 
             if (size == 0)
                 return [];
+
+            if (IsPoolingDisabled)
+                return new T[size];
 
             var stack = SAvailableArrays.GetOrAdd(size, _ => new ConcurrentStack<T[]>());
             return stack.TryPop(out T[] array) ? array : new T[size];
@@ -60,6 +66,14 @@ namespace Warp.Tools
             }
 
             var results = new T[count][];
+
+            if (IsPoolingDisabled)
+            {
+                for (int i = 0; i < count; i++)
+                    results[i] = new T[size];
+                return results;
+            }
+
             var stack = SAvailableArrays.GetOrAdd(size, _ => new ConcurrentStack<T[]>());
 
             for (int i = 0; i < count; i++)
@@ -78,6 +92,9 @@ namespace Warp.Tools
         public static void Return(T[] array, bool clearArray = true)
         {
             if (array == null || array.Length == 0)
+                return;
+
+            if (IsPoolingDisabled)
                 return;
 
             if (clearArray && typeof(T).IsPrimitive)

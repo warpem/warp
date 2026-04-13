@@ -67,6 +67,11 @@ namespace Warp
         public static readonly string ReconstructionEvenDirName = IOPath.Combine(ReconstructionDirName, "even");
         public string ReconstructionEvenDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionEvenDirName);
         public static string ToReconstructionEvenPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionEvenDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
+        
+        public static readonly string ReconstructionDenoisedDirName = "denoised";
+        public string ReconstructionDenoisedDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDenoisedDirName);
+        public static string ToReconstructionDenoisedTomogramPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDenoisedDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
+        public static string ToReconstructionDenoisedThumbnailPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDenoisedDirName, ToTomogramWithPixelSize(name, pixelSize) + ".png");
 
         public static readonly string ReconstructionCTFDirName = IOPath.Combine(ReconstructionDirName, "ctf");
         public string ReconstructionCTFDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionCTFDirName);
@@ -1226,54 +1231,60 @@ namespace Warp
 
         #region Many-particles GetImages and GetCTFs
 
-        public Image GetParticleImagesFromOneTilt(Image tiltStack, int size, float3[] particleOrigins, int angleID, bool normalize)
+        public Image GetParticleImagesFromOneTilt(ProcessingOptionsBase options, 
+                                                  Image[] tiltData, 
+                                                  int tiltID, 
+                                                  int size, 
+                                                  float3[] coordsMoving, 
+                                                  int planForw = 0, 
+                                                  bool doDecenter = true, 
+                                                  Image result = null, 
+                                                  Image resultFT = null)
         {
-            int NParticles = particleOrigins.Length;
+            int NParticles = coordsMoving.Length;
 
-            float3[] ImagePositions = GetPositionsInOneTilt(particleOrigins, angleID);
+            float3[] ImagePositions = GetPositionsInOneTilt(coordsMoving, tiltID).Select(v => v / (float)options.BinnedPixelSizeMean)
+                                                                                 .ToArray();
 
-            Image Result = new Image(new int3(size, size, NParticles));
-            float[][] ResultData = Result.GetHost(Intent.Write);
+            Image Result = result == null ? new Image(IntPtr.Zero, new int3(size, size, NParticles)) : result;
             float3[] Shifts = new float3[NParticles];
 
-            int3 DimsStack = tiltStack.Dims;
+            int Decenter = doDecenter ? size / 2 : 0;
 
-            Parallel.For(0, NParticles, p =>
+            int3[] h_Origins = new int3[NParticles];
+            int3 DimsMovie = tiltData[tiltID].Dims;
+
+            for (int p = 0; p < NParticles; p++)
             {
-                ImagePositions[p] -= new float3(size / 2, size / 2, 0);
+                ImagePositions[p] -= size / 2;
+
                 int2 IntPosition = new int2((int)ImagePositions[p].X, (int)ImagePositions[p].Y);
                 float2 Residual = new float2(-(ImagePositions[p].X - IntPosition.X), -(ImagePositions[p].Y - IntPosition.Y));
-                Residual -= size / 2;
-                Shifts[p] = new float3(Residual);
+                Shifts[p] = new float3(Residual.X + Decenter, Residual.Y + Decenter, 0);                                        // Include an fftshift() for Fourier-space rotations later
 
-                float[] OriginalData;
-                lock (tiltStack)
-                    OriginalData = tiltStack.GetHost(Intent.Read)[angleID];
+                h_Origins[p] = new int3(IntPosition.X, IntPosition.Y, 0);
+            }
 
-                float[] ImageData = ResultData[p];
-                for (int y = 0; y < size; y++)
-                {
-                    int PosY = (y + IntPosition.Y + DimsStack.Y) % DimsStack.Y;
-                    for (int x = 0; x < size; x++)
-                    {
-                        int PosX = (x + IntPosition.X + DimsStack.X) % DimsStack.X;
-                        ImageData[y * size + x] = OriginalData[PosY * DimsStack.X + PosX];
-                    }
-                }
-            });
-            if (normalize)
-                GPU.NormParticles(Result.GetDevice(Intent.Read),
-                                  Result.GetDevice(Intent.Write),
-                                  Result.Dims.Slice(),
-                                  (uint)(123 / CTF.PixelSize),     // FIX THE PARTICLE RADIUS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                                  true,
-                                  (uint)NParticles);
-            //Result.WriteMRC($"d_paticleimages_{angleID:D3}.mrc");
+            GPU.Extract(tiltData[tiltID].GetDevice(Intent.Read),
+                        Result.GetDevice(Intent.Write),
+                        DimsMovie,
+                        new int3(size).Slice(),
+                        Helper.ToInterleaved(h_Origins),
+                        true,
+                        (uint)NParticles);
 
-            Result.ShiftSlices(Shifts);
+            Image ResultFT = resultFT == null ? new Image(IntPtr.Zero, new int3(size, size, NParticles), true, true) : resultFT;
+            GPU.FFT(Result.GetDevice(Intent.Read),
+                    ResultFT.GetDevice(Intent.Write),
+                    Result.Dims.Slice(),
+                    (uint)Result.Dims.Z,
+                    planForw);
+            ResultFT.Multiply(1f / (size * size));
 
-            Image ResultFT = Result.AsFFT();
-            Result.Dispose();
+            ResultFT.ShiftSlices(Shifts);
+
+            if (result == null)
+                Result.Dispose();
 
             return ResultFT;
         }
@@ -1893,6 +1904,9 @@ namespace Warp
                     GlobalWeight = XMLHelper.LoadAttribute(Reader, "Weight", GlobalWeight);
 
                     MagnificationCorrection = XMLHelper.LoadAttribute(Reader, "MagnificationCorrection", MagnificationCorrection);
+                    
+                    ImageDimensionsPhysical = XMLHelper.LoadAttribute(Reader, "ImageDimensionsAngstrom", ImageDimensionsPhysical);
+                    VolumeDimensionsPhysical = XMLHelper.LoadAttribute(Reader, "VolumeDimensionsAngstrom", VolumeDimensionsPhysical);
 
                     //_UnselectFilter = XMLHelper.LoadAttribute(Reader, "UnselectFilter", _UnselectFilter);
                     string UnselectManualString = XMLHelper.LoadAttribute(Reader, "UnselectManual", "null");
@@ -2147,6 +2161,9 @@ namespace Warp
                 Writer.WriteAttributeString("Weight", GlobalWeight.ToString(CultureInfo.InvariantCulture));
 
                 Writer.WriteAttributeString("MagnificationCorrection", MagnificationCorrection.ToString());
+                
+                Writer.WriteAttributeString("ImageDimensionsAngstrom", ImageDimensionsPhysical.ToString());
+                Writer.WriteAttributeString("VolumeDimensionsAngstrom", VolumeDimensionsPhysical.ToString());
 
                 Writer.WriteAttributeString("UnselectFilter", UnselectFilter.ToString());
                 Writer.WriteAttributeString("UnselectManual", UnselectManual.ToString());

@@ -16,6 +16,8 @@ public partial class TiltSeries
 
         UseTilt = Helper.ArrayOfConstant(true, NTilts);
 
+        VolumeDimensionsPhysical = options.DimensionsPhysical;
+
         #region Excluded tilts
 
         string CutviewsPath1 = System.IO.Path.Combine(ResultsDir, RootName + "_cutviews0.rawtlt");
@@ -171,7 +173,10 @@ public partial class TiltSeries
                 }
 
                 if (ParsedTiltAngles.All(angle => angle == 0))
-                    throw new Exception($"all tilt angles are zero in {TltPath}");
+                { 
+                    if (Helper.IsDebug)
+                        throw new Exception($"all tilt angles are zero in {TltPath}"); 
+                }
                 else
                 {
                     for (int t = 0; t < NTilts; t++)

@@ -8,7 +8,7 @@ using CommandLine.Text;
 
 namespace Noise2Map
 {
-    class Options
+    public class Options
     {
         [Option('a', "observation1", Required = false, HelpText = "Relative path to a folder containing files with the first observation of the objects (e.g. first half-maps).")]
         public string Observation1Path { get; set; }
@@ -39,6 +39,9 @@ namespace Noise2Map
 
         [Option("old_model", Default = "", HelpText = "Name of the folder with the pre-trained model. Leave empty to train a new one.")]
         public string OldModelName { get; set; }
+
+        [Option("save_model_name", Default = "NoiseNet3D", HelpText = "Suffix used to name the saved model file. In online mode, a timestamp will be added.")]
+        public string SaveModelName { get; set; }
 
         [Option("learningrate_start", Default = 0.0001, HelpText = "Initial learning rate that will be decreased exponentially to reach the final learning rate.")]
         public double LearningRateStart { get; set; }
@@ -84,5 +87,14 @@ namespace Noise2Map
 
         [Option("gpuid_preprocess", Default = 1, HelpText = "GPU ID used for data preprocessing. Ideally not the GPU used for training")]
         public int GPUPreprocess { get; set; }
+
+        [Option("max_loaded_maps", Default = 10, HelpText = "Maximum number of map pairs to keep in memory during training. Maps will be rotated to cover the full dataset. Decrease if running out of memory.")]
+        public int MaxLoadedMaps { get; set; }
+
+        [Option("online", Default = false, HelpText = "Enable continuous online training mode. Training never ends, monitors data folders for new maps, and periodically saves model.")]
+        public bool OnlineMode { get; set; }
+
+        [Option("save_interval_minutes", Default = 30, HelpText = "In online mode, how often (in minutes) to save a new version of the trained model.")]
+        public int SaveIntervalMinutes { get; set; }
     }
 }

@@ -43,6 +43,22 @@ extern "C" __declspec(dllexport) void CorrelateSubTomos(unsigned long long t_pro
                                                         float* d_bestcorrelation,
                                                         int* d_bestangle,
                                                         float* h_progressfraction);
+extern "C" __declspec(dllexport) void CorrelateLargeVolume(unsigned long long t_projectordataRe,
+                                                            unsigned long long t_projectordataIm,
+                                                            float projectoroversample,
+                                                            int3 dimsprojector,
+                                                            float2* d_experimentalft,
+                                                            float* d_ctf,
+                                                            int3 dimsvolume,
+                                                            float3* h_angles,
+                                                            uint nangles,
+                                                            uint batchangles,
+                                                            float maskradius,
+                                                            float* d_bestcorrelation,
+                                                            int* d_bestangle,
+                                                            float* h_progressfraction);
+
+extern "C" __declspec(dllexport) void TophatTransform(float* d_input, float* d_output, int3 dims, int connectivity);
 
 extern "C" __declspec(dllexport) int* LocalPeaks(float* d_input, int* h_peaksnum, int3 dims, int localextent, float threshold);
 extern "C" __declspec(dllexport) void SubpixelMax(float* d_input, float* d_output, int3 dims, int subpixsteps);

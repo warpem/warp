@@ -72,7 +72,7 @@ namespace Warp
             {
                 if (_DeviceData == IntPtr.Zero)
                 {
-                    _DeviceData = GpuArrayPool.Rent(ElementsReal);
+                    _DeviceData = GPU.MallocDevice(ElementsReal);// GpuArrayPool.Rent(ElementsReal);
 
                     lock (GlobalSync)
                         OnDeviceObjects.Add(this);
@@ -169,7 +169,7 @@ namespace Warp
                 throw new DimensionMismatchException();
 
             for (int z = 0, i = 0; z < dims.Z; z++)
-                Array.Copy(data, z * dims.X * dims.Y, HostData[z], 0, dims.X * dims.Y);
+                Array.Copy(data, z * ElementsSliceReal, HostData[z], 0, ElementsSliceReal);
             IsHostDirty = true;
 
             if (EnableObjectLogging)
@@ -521,7 +521,8 @@ namespace Warp
                     if (IsDeviceDirty)
                         for (int z = 0; z < Dims.Z; z++)
                             GPU.CopyDeviceToHost(new IntPtr((long)DeviceData + ElementsSliceReal * z * sizeof(float)), HostData[z], ElementsSliceReal);
-                    GpuArrayPool.Return(DeviceData);
+                    //GpuArrayPool.Return(DeviceData);
+                    GPU.FreeDevice(_DeviceData);
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
@@ -830,7 +831,8 @@ namespace Warp
 
                 if (_DeviceData != IntPtr.Zero)
                 {
-                    GpuArrayPool.Return(_DeviceData);
+                    //GpuArrayPool.Return(_DeviceData);
+                    GPU.FreeDevice(_DeviceData);
                     GPU.OnMemoryChanged();
                     _DeviceData = IntPtr.Zero;
                     IsDeviceDirty = false;
@@ -2876,6 +2878,20 @@ namespace Warp
             GPU.HelicalSymmetrize(Texture[0], Result.GetDevice(Intent.Write), Dims, twist, rise, maxz, maxr);
 
             GPU.DestroyTexture(Texture[0], Array[0]);
+
+            Result.Parent = this;
+            Result.PixelSize = PixelSize;
+            return Result;
+        }
+
+        public Image AsTophatFiltered(int connectivity)
+        {
+            if (connectivity < 1 || connectivity > 3)
+                throw new ArgumentOutOfRangeException("Connectivity must be between 1 and 3.");
+
+            Image Result = new Image(IntPtr.Zero, Dims);
+
+            GPU.TophatTransform(GetDevice(Intent.Read), Result.GetDevice(Intent.Write), Dims, connectivity);
 
             Result.Parent = this;
             Result.PixelSize = PixelSize;

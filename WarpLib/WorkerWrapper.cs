@@ -225,6 +225,7 @@ namespace Warp
 
                 string Json = JsonSerializer.Serialize(command);
                 var Content = new StringContent(Json, Encoding.UTF8, "application/json");
+                //System.Console.WriteLine(Json);
 
                 HttpResponseMessage Response = httpClient.PostAsync("v1/Service/EvaluateCommand", Content).GetAwaiter().GetResult();
 
@@ -425,9 +426,39 @@ namespace Warp
                                                     options));
         }
 
+        public void TomoPeakAlign(string path, ProcessingOptionsTomoPeakAlign options, string templatePath, float3[] positions, float3[] angles)
+        {
+            SendCommand(new NamedSerializableObject("TomoPeakAlign",
+                                                    path,
+                                                    options,
+                                                    templatePath,
+                                                    positions,
+                                                    angles));
+        }
+
         public void TomoProcessCTF(string path, ProcessingOptionsMovieCTF options)
         {
             SendCommand(new NamedSerializableObject("TomoProcessCTF",
+                                                    path,
+                                                    options));
+        }
+
+        public void LoadTomoDenoiser(string path, int3 windowSize, int batchSize)
+        {
+            SendCommand(new NamedSerializableObject("LoadTomoDenoiser",
+                                                    path,
+                                                    windowSize,
+                                                    batchSize));
+        }
+
+        public void DropTomoDenoiser()
+        {
+            SendCommand(new NamedSerializableObject("DropTomoDenoiser"));
+        }
+
+        public void TomoDenoise(string path, ProcessingOptionsTomoDenoise options)
+        {
+            SendCommand(new NamedSerializableObject("TomoDenoise",
                                                     path,
                                                     options));
         }
@@ -472,6 +503,45 @@ namespace Warp
                                                     angles,
                                                     pathsRelativeTo,
                                                     pathTableOut));
+        }
+
+        public void InitReconstructions(int nreconstructions, int boxSize, int oversample)
+        {
+            SendCommand(new NamedSerializableObject("InitReconstructions",
+                                                    nreconstructions,
+                                                    boxSize,
+                                                    oversample));
+        }
+
+        public void TomoAddToReconstructions(string path, 
+                                             ProcessingOptionsTomoAddToReconstruction options, 
+                                             float3[][] positions, 
+                                             float3[][] angles)
+        {
+            SendCommand(new NamedSerializableObject("TomoAddToReconstructions",
+                                                    path,
+                                                    options,
+                                                    positions,
+                                                    angles));
+        }
+
+        public void SaveIntermediateReconstructions(string[] paths)
+        {
+            SendCommand(new NamedSerializableObject("SaveIntermediateReconstructions",
+                                                    paths,
+                                                    1));    // Dummy object so the string[] doesn't get serialized as multiple parameters
+        }
+
+        public void FinishReconstructions(string[][] resultPaths,
+                                          string[] symmetries,
+                                          string[] outputPaths,
+                                          float pixelSize)
+        {
+            SendCommand(new NamedSerializableObject("FinishReconstructions",
+                                                    resultPaths,
+                                                    symmetries,
+                                                    outputPaths,
+                                                    pixelSize));
         }
 
         public void MPAPrepareSpecies(string path, string stagingSave)

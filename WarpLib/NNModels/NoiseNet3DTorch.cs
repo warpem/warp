@@ -470,7 +470,7 @@ namespace Warp
 
                     for (int i = 0; i < CurBatch; i++)
                     {
-                        float[] TileData = new float[DimsWindow.X * DimsWindow.Y * DimsWindow.Z];
+                        float[] TileData = ArrayPool<float>.Rent(DimsWindow.X * DimsWindow.Y * DimsWindow.Z);
                         GPU.CopyDeviceToHost(PredictionData.GetDeviceSlice(i * DimsWindow.Z, Intent.Read),
                                              TileData,
                                              TileData.Length);
@@ -506,6 +506,8 @@ namespace Warp
                     }
                 }
             }
+
+            ArrayPool<float>.ReturnMultiple(PredictionTiles, false);
         }
 
         public static (Image[] Halves1, Image[] Halves2, float2[] Stats) TrainOnVolumes(NoiseNet3DTorch network,

@@ -124,15 +124,10 @@ namespace WarpTools.Commands
             {
                 worker.TomoStack(t.Path, OptionsStack);
                 worker.TomoEtomoFiducials(t.Path, OptionsEtomo);
+                
+                t.LoadMeta();
 
-                try
-                {
-                    t.ImportAlignments(OptionsImport);
-                }
-                catch (Exception exc)
-                {
-                    Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
-                }
+                t.ImportAlignments(OptionsImport);
 
                 t.SaveMeta();
             });
@@ -151,15 +146,10 @@ namespace WarpTools.Commands
                 IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
                     {
                         worker.TomoEtomoFiducials(t.Path, OptionsEtomo);
-                    
-                        try
-                        {
-                            t.ImportAlignments(OptionsImport);
-                        }
-                        catch (Exception exc)
-                        {
-                            Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
-                        }
+                        
+                        t.LoadMeta();
+
+                        t.ImportAlignments(OptionsImport);
 
                         t.SaveMeta();
                     }

@@ -34,6 +34,42 @@ __declspec(dllexport) void __stdcall CorrelateSubTomos(unsigned long long t_proj
                         h_progressfraction);
 }
 
+__declspec(dllexport) void __stdcall CorrelateLargeVolume(unsigned long long t_projectordataRe,
+                                                        unsigned long long t_projectordataIm,
+                                                        float projectoroversample,
+                                                        int3 dimsprojector,
+                                                        float2* d_experimentalft,
+                                                        float* d_ctf,
+                                                        int3 dimsvolume,
+                                                        float3* h_angles,
+                                                        uint nangles,
+                                                        uint batchangles,
+                                                        float maskradius,
+                                                        float* d_bestcorrelation,
+                                                        int* d_bestangle,
+                                                        float* h_progressfraction)
+{
+    d_PickLargeVolume(t_projectordataRe,
+                        t_projectordataIm,
+                        projectoroversample,
+                        dimsprojector,
+                        d_experimentalft,
+                        d_ctf,
+                        dimsvolume,
+                        (tfloat3*)h_angles,
+                        nangles,
+                        batchangles,
+                        maskradius,
+                        d_bestcorrelation,
+                        (float*)d_bestangle,
+                        h_progressfraction);
+}
+
+__declspec(dllexport) void __stdcall TophatTransform(float* d_input, float* d_output, int3 dims, int connectivity)
+{
+    d_TopHatTransform(d_input, d_output, dims, connectivity);
+}
+
 __declspec(dllexport) int* __stdcall LocalPeaks(float* d_input, int* h_peaksnum, int3 dims, int localextent, float threshold)
 {
     int* h_peaks = 0;

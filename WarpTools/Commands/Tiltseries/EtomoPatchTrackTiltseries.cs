@@ -125,15 +125,10 @@ namespace WarpTools.Commands
             {
                 worker.TomoStack(t.Path, OptionsStack);
                 worker.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack);
-                    
-                try
-                {
-                    t.ImportAlignments(OptionsImport);
-                }
-                catch (Exception exc)
-                {
-                    Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
-                }
+                
+                t.LoadMeta();
+
+                t.ImportAlignments(OptionsImport);
 
                 t.SaveMeta();
             });
@@ -153,14 +148,9 @@ namespace WarpTools.Commands
                 {
                     worker.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack);
                     
-                    try
-                    {
-                        t.ImportAlignments(OptionsImport);
-                    }
-                    catch (Exception exc)
-                    {
-                        Console.WriteLine("\nFailed to import alignments:\n" + exc.Message);
-                    }
+                    t.LoadMeta();
+                    
+                    t.ImportAlignments(OptionsImport);
 
                     t.SaveMeta();
                 });

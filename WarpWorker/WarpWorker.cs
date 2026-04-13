@@ -39,14 +39,13 @@ namespace WarpWorker
         static long HeaderlessOffset = 0;
         static string HeaderlessType = "float32";
 
-        static float[][] RawLayers = null;
-
-        static string OriginalStackOwner = "";
-        static Image OriginalStack = null;
-
         static BoxNetTorch BoxNetModel = null;
 
+        static NoiseNet3DTorch DenoiserModel = null;
+
         static Population MPAPopulation = null;
+
+        static Projector[] Reconstructions = null;
 
         static async Task Main(string[] args)
         {
@@ -240,7 +239,19 @@ namespace WarpWorker
 
                     HeaderEER.GroupNFrames = EERGroupFrames;
 
-                    OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain);
+                    int MaxThreads = int.MaxValue;
+                    if (Environment.GetEnvironmentVariable("WARP_EER_THREADS") != null)
+                        try
+                        {
+                            MaxThreads = int.Parse(Environment.GetEnvironmentVariable("WARP_EER_THREADS"));
+                            MaxThreads = Math.Max(MaxThreads, 1);
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"Couldn't parse WARP_EER_THREADS value: {Environment.GetEnvironmentVariable("WARP_EER_THREADS")}");
+                        }
+
+                    OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain, Math.Min(MaxThreads, 8));
                     OriginalStackOwner = Helper.PathToNameWithExtension(Path);
 
                     Console.WriteLine($"Loaded stack: {OriginalStack}, {ScaleFactor}");
@@ -263,6 +274,38 @@ namespace WarpWorker
                     BoxNetModel?.Dispose();
 
                     Console.WriteLine("Model dropped");
+                }
+                else if (Command.Name == "LoadTomoDenoiser")
+                {
+                    DenoiserModel?.Dispose();
+
+                    string Path = (string)Command.Content[0];
+                    int3 WindowSize = (int3)Command.Content[1];
+                    int BatchSize = (int)Command.Content[2];
+
+                    DenoiserModel = new NoiseNet3DTorch(WindowSize, new[] { DeviceID }, BatchSize);
+                    DenoiserModel.Load(Path);
+
+                    Console.WriteLine($"Denoiser model with window size = {WindowSize}, batch size = {BatchSize} loaded from {Path}");
+                }
+                else if (Command.Name == "DropTomoDenoiser")
+                {
+                    DenoiserModel?.Dispose();
+
+                    Console.WriteLine("Denoiser model dropped");
+                }
+                else if (Command.Name == "TomoDenoise")
+                {
+                    if (DenoiserModel == null)
+                        throw new Exception("No denoiser model loaded");
+
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTomoDenoise Options = (ProcessingOptionsTomoDenoise)Command.Content[1];
+
+                    TiltSeries T = new TiltSeries(Path);
+                    T.Denoise(Options, DenoiserModel);
+
+                    Console.WriteLine($"Denoised {Path}");
                 }
                 else if (Command.Name == "MovieProcessCTF")
                 {
@@ -777,6 +820,24 @@ namespace WarpWorker
 
                     Console.WriteLine($"Processed auto-leveling for {Path}");
                 }
+                else if (Command.Name == "TomoPeakAlign")
+                {
+                    string Path = (string)Command.Content[0];
+                    ProcessingOptionsTomoPeakAlign Options = (ProcessingOptionsTomoPeakAlign)Command.Content[1];
+                    var TemplatePath = (string)Command.Content[2];
+                    float3[] Positions = (float3[])Command.Content[3];
+                    float3[] Angles = (float3[])Command.Content[4];
+
+                    Image Template = Image.FromFile(TemplatePath);
+
+                    TiltSeries T = new TiltSeries(Path);
+                    T.PeakAlign(Options, Template, Positions, Angles);
+                    T.SaveMeta();
+
+                    Template.Dispose();
+
+                    Console.WriteLine($"Performed alignment to peaks for {Path}");
+                }
                 else if (Command.Name == "TomoAlignLocallyWithoutReferences")
                 {
                     string Path = (string)Command.Content[0];
@@ -817,14 +878,14 @@ namespace WarpWorker
 
                     string LastMessage = "";
                     TiltSeries T = new TiltSeries(Path);
-                    T.MatchFull(Options, Template, (grid, gridElements, message) =>
+                    T.MatchLargeVolume(Options, Template, (fraction, message) =>
                     {
                         if (message != LastMessage)
                         {
                             LastMessage = message;
                             Console.WriteLine(message);
                         }
-                        Console.WriteLine($"{(float)gridElements / grid.Elements() * 100}%");
+                        Console.WriteLine($"{fraction * 100}%");
                         return false;
                     });
 
@@ -864,6 +925,102 @@ namespace WarpWorker
                         TableOut.Save(PathTableOut);
 
                     Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+                }
+                else if (Command.Name == "InitReconstructions")
+                {
+                    if (Reconstructions != null)
+                        foreach (var rec in Reconstructions)
+                            rec.Dispose();
+
+                    int NReconstructions = (int)Command.Content[0];
+                    int BoxSize = (int)Command.Content[1];
+                    int Oversample = (int)Command.Content[2];
+
+                    Reconstructions = Helper.ArrayOfFunction(i => new Projector(new int3(BoxSize), Oversample), 
+                                                             NReconstructions);
+
+                    Console.WriteLine($"Initialized reconstructions");
+                }
+                else if (Command.Name == "TomoAddToReconstructions")
+                {
+                    if (Reconstructions == null)
+                        throw new Exception("Reconstructions not initialized");
+
+                    string Path = (string)Command.Content[0];
+                    var Options = (ProcessingOptionsTomoAddToReconstruction)Command.Content[1];
+                    float3[][] Positions = (float3[][])Command.Content[2];
+                    float3[][] Angles = (float3[][])Command.Content[3];
+
+                    if (Positions.Length != Angles.Length ||
+                        Positions.Length != Reconstructions.Length)
+                        throw new Exception("The number of reconstructions, and particle position and angle sets must match");
+
+                    TiltSeries T = new TiltSeries(Path);
+
+                    for (int irec = 0; irec < Reconstructions.Length; irec++)
+                    {
+                        if (Positions[irec].Length != Angles[irec].Length)
+                            throw new Exception("The number of particle positions and angles must match for each reconstruction");
+
+                        Console.WriteLine($"Adding {Positions[irec].Length / T.NTilts} particles to reconstruction {irec}");
+                    }
+
+                    T.AddToReconstruction(Options, Reconstructions, Positions, Angles);
+
+                    Console.WriteLine($"Added particles from {Path} to reconstructions");
+                }
+                else if (Command.Name == "SaveIntermediateReconstructions")
+                {
+                    if (Reconstructions == null)
+                        throw new Exception("Reconstructions not initialized");
+
+                    string[] Paths = (string[])Command.Content[0];
+
+                    if (Reconstructions.Length != Paths.Length)
+                        throw new Exception("The number of reconstructions and output paths must match");
+
+                    for (int irec = 0; irec < Reconstructions.Length; irec++)
+                        Reconstructions[irec].WriteMRC(Paths[irec]);
+
+                    Console.WriteLine($"Saved intermediate reconstructions");
+                }
+                else if (Command.Name == "FinishReconstructions")
+                {
+                    if (Reconstructions == null)
+                        throw new Exception("Reconstructions not initialized");
+
+                    string[][] ResultPaths = (string[][])Command.Content[0];
+                    string[] Symmetries = (string[])Command.Content[1];
+                    string[] OutputPaths = (string[])Command.Content[2];
+                    float PixelSize = (float)Command.Content[3];
+
+                    if (Reconstructions.Length != Symmetries.Length ||
+                        Symmetries.Length != OutputPaths.Length)
+                        throw new Exception("The number of reconstructions, symmetry definitions, and output paths must match");
+
+                    for (int irec = 0; irec < Reconstructions.Length; irec++)
+                    {
+                        if (ResultPaths.Length == Reconstructions.Length &&
+                            ResultPaths[irec].Length > 0)
+                            foreach (var path in ResultPaths[irec])
+                            {
+                                Projector Result = Projector.FromFile(path);
+                                Reconstructions[irec].Data.Add(Result.Data);
+                                Reconstructions[irec].Weights.Add(Result.Weights);
+
+                                Result.Dispose();
+                            }
+
+                        using Image Reconstruction = Reconstructions[irec].Reconstruct(false, Symmetries[irec]);
+                        Reconstruction.WriteMRC(OutputPaths[irec], PixelSize, true);
+
+                        Reconstructions[irec].Dispose();
+                        Console.WriteLine($"Wrote reconstruction {irec} to {OutputPaths[irec]}");
+                    }
+
+                    Reconstructions = null;
+
+                    Console.WriteLine($"Finished reconstructions");
                 }
                 else if (Command.Name == "MPAPrepareSpecies")
                 {
@@ -998,6 +1155,10 @@ namespace WarpWorker
             return Model;
         }
 
+        static float[][] RawLayers = null;
+        static string OriginalStackOwner = "";
+        static Image OriginalStack = null;
+
         static Image LoadAndPrepareStack(string path, decimal scaleFactor, bool correctGain, int maxThreads = 8)
         {
             Image stack = null;
@@ -1017,7 +1178,6 @@ namespace WarpWorker
                     if (header.Dimensions.X != GainRef.Dims.X || header.Dimensions.Y != GainRef.Dims.Y)
                         throw new Exception($"Gain reference dimensions ({GainRef.Dims.X}x{GainRef.Dims.Y}) do not match image ({header.Dimensions.X}x{header.Dimensions.Y}).");
 
-            int EERSupersample = 4; // EER super-resolution now fixed to 4x
             int EERGroupFrames = 1;
             if (IsEER)
             {
@@ -1039,7 +1199,9 @@ namespace WarpWorker
             { 
                 SourceDims *= 4;
 
-                if (GainRef != null && correctGain)
+                if (GainRef != null && 
+                    correctGain && 
+                    new int2(GainRef.Dims) != SourceDims)
                     GainRef = GainRef.AsScaled(SourceDims).AndDisposeParent();
             }
 
@@ -1127,6 +1289,7 @@ namespace WarpWorker
                 {
                     OriginalStack?.Dispose();
                     OriginalStack = new Image(ScaledDims);
+                    Console.WriteLine($"Allocating original stack of size {header.Dimensions} for {path} on device {CurrentDevice}");
                 }
 
                 stack = OriginalStack;

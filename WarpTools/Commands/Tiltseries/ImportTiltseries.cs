@@ -477,12 +477,20 @@ namespace WarpTools.Commands
                             NFailed++;
                             Console.Error.WriteLine($"Failed to parse {Path.GetFileName(mdocPath)}: {exc.Message}");
                             
-                            FailedTomostarPaths.Add(OutputPath, mdocPath);
+                            if (File.Exists(OutputPath))
+                                FailedTomostarPaths.Add(OutputPath, mdocPath);
 
                             List<string> SortedTomostarPaths = TomostarPaths.Keys.ToList();
                             SortedTomostarPaths.Sort((a, b) => MdocPaths.IndexOf(TomostarPaths[a]).CompareTo(MdocPaths.IndexOf(TomostarPaths[b])));
-                            
-                            WriteMiniJson(Path.Combine(CLI.OutputPath, "failed_items.json"), FailedTomostarPaths.Select(kvp => new TiltSeries(kvp.Key)));
+
+                            try
+                            {
+                                WriteMiniJson(Path.Combine(CLI.OutputPath, "failed_items.json"), FailedTomostarPaths.Select(kvp => new TiltSeries(kvp.Key)));
+                            }
+                            catch (Exception exc2)
+                            {
+                                Console.Error.WriteLine($"Failed to write failed_items.json: {exc2.Message}");
+                            }
                         }
                     }
                     finally

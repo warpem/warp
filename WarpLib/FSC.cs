@@ -1474,6 +1474,7 @@ namespace Warp
                 while (K1 < FSCLength - 1 && CorrABData[K1] != 0)
                     K1++;
             }
+            Console.WriteLine($"K0 = {K0}, K1 = {K1}");
 
             Image Mask = new Image(corrAB.Dims.Slice(), true);
             {
@@ -1526,9 +1527,13 @@ namespace Warp
 
                     for (int i = 0; i < CurBatch; i++)
                     {
-                        CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
-                        CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
-                        CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
+                        Array.Copy(corrAB.GetHost(Intent.Read)[b + i], CorrABBatch.GetHost(Intent.Write)[i], corrAB.ElementsSliceReal);
+                        Array.Copy(corrA2.GetHost(Intent.Read)[b + i], CorrA2Batch.GetHost(Intent.Write)[i], corrA2.ElementsSliceReal);
+                        Array.Copy(corrB2.GetHost(Intent.Read)[b + i], CorrB2Batch.GetHost(Intent.Write)[i], corrB2.ElementsSliceReal);
+                        
+                        //CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
+                        //CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
+                        //CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
                     }
 
                     GPU.CopyDeviceToDevice(CorrABBatch.GetDevice(Intent.Read), CorrPremultBatch.GetDevice(Intent.Write), CorrABBatch.ElementsReal);
@@ -1642,7 +1647,7 @@ namespace Warp
 
                 double[] Result = new double[input.Length];
 
-                //float[] Scores0 = EvalIndividually(input);
+                float[] Scores0 = EvalIndividually(input);
                 //Console.WriteLine($"{NIterations++}: {Scores0.Sum()}");
 
                 double[] InputAltered = input.ToList().ToArray();
@@ -1691,9 +1696,13 @@ namespace Warp
 
                     for (int i = 0; i < CurBatch; i++)
                     {
-                        CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
-                        CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
-                        CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
+                        Array.Copy(corrAB.GetHost(Intent.Read)[b + i], CorrABBatch.GetHost(Intent.Write)[i], corrAB.ElementsSliceReal);
+                        Array.Copy(corrA2.GetHost(Intent.Read)[b + i], CorrA2Batch.GetHost(Intent.Write)[i], corrA2.ElementsSliceReal);
+                        Array.Copy(corrB2.GetHost(Intent.Read)[b + i], CorrB2Batch.GetHost(Intent.Write)[i], corrB2.ElementsSliceReal);
+                        
+                        //CorrABBatch.GetHost(Intent.Write)[i] = corrAB.GetHost(Intent.Read)[b + i];
+                        //CorrA2Batch.GetHost(Intent.Write)[i] = corrA2.GetHost(Intent.Read)[b + i];
+                        //CorrB2Batch.GetHost(Intent.Write)[i] = corrB2.GetHost(Intent.Read)[b + i];
                     }
 
                     UpdateFSCs();
@@ -1723,9 +1732,9 @@ namespace Warp
             FSCOverall.Dispose();
             Mask.Dispose();
 
-            Image ResultCorr = new Image(new float[][] { FinalAB.GetHost(Intent.Read)[0],
-                                                         FinalA2.GetHost(Intent.Read)[0],
-                                                         FinalB2.GetHost(Intent.Read)[0] },
+            Image ResultCorr = new Image(new float[][] { FinalAB.GetHost(Intent.Read)[0].ToArray(),
+                                                         FinalA2.GetHost(Intent.Read)[0].ToArray(),
+                                                         FinalB2.GetHost(Intent.Read)[0].ToArray() },
                                          new int3(Dims.X, Dims.Y, 3), true);
 
             FinalAB.Dispose();

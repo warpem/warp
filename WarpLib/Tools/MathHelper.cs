@@ -196,6 +196,49 @@ namespace Warp.Tools
             return new float2((float)sum / data.Length, MathF.Sqrt((float)Math.Max(0, data.Length * sum2 - sum * sum)) / data.Length);
         }
 
+        public static float2 MeanAndStd(float[][] data)
+        {
+            if (data.Length == 0 || data[0].Length == 0)
+                return new float2(0, 0);
+
+            double sum = 0f;
+            double sum2 = 0f;
+            long numEl = (long)data.Length * data[0].Length;
+
+            foreach (var subdata in data)
+            {
+                int count = subdata.Length;
+                Vector<float> sumVector = Vector<float>.Zero;
+                Vector<float> sum2Vector = Vector<float>.Zero;
+                int vectorSize = Vector<float>.Count;
+
+                int i;
+                for (i = 0; i <= count - vectorSize; i += vectorSize)
+                {
+                    var vector = new Vector<float>(subdata, i);
+                    sumVector += vector;
+                    sum2Vector += vector * vector;
+                }
+                for (int j = 0; j < vectorSize; j++)
+                {
+                    sum += sumVector[j];
+                    sum2 += sum2Vector[j];
+                }
+
+                // Process remaining elements
+                for (; i < count; i++)
+                {
+                    sum += subdata[i];
+                    sum2 += subdata[i] * subdata[i];
+                }
+            }
+
+            if (sum == sum2)
+                return new float2(0, 0);
+
+            return new float2((float)sum / numEl, MathF.Sqrt((float)Math.Max(0, numEl * sum2 - sum * sum)) / numEl);
+        }
+
 
         public static float2 MeanAndStdNonZero(IEnumerable<float> data)
         {
@@ -776,6 +819,23 @@ namespace Warp.Tools
             return ((value + factor - 1) / factor) * factor;
         }
 
+        public static int NextFFTFriendlySize(int value)
+        {
+            if (value % 2 != 0)
+                value++;
+
+            while (true)
+            {
+                int n = value;
+                while (n % 2 == 0) n /= 2;
+                while (n % 3 == 0) n /= 3;
+                while (n % 5 == 0) n /= 5;
+                while (n % 7 == 0) n /= 7;
+                if (n == 1) return value;
+                value += 2;
+            }
+        }
+
         public static float ReduceWeighted(float[] data, float[] weights)
         {
             float Sum = 0f;
@@ -1091,6 +1151,11 @@ namespace Warp.Tools
         }
 
         public static float Lerp(float a, float b, float x)
+        {
+            return a + (b - a) * x;
+        }
+
+        public static decimal Lerp(decimal a, decimal b, decimal x)
         {
             return a + (b - a) * x;
         }
