@@ -14,7 +14,7 @@ namespace gtom
 
 	void d_MemcpyToArray(tfloat* d_input, cudaArray_t a_output, int2 dims)
 	{
-		cudaMemcpyToArray(a_output, 0, 0, d_input, dims.x * dims.y * sizeof(tfloat), cudaMemcpyDeviceToDevice);
+		cudaMemcpy2DToArray(a_output, 0, 0, d_input, dims.x * sizeof(tfloat), dims.x * sizeof(tfloat), dims.y, cudaMemcpyDeviceToDevice);
 	}
 
 	void d_BindTextureToArray(tfloat* d_input, cudaArray_t &createdarray, cudaTex &createdtexture, int2 dims, cudaTextureFilterMode filtermode, bool normalizedcoords)
@@ -22,7 +22,7 @@ namespace gtom
 		cudaChannelFormatDesc desc = cudaCreateChannelDesc<tfloat>();
 		cudaArray* a_input;
 		cudaMallocArray(&a_input, &desc, dims.x, dims.y);
-		cudaMemcpyToArray(a_input, 0, 0, d_input, dims.x * dims.y * sizeof(tfloat), cudaMemcpyDeviceToDevice);
+		cudaMemcpy2DToArray(a_input, 0, 0, d_input, dims.x * sizeof(tfloat), dims.x * sizeof(tfloat), dims.y, cudaMemcpyDeviceToDevice);
 
 		struct cudaResourceDesc resDesc;
 		memset(&resDesc, 0, sizeof(resDesc));
@@ -72,7 +72,7 @@ namespace gtom
 			cudaChannelFormatDesc desc = cudaCreateChannelDesc<tfloat>();
 			cudaArray* a_input;
 			cudaMallocArray(&a_input, &desc, dims.x, dims.y);
-			cudaMemcpyToArray(a_input, 0, 0, d_input + Elements2(dims) * n, dims.x * dims.y * sizeof(tfloat), cudaMemcpyDeviceToDevice);
+			cudaMemcpy2DToArray(a_input, 0, 0, d_input + Elements2(dims) * n, dims.x * sizeof(tfloat), dims.x * sizeof(tfloat), dims.y, cudaMemcpyDeviceToDevice);
 
 			struct cudaResourceDesc resDesc;
 			memset(&resDesc, 0, sizeof(resDesc));
