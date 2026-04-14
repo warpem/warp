@@ -33,10 +33,11 @@ SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-use_fast_math")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-lineinfo")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-std=c++11")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-cudart=static")
+SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Wno-deprecated-gpu-targets")
 #SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};--ptxas-options=-v")
 
 ADD_LIBRARY(NativeAcceleration SHARED ${SOURCES})
 
-set_target_properties(NativeAcceleration PROPERTIES CUDA_ARCHITECTURES "52;61;75;86")
+set_target_properties(NativeAcceleration PROPERTIES CUDA_ARCHITECTURES "61;70;75;80;86;89;90;100;120")
 
 TARGET_LINK_LIBRARIES(NativeAcceleration ${FFTW_LIBRARIES} libtiff.so libcudart.so libcufft.so libcublas.so libcurand.so ${CMAKE_THREAD_LIBS_INIT})

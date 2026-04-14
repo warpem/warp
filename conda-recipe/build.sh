@@ -14,7 +14,7 @@ rm -rf build
 mkdir build
 cd build
 cmake ${CMAKE_ARGS} ..
-make -j 8
+make -j 2
 cd ${PROJECT_ROOT}
 
 # build LibTorchSharp
@@ -26,7 +26,7 @@ rm -rf build
 mkdir build
 cd build
 cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} ..
-make -j 8
+make -j 2
 cd ${PROJECT_ROOT}
 
 mkdir -p Release/linux-x64/publish

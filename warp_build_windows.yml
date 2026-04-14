@@ -1,14 +1,22 @@
 name: warp_build
 channels:
-  - nvidia/label/cuda-11.8.0
-  - pytorch
+  - nvidia/label/cuda-12.9.0
   - conda-forge
   - nodefaults
 dependencies:
   - libtiff
   - python
-  - pytorch-cuda=11.8
+  - pytorch=*=cuda129*
   - fftw
-  - dotnet=8.0
-  - cuda-toolkit
+  - cmake<4
+  - cxx-compiler=1.3
+  - dotnet=10.0
+  - cuda-version=12.9
+  - cuda-nvcc=12.9
+  - cuda-cudart-dev
+  - cuda-cudart-static
+  - libcufft-dev
+  - libcublas-dev
+  - libcurand-dev
+  - cuda-nvrtc-dev
   

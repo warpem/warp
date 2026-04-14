@@ -1,6 +1,5 @@
 channels:
-  - nvidia/label/cuda-11.8.0
-  - pytorch
+  - nvidia/label/cuda-12.9.0
   - conda-forge
 
 package:
@@ -21,26 +20,31 @@ requirements:
   host:
     - python=3.11.9
     - libtiff
-    - pytorch-cuda=11.8
-    - pytorch::pytorch=2.0.1=py3.11_cuda11.8_cudnn8.7.0_0
-    - torchvision
+    - pytorch=*=cuda129*
     - fftw
     - cxx-compiler=1.3
-    - dotnet=8.0
-    - cuda-toolkit
-    - mkl=2024.0.0
+    - dotnet=10.0
+    - cuda-version=12.9
+    - cuda-nvcc=12.9
+    - cuda-cudart-dev
+    - cuda-cudart-static
+    - libcufft-dev
+    - libcublas-dev
+    - libcurand-dev
+    - cuda-nvrtc-dev
     - cmake<4
   run:
     - python=3.11.9
     - libtiff
-    - pytorch-cuda=11.8
-    - pytorch::pytorch=2.0.1=py3.11_cuda11.8_cudnn8.7.0_0
-    - torchvision
+    - pytorch=*=cuda129*
     - fftw
     - cxx-compiler=1.3
-    - dotnet=8.0
-    - cuda-toolkit
-    - mkl=2024.0.0
+    - dotnet=10.0
+    - cuda-cudart
+    - libcufft
+    - libcublas
+    - libcurand
+    - cuda-nvrtc
     - cmake
 
 test:

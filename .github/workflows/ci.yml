@@ -19,6 +19,7 @@ jobs:
     name: Deploy
     if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
     runs-on: linux-cpu-x64-8core
+    timeout-minutes: 120
 
     permissions:
       # This permission allows writing releases
@@ -43,16 +44,23 @@ jobs:
           
       - name: Build conda package
         shell: micromamba-shell {0}
+        env:
+          CONDA_OVERRIDE_CUDA: "12.9"
         run: |
-          ls -lrth
-          conda-build conda-recipe -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge
+          # Work around dotnet deactivate.d/dotnet-root.sh referencing unbound $2.
+          # BASH_ENV is sourced by every non-interactive bash subprocess, including
+          # the ones conda-build spawns for activation/deactivation scripts.
+          echo 'set +u' > /tmp/no-strict-unset.sh
+          export BASH_ENV=/tmp/no-strict-unset.sh
+          conda-build conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge
 
       - name: Upload conda package
         shell: micromamba-shell {0}
         env:
           ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_KEY }}
+          CONDA_OVERRIDE_CUDA: "12.9"
         run: |
-          anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-11.8.0 -c pytorch -c conda-forge)
+          anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge)
 
       - name: Release the source on GitHub
         uses: softprops/action-gh-release@v2
