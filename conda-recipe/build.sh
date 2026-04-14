@@ -25,7 +25,11 @@ cd LibTorchSharp
 rm -rf build
 mkdir build
 cd build
-cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} --log-level=VERBOSE ..
+cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} --log-level=VERBOSE .. || {
+  echo "=== CMakeError.log ===" && cat CMakeFiles/CMakeError.log 2>/dev/null
+  echo "=== CMakeOutput.log (last 100 lines) ===" && tail -100 CMakeFiles/CMakeOutput.log 2>/dev/null
+  exit 1
+}
 make -j 2
 cd ${PROJECT_ROOT}
 
