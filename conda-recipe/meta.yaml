@@ -31,6 +31,7 @@ requirements:
     - libcufft-dev
     - libcublas-dev
     - libcurand-dev
+    - cuda-nvrtc-dev
     - cmake<4
   run:
     - python=3.11.9
@@ -43,6 +44,7 @@ requirements:
     - libcufft
     - libcublas
     - libcurand
+    - cuda-nvrtc
     - cmake
 
 test:
