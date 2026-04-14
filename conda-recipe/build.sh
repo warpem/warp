@@ -7,15 +7,15 @@ PROJECT_ROOT=$(pwd)
 echo conda list
 conda list
 
-# build NativeAcceleration — skipped to speed up cmake debugging
-# echo building NativeAcceleration
-# cd NativeAcceleration
-# rm -rf build
-# mkdir build
-# cd build
-# cmake ${CMAKE_ARGS} ..
-# make -j 2
-# cd ${PROJECT_ROOT}
+# build NativeAcceleration
+echo building NativeAcceleration
+cd NativeAcceleration
+rm -rf build
+mkdir build
+cd build
+cmake ${CMAKE_ARGS} ..
+make -j 2
+cd ${PROJECT_ROOT}
 
 # build LibTorchSharp
 echo building LibTorchSharp
@@ -25,17 +25,12 @@ cd LibTorchSharp
 rm -rf build
 mkdir build
 cd build
-cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} --log-level=VERBOSE \
-  --trace-expand --trace-redirect=cmake_trace.log .. 2>&1 || {
-  echo "=== CMakeError.log ===" && cat CMakeFiles/CMakeError.log 2>/dev/null
-  echo "=== cmake_trace.log (last 200 lines) ===" && tail -200 cmake_trace.log 2>/dev/null
-  exit 1
-}
+cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} ..
 make -j 2
 cd ${PROJECT_ROOT}
 
 mkdir -p Release/linux-x64/publish
-# cp NativeAcceleration/build/lib/libNativeAcceleration.so Release/linux-x64/publish/
+cp NativeAcceleration/build/lib/libNativeAcceleration.so Release/linux-x64/publish/
 cp LibTorchSharp/build/LibTorchSharp/libLibTorchSharp.so Release/linux-x64/publish/
 
 ./scripts/publish-unix.sh
