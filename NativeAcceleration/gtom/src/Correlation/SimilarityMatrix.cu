@@ -38,7 +38,7 @@ namespace gtom
 
 		d_imagesft += ElementsFFT2(dimsimage) * startvalid;
 		d_similarity += startvalid;
-		d_ValueFill(d_similarity, nvalid, (tfloat)-1);
+		d_ValueFill<tfloat>(d_similarity, nvalid, (tfloat)-1);
 
 		for (int i = 0; i < anglesteps; i++)
 		{
@@ -73,7 +73,7 @@ namespace gtom
 		tcomplex* d_target = d_linesft + ElementsFFT2(dimslines) * target;
 		d_linesft += ElementsFFT2(dimslines) * startvalid;
 		d_similarity += startvalid;
-		d_ValueFill(d_similarity, nvalid, (tfloat)-1);
+		d_ValueFill<tfloat>(d_similarity, nvalid, (tfloat)-1);
 
 		for (int i = 0; i < anglesteps; i++)
 		{

@@ -12,7 +12,7 @@ __declspec(dllexport) void RealspaceProjectForward(float* d_volume,
 													float3* h_angles,
 													int batch)
 {
-	d_ValueFill(d_projections, Elements2(dimsproj) * batch, 0.0f);
+	d_ValueFill<float>(d_projections, Elements2(dimsproj) * batch, 0.0f);
 
 	glm::mat3* d_matrices;
 	

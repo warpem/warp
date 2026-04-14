@@ -43,8 +43,8 @@ namespace gtom
 		/*if (nvolumes > batchsize)
 			throw;*/
 
-		d_ValueFill(d_bestcorrelation, Elements(dimsvolume) * nvolumes, (tfloat)-1e30);
-		d_ValueFill(d_bestangle, Elements(dimsvolume) * nvolumes, (float)0);
+		d_ValueFill<tfloat>(d_bestcorrelation, Elements(dimsvolume) * nvolumes, (tfloat)-1e30);
+		d_ValueFill<float>(d_bestangle, Elements(dimsvolume) * nvolumes, (float)0);
 
 		tcomplex* d_projectedftctf;
 		cudaMalloc((void**)&d_projectedftctf, ElementsFFT(dimsvolume) * batchsize * sizeof(tcomplex));

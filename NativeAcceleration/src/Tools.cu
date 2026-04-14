@@ -651,7 +651,7 @@ __declspec(dllexport) void ProjectNMAPseudoAtoms(float3* d_positions,
 												int2 dimsproj,
 												uint batch)
 {
-	d_ValueFill(d_proj, Elements2(dimsproj) * batch, 0.0f);
+	d_ValueFill<float>(d_proj, Elements2(dimsproj) * batch, 0.0f);
 
     d_ProjNMAPseudoAtoms(d_positions,
 						d_intensities,
@@ -691,7 +691,7 @@ __declspec(dllexport) void ProjectSoftPseudoAtoms(float3* d_positions,
 													int2 dimsproj,
 													uint batch)
 {
-	d_ValueFill(d_proj, Elements2(dimsproj) * batch, 0.0f);
+	d_ValueFill<float>(d_proj, Elements2(dimsproj) * batch, 0.0f);
 
     d_ProjSoftPseudoAtoms(d_positions,
 						d_intensities,
@@ -759,12 +759,12 @@ __declspec(dllexport) void DestroyTexture(unsigned long long textureid, unsigned
 
 __declspec(dllexport) void ValueFill(float* d_input, size_t elements, float value)
 {
-	d_ValueFill(d_input, elements, value);
+	d_ValueFill<float>(d_input, elements, value);
 }
 
 __declspec(dllexport) void ValueFillComplex(float2* d_input, size_t elements, float2 value)
 {
-	d_ValueFill(d_input, elements, value);
+	d_ValueFill<float2>(d_input, elements, value);
 }
 
 __declspec(dllexport) void Real(float2* d_input, float* d_output, size_t elements)
