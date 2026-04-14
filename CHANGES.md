@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.0.0dev38
+
+### Upgrading from v2.0.0dev37 or earlier
+
+This release upgrades the CUDA toolkit from 11.8 to 12.9, PyTorch from 2.0.1 to 2.10, and .NET from 8 to 10. Existing conda environments cannot be updated in-place. To upgrade:
+
+1. Remove the old environment: `conda env remove -n warp`
+2. Create a fresh environment: `conda create -n warp -c conda-forge -c nvidia/label/cuda-12.9.0 warp`
+
+The new version requires an NVIDIA driver that supports CUDA 12.x (driver version >= 525.60.13). Check your driver version with `nvidia-smi`. All GPUs from Pascal (GTX 1080) through Blackwell (RTX 5090, B200) are supported.
+
+### Breaking Changes
+
+- **CUDA 12.9**: Requires NVIDIA driver >= 525.60.13. Users on older drivers must update before installing this version.
+- **Conda environment must be recreated**: The CUDA 11.8 -> 12.9, PyTorch 2.0 -> 2.10, and .NET 8 -> 10 upgrades are too large for `conda update` to handle. A fresh environment is required.
+- **.NET 10**: All projects now target .NET 10. Users building from source must install the .NET 10 SDK.
+
+### New Features
+
+- **Blackwell GPU support**: Added CUDA architectures sm_100 and sm_120 for NVIDIA Blackwell GPUs (B200, RTX 5090).
+- **Broader GPU architecture coverage**: Now builds for Pascal (sm_61), Volta (sm_70), Turing (sm_75), Ampere (sm_80, sm_86), Ada Lovelace (sm_89), Hopper (sm_90), and Blackwell (sm_100, sm_120).
+
+### Bug Fixes
+
+- **Particle tilt series export serialization**: Fixed a bug where particle tilt series export would serialize incorrectly across workers. This only improves performance; the outputs remain unchanged.
+- **Particle export column preservation**: Additional input STAR columns are now preserved during particle export.
+
+### Internal
+
+- Eliminated compiler warnings across LibTorchSharp and NativeAcceleration.
+- Switched conda recipe from `pytorch` channel to `conda-forge` with explicit CUDA 12.9 build string pinning.
+- Replaced `cuda-toolkit` metapackage with individual CUDA components to avoid pulling unnecessary dependencies.
+
 ## v2.0.0dev37
 
 ### New Commands
