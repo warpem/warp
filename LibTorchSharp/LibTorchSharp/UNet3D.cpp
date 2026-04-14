@@ -20,13 +20,13 @@ namespace F = torch::nn::functional;
 
 F::PadFuncOptions::mode_t _get_pad_mode_from_conv_padding_mode(torch::nn::detail::conv_padding_mode_t conv_padding_mode) {
     F::PadFuncOptions::mode_t pad_mode;
-    if (c10::get_if<torch::enumtype::kReflect>(&conv_padding_mode)) {
+    if (std::get_if<torch::enumtype::kReflect>(&conv_padding_mode)) {
         pad_mode = torch::kReflect;
     }
-    else if (c10::get_if<torch::enumtype::kReplicate>(&conv_padding_mode)) {
+    else if (std::get_if<torch::enumtype::kReplicate>(&conv_padding_mode)) {
         pad_mode = torch::kReplicate;
     }
-    else if (c10::get_if<torch::enumtype::kCircular>(&conv_padding_mode)) {
+    else if (std::get_if<torch::enumtype::kCircular>(&conv_padding_mode)) {
         pad_mode = torch::kCircular;
     }
     else {
@@ -65,7 +65,7 @@ namespace torch
                 //wmean.print();
                 wflat = wflat.view(wshape);
 
-                if (!c10::get_if<enumtype::kZeros>(&options.padding_mode())) {
+                if (!std::get_if<enumtype::kZeros>(&options.padding_mode())) {
                     return F::detail::conv3d(
                         F::pad(input, F::PadFuncOptions(_reversed_padding_repeated_twice).mode(_get_pad_mode_from_conv_padding_mode(options.padding_mode()))),
                         wflat, bias,
