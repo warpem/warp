@@ -1011,8 +1011,45 @@ and orientations before attempting high resolution refinements in M.
 3D classification in RELION can also be used to separate particles into different
 classes.
 
+### Generate Initial Reference
+
+First, we generate an initial reference de novo using RELION's
+Initial Model job. This produces a low-resolution starting model
+from the exported particles without requiring any prior structural knowledge.
+
+```bash title="Generate initial reference"
+relion_refine \
+--K 1 \
+--iter 100 \
+--tau2_fudge 4 \
+--particle_diameter 130 \
+--flatten_solvent \
+--sym O \
+--sigma_tilt -1 \
+--ctf \
+--j 2 \
+--gpu "" \
+--grad \
+--denovo_3dref \
+--healpix_order 2 \
+--offset_range 6 \
+--offset_step 2 \
+--pool 10 \
+--pad 1 \
+--dont_combine_weights_via_disc \
+--oversampling 1 \
+--ios matching_optimisation_set.star \
+--o InitialModel/job001/run \
+--pipeline_control InitialModel/job001/
+```
+
+The resulting initial model will be saved as
+`InitialModel/job001/run_it100_class001.mrc`.
+
+### Refine3D
+
 For this apoferritin dataset, an unmasked 3D refinement
-starting from a 130Å sphere filtered to 60Å refines directly to the Nyquist limit of 8Å.
+starting from this initial model refines directly to the Nyquist limit of 8Å.
 
 ```txt title="Refine3D text output"
  Auto-refine: Refinement has converged, stopping now... 
@@ -1038,7 +1075,7 @@ starting from a 130Å sphere filtered to 60Å refines directly to the Nyquist li
     --auto_refine \
     --split_random_halves \
     --ios matching_optimisation_set.star \
-    --ref sphere.mrc \
+    --ref InitialModel/job001/run_it100_class001.mrc \
     --trust_ref_size \
     --ini_high 40 \
     --dont_combine_weights_via_disc \
