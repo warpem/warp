@@ -1053,9 +1053,9 @@ starting from this initial model refines directly to the Nyquist limit of 8Å.
 
 ```txt title="Refine3D text output"
  Auto-refine: Refinement has converged, stopping now... 
- Auto-refine: + Final reconstruction from all particles is saved as: Refine3D/job001/run_class001.mrc
- Auto-refine: + Final model parameters are stored in: Refine3D/job001/run_model.star
- Auto-refine: + Final data parameters are stored in: Refine3D/job001/run_data.star
+ Auto-refine: + Final reconstruction from all particles is saved as: Refine3D/job002/run_class001.mrc
+ Auto-refine: + Final model parameters are stored in: Refine3D/job002/run_model.star
+ Auto-refine: + Final data parameters are stored in: Refine3D/job002/run_data.star
  Auto-refine: + Final resolution (without masking) is: 8.17021
 ```
 
@@ -1071,7 +1071,7 @@ starting from this initial model refines directly to the Nyquist limit of 8Å.
 
     ```txt
     mpirun -n 3 `which relion_refine_mpi` \
-    --o Refine3D/job001/run \
+    --o Refine3D/job002/run \
     --auto_refine \
     --split_random_halves \
     --ios matching_optimisation_set.star \
@@ -1096,7 +1096,7 @@ starting from this initial model refines directly to the Nyquist limit of 8Å.
     --scale  \
     --j 2 \
     --gpu ""  \
-    --pipeline_control Refine3D/job001/
+    --pipeline_control Refine3D/job002/
     ```
 
 ## High Resolution Refinements in M
