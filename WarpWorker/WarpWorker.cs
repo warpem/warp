@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -49,9 +48,6 @@ namespace WarpWorker
 
         static async Task Main(string[] args)
         {
-            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-
             OptionsCLI OptionsCLI = null;
             Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(opts => OptionsCLI = opts);
 

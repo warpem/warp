@@ -18,9 +18,6 @@ namespace Noise2Half
     {
         static void Main(string[] args)
         {
-            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-
             string ExtRecStarPath = "";
 
             if (!Debugger.IsAttached)
