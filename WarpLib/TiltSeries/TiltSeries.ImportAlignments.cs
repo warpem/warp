@@ -14,8 +14,6 @@ public partial class TiltSeries
     {
         string ResultsDir = string.IsNullOrEmpty(options.OverrideResultsDir) ? TiltStackDir : options.OverrideResultsDir;
 
-        UseTilt = Helper.ArrayOfConstant(true, NTilts);
-
         VolumeDimensionsPhysical = options.DimensionsPhysical;
 
         #region Excluded tilts
@@ -32,11 +30,12 @@ public partial class TiltSeries
         {
         }
 
+        List<float> CutAngles = null;
         if (CutviewsPath != null)
         {
-            List<float> CutAngles = File.ReadAllLines(CutviewsPath).Where(l => !string.IsNullOrEmpty(l)).Select(l => float.Parse(l, CultureInfo.InvariantCulture)).ToList();
+            CutAngles = File.ReadAllLines(CutviewsPath).Where(l => !string.IsNullOrEmpty(l)).Select(l => float.Parse(l, CultureInfo.InvariantCulture)).ToList();
 
-            UseTilt = UseTilt.Select((v, t) => !CutAngles.Any(a => Math.Abs(a - Angles[t]) < 0.2)).ToArray();
+            UseTilt = UseTilt.Select((v, t) => v && !CutAngles.Any(a => Math.Abs(a - Angles[t]) < 0.2)).ToArray();
         }
 
         #endregion
@@ -87,7 +86,16 @@ public partial class TiltSeries
 
             string[] Lines = File.ReadAllLines(XfPath).Where(l => !string.IsNullOrEmpty(l)).ToArray();
             if (Lines.Length != NValid)
-                throw new Exception($"{NValid} active tilts in series, but {Lines.Length} lines in {XfPath}");
+            {
+                // Existing UseTilt doesn't match the alignment file; reset and retry
+                UseTilt = Helper.ArrayOfConstant(true, NTilts);
+                if (CutAngles != null)
+                    UseTilt = UseTilt.Select((v, t) => !CutAngles.Any(a => Math.Abs(a - Angles[t]) < 0.2)).ToArray();
+                NValid = UseTilt.Count(v => v);
+
+                if (Lines.Length != NValid)
+                    throw new Exception($"{NValid} active tilts in series, but {Lines.Length} lines in {XfPath}");
+            }
 
             for (int t = 0, iline = 0; t < NTilts; t++)
             {
@@ -166,10 +174,12 @@ public partial class TiltSeries
             if (Lines.Length == NValid)
             {
                 float[] ParsedTiltAngles = new float[NTilts];
-                for (int t = 0; t < NTilts; t++)
+                for (int t = 0, iline = 0; t < NTilts; t++)
                 {
-                    string Line = Lines[t];
-                    ParsedTiltAngles[t] = float.Parse(Line, CultureInfo.InvariantCulture);
+                    if (!UseTilt[t])
+                        continue;
+                    ParsedTiltAngles[t] = float.Parse(Lines[iline], CultureInfo.InvariantCulture);
+                    iline++;
                 }
 
                 if (ParsedTiltAngles.All(angle => angle == 0))
