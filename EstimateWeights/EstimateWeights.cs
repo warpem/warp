@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Warp;
+using Warp.Headers;
 using Warp.Sociology;
 using Warp.Tools;
 
@@ -283,11 +284,13 @@ namespace EstimateWeights
                         int2 Dims;
                         int MaxFrames = 1;
                         {
-                            string FSCPath = Path.Combine(RefinementDirectory, ItemsWithData[0].RootName + "_fsc.mrc");
-                            Image FSC = Image.FromFile(FSCPath);
-                            Dims = new int2(FSC.Dims.Y);
-                            MaxFrames = FSC.Dims.Z / 3;
-                            FSC.Dispose();
+                            foreach (var item in ItemsWithData)
+                            {
+                                MapHeader Header = MapHeader.ReadFromFile(Path.Combine(RefinementDirectory, item.RootName + "_fsc.mrc"));
+                                MaxFrames = Math.Max(MaxFrames, Header.Dimensions.Z / 3);
+                            }
+
+                            Dims = new int2(MapHeader.ReadFromFile(Path.Combine(RefinementDirectory, ItemsWithData[0].RootName + "_fsc.mrc")).Dimensions.Y);
                         }
 
                         List<float[]> AllAB = new List<float[]>();
