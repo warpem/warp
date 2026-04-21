@@ -680,6 +680,9 @@ namespace Warp
 
                 MakeSparse = Tasks.TomoSubReconstructMakeSparse,
 
+                OutputCTFCSV = Tasks.TomoSubReconstructCTFCSV,
+                CorrectCTF = Tasks.TomoSubReconstructCorrectCTF,
+
                 UseCPU = Tasks.UseCPU
             });
 
@@ -2079,6 +2082,22 @@ namespace Warp
         {
             get { return _TomoSubReconstructMakeSparse; }
             set { if (value != _TomoSubReconstructMakeSparse) { _TomoSubReconstructMakeSparse = value; OnPropertyChanged(); } }
+        }
+        
+        private bool _TomoSubReconstructCTFCSV = true;
+        [WarpSerializable]
+        public bool TomoSubReconstructCTFCSV
+        {
+            get { return _TomoSubReconstructCTFCSV; }
+            set { if (value != _TomoSubReconstructCTFCSV) { _TomoSubReconstructCTFCSV = value; OnPropertyChanged(); } }
+        }
+        
+        private bool _TomoSubReconstructCorrectCTF = true;
+        [WarpSerializable]
+        public bool TomoSubReconstructCorrectCTF
+        {
+            get { return _TomoSubReconstructCorrectCTF; }
+            set { if (value != _TomoSubReconstructCorrectCTF) { _TomoSubReconstructCorrectCTF = value; OnPropertyChanged(); } }
         }
 
         #endregion
