@@ -13,7 +13,7 @@ cd NativeAcceleration
 rm -rf build
 mkdir build
 cd build
-cmake ${CMAKE_ARGS} ..
+cmake ${CMAKE_ARGS} -DCMAKE_SYSROOT=${CONDA_BUILD_SYSROOT} ..
 make -j 2
 cd ${PROJECT_ROOT}
 
@@ -25,7 +25,7 @@ cd LibTorchSharp
 rm -rf build
 mkdir build
 cd build
-cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} ..
+cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} -DCMAKE_SYSROOT=${CONDA_BUILD_SYSROOT} ..
 make -j 2
 cd ${PROJECT_ROOT}
 

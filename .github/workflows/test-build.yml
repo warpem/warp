@@ -1,0 +1,67 @@
+name: Test Build (glibc check)
+
+on:
+  push:
+    branches:
+      - fix/glibc-sysroot
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and check glibc
+    runs-on: linux-cpu-x64-8core
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: package-build
+          create-args: >-
+            python=3.10
+            conda-build
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: 'all'
+
+      - name: Build conda package
+        shell: micromamba-shell {0}
+        env:
+          CONDA_OVERRIDE_CUDA: "12.9"
+        run: |
+          echo 'set +u' > /tmp/no-strict-unset.sh
+          export BASH_ENV=/tmp/no-strict-unset.sh
+          conda-build conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge
+
+      - name: Check glibc requirements
+        shell: micromamba-shell {0}
+        env:
+          CONDA_OVERRIDE_CUDA: "12.9"
+        run: |
+          PKG=$(conda build --output conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge)
+          echo "Package: $PKG"
+
+          TMPDIR=$(mktemp -d)
+          cd "$TMPDIR"
+          tar xf "$PKG" || conda package --pkg-name="$PKG" --extract
+
+          echo ""
+          echo "=== GLIBC versions required by libNativeAcceleration.so ==="
+          objdump -T $(find . -name "libNativeAcceleration.so") | grep -oP 'GLIBC_\S+' | sort -uV
+          echo ""
+          echo "=== GLIBC versions required by libLibTorchSharp.so ==="
+          objdump -T $(find . -name "libLibTorchSharp.so") | grep -oP 'GLIBC_\S+' | sort -uV
+          echo ""
+
+          echo "=== Maximum GLIBC version across all shipped .so files ==="
+          find . -name "*.so" -exec objdump -T {} + 2>/dev/null | grep -oP 'GLIBC_\S+' | sort -uV | tail -1
+
+          rm -rf "$TMPDIR"

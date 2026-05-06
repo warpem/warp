@@ -21,13 +21,18 @@ If you want to use Warp on Windows, tutorials and binaries (currently only for v
 
 If you're installing from scratch and don't have an environment yet, here is the easiest way to get everything inside a new environment called `warp`:
 ```
-conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge
+conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge --channel-priority flexible
 conda activate warp  # Activate the environment whenever you want to use Warp
+```
+
+If you're installing on a machine without an NVIDIA GPU (e.g. a cluster login node), set `CONDA_OVERRIDE_CUDA` so that conda can resolve the CUDA dependencies:
+```
+CONDA_OVERRIDE_CUDA=12.9 conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge --channel-priority flexible
 ```
 
 If you want to install in an already existing environment:
 ```
-conda install warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge
+conda install warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge --channel-priority flexible
 ```
 
 If you want to update to the latest version and already have all channels set up in your environment:
@@ -40,7 +45,7 @@ conda update warp
 Versions up to v2.0.0dev37 used CUDA 11.8 and .NET 8. Starting with v2.0.0dev38, Warp requires CUDA 12.9 and .NET 10. These changes are too large for `conda update` to handle, so a fresh environment is needed:
 ```
 conda env remove -n warp
-conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge
+conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge --channel-priority flexible
 ```
 
 You will also need an NVIDIA driver that supports CUDA 12.x (version >= 525.60.13). Check with `nvidia-smi`.
