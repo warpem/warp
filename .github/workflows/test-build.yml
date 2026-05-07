@@ -51,7 +51,10 @@ jobs:
 
           TMPDIR=$(mktemp -d)
           cd "$TMPDIR"
-          tar xf "$PKG" || conda package --pkg-name="$PKG" --extract
+
+          # .conda files are zips containing pkg-*.tar.zst and info-*.tar.zst
+          unzip -q "$PKG"
+          for f in *.tar.zst; do tar --use-compress-program=unzstd -xf "$f"; done
 
           echo ""
           echo "=== GLIBC versions required by libNativeAcceleration.so ==="
