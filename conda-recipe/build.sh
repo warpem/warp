@@ -7,6 +7,22 @@ PROJECT_ROOT=$(pwd)
 echo conda list
 conda list
 
+echo "=== Build environment diagnostics ==="
+echo "CONDA_BUILD_SYSROOT=${CONDA_BUILD_SYSROOT:-<unset>}"
+echo "CC=${CC:-<unset>}"
+echo "CXX=${CXX:-<unset>}"
+echo "CFLAGS=${CFLAGS:-<unset>}"
+echo "CXXFLAGS=${CXXFLAGS:-<unset>}"
+echo "CMAKE_ARGS=${CMAKE_ARGS:-<unset>}"
+echo "System glibc: $(ldd --version 2>&1 | head -1)"
+if [ -n "${CONDA_BUILD_SYSROOT}" ] && [ -d "${CONDA_BUILD_SYSROOT}" ]; then
+  echo "Sysroot libc: $(ls ${CONDA_BUILD_SYSROOT}/lib/libc-* 2>/dev/null || echo 'not found')"
+  echo "Sysroot contents: $(ls ${CONDA_BUILD_SYSROOT}/usr/include/features.h 2>/dev/null && grep __GLIBC_MINOR__ ${CONDA_BUILD_SYSROOT}/usr/include/features.h | head -3)"
+else
+  echo "WARNING: CONDA_BUILD_SYSROOT is unset or does not exist!"
+fi
+echo "=== End diagnostics ==="
+
 # build NativeAcceleration
 echo building NativeAcceleration
 cd NativeAcceleration

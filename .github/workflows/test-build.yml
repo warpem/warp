@@ -56,14 +56,17 @@ jobs:
           unzip -q "$PKG"
           for f in *.tar.zst; do tar --use-compress-program=unzstd -xf "$f"; done
 
-          echo ""
-          echo "=== GLIBC versions required by libNativeAcceleration.so ==="
-          objdump -T $(find . -name "libNativeAcceleration.so") | grep -oP 'GLIBC_\S+' | sort -uV
-          echo ""
-          echo "=== GLIBC versions required by libLibTorchSharp.so ==="
-          objdump -T $(find . -name "libLibTorchSharp.so") | grep -oP 'GLIBC_\S+' | sort -uV
-          echo ""
+          for lib in libNativeAcceleration.so libLibTorchSharp.so; do
+            SO=$(find . -name "$lib" | head -1)
+            echo ""
+            echo "=== GLIBC versions required by $lib ==="
+            objdump -T "$SO" | grep -oP 'GLIBC_\S+' | sort -uV
+            echo ""
+            echo "=== Symbols requiring GLIBC > 2.28 in $lib ==="
+            objdump -T "$SO" | grep 'GLIBC_' | awk '{print $NF, $(NF-1)}' | grep -E 'GLIBC_2\.(29|3[0-9]|[4-9][0-9])' | sort -k2 -V
+          done
 
+          echo ""
           echo "=== Maximum GLIBC version across all shipped .so files ==="
           find . -name "*.so" -exec objdump -T {} + 2>/dev/null | grep -oP 'GLIBC_\S+' | sort -uV | tail -1
 
