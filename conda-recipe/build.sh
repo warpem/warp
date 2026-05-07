@@ -23,6 +23,12 @@ else
 fi
 echo "=== End diagnostics ==="
 
+# Force sysroot into all compiler and linker invocations
+export CFLAGS="${CFLAGS} --sysroot=${CONDA_BUILD_SYSROOT}"
+export CXXFLAGS="${CXXFLAGS} --sysroot=${CONDA_BUILD_SYSROOT}"
+export LDFLAGS="${LDFLAGS:-} --sysroot=${CONDA_BUILD_SYSROOT}"
+export CUDAFLAGS="${CUDAFLAGS:-} --compiler-options --sysroot=${CONDA_BUILD_SYSROOT}"
+
 # build NativeAcceleration
 echo building NativeAcceleration
 cd NativeAcceleration
@@ -30,7 +36,9 @@ rm -rf build
 mkdir build
 cd build
 cmake ${CMAKE_ARGS} -DCMAKE_SYSROOT=${CONDA_BUILD_SYSROOT} ..
-make -j 2
+make VERBOSE=1 -j 2 2>&1 | tail -30
+echo "=== Verifying sysroot in compile commands ==="
+make VERBOSE=1 -j 2 2>&1 | grep -m 3 "sysroot" || echo "WARNING: --sysroot not found in compile commands"
 cd ${PROJECT_ROOT}
 
 # build LibTorchSharp
@@ -42,7 +50,7 @@ rm -rf build
 mkdir build
 cd build
 cmake ${CMAKE_ARGS} ${CUSTOM_CMAKE_ARGS} -DCMAKE_SYSROOT=${CONDA_BUILD_SYSROOT} ..
-make -j 2
+make VERBOSE=1 -j 2 2>&1 | tail -10
 cd ${PROJECT_ROOT}
 
 mkdir -p Release/linux-x64/publish
