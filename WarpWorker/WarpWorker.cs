@@ -51,6 +51,9 @@ namespace WarpWorker
             OptionsCLI OptionsCLI = null;
             Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(opts => OptionsCLI = opts);
 
+            if (OptionsCLI == null)
+                return;
+
             if (OptionsCLI.DebugAttach && !Debugger.IsAttached)
                 Debugger.Launch();
 
