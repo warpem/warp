@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.0.0dev39
+
+### Bug Fixes
+
+- **LibTorchSharp ABI mismatch with conda-forge PyTorch**: Removed the `-D_GLIBCXX_USE_CXX11_ABI=0` flag from LibTorchSharp. conda-forge's PyTorch (cuda129 builds) uses the new C++11 ABI, so LibTorchSharp must match. The old ABI flag caused undefined symbol errors for `torch::serialize::InputArchive::read` when MCore loaded LibTorchSharp against the new-ABI libtorch.
+- **glibc compatibility**: Pinned minimum glibc version in conda recipe to fix compatibility issues on some Linux distributions.
+- **EstimateWeights `--resolve_frames` crash with varying tilt counts**: `MaxFrames` was computed from only the first tilt series' FSC file, causing `IndexOutOfRangeException` when later series had more tilts. Now scans all FSC headers to find the true maximum.
+- **ImportAlignments resetting `UseTilt`**: Importing alignments reset the `UseTilt` flags, causing crashes when processing tilt series with filtered (excluded) tilts.
+- **Noise2Map training running fewer iterations than requested**: When the number of map pairs was less than `batchSize` (e.g. 1 pair with `batchSize=4`), the batch preparation coordinator assumed each `PrepareBatch` call would enqueue `batchSize` items. In reality it enqueues `min(batchSize, poolSize)` items, so with 1 map pair only 375 of 1500 expected batches were produced, cutting training short.
+- **Locale bugs across all projects**: Replaced per-executable `CultureInfo` workarounds with the runtime-level `InvariantGlobalization` setting in every `.csproj`, guaranteeing all float formatting/parsing uses dot-decimal regardless of system locale.
+
+### Documentation
+
+- **Initial model generation in tilt series tutorial**: Added a step to generate the initial reference de novo using RELION's Initial Model job, replacing the previously unexplained `sphere.mrc` reference.
+- **RELION job numbering**: Fixed job numbering in the tutorial to account for the new InitialModel step.
+- Updated install instructions for glibc compatibility.
+
 ## v2.0.0dev38
 
 ### Upgrading from v2.0.0dev37 or earlier
