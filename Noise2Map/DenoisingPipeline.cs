@@ -165,11 +165,21 @@ namespace Noise2Map
             mapCombined?.TransformValues(v => Math.Max(-30, Math.Min(30, (v - info.MeanStd.X) / info.MeanStd.Y)));
 
             // Prepare for denoising
-            Image forDenoising = (mapCombined == null || options.DenoiseSeparately) ? map1.GetCopy() : mapCombined;
+            Image forDenoising;
             Image forDenoising2 = options.DenoiseSeparately ? map2.GetCopy() : null;
 
-            if (!options.DenoiseSeparately)
+            if (options.DenoiseSeparately)
             {
+                forDenoising = map1.GetCopy();
+            }
+            else if (mapCombined != null)
+            {
+                forDenoising = mapCombined;
+                mapCombined = null;
+            }
+            else
+            {
+                forDenoising = map1.GetCopy();
                 forDenoising.Add(map2);
                 forDenoising.Multiply(0.5f);
             }

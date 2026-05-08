@@ -37,7 +37,7 @@ conda install warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge --channe
 
 If you want to update to the latest version and already have all channels set up in your environment:
 ```
-conda update warp
+conda update warp -c warpem
 ```
 
 ### Upgrading from v2.0.0dev37 or earlier
