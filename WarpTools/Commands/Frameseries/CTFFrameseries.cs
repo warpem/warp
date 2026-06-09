@@ -136,9 +136,6 @@ namespace WarpTools.Commands
                 Options.Import.GainTranspose,
                 Options.Import.DefectsPath ?? "");
 
-            string logDirectory = Path.Combine(CLI.OutputProcessing, "logs");
-            Directory.CreateDirectory(logDirectory);
-
             foreach (var item in CLI.InputSeries)
                 item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
@@ -170,6 +167,13 @@ namespace WarpTools.Commands
                     m.SaveMeta();
                 }
 
+                // correctGain=true matches the original fs_ctf, which loaded the movie
+                // average with the LoadStack default (correctGain=true). NOTE: the sibling
+                // fs_motion_and_ctf command passes false for the average case (the average
+                // is already gain-corrected and binned, so applying the gain again — and
+                // its raw-vs-binned dimension check — can mismatch). Preserved as-is here
+                // for behavioral fidelity; the --use_sum + gain-reference combination is a
+                // known caveat to validate in the manual GPU acceptance run.
                 bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
                 var loadStack = useSum
                     ? new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
@@ -232,6 +236,11 @@ namespace WarpTools.Commands
 
             #region Collect results, update meta, write manifests
 
+            // Behavior note: unlike the old IterateOverItems (which marked an item failed
+            // on its first exception), a failure here is retried by the Scheduler up to the
+            // FailureMatrix retry cap before the task is poisoned. So a "Poisoned" outcome
+            // already means "failed after retries", and only poisoned tasks are reported as
+            // failed below.
             List<Movie> processedItems = new();
             List<Movie> failedItems = new();
 
