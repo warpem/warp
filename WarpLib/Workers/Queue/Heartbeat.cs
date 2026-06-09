@@ -90,10 +90,12 @@ namespace Warp.Workers.Queue
         public bool IsStalled()
         {
             // Still within startup grace and never saw a tick -> alive.
+            // Uses >= so a zero window means "stalled immediately" (no grace /
+            // zero tolerance), which the sweep relies on for never-heartbeated workers.
             if (_lastSeq < 0)
-                return _sinceStart.ElapsedMilliseconds > _startupGraceMs;
+                return _sinceStart.ElapsedMilliseconds >= _startupGraceMs;
 
-            return _sinceStart.ElapsedMilliseconds - _lastAdvanceMs > _timeoutMs;
+            return _sinceStart.ElapsedMilliseconds - _lastAdvanceMs >= _timeoutMs;
         }
     }
 }
