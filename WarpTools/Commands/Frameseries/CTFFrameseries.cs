@@ -1,9 +1,15 @@
-﻿using CommandLine;
+using CommandLine;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
+using Warp.Workers.Scheduling;
 
 
 namespace WarpTools.Commands
@@ -103,32 +109,169 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
+            // Remote workers (the old REST hostname:port distribution) are not part of
+            // the filesystem work-distribution path. Cluster execution is handled by
+            // Relay provisioning workers against the shared queue, not by this CLI.
+            if (CLI.Workers != null && CLI.Workers.Any())
+                throw new Exception("The --workers (remote hostname:port) option is not supported by the filesystem-based " +
+                                    "fs_ctf path. Use local GPU distribution (--device_list / --perdevice), or run under " +
+                                    "Relay for cluster execution.");
 
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
+            decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
-            IterateOverItems<Movie>(
-                Workers,
-                CLI,
-                (worker, m) =>
+            #region Build one task per movie
+
+            // The init sequence loads the gain reference + defect map. It is IDENTICAL
+            // for every movie, so all tasks share an init fingerprint and a worker runs
+            // it exactly once, then reuses the loaded gain across all its tasks (the same
+            // amortization the old GetWorkers() gave by loading the gain into each worker
+            // up front). The per-movie work (LoadStack + MovieProcessCTF) is the main
+            // sequence. Empty gain/defect paths make LoadGainRef a cheap no-op.
+            var loadGainRef = new NamedSerializableObject(
+                nameof(WorkerWrapper.LoadGainRef),
+                Options.Import.GainPath ?? "",
+                Options.Import.GainFlipX,
+                Options.Import.GainFlipY,
+                Options.Import.GainTranspose,
+                Options.Import.DefectsPath ?? "");
+
+            string logDirectory = Path.Combine(CLI.OutputProcessing, "logs");
+            Directory.CreateDirectory(logDirectory);
+
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+            var layout = new QueueLayout(Path.Combine(CLI.OutputProcessing, "work_ctf"));
+            layout.EnsureDirectories();
+            var queue = new TaskQueue(layout);
+            var pool = new WorkPool(layout, queue);
+
+            var tasks = new List<TaskItem>();
+            var taskIdToMovie = new Dictionary<string, Movie>();
+
+            for (int i = 0; i < CLI.InputSeries.Length; i++)
+            {
+                Movie m = (Movie)CLI.InputSeries[i];
+
+                // Path correction (identical to the old IterateOverItems): if the output
+                // directory differs from where the raw data lives, relocate the item's
+                // meta path into OutputProcessing while remembering the data directory.
+                // Must happen BEFORE building the task so the worker writes meta to the
+                // right place (MovieProcessCTF uses m.Path) and reads raw data from
+                // m.DataPath.
+                if (Path.GetFullPath(CLI.OutputProcessing) !=
+                    Path.GetFullPath(Path.GetDirectoryName(m.DataPath)))
                 {
-                    decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+                    if (string.IsNullOrEmpty(m.DataDirectoryName))
+                        m.DataDirectoryName = Path.GetDirectoryName(m.Path);
 
-                    if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
-                        worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames);
-                    else
-                        worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-                    
-                    worker.MovieProcessCTF(m.Path, OptionsCTF);
-
-                    worker.GcCollect();
+                    m.Path = Path.Combine(CLI.OutputProcessing, Path.GetFileName(m.Path));
+                    m.SaveMeta();
                 }
-            );
 
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
+                bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
+                var loadStack = useSum
+                    ? new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
+                        m.AveragePath, 1M, Options.Import.EERGroupFrames, true)
+                    : new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
+                        m.DataPath, ScaleFactor, Options.Import.EERGroupFrames, true);
+
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-ctf-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadGainRef },
+                    Main = new[]
+                    {
+                        loadStack,
+                        new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), m.Path, OptionsCTF),
+                        new NamedSerializableObject(nameof(WorkerWrapper.GcCollect)),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                tasks.Add(task);
+                taskIdToMovie[task.TaskId] = m;
+            }
+
+            #endregion
+
+            #region Distribute via the local worker pool
+
+            List<int> devices = (CLI.DeviceList == null || !CLI.DeviceList.Any())
+                ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
+                : CLI.DeviceList.ToList();
+            if (devices.Count <= 0)
+                throw new Exception("No devices found or specified");
+
+            // No point spawning more workers than there are movies.
+            int target = Math.Min(CLI.InputSeries.Length, devices.Count * CLI.ProcessesPerDevice);
+
+            var provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), CLI.ProcessesPerDevice);
+            var scheduler = new Scheduler(layout, queue, provisioner, target);
+
+            Console.WriteLine($"Distributing {tasks.Count} CTF tasks across up to {target} local worker(s)...");
+
+            var schedThread = new Thread(() => scheduler.RunToDrain()) { IsBackground = true };
+            schedThread.Start();
+
+            Dictionary<string, WorkResult> results;
+            try
+            {
+                results = pool.Distribute(tasks);
+            }
+            finally
+            {
+                // Distribute returns once every task is terminal; the scheduler also
+                // tears workers down on drain, but make sure nothing lingers.
+                provisioner.Shutdown();
+            }
+
+            #endregion
+
+            #region Collect results, update meta, write manifests
+
+            List<Movie> processedItems = new();
+            List<Movie> failedItems = new();
+
+            foreach (var kv in results)
+            {
+                Movie m = taskIdToMovie[kv.Key];
+                if (kv.Value.Outcome == WorkOutcome.Done)
+                {
+                    // Worker already wrote the CTF results to meta; refresh our copy and
+                    // mark processed.
+                    m.LoadMeta();
+                    m.ProcessingStatus = ProcessingStatus.Processed;
+                    m.SaveMeta();
+                    processedItems.Add(m);
+                }
+                else
+                {
+                    // Poisoned (exhausted retries / failed on too many hosts). Mirror the
+                    // old failure handling: deselect and mark to leave out.
+                    m.LoadMeta();
+                    m.UnselectManual = true;
+                    m.ProcessingStatus = ProcessingStatus.LeaveOut;
+                    m.SaveMeta();
+                    failedItems.Add(m);
+                    Console.Error.WriteLine($"Failed to process {m.Path}, marked as unselected. " +
+                                            $"Use the change_selection WarpTool to reactivate it if required." +
+                                            (string.IsNullOrEmpty(kv.Value.Error) ? "" : "\n" + kv.Value.Error));
+                }
+            }
+
+            WriteMiniJson(Path.Combine(CLI.OutputProcessing, "processed_items.json"), processedItems);
+            if (failedItems.Any())
+                WriteMiniJson(Path.Combine(CLI.OutputProcessing, "failed_items.json"), failedItems);
+
+            Console.WriteLine($"Finished: {processedItems.Count} processed, {failedItems.Count} failed");
+
+            if (failedItems.Count == CLI.InputSeries.Length && CLI.InputSeries.Length > 0)
+                throw new Exception("All items failed to process. Check logs for more info.");
+
+            #endregion
 
             Console.Write("Saving settings...");
             Options.Save(Path.Combine(CLI.OutputProcessing, "ctf_movies.settings"));
