@@ -4,8 +4,9 @@ namespace Warp.Workers.Scheduling
 {
     /// <summary>
     /// Tracks distinct cross-failures to separate bad hardware from bad tasks
-    /// (spec §12.3) and applies the per-task retry cap (spec §10). In-memory;
-    /// the Scheduler persists/reloads it via manager.state.json.
+    /// (spec §12.3) and applies the per-task retry cap (spec §10). In-memory only
+    /// in Phase 1; persistence across a manager restart (manager.state.json) is a
+    /// Phase-2 item, so a restart currently resets blacklist/poison progress.
     /// </summary>
     public class FailureMatrix
     {

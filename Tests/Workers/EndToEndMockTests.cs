@@ -24,15 +24,21 @@ public class EndToEndMockTests : IDisposable
         var queue = new TaskQueue(layout);
         var pool = new WorkPool(layout, queue);
 
-        // A small batch of mock CTF tasks. The mock handler does not touch the GPU.
+        // A small batch of mock CTF tasks, structured exactly like the real fs_ctf
+        // tasks: a LoadStack step (mock allocates a tiny placeholder stack) followed by
+        // MovieProcessCTF (mock fabricates a CTF). Neither touches the GPU.
         var tasks = Enumerable.Range(1, 4).Select(i =>
         {
             var t = new TaskItem
             {
                 TaskId = $"{i:D7}-mockctf",
-                Main = new[] { new NamedSerializableObject(
-                    nameof(WorkerWrapper.MovieProcessCTF), $"movie{i}.mrc",
-                    new ProcessingOptionsMovieCTF()) },
+                Main = new[]
+                {
+                    new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
+                        $"movie{i}.mrc", 1M, 1, true),
+                    new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF),
+                        $"movie{i}.mrc", new ProcessingOptionsMovieCTF()),
+                },
             };
             t.ComputeInitFingerprint();
             return t;
