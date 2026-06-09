@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 using Warp.Tools;
 using Warp.Workers.Queue;
@@ -129,5 +133,40 @@ public class TaskQueueTests : IDisposable
         Assert.Equal(1, s.Pending);
         Assert.Equal(1, s.Done);
         Assert.Equal(0, s.Running);
+    }
+
+    [Fact]
+    public void ConcurrentClaimsYieldNoDuplicatesAndNoLosses()
+    {
+        const int TaskCount = 50;
+        const int ThreadCount = 8;
+
+        for (int i = 0; i < TaskCount; i++)
+            _queue.Enqueue(MakeTask($"{i:D7}-task"));
+
+        var claimed = new ConcurrentBag<string>();
+        var threads = new List<Thread>();
+
+        for (int t = 0; t < ThreadCount; t++)
+        {
+            int idx = t;
+            var thread = new Thread(() =>
+            {
+                string workerId = $"worker-{idx}";
+                while (true)
+                {
+                    TaskItem item = _queue.ClaimOne(workerId);
+                    if (item == null) break;
+                    claimed.Add(item.TaskId);
+                }
+            });
+            threads.Add(thread);
+        }
+
+        foreach (var thread in threads) thread.Start();
+        foreach (var thread in threads) thread.Join();
+
+        Assert.Equal(TaskCount, claimed.Count);
+        Assert.Equal(TaskCount, new HashSet<string>(claimed).Count); // no duplicates
     }
 }

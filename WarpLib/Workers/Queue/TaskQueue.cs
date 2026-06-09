@@ -70,19 +70,26 @@ namespace Warp.Workers.Queue
 
         public void MarkDone(string workerId, TaskItem task, object result)
         {
-            string src = Path.Combine(_layout.RunningFor(workerId), task.TaskId + ".json");
             task.Result = result;
-            AtomicWrite(src, task.ToJson());
-            File.Move(src, Path.Combine(_layout.Done, task.TaskId + ".json"));
+            string src = Path.Combine(_layout.RunningFor(workerId), task.TaskId + ".json");
+            string dst = Path.Combine(_layout.Done, task.TaskId + ".json");
+            // Publish final content atomically into done/ BEFORE deleting the
+            // running/ copy, so a crash mid-operation leaves an extra copy in
+            // running/ (harmlessly re-pended by sweep) rather than losing the task.
+            AtomicWrite(dst, task.ToJson());
+            if (File.Exists(src)) File.Delete(src);
         }
 
         public void MarkFailed(string workerId, TaskItem task, string error, string hostname = null)
         {
-            string src = Path.Combine(_layout.RunningFor(workerId), task.TaskId + ".json");
             task.Error = error;
             task.FailedOnHost = hostname;
-            AtomicWrite(src, task.ToJson());
-            File.Move(src, Path.Combine(_layout.Failed, task.TaskId + ".json"));
+            string src = Path.Combine(_layout.RunningFor(workerId), task.TaskId + ".json");
+            string dst = Path.Combine(_layout.Failed, task.TaskId + ".json");
+            // Same publish-then-delete ordering as MarkDone: terminal record is
+            // durable before the running/ copy is removed.
+            AtomicWrite(dst, task.ToJson());
+            if (File.Exists(src)) File.Delete(src);
         }
 
         /// <summary>
@@ -98,12 +105,17 @@ namespace Warp.Workers.Queue
             int n = 0;
             foreach (string f in Directory.GetFiles(wdir, "*.json"))
             {
-                TaskItem t = TaskItem.FromJson(File.ReadAllText(f));
-                t.RetryCount++;
-                string pendPath = Path.Combine(_layout.Pending, t.TaskId + ".json");
-                AtomicWrite(f, t.ToJson());          // persist incremented retry first
-                File.Move(f, pendPath);
-                n++;
+                try
+                {
+                    TaskItem t = TaskItem.FromJson(File.ReadAllText(f));
+                    t.RetryCount++;
+                    string pendPath = Path.Combine(_layout.Pending, t.TaskId + ".json");
+                    AtomicWrite(f, t.ToJson());          // persist incremented retry first
+                    File.Move(f, pendPath);
+                    n++;
+                }
+                catch (FileNotFoundException) { continue; } // raced away; skip without counting
+                catch (IOException) { continue; }           // concurrent claim/sweep; skip
             }
             return n;
         }
@@ -128,7 +140,9 @@ namespace Warp.Workers.Queue
 
         private static void AtomicWrite(string path, string content)
         {
-            string tmp = path + ".tmp." + Environment.ProcessId;
+            // Include a GUID so two threads in the same process writing the same
+            // target path never collide on the same tmp file name.
+            string tmp = path + ".tmp." + Environment.ProcessId + "." + Guid.NewGuid().ToString("N");
             File.WriteAllText(tmp, content);
             File.Move(tmp, path, overwrite: true);
         }
