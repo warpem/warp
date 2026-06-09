@@ -30,6 +30,7 @@ launchSettings.json
 .vs/*
 
 test*/
+!Tests/
 
 *.settings
 
