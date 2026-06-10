@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status (2026-06-09):** All 12 tasks completed. See the **Implementation deviations** section at the bottom for a record of every place the actual code diverges from this plan.
+
 **Goal:** Build the filesystem work-queue core, a new queue-consuming worker binary, the scheduler + local provisioner, and the distribution helper — then port the single `fs_ctf` (frame-series CTF) task type onto it end-to-end as the first proof.
 
 **Architecture:** A pure-filesystem queue library in WarpLib (atomic-rename claim, sweep, heartbeats, retry/poison) is the testable core. A new worker binary lifts the `WarpCore` branch's `[Command]`/reflection dispatch and command bodies but drops all REST/controller networking — it reads commands from claimed task files instead. A scheduler maintains the worker pool via a pluggable provisioner (`Local` spawns processes, `External` is a no-op for cluster/Relay). A distribution helper enqueues task batches and blocks on results. Full design: `docs/superpowers/specs/2026-06-03-filesystem-work-distribution.md`.
@@ -1031,7 +1033,8 @@ Key difference from `WarpCore`: **no ASP.NET / Swashbuckle / ControllerClient**.
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>..\bin\</OutputPath>
-    <PlatformTarget>x64</PlatformTarget>
+    <!-- NOTE: PlatformTarget=x64 was removed from Debug to allow running on arm64
+         (dev machines, CI). CUDA is only needed in Release, not in mock/test mode. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -1144,7 +1147,9 @@ namespace WarpWorker2
         /// <summary>Execute one command. Throws on unknown command or on handler failure.</summary>
         static void EvaluateCommand(NamedSerializableObject command)
         {
-            GPU.SetDevice(DeviceID);
+            // Only call GPU.SetDevice in real (non-mock) mode: mock mode must be
+            // entirely GPU-free so tests run on arm64 / CI without NativeAcceleration.dll.
+            if (!MockMode) GPU.SetDevice(DeviceID);
             if (string.IsNullOrWhiteSpace(command?.Name))
                 throw new ArgumentException("Command name cannot be null or empty");
 
@@ -1269,11 +1274,20 @@ nearest available small-allocation + FFT + exception-check primitives — grep
             if (opts.DebugAttach && !System.Diagnostics.Debugger.IsAttached)
                 System.Diagnostics.Debugger.Launch();
 
-            DeviceID = opts.Device % GPU.GetDeviceCount();
-            MockMode = opts.Mock;
+            MockMode = opts.Mock;    // must be set before any GPU calls
             DebugMode = opts.Debug;
             IsSilent = opts.Silent;
-            GPU.SetDevice(DeviceID);
+            // In mock mode: skip all CUDA calls — the binary must run on machines
+            // without NativeAcceleration.dll (arm64, CI). Device arg is just an id.
+            if (!MockMode)
+            {
+                DeviceID = opts.Device % GPU.GetDeviceCount();
+                GPU.SetDevice(DeviceID);
+            }
+            else
+            {
+                DeviceID = opts.Device;
+            }
 
             RegisterCommands();
 
@@ -2023,15 +2037,35 @@ namespace Warp.Workers
             _queue = queue;
         }
 
-        public Dictionary<string, WorkResult> Distribute(IEnumerable<TaskItem> tasks, int pollMs = 1000)
+        // NOTE (deviation from original plan): Enqueue is a separate idempotent
+        // method. It must be called BEFORE starting the Scheduler thread so workers
+        // always find work on their first claim attempt. Calling Distribute after
+        // Enqueue is safe — Distribute's internal Enqueue skips already-present tasks.
+        public IReadOnlyCollection<string> Enqueue(IEnumerable<TaskItem> tasks)
         {
             var ids = new HashSet<string>();
             foreach (var t in tasks)
             {
                 if (string.IsNullOrEmpty(t.InitFingerprint)) t.ComputeInitFingerprint();
-                _queue.Enqueue(t);
+                // Skip tasks already present anywhere in the queue (idempotent).
+                if (!File.Exists(Path.Combine(_layout.Pending,  t.TaskId + ".json")) &&
+                    !File.Exists(Path.Combine(_layout.Done,     t.TaskId + ".json")) &&
+                    !File.Exists(Path.Combine(_layout.Poisoned, t.TaskId + ".json")))
+                    _queue.Enqueue(t);
                 ids.Add(t.TaskId);
             }
+            return ids;
+        }
+
+        // NOTE (deviation): onResult callback fires synchronously per resolved task
+        // on the polling thread. Used by DistributeItems to update ProcessingStatus,
+        // call SaveMeta, and record live JSON snapshots.
+        public Dictionary<string, WorkResult> Distribute(
+            IEnumerable<TaskItem> tasks,
+            Action<WorkResult> onResult = null,
+            int pollMs = 1000)
+        {
+            var ids = Enqueue(tasks);
 
             var results = new Dictionary<string, WorkResult>();
             while (results.Count < ids.Count)
@@ -2040,17 +2074,24 @@ namespace Warp.Workers
                 {
                     if (results.ContainsKey(id)) continue;
 
+                    WorkResult resolved = null;
                     if (File.Exists(Path.Combine(_layout.Done, id + ".json")))
-                        results[id] = new WorkResult { TaskId = id, Outcome = WorkOutcome.Done };
+                        resolved = new WorkResult { TaskId = id, Outcome = WorkOutcome.Done };
                     else if (File.Exists(Path.Combine(_layout.Poisoned, id + ".json")))
                     {
                         string err = null;
                         try { err = TaskItem.FromJson(
                             File.ReadAllText(Path.Combine(_layout.Poisoned, id + ".json"))).Error; }
                         catch { }
-                        results[id] = new WorkResult { TaskId = id, Outcome = WorkOutcome.Poisoned, Error = err };
+                        resolved = new WorkResult { TaskId = id, Outcome = WorkOutcome.Poisoned, Error = err };
                     }
                     // failed/ is transient and owned by the Scheduler; keep waiting.
+
+                    if (resolved != null)
+                    {
+                        results[id] = resolved;
+                        onResult?.Invoke(resolved);
+                    }
                 }
                 if (results.Count < ids.Count)
                     System.Threading.Thread.Sleep(pollMs);
@@ -2101,7 +2142,10 @@ public class EndToEndMockTests : IDisposable
     public EndToEndMockTests() { _root = Path.Combine(Path.GetTempPath(), "e2e-" + Guid.NewGuid().ToString("N")); }
     public void Dispose() { try { Directory.Delete(_root, true); } catch { } }
 
-    [Fact(Skip = "Requires WarpWorker2 binary on disk; run manually after `dotnet build`")]
+    // NOTE (deviation): [Fact] not [Fact(Skip=...)]. The test project takes a
+    // build-order reference on WarpWorker2 and copies the binary to test output via
+    // a CopyWorkerBinary MSBuild target, so no manual setup is required.
+    [Fact]
     public void MockPipelineDrainsQueue()
     {
         var layout = new QueueLayout(_root);
@@ -2109,15 +2153,20 @@ public class EndToEndMockTests : IDisposable
         var queue = new TaskQueue(layout);
         var pool = new WorkPool(layout, queue);
 
-        // A small batch of mock CTF tasks. The mock handler does not touch the GPU.
+        // A small batch of mock CTF tasks: LoadStack + MovieProcessCTF, neither
+        // touches the GPU. Both are in Main (init = empty, no gain ref needed).
         var tasks = Enumerable.Range(1, 4).Select(i =>
         {
             var t = new TaskItem
             {
                 TaskId = $"{i:D7}-mockctf",
-                Main = new[] { new NamedSerializableObject(
-                    nameof(WorkerWrapper.MovieProcessCTF), $"movie{i}.mrc",
-                    new ProcessingOptionsMovieCTF()) },
+                Main = new[]
+                {
+                    new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
+                        $"movie{i}.mrc", 1M, 1, true),
+                    new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF),
+                        $"movie{i}.mrc", new ProcessingOptionsMovieCTF()),
+                },
             };
             t.ComputeInitFingerprint();
             return t;
@@ -2127,7 +2176,11 @@ public class EndToEndMockTests : IDisposable
         var scheduler = new Scheduler(layout, queue, provisioner, target: 2,
             workerStallTimeoutMs: 30_000, workerStartupGraceMs: 60_000);
 
-        // Run the scheduler on a background thread; Distribute blocks until done.
+        // NOTE (deviation): Enqueue tasks BEFORE starting the scheduler thread so
+        // workers always find work on their first claim attempt. Distribute's
+        // idempotent Enqueue skips them when called below.
+        pool.Enqueue(tasks);
+
         var schedThread = new System.Threading.Thread(() => scheduler.RunToDrain(pollMs: 500)) { IsBackground = true };
         schedThread.Start();
 
@@ -2139,12 +2192,11 @@ public class EndToEndMockTests : IDisposable
 }
 ```
 
-**Note on the Skip attribute:** the test launches the compiled `WarpWorker2`
-binary via the LocalProvisioner, so it needs `dotnet build WarpWorker2` first and
-the binary discoverable from the test's `AppContext.BaseDirectory`. Keep it
-`Skip`-able in CI until the build wiring guarantees the binary is present; run it
-manually during development. If the test project can take a build-order dependency
-on `WarpWorker2` and copy the binary next to the test output, remove the Skip.
+**Note on the Skip attribute (updated):** The test now runs unconditionally as
+`[Fact]`. `Tests.csproj` has a `ReferenceOutputAssembly="false"` project reference
+on `WarpWorker2` and a `CopyWorkerBinary` MSBuild target that copies all
+`bin/WarpWorker2*` files (apphost + dll + deps + runtimeconfig) to the test output
+directory. The binary is therefore always present after a normal `dotnet build`.
 
 - [ ] **Step 2: Build everything, then run the test manually**
 
@@ -2195,66 +2247,71 @@ against a golden run from the old path). This is a manual GPU test, not CI.
 
 - [ ] **Step 2: Build the init+main task per movie and distribute**
 
-Replace the distribution block in `CTFFrameseries.Run` (the
-`WorkerWrapper[] Workers = CLI.GetWorkers();` line through the
-`foreach (var worker in Workers) worker.Dispose();` block) with:
+**Deviation from plan:** the actual implementation differs in three ways:
+1. Uses `WorkerCommands.*` factory instead of inline `NamedSerializableObject` construction.
+2. Moves `LoadGainRef` to `Init` (shared across tasks, fingerprint-amortized) and
+   `LoadStack + MovieProcessCTF + GcCollect` to `Main` — matching spec §5.1 more
+   precisely. The plan had LoadStack in Init, which would force a reload per-task
+   on fingerprint mismatch.
+3. Delegates all queue/scheduler wiring to `CLI.DistributeItems<Movie>()`, with an
+   `onItemResult` callback for per-item status updates and snapshot writes.
+
+The actual code in `CTFFrameseries.cs`:
 
 ```csharp
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
+            decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
-            // Build one task per movie: init = LoadStack (amortizable), main = MovieProcessCTF.
-            var layout = new Warp.Workers.Queue.QueueLayout(
-                Path.Combine(CLI.OutputProcessing, "work_ctf"));
-            layout.EnsureDirectories();
-            var queue = new Warp.Workers.Queue.TaskQueue(layout);
-            var pool = new Warp.Workers.WorkPool(layout, queue);
+            var loadGainRef = WorkerCommands.LoadGainRef(
+                Options.Import.GainPath, Options.Import.GainFlipX,
+                Options.Import.GainFlipY, Options.Import.GainTranspose,
+                Options.Import.DefectsPath);
 
-            var tasks = new List<Warp.Workers.Queue.TaskItem>();
-            for (int i = 0; i < CLI.InputSeries.Length; i++)
-            {
-                Movie m = (Movie)CLI.InputSeries[i];
-                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+            var snapshotWriter = new ItemSnapshotWriter<Movie>(
+                this,
+                Path.Combine(CLI.OutputProcessing, "processed_items.json"),
+                Path.Combine(CLI.OutputProcessing, "failed_items.json"));
 
-                bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
-                var loadStack = useSum
-                    ? new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
-                        m.AveragePath, 1M, Options.Import.EERGroupFrames, true)
-                    : new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
-                        m.DataPath, ScaleFactor, Options.Import.EERGroupFrames, true);
-
-                var task = new Warp.Workers.Queue.TaskItem
+            var (processedItems, failedItems) = CLI.DistributeItems<Movie>(
+                buildTask: (m, i) =>
                 {
-                    TaskId = $"{i:D7}-ctf-{m.RootName}",
-                    Stage = "preprocess",
-                    RequiresGpu = true,
-                    Init = new[] { loadStack },
-                    Main = new[] { new NamedSerializableObject(
-                        nameof(WorkerWrapper.MovieProcessCTF), m.Path, OptionsCTF) },
-                };
-                task.ComputeInitFingerprint();
-                tasks.Add(task);
-            }
+                    bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
+                    var task = new TaskItem
+                    {
+                        TaskId = $"{i:D7}-ctf-{m.RootName}",
+                        Stage = "preprocess",
+                        RequiresGpu = true,
+                        Init = new[] { loadGainRef },
+                        Main = new[]
+                        {
+                            useSum ? WorkerCommands.LoadStack(m.AveragePath, 1M, Options.Import.EERGroupFrames)
+                                   : WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                            WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF),
+                            WorkerCommands.GcCollect(),
+                        },
+                    };
+                    task.ComputeInitFingerprint();
+                    return task;
+                },
+                onItemResult: (m, result) =>
+                {
+                    if (result.Outcome == WorkOutcome.Done)
+                    {
+                        m.LoadMeta(); m.ProcessingStatus = ProcessingStatus.Processed;
+                        m.SaveMeta(); snapshotWriter.Record(m, succeeded: true);
+                    }
+                    else
+                    {
+                        m.LoadMeta(); m.UnselectManual = true;
+                        m.ProcessingStatus = ProcessingStatus.LeaveOut;
+                        m.SaveMeta(); snapshotWriter.Record(m, succeeded: false);
+                        Console.Error.WriteLine($"Failed to process {m.Path}: {result.Error}");
+                    }
+                });
 
-            // Maintain the local worker pool while we distribute.
-            List<int> devices = (CLI.DeviceList == null || !CLI.DeviceList.Any())
-                ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
-                : CLI.DeviceList.ToList();
-            var provisioner = new Warp.Workers.Scheduling.LocalProvisioner(
-                layout.Root, devices.ToArray(), CLI.ProcessesPerDevice);
-            var scheduler = new Warp.Workers.Scheduling.Scheduler(
-                layout, queue, provisioner, target: devices.Count * CLI.ProcessesPerDevice);
-
-            var schedThread = new System.Threading.Thread(() => scheduler.RunToDrain()) { IsBackground = true };
-            schedThread.Start();
-
-            var results = pool.Distribute(tasks);
-
-            int nFailed = results.Values.Count(r => r.Outcome != Warp.Workers.WorkOutcome.Done);
-            Console.WriteLine($"CTF done: {results.Count - nFailed} ok, {nFailed} failed/poisoned");
+            snapshotWriter.WaitAll();
+            Console.WriteLine($"Finished: {processedItems.Count} processed, {failedItems.Count} failed");
 ```
-
-(Note: `LoadStack`'s 4th argument `correctGain` defaults to true in
-`WorkerWrapper.LoadStack`; pass it explicitly here to match.)
 
 - [ ] **Step 3: Delete the legacy distribution path for this command**
 
@@ -2333,6 +2390,68 @@ consistently across tasks. Note `IsDrained` now also requires `Failed == 0`
 (failed/ is transient, drained by `ProcessFailures`).
 
 **Open confirmations before execution:**
-1. Final name for the `WarpWorker2` project.
+1. Final name for the `WarpWorker2` project. → **Resolved:** `WarpWorker2` kept.
 2. Whether `Image.AsFFT()` / `GPU.CheckGPUExceptions()` are the right probe
    primitives in this codebase (Task 7 Step 1) — verify against `WarpLib/Image*.cs`.
+   → **Resolved:** confirmed present and used.
+
+---
+
+## Implementation deviations (added 2026-06-09)
+
+This section records every place the actual code diverges from the plan above. The
+plan steps are preserved as written for historical record; this section is the diff.
+
+### New files not in the original plan
+
+| File | Purpose |
+|---|---|
+| `WarpLib/Workers/WorkerCommands.cs` | Static factory for `NamedSerializableObject` construction — single source of truth for command signatures (spec §6.0). |
+| `WarpTools/Commands/BaseCommand.cs` ← `ItemSnapshotWriter<T>` | Nested class providing atomic per-item JSON snapshot writes for Relay live progress (spec §6.3). |
+| `WarpTools/Commands/DistributedOptions.cs` ← `DistributeItems<T>` | Orchestration helper handling queue setup, pre-enqueue, scheduler thread, and result accumulation (spec §6.2). |
+| `Tests/Workers/CtfPortManualTest.md` | Manual GPU acceptance checklist. |
+
+`TaskQueue.Clear()` was also added (deletes all queue state before a new run).
+
+### Task 6 — Debug csproj: `PlatformTarget=x64` removed
+
+The plan pinned Debug to x64. Removed so the binary runs on arm64 (dev machines,
+CI). x64 is kept only in Release where CUDA (NativeAcceleration.dll) is needed.
+
+### Task 7 — `Main`: all GPU calls guarded by `!MockMode`
+
+The plan called `GPU.GetDeviceCount()` and `GPU.SetDevice()` unconditionally at
+startup. The actual code sets `MockMode` first, then gates every GPU call on
+`!MockMode`. This makes mock mode truly GPU-free — no P/Invoke into
+`NativeAcceleration.dll` at any point.
+
+### Task 9 — `WorkPool`: separate `Enqueue` + idempotency + `onResult`
+
+The plan's `Distribute` enqueued internally with no idempotency. The actual
+implementation adds:
+- A separate `Enqueue(tasks)` method that must be called **before** the Scheduler
+  thread starts (prevents the race where workers exhaust the empty queue and exit
+  before tasks land).
+- Idempotency in both `Enqueue` and the `Distribute`-internal enqueue (skips tasks
+  already in pending/done/poisoned).
+- An `onResult: Action<WorkResult>` parameter fired synchronously per resolved task.
+
+### Task 10 — e2e test: not skipped; pre-enqueue; LoadStack in Main
+
+- `[Fact]` not `[Fact(Skip=...)]`. Binary copy handled by `CopyWorkerBinary` MSBuild target.
+- `pool.Enqueue(tasks)` called before `schedThread.Start()`.
+- Task structure: LoadStack + MovieProcessCTF both in `Main` (no Init in test; Init
+  only holds LoadGainRef in the real fs_ctf path).
+
+### Task 11 — CTFFrameseries: LoadGainRef in Init, factory methods, DistributeItems
+
+- `LoadGainRef` moved to `Init` (fingerprint-amortized across all tasks, matching
+  spec §5.1). Original plan had `LoadStack` in Init, which is per-movie and cannot
+  be amortized.
+- `WorkerCommands.*` factory used everywhere instead of inline `NamedSerializableObject`.
+- Distribution wired through `CLI.DistributeItems<Movie>()` instead of hand-rolled
+  queue/scheduler setup inline in the command.
+- `onItemResult` callback handles `LoadMeta → set status → SaveMeta →
+  snapshotWriter.Record` synchronously per task resolution.
+- Queue path comes from `--task_dir` (defaults to `<output>/tasks`), not a
+  hardcoded `work_ctf` subdirectory.

@@ -1,7 +1,7 @@
 # Filesystem-Based Work Distribution — Architecture Spec
 
-**Status:** Design complete, not yet implemented
-**Date:** 2026-06-03
+**Status:** Phase 1 complete — 2026-06-09. One task type ported (fs_ctf). Relay integration, Phase 2 hardening deferred.
+**Date:** 2026-06-03 (updated 2026-06-09)
 **Scope:** Warp (WarpTools / MTools / MCore) + a documented-but-deferred Relay integration
 
 ---
@@ -108,6 +108,18 @@ foundation of the claim mechanism; this holds on local disks and on properly
 configured Lustre/GPFS/NFSv4. **Document that the queue dir must not be on an
 NFSv3 mount with attribute caching that breaks rename semantics.**
 
+**Queue directory control:** WarpTools commands expose a `--task_dir` CLI
+argument (on `DistributedOptions`) for the queue path. When not provided it
+defaults to a `tasks/` subdirectory inside the output processing directory. Setting
+it to a fast local scratch path matters when the output directory is on a slow
+network filesystem.
+
+**Stale-run cleanup:** `TaskQueue.Clear()` is called at the start of each
+`DistributeItems` invocation. It deletes all `*.json` files from `pending/`,
+`done/`, `failed/`, and `poisoned/`, and recovers any orphaned `running/` subdirs.
+This prevents files from a previous (possibly failed) run from appearing as
+false-terminal results in a subsequent run.
+
 ```
 queue_dir/
   pending/                 <task_id>.json            # awaiting claim
@@ -199,26 +211,75 @@ restarts.
 
 ---
 
-## 6. Distribution helpers (WarpLib)
+## 6. Distribution helpers
 
 These are the drop-in replacement for today's `WorkerWrapper` + `Helper.ForCPU`
-distribution loops in WarpTools/MCore. They are refactored *from* the existing
-`WorkerWrapper` command-builder methods so they share the
-`NamedSerializableObject` construction — the command objects are identical; only
-the transport (write a task file vs. POST over REST) changes.
+distribution loops in WarpTools/MCore. Command objects are `NamedSerializableObject`
+— identical to the REST transport; only the delivery mechanism changes (write to a
+task file vs. POST over REST).
 
-**Separation of concerns:**
+**As implemented, the distribution layer is split into three tiers:**
 
-- The **distribution helper** (`WorkPool.Distribute(tasks)` or similar) enqueues a
-  batch of task files into `pending/`, then **blocks** until every task has
-  reached a terminal state (`done/`, `failed/`, or `poisoned/`), and returns
-  results keyed by `task_id`. It assumes a scheduler is already maintaining the
-  worker pool.
-- The **scheduler** (§7) is a separate, long-lived object that maintains the pool,
-  heartbeat, sweep, and statistics. It starts when the manager process starts and
-  runs for the process lifetime.
+### 6.0 `WorkerCommands` (WarpLib — `WarpLib/Workers/WorkerCommands.cs`)
 
-### 6.1 Results channel — two tiers
+A static factory class with one typed method per worker command. Each method
+encapsulates the `NamedSerializableObject` construction and its argument order,
+using `nameof(WorkerWrapper.X)` as the command-name anchor. This is the **single
+source of truth for command signatures** — callers never construct
+`NamedSerializableObject` directly. When `WorkerWrapper` is eventually retired
+after the full port, the `nameof` anchor moves here.
+
+### 6.1 `WorkPool` (WarpLib — `WarpLib/Workers/WorkPool.cs`)
+
+Low-level poll-and-block helper. Two public methods:
+
+- **`Enqueue(tasks)`** — idempotent: writes tasks to `pending/` skipping any
+  already present in `pending/`, `done/`, or `poisoned/`. Must be called **before
+  the Scheduler thread starts** so workers always find work on their first claim
+  attempt. Calling it again after Distribute starts is safe (idempotent).
+- **`Distribute(tasks, onResult, pollMs)`** — calls `Enqueue` internally
+  (idempotent), polls `done/` and `poisoned/`, fires `onResult` synchronously on
+  the polling thread as each task resolves, returns results keyed by `task_id`.
+  Does not touch `failed/` — the Scheduler owns that (§7).
+
+### 6.2 `DistributeItems<T>` (WarpTools — `WarpTools/Commands/DistributedOptions.cs`)
+
+Orchestration helper on the `DistributedOptions` base class. Builds and owns the
+full local-distribution lifecycle for one WarpTools command invocation:
+
+1. Reads `--task_dir` (or defaults to `<output>/tasks`). Calls `Clear()` on the
+   queue to discard any stale files from a prior run.
+2. Applies path correction per input item before calling the `buildTask` lambda.
+3. Calls `pool.Enqueue(tasks)` **before** starting the Scheduler thread.
+4. Starts `Scheduler.RunToDrain()` on a background thread.
+5. Calls `pool.Distribute(tasks, onResult)` — blocks until all tasks are terminal.
+6. Shuts down the provisioner in a `finally` block.
+7. Returns `(List<T> Processed, List<T> Failed)`.
+
+The `onResult` callback (called per task on the polling thread) is where callers
+update `ProcessingStatus`, call `SaveMeta()`, and invoke `ItemSnapshotWriter.Record`.
+
+`DistributeItems<T>` is constrained to `T : Movie`; the pattern will generalize to
+other item types as additional task types are ported.
+
+### 6.3 `ItemSnapshotWriter<T>` (WarpTools — `WarpTools/Commands/BaseCommand.cs`)
+
+Nested class on `BaseCommand` for live JSON snapshot writes used by Relay to track
+progress on large datasets (30k+ items) without parsing individual item XML files.
+
+- **`Record(item, succeeded)`** — adds the item to the processed or failed list
+  under a lock, then fires a background `Task` that atomically writes two JSON
+  files (temp + rename): one for succeeded items, one for failed items. Concurrent
+  records coalesce safely.
+- **`WaitAll()`** — waits for all background writes to complete before the command
+  exits.
+
+Any WarpTool command (distributed or not) can instantiate an `ItemSnapshotWriter`
+to provide Relay live updates. Two paths therefore exist:
+- Commands using `DistributeItems<T>`: call `Record` from the `onResult` callback.
+- Commands using legacy `IterateOverItems`: call `Record` inside the item loop body.
+
+### 6.4 Results channel — two tiers
 
 - **Small structured results** (CTF values, picking counts, scores) go inline in
   the done file's `"result"` object.
@@ -379,6 +440,19 @@ init/main exception. Allocate a small tensor on the bound device, run a trivial 
 that exercises the same CUDA/cuFFT path real work uses (e.g. a small FFT or
 matmul), copy back, verify the result. Pass → healthy. Fail/throw → hardware
 fault. Cheap (<1 s).
+
+**Mock mode is fully GPU-free.** When `--mock` is passed to `WarpWorker2`:
+- `GPU.GetDeviceCount()` is never called (not even at startup).
+- `GPU.SetDevice()` is skipped in `EvaluateCommand`, `ResetResourceState`, and
+  startup.
+- The startup health probe is skipped entirely.
+- `MockCommand` handlers are invoked instead of real `Command` handlers; they
+  allocate CPU-only placeholder data (e.g. `new Image(new[] { new float[64*64] },
+  new int3(64,64,1))`) — no CUDA P/Invoke.
+
+This makes mock mode safe on machines without CUDA (arm64 dev machines, CI
+runners). The `--device` argument is still accepted but used only as an identifier,
+not to call into the CUDA runtime.
 
 ### 9.4 Exit conditions (complete list)
 
