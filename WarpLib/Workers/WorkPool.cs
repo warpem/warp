@@ -42,18 +42,33 @@ namespace Warp.Workers
         /// writes. The return dictionary contains all results (same data, convenient
         /// for callers that want a batch view after the fact).
         /// </summary>
-        public Dictionary<string, WorkResult> Distribute(
-            IEnumerable<TaskItem> tasks,
-            Action<WorkResult> onResult = null,
-            int pollMs = 1000)
+        /// <summary>
+        /// Enqueue a batch of tasks into pending/ and return their ids. Tasks whose
+        /// file already exists anywhere in the queue are skipped (idempotent). Call
+        /// this before starting the Scheduler so workers always find work on startup.
+        /// </summary>
+        public IReadOnlyCollection<string> Enqueue(IEnumerable<TaskItem> tasks)
         {
             var ids = new HashSet<string>();
             foreach (var t in tasks)
             {
                 if (string.IsNullOrEmpty(t.InitFingerprint)) t.ComputeInitFingerprint();
-                _queue.Enqueue(t);
+                // Skip tasks already present anywhere in the queue (idempotent).
+                if (!File.Exists(Path.Combine(_layout.Pending,   t.TaskId + ".json")) &&
+                    !File.Exists(Path.Combine(_layout.Done,      t.TaskId + ".json")) &&
+                    !File.Exists(Path.Combine(_layout.Poisoned,  t.TaskId + ".json")))
+                    _queue.Enqueue(t);
                 ids.Add(t.TaskId);
             }
+            return ids;
+        }
+
+        public Dictionary<string, WorkResult> Distribute(
+            IEnumerable<TaskItem> tasks,
+            Action<WorkResult> onResult = null,
+            int pollMs = 1000)
+        {
+            var ids = Enqueue(tasks);
 
             var results = new Dictionary<string, WorkResult>();
             while (results.Count < ids.Count)

@@ -50,7 +50,7 @@ namespace WarpWorker2
         /// </summary>
         static void EvaluateCommand(NamedSerializableObject command)
         {
-            GPU.SetDevice(DeviceID);
+            if (!MockMode) GPU.SetDevice(DeviceID);
             if (string.IsNullOrWhiteSpace(command?.Name))
                 throw new ArgumentException("Command name cannot be null or empty");
 
@@ -84,11 +84,19 @@ namespace WarpWorker2
             if (opts.DebugAttach && !System.Diagnostics.Debugger.IsAttached)
                 System.Diagnostics.Debugger.Launch();
 
-            DeviceID = opts.Device % GPU.GetDeviceCount();
             MockMode = opts.Mock;
             DebugMode = opts.Debug;
             IsSilent = opts.Silent;
-            GPU.SetDevice(DeviceID);
+
+            // In mock mode we never touch the GPU, so don't call GetDeviceCount or
+            // SetDevice — the native CUDA library may not be present on the test machine.
+            if (MockMode)
+                DeviceID = opts.Device;
+            else
+            {
+                DeviceID = opts.Device % GPU.GetDeviceCount();
+                GPU.SetDevice(DeviceID);
+            }
 
             RegisterCommands();
 

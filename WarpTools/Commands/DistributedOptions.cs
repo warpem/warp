@@ -108,6 +108,12 @@ namespace WarpTools.Commands
 
             Console.WriteLine($"Distributing {tasks.Count} tasks across up to {target} local worker(s)...");
 
+            // Enqueue ALL tasks before starting the scheduler thread so workers always
+            // find work in pending/ on their first claim attempt. If tasks are enqueued
+            // after the scheduler starts, workers may poll an empty queue and exit before
+            // any tasks land.
+            pool.Enqueue(tasks);
+
             var processed = new List<T>();
             var failed = new List<T>();
 

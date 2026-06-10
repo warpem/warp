@@ -16,7 +16,7 @@ public class EndToEndMockTests : IDisposable
     public EndToEndMockTests() { _root = Path.Combine(Path.GetTempPath(), "e2e-" + Guid.NewGuid().ToString("N")); }
     public void Dispose() { try { Directory.Delete(_root, true); } catch { } }
 
-    [Fact(Skip = "Requires WarpWorker2 binary on disk; run manually after `dotnet build`")]
+    [Fact]
     public void MockPipelineDrainsQueue()
     {
         var layout = new QueueLayout(_root);
@@ -48,7 +48,12 @@ public class EndToEndMockTests : IDisposable
         var scheduler = new Scheduler(layout, queue, provisioner, target: 2,
             workerStallTimeoutMs: 30_000, workerStartupGraceMs: 60_000);
 
-        // Run the scheduler on a background thread; Distribute blocks until done.
+        // Enqueue tasks BEFORE starting the scheduler so workers always find work on
+        // their first claim attempt. Distribute's idempotent Enqueue skips them when
+        // called below.
+        pool.Enqueue(tasks);
+
+        // Run the scheduler on a background thread; Distribute polls until all terminal.
         var schedThread = new System.Threading.Thread(() => scheduler.RunToDrain(pollMs: 500)) { IsBackground = true };
         schedThread.Start();
 
