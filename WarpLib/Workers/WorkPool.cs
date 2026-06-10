@@ -35,7 +35,17 @@ namespace Warp.Workers
             _queue = queue;
         }
 
-        public Dictionary<string, WorkResult> Distribute(IEnumerable<TaskItem> tasks, int pollMs = 1000)
+        /// <summary>
+        /// Enqueue tasks and block until every task reaches a terminal state.
+        /// <paramref name="onResult"/> is called synchronously on the polling thread
+        /// as each task resolves — use it for per-item status updates and live JSON
+        /// writes. The return dictionary contains all results (same data, convenient
+        /// for callers that want a batch view after the fact).
+        /// </summary>
+        public Dictionary<string, WorkResult> Distribute(
+            IEnumerable<TaskItem> tasks,
+            Action<WorkResult> onResult = null,
+            int pollMs = 1000)
         {
             var ids = new HashSet<string>();
             foreach (var t in tasks)
@@ -52,17 +62,24 @@ namespace Warp.Workers
                 {
                     if (results.ContainsKey(id)) continue;
 
+                    WorkResult resolved = null;
                     if (File.Exists(Path.Combine(_layout.Done, id + ".json")))
-                        results[id] = new WorkResult { TaskId = id, Outcome = WorkOutcome.Done };
+                        resolved = new WorkResult { TaskId = id, Outcome = WorkOutcome.Done };
                     else if (File.Exists(Path.Combine(_layout.Poisoned, id + ".json")))
                     {
                         string err = null;
                         try { err = TaskItem.FromJson(
                             File.ReadAllText(Path.Combine(_layout.Poisoned, id + ".json"))).Error; }
                         catch { }
-                        results[id] = new WorkResult { TaskId = id, Outcome = WorkOutcome.Poisoned, Error = err };
+                        resolved = new WorkResult { TaskId = id, Outcome = WorkOutcome.Poisoned, Error = err };
                     }
                     // failed/ is transient and owned by the Scheduler; keep waiting.
+
+                    if (resolved != null)
+                    {
+                        results[id] = resolved;
+                        onResult?.Invoke(resolved);
+                    }
                 }
                 if (results.Count < ids.Count)
                     System.Threading.Thread.Sleep(pollMs);

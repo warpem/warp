@@ -311,6 +311,81 @@ namespace WarpTools.Commands
                                                      .ToArray());
             File.WriteAllText(path, itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
+
+        /// <summary>
+        /// Tracks processed/failed items and publishes a live atomic JSON snapshot after
+        /// each one completes — identical pattern to IterateOverItems' per-item write, so
+        /// Relay always sees an up-to-date processed_items.json without parsing per-item XML.
+        ///
+        /// Usage:
+        ///   var writer = new ItemSnapshotWriter&lt;Movie&gt;(this, successPath, failPath);
+        ///   // pass writer.Record as the onItemResult callback to DistributeItems
+        ///   writer.WaitAll();    // after distribution finishes, flush any pending writes
+        /// </summary>
+        protected class ItemSnapshotWriter<T> where T : Movie
+        {
+            private readonly BaseCommand _cmd;
+            private readonly string _successPath;
+            private readonly string _failPath;
+            private readonly List<T> _processed = new();
+            private readonly List<T> _failed = new();
+            private readonly List<Task> _tasks = new();
+            private readonly object _sync = new();
+            private int _index = 0;
+
+            public IReadOnlyList<T> Processed => _processed;
+            public IReadOnlyList<T> Failed => _failed;
+
+            public ItemSnapshotWriter(BaseCommand cmd, string successPath, string failPath)
+            {
+                _cmd = cmd;
+                _successPath = successPath;
+                _failPath = failPath;
+            }
+
+            /// <summary>Pass this as the onItemResult callback to DistributeItems.</summary>
+            public void Record(T item, bool succeeded)
+            {
+                int idx;
+                List<T> snapshotProcessed, snapshotFailed;
+                lock (_sync)
+                {
+                    if (succeeded) _processed.Add(item);
+                    else _failed.Add(item);
+                    idx = _index++;
+                    snapshotProcessed = _processed.ToList();
+                    snapshotFailed = _failed.ToList();
+                }
+
+                // Write the snapshot on a background thread so the polling loop isn't blocked.
+                _tasks.Add(Task.Run(() =>
+                {
+                    string tempSuccess = _successPath + $".{idx}";
+                    string tempFail = _failPath + $".{idx}";
+                    _cmd.WriteMiniJson(tempSuccess, snapshotProcessed);
+                    if (snapshotFailed.Any()) _cmd.WriteMiniJson(tempFail, snapshotFailed);
+
+                    // Atomic rename with retry (concurrent writes from previous items may race).
+                    var watch = Stopwatch.StartNew();
+                    bool done = false;
+                    while (!done && watch.ElapsedMilliseconds < 10_000)
+                        try
+                        {
+                            lock (_sync)
+                            {
+                                File.Move(tempSuccess, _successPath, overwrite: true);
+                                if (snapshotFailed.Any())
+                                    File.Move(tempFail, _failPath, overwrite: true);
+                            }
+                            done = true;
+                        }
+                        catch { System.Threading.Thread.Sleep(10); }
+                }));
+            }
+
+            /// <summary>Block until all pending snapshot writes have landed on disk.</summary>
+            public void WaitAll() => Task.WaitAll(_tasks.ToArray());
+        }
     }
 
     class CommandRunner : Attribute

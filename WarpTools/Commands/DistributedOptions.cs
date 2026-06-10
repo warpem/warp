@@ -1,10 +1,15 @@
 ﻿using CommandLine;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Warp;
+using Warp.Workers;
+using Warp.Workers.Queue;
+using Warp.Workers.Scheduling;
 using Warp.Tools;
 
 namespace WarpTools.Commands
@@ -27,6 +32,103 @@ namespace WarpTools.Commands
         public override void Evaluate()
         {
             base.Evaluate();
+        }
+
+        /// <summary>
+        /// Filesystem work-distribution path: build one task per input item, schedule
+        /// them via LocalProvisioner + Scheduler, and block until all are terminal.
+        ///
+        /// <paramref name="queueDirName"/> is a subdirectory name under OutputProcessing
+        /// (e.g. "work_ctf"). <paramref name="buildTask"/> receives the path-corrected
+        /// movie and its index and returns the TaskItem to enqueue. <paramref name="onItemResult"/>
+        /// is called on the polling thread as each task resolves — update ProcessingStatus,
+        /// call SaveMeta, and fire ItemSnapshotWriter.Record here.
+        /// </summary>
+        internal (List<T> Processed, List<T> Failed) DistributeItems<T>(
+            string queueDirName,
+            Func<T, int, TaskItem> buildTask,
+            Action<T, WorkResult> onItemResult,
+            int pollMs = 500) where T : Movie
+        {
+            if (Workers != null && Workers.Any())
+                throw new Exception(
+                    $"The --workers (remote hostname:port) option is not supported by the " +
+                    $"filesystem-based distribution path. Use --device_list / --perdevice for " +
+                    $"local GPU distribution, or run under Relay for cluster execution.");
+
+            var layout = new QueueLayout(Path.Combine(OutputProcessing, queueDirName));
+            layout.EnsureDirectories();
+            var queue = new TaskQueue(layout);
+            queue.Clear();
+            var pool = new WorkPool(layout, queue);
+
+            // Build tasks; apply path correction before handing off to buildTask so
+            // every command gets the right m.Path and m.DataPath automatically.
+            var tasks = new List<TaskItem>();
+            var taskIdToItem = new Dictionary<string, T>();
+
+            for (int i = 0; i < InputSeries.Length; i++)
+            {
+                T m = (T)InputSeries[i];
+
+                // Path correction: if output dir differs from data dir, relocate the
+                // item's meta path into OutputProcessing while preserving the data path.
+                if (Path.GetFullPath(OutputProcessing) !=
+                    Path.GetFullPath(Path.GetDirectoryName(m.DataPath)))
+                {
+                    if (string.IsNullOrEmpty(m.DataDirectoryName))
+                        m.DataDirectoryName = Path.GetDirectoryName(m.Path);
+                    m.Path = Path.Combine(OutputProcessing, Path.GetFileName(m.Path));
+                    m.SaveMeta();
+                }
+
+                TaskItem task = buildTask(m, i);
+                tasks.Add(task);
+                taskIdToItem[task.TaskId] = m;
+            }
+
+            // Resolve devices, cap workers to actual item count.
+            List<int> devices = (DeviceList == null || !DeviceList.Any())
+                ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
+                : DeviceList.ToList();
+            if (devices.Count <= 0)
+                throw new Exception("No devices found or specified");
+            int target = Math.Min(InputSeries.Length, devices.Count * ProcessesPerDevice);
+
+            var provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice);
+            var scheduler = new Scheduler(layout, queue, provisioner, target);
+
+            Console.WriteLine($"Distributing {tasks.Count} tasks across up to {target} local worker(s)...");
+
+            var processed = new List<T>();
+            var failed = new List<T>();
+
+            var schedThread = new Thread(() => scheduler.RunToDrain()) { IsBackground = true };
+            schedThread.Start();
+
+            try
+            {
+                pool.Distribute(tasks,
+                    onResult: result =>
+                    {
+                        T item = taskIdToItem[result.TaskId];
+                        onItemResult(item, result);
+
+                        // Accumulate for return value (onItemResult may also record these,
+                        // but we track here so callers don't have to manage two lists).
+                        if (result.Outcome == WorkOutcome.Done)
+                            lock (processed) processed.Add(item);
+                        else
+                            lock (failed) failed.Add(item);
+                    },
+                    pollMs: pollMs);
+            }
+            finally
+            {
+                provisioner.Shutdown();
+            }
+
+            return (processed, failed);
         }
 
         public virtual WorkerWrapper[] GetWorkers(bool attachDebugger = false)
