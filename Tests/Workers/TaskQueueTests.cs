@@ -136,6 +136,35 @@ public class TaskQueueTests : IDisposable
     }
 
     [Fact]
+    public void ClearRemovesStaleFilesFromAllTerminalDirs()
+    {
+        // Simulate a prior run: a done file and a pending file with the same task_id
+        // as what a new run would enqueue.
+        _queue.Enqueue(MakeTask("0000001-stale-pending"));
+        _queue.Enqueue(MakeTask("0000002-stale-done"));
+        _queue.MarkDone("w", _queue.ClaimOne("w"), new { old = true }); // puts 0000002 in done/
+
+        // Before clear: pending=1, done=1.
+        Assert.Equal(1, _queue.Summary().Pending);
+        Assert.Equal(1, _queue.Summary().Done);
+
+        _queue.Clear();
+
+        // After clear: everything gone.
+        Assert.Equal(0, _queue.Summary().Pending);
+        Assert.Equal(0, _queue.Summary().Done);
+        Assert.Equal(0, _queue.Summary().Failed);
+        Assert.Equal(0, _queue.Summary().Poisoned);
+
+        // Now a "new run" can enqueue tasks with the same ids without WorkPool seeing
+        // stale done files.
+        _queue.Enqueue(MakeTask("0000002-stale-done")); // same id as the old done task
+        var claimed = _queue.ClaimOne("w2");
+        Assert.NotNull(claimed);           // actually in pending, not falsely terminal
+        Assert.Equal("0000002-stale-done", claimed.TaskId);
+    }
+
+    [Fact]
     public void ConcurrentClaimsYieldNoDuplicatesAndNoLosses()
     {
         const int TaskCount = 50;

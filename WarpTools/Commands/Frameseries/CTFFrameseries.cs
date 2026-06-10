@@ -142,6 +142,10 @@ namespace WarpTools.Commands
             var layout = new QueueLayout(Path.Combine(CLI.OutputProcessing, "work_ctf"));
             layout.EnsureDirectories();
             var queue = new TaskQueue(layout);
+            // Clear stale task files from any previous run. Without this, done/ files
+            // from a prior run would match this run's task_ids and WorkPool.Distribute
+            // would return false-terminal results without the workers processing anything.
+            queue.Clear();
             var pool = new WorkPool(layout, queue);
 
             var tasks = new List<TaskItem>();

@@ -120,6 +120,28 @@ namespace Warp.Workers.Queue
             return n;
         }
 
+        /// <summary>
+        /// Delete all task files from every queue directory. Call before a new
+        /// run to prevent stale done/ or poisoned/ files from matching this run's
+        /// task_ids and causing WorkPool.Distribute to return false terminal results
+        /// without the workers processing anything.
+        /// </summary>
+        public void Clear()
+        {
+            foreach (string dir in new[] {
+                _layout.Pending, _layout.Done, _layout.Failed, _layout.Poisoned })
+            {
+                if (!Directory.Exists(dir)) continue;
+                foreach (string f in Directory.GetFiles(dir, "*.json"))
+                    try { File.Delete(f); } catch { }
+            }
+            // running/ subdirs are only created by live workers; any that exist here
+            // are orphans from a previous crash. Recover them so they don't block the run.
+            if (Directory.Exists(_layout.Running))
+                foreach (string wdir in Directory.GetDirectories(_layout.Running))
+                    RecoverOrphans(Path.GetFileName(wdir));
+        }
+
         public QueueSummary Summary()
         {
             int Count(string dir) => Directory.Exists(dir) ? Directory.GetFiles(dir, "*.json").Length : 0;

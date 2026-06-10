@@ -199,7 +199,7 @@ namespace WarpWorker2
         {
             GainRef?.Dispose(); GainRef = null;
             OriginalStack?.Dispose(); OriginalStack = null;
-            DefectMap = null;
+            DefectMap?.Dispose(); DefectMap = null;
             GPU.SetDevice(DeviceID);
         }
 
