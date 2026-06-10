@@ -130,7 +130,7 @@ namespace WarpTools.Commands
             // Behavior note: unlike the old IterateOverItems (fail on first exception),
             // failures here are retried by the Scheduler up to the retry cap before being
             // poisoned, so a Poisoned outcome already means "failed after retries".
-            var (processedItems, failedItems) = CLI.DistributeItems<Movie>("work_ctf",
+            var (processedItems, failedItems) = CLI.DistributeItems<Movie>(
                 buildTask: (m, i) =>
                 {
                     // correctGain=true matches the original fs_ctf default. The sibling

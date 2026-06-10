@@ -23,6 +23,11 @@ namespace WarpTools.Commands
         [Option("perdevice", Default = 1, HelpText = "Number of processes per GPU")]
         public int ProcessesPerDevice { get; set; }
 
+        [Option("task_dir", HelpText = "Directory for the filesystem work queue used by this run. " +
+                                       "Defaults to a 'tasks' subdirectory inside the output directory. " +
+                                       "Set this to a fast local scratch path when the output directory is on a slow network filesystem.")]
+        public string TaskDir { get; set; }
+
         [OptionGroup("Advanced remote work distribution", 102)]
         [Option("workers", HelpText = "List of remote workers to be used instead of locally spawned processes. Formatted as hostname:port, separated by spaces")]
         public IEnumerable<string> Workers { get; set; }
@@ -38,14 +43,14 @@ namespace WarpTools.Commands
         /// Filesystem work-distribution path: build one task per input item, schedule
         /// them via LocalProvisioner + Scheduler, and block until all are terminal.
         ///
-        /// <paramref name="queueDirName"/> is a subdirectory name under OutputProcessing
-        /// (e.g. "work_ctf"). <paramref name="buildTask"/> receives the path-corrected
-        /// movie and its index and returns the TaskItem to enqueue. <paramref name="onItemResult"/>
-        /// is called on the polling thread as each task resolves — update ProcessingStatus,
-        /// call SaveMeta, and fire ItemSnapshotWriter.Record here.
+        /// The queue directory is taken from --task_dir if provided, otherwise defaults
+        /// to a 'tasks' subdirectory inside OutputProcessing. <paramref name="buildTask"/>
+        /// receives the path-corrected movie and its index and returns the TaskItem to
+        /// enqueue. <paramref name="onItemResult"/> is called on the polling thread as
+        /// each task resolves — update ProcessingStatus, call SaveMeta, and fire
+        /// ItemSnapshotWriter.Record here.
         /// </summary>
         internal (List<T> Processed, List<T> Failed) DistributeItems<T>(
-            string queueDirName,
             Func<T, int, TaskItem> buildTask,
             Action<T, WorkResult> onItemResult,
             int pollMs = 500) where T : Movie
@@ -56,7 +61,10 @@ namespace WarpTools.Commands
                     $"filesystem-based distribution path. Use --device_list / --perdevice for " +
                     $"local GPU distribution, or run under Relay for cluster execution.");
 
-            var layout = new QueueLayout(Path.Combine(OutputProcessing, queueDirName));
+            string queuePath = !string.IsNullOrEmpty(TaskDir)
+                ? TaskDir
+                : Path.Combine(OutputProcessing, "tasks");
+            var layout = new QueueLayout(queuePath);
             layout.EnsureDirectories();
             var queue = new TaskQueue(layout);
             queue.Clear();
