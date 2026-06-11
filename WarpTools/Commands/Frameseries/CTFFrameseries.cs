@@ -122,72 +122,35 @@ namespace WarpTools.Commands
             foreach (var item in CLI.InputSeries)
                 item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-            var snapshotWriter = new ItemSnapshotWriter<Movie>(
-                this,
-                Path.Combine(CLI.OutputProcessing, "processed_items.json"),
-                Path.Combine(CLI.OutputProcessing, "failed_items.json"));
-
             // Behavior note: unlike the old IterateOverItems (fail on first exception),
             // failures here are retried by the Scheduler up to the retry cap before being
             // poisoned, so a Poisoned outcome already means "failed after retries".
-            var (processedItems, failedItems) = CLI.DistributeItems<Movie>(
-                buildTask: (m, i) =>
+            // Standard per-item handling (LoadMeta, status update, SaveMeta, snapshot
+            // writes, progress/error output) is owned by DistributeItems.
+            CLI.DistributeItems<Movie>(buildTask: (m, i) =>
+            {
+                // correctGain=true matches the original fs_ctf default. The sibling
+                // fs_motion_and_ctf passes false for the average (already gain-corrected
+                // and binned). Preserved for behavioral fidelity; see manual acceptance
+                // test notes for the --use_sum + gain-reference caveat.
+                bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
+                var task = new TaskItem
                 {
-                    // correctGain=true matches the original fs_ctf default. The sibling
-                    // fs_motion_and_ctf passes false for the average (already gain-corrected
-                    // and binned). Preserved for behavioral fidelity; see manual acceptance
-                    // test notes for the --use_sum + gain-reference caveat.
-                    bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
-                    var task = new TaskItem
+                    TaskId = $"{i:D7}-ctf-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadGainRef },
+                    Main = new[]
                     {
-                        TaskId = $"{i:D7}-ctf-{m.RootName}",
-                        Stage = "preprocess",
-                        RequiresGpu = true,
-                        Init = new[] { loadGainRef },
-                        Main = new[]
-                        {
-                            useSum ? WorkerCommands.LoadStack(m.AveragePath, 1M, Options.Import.EERGroupFrames)
-                                   : WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
-                            WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF),
-                            WorkerCommands.GcCollect(),
-                        },
-                    };
-                    task.ComputeInitFingerprint();
-                    return task;
-                },
-                onItemResult: (m, result) =>
-                {
-                    if (result.Outcome == WorkOutcome.Done)
-                    {
-                        m.LoadMeta();
-                        m.ProcessingStatus = ProcessingStatus.Processed;
-                        m.SaveMeta();
-                        snapshotWriter.Record(m, succeeded: true);
-                    }
-                    else
-                    {
-                        m.LoadMeta();
-                        m.UnselectManual = true;
-                        m.ProcessingStatus = ProcessingStatus.LeaveOut;
-                        m.SaveMeta();
-                        snapshotWriter.Record(m, succeeded: false);
-
-                        // Clear the live progress line so the error doesn't append to it
-                        // (matches legacy IterateOverItems failure handling).
-                        if (!CLI.StrictFormatting)
-                            VirtualConsole.ClearLastLine();
-                        Console.Error.WriteLine($"Failed to process {m.Path}, marked as unselected. " +
-                            "Use the change_selection WarpTool to reactivate it if required." +
-                            (string.IsNullOrEmpty(result.Error) ? "" : "\n" + result.Error));
-                    }
-                });
-
-            snapshotWriter.WaitAll();
-
-            Console.WriteLine($"Finished: {processedItems.Count} processed, {failedItems.Count} failed");
-
-            if (failedItems.Count == CLI.InputSeries.Length && CLI.InputSeries.Length > 0)
-                throw new Exception("All items failed to process. Check logs for more info.");
+                        useSum ? WorkerCommands.LoadStack(m.AveragePath, 1M, Options.Import.EERGroupFrames)
+                               : WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                        WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF),
+                        WorkerCommands.GcCollect(),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                return task;
+            });
 
             Console.Write("Saving settings...");
             Options.Save(Path.Combine(CLI.OutputProcessing, "ctf_movies.settings"));

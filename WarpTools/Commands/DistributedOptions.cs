@@ -44,16 +44,18 @@ namespace WarpTools.Commands
         /// Filesystem work-distribution path: build one task per input item, schedule
         /// them via LocalProvisioner + Scheduler, and block until all are terminal.
         ///
-        /// The queue directory is taken from --task_dir if provided, otherwise defaults
-        /// to a 'tasks' subdirectory inside OutputProcessing. <paramref name="buildTask"/>
-        /// receives the path-corrected movie and its index and returns the TaskItem to
-        /// enqueue. <paramref name="onItemResult"/> is called on the polling thread as
-        /// each task resolves — update ProcessingStatus, call SaveMeta, and fire
-        /// ItemSnapshotWriter.Record here.
+        /// All generic per-item handling is owned here and runs identically for every
+        /// ported command: LoadMeta → ProcessingStatus update → SaveMeta → atomic live
+        /// snapshot write → progress line update → error reporting on failure.
+        ///
+        /// <paramref name="onSuccess"/> and <paramref name="onFailure"/> are optional
+        /// hooks for domain-specific extras that run after the standard handling.
+        /// Most commands leave both null.
         /// </summary>
         internal (List<T> Processed, List<T> Failed) DistributeItems<T>(
             Func<T, int, TaskItem> buildTask,
-            Action<T, WorkResult> onItemResult,
+            Action<T> onSuccess = null,
+            Action<T, WorkResult> onFailure = null,
             int pollMs = 500) where T : Movie
         {
             if (Workers != null && Workers.Any())
@@ -123,6 +125,10 @@ namespace WarpTools.Commands
             var processed = new List<T>();
             var failed = new List<T>();
 
+            string jsonSuccessPath = Path.Combine(OutputProcessing, "processed_items.json");
+            string jsonFailPath    = Path.Combine(OutputProcessing, "failed_items.json");
+            var snapshotTasks = new List<System.Threading.Tasks.Task>();
+
             // Live progress indicator updated after every item, matching the legacy
             // IterateOverItems format ("{done}/{total}, {failed} failed, {eta} remaining").
             // ETA is wall-time/done * remaining, which already accounts for the worker
@@ -142,20 +148,50 @@ namespace WarpTools.Commands
                     onResult: result =>
                     {
                         T item = taskIdToItem[result.TaskId];
-                        onItemResult(item, result);
+                        bool succeeded = result.Outcome == WorkOutcome.Done;
 
-                        // Accumulate for return value (onItemResult may also record these,
-                        // but we track here so callers don't have to manage two lists).
-                        if (result.Outcome == WorkOutcome.Done)
-                            lock (processed) processed.Add(item);
+                        // Standard per-item handling, identical for every ported command.
+                        item.LoadMeta();
+                        if (succeeded)
+                        {
+                            item.ProcessingStatus = ProcessingStatus.Processed;
+                            item.SaveMeta();
+                            processed.Add(item);
+                            onSuccess?.Invoke(item);
+                        }
                         else
-                            lock (failed) failed.Add(item);
+                        {
+                            item.UnselectManual = true;
+                            item.ProcessingStatus = ProcessingStatus.LeaveOut;
+                            item.SaveMeta();
+                            failed.Add(item);
+                            onFailure?.Invoke(item, result);
+                        }
+
+                        // Atomic live snapshot: Relay reads these files for progress updates
+                        // without parsing per-item XML. Fire on a background task so the
+                        // polling thread is not blocked by I/O; take immutable list copies.
+                        var snapProcessed = processed.ToList();
+                        var snapFailed    = failed.ToList();
+                        snapshotTasks.Add(System.Threading.Tasks.Task.Run(() =>
+                            WriteItemSnapshots(jsonSuccessPath, jsonFailPath, snapProcessed, snapFailed)));
 
                         lock (progressSync)
                         {
                             nDone++;
-                            if (result.Outcome != WorkOutcome.Done)
-                                nFailed++;
+                            if (!succeeded) nFailed++;
+
+                            // On failure: clear the current progress line so the error block
+                            // does not append to it, then redraw the updated progress below.
+                            if (!succeeded)
+                            {
+                                if (!StrictFormatting) VirtualConsole.ClearLastLine();
+                                Console.Error.WriteLine($"Failed to process {item.Path}, marked as unselected.");
+                                Console.Error.WriteLine($"Check logs in {logDir} for more info.");
+                                Console.Error.WriteLine("Use the change_selection WarpTool to reactivate this item if required.");
+                                if (!string.IsNullOrEmpty(result.Error))
+                                    Console.Error.WriteLine("Exception details:\n" + result.Error);
+                            }
 
                             long avgMs = (long)(progressTimer.ElapsedMilliseconds / (double)nDone);
                             TimeSpan remaining = TimeSpan.FromMilliseconds((total - nDone) * avgMs);
@@ -164,9 +200,7 @@ namespace WarpTools.Commands
                                 ? @"dd\.hh\:mm\:ss"
                                 : ((int)remaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss"));
 
-                            // Clearing the line in a real terminal would break strict formatting.
-                            if (!StrictFormatting)
-                                VirtualConsole.ClearLastLine();
+                            if (!StrictFormatting) VirtualConsole.ClearLastLine();
                             Console.Write($"{nDone}/{total}{failedString}, {timeString} remaining");
                         }
                     },
@@ -177,9 +211,37 @@ namespace WarpTools.Commands
                 provisioner.Shutdown();
             }
 
+            System.Threading.Tasks.Task.WaitAll(snapshotTasks.ToArray());
+
             Console.WriteLine();
+            Console.WriteLine($"Finished processing in {TimeSpan.FromMilliseconds(progressTimer.ElapsedMilliseconds):hh\\:mm\\:ss}");
+            Console.WriteLine($"Finished: {processed.Count} processed, {failed.Count} failed");
+
+            if (failed.Count == total && total > 0)
+                throw new Exception("All items failed to process. Check logs for more info.");
 
             return (processed, failed);
+        }
+
+        // Writes two atomic JSON snapshots (processed + failed item lists) for Relay
+        // live-progress consumption. Uses a temp-file + rename to prevent partial reads.
+        private static void WriteItemSnapshots<T>(
+            string successPath, string failPath,
+            List<T> processed, List<T> failed) where T : Movie
+        {
+            AtomicWriteMiniJson(successPath, processed);
+            if (failed.Any())
+                AtomicWriteMiniJson(failPath, failed);
+        }
+
+        private static void AtomicWriteMiniJson<T>(string path, IEnumerable<T> items) where T : Movie
+        {
+            string tmp = path + ".tmp." + Environment.ProcessId + "." + Guid.NewGuid().ToString("N");
+            var json = new System.Text.Json.Nodes.JsonArray(
+                items.Select(m => m.ToMiniJson("particles")).ToArray());
+            File.WriteAllText(tmp, json.ToJsonString(
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            File.Move(tmp, path, overwrite: true);
         }
 
         public virtual WorkerWrapper[] GetWorkers(bool attachDebugger = false)
