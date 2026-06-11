@@ -15,6 +15,7 @@
 #include "ATen/autocast_mode.h"
 
 #include "MultiGPUModule.h"
+#include <variant>
 
 namespace F = torch::nn::functional;
 
