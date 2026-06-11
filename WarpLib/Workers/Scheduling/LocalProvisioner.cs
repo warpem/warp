@@ -20,7 +20,7 @@ namespace Warp.Workers.Scheduling
         private readonly bool _mock;
         private readonly string _workerExeName;
         private readonly string _logDir;
-        private readonly List<Process> _procs = new();
+        private readonly List<(Process proc, int device)> _procs = new();
         private readonly object _sync = new();
 
         public LocalProvisioner(string queueDir, int[] devices, int perDevice,
@@ -39,16 +39,26 @@ namespace Warp.Workers.Scheduling
         {
             lock (_sync)
             {
-                _procs.RemoveAll(p => p.HasExited);
+                _procs.RemoveAll(e => e.proc.HasExited);
+
+                // Build the full slot list (one entry per device×perDevice).
                 var slots = new List<int>();
                 foreach (int dev in _devices)
                     for (int i = 0; i < _perDevice; i++)
                         slots.Add(dev);
+                int cap = Math.Min(target, slots.Count);
 
-                while (_procs.Count < Math.Min(target, slots.Count))
+                // Find which device slots are already occupied by a live process.
+                // Use a mutable copy so we can Remove() matches without consuming
+                // the same slot entry for two live processes on the same device.
+                var occupied = new List<int>();
+                foreach (var e in _procs) occupied.Add(e.device);
+
+                foreach (int dev in slots)
                 {
-                    int dev = slots[_procs.Count];
-                    _procs.Add(Spawn(dev));
+                    if (_procs.Count >= cap) break;
+                    if (occupied.Remove(dev)) continue;   // this slot is already filled
+                    _procs.Add((Spawn(dev), dev));
                 }
             }
         }
@@ -72,14 +82,14 @@ namespace Warp.Workers.Scheduling
 
         public int LiveWorkerCount()
         {
-            lock (_sync) { _procs.RemoveAll(p => p.HasExited); return _procs.Count; }
+            lock (_sync) { _procs.RemoveAll(e => e.proc.HasExited); return _procs.Count; }
         }
 
         public void Shutdown()
         {
             lock (_sync)
-                foreach (var p in _procs)
-                    try { if (!p.HasExited) p.Kill(true); } catch { }
+                foreach (var (proc, _) in _procs)
+                    try { if (!proc.HasExited) proc.Kill(true); } catch { }
         }
     }
 }

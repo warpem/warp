@@ -20,7 +20,9 @@ namespace Warp.Workers.Queue
         public string Heartbeat => Path.Combine(Root, "heartbeat");
         public string Sick      => Path.Combine(Root, "sick");
         public string Blacklist => Path.Combine(Root, "blacklisted_nodes");
-        public string Logs      => Path.Combine(Root, "logs");
+        public string Logs        => Path.Combine(Root, "logs");
+        public string Lock        => Path.Combine(Root, "pool.lock");
+        public string ManagerState => Path.Combine(Root, "manager.state.json");
 
         public string RunningFor(string workerId) => Path.Combine(Running, workerId);
 

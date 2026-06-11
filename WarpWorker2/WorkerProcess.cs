@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using CommandLine;
 using Warp;
 using Warp.Tools;
@@ -19,6 +20,10 @@ namespace WarpWorker2
         static bool MockMode = false;
         static bool DebugMode = false;
         static bool IsSilent = false;
+
+        // Set by the SIGTERM handler; checked between tasks so the current
+        // MarkDone/MarkFailed always completes before we honour the signal.
+        static volatile bool _sigTermReceived = false;
 
         // Worker resource state (loaded by init commands; survives across tasks).
         static Image GainRef = null;
@@ -129,6 +134,16 @@ namespace WarpWorker2
                 Environment.Exit(3);
             }
 
+            // SIGTERM handler (spec §A3): set a flag checked between tasks so the
+            // current MarkDone/MarkFailed always completes before we honour the signal.
+            // Preempted tasks are left in running/ for the sweep — not marked failed.
+            // The registration is kept alive for the process lifetime via `using`.
+            using var _ = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx =>
+            {
+                ctx.Cancel = true;   // suppress default termination; we exit cleanly below
+                _sigTermReceived = true;
+            });
+
             // Heartbeats (spec §8). Worker writes its own; monitors the manager's.
             var myHeartbeat = new Warp.Workers.Queue.HeartbeatWriter(wdir, "hb-");
             var managerMonitor = new Warp.Workers.Queue.HeartbeatMonitor(
@@ -139,6 +154,13 @@ namespace WarpWorker2
 
             while (true)
             {
+                // Check SIGTERM first — after any prior task completed, before claiming.
+                if (_sigTermReceived)
+                {
+                    WriteExit(layout, workerId, "SIGTERM received");
+                    return;
+                }
+
                 myHeartbeat.WriteTick();
                 managerMonitor.Observe();
                 if (!DebugMode && managerMonitor.IsStalled())

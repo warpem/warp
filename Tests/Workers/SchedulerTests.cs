@@ -118,4 +118,57 @@ public class SchedulerTests : IDisposable
         sched.Tick(); // processes both failures: 2 distinct tasks on nodeA -> blacklisted
         Assert.True(File.Exists(Path.Combine(_layout.Blacklist, "nodeA")));
     }
+
+    // ── A1: pool.lock ───────────────────────────────────────────────────────
+
+    [Fact]
+    public void SecondSchedulerOnSameQueueDirThrows()
+    {
+        // First Scheduler acquires the lock.
+        var sched1 = new Scheduler(_layout, _queue, new FakeProvisioner(), target: 1);
+
+        // Second Scheduler on the same dir must fail fast with a clear error.
+        var ex = Assert.Throws<IOException>(() =>
+            new Scheduler(_layout, _queue, new FakeProvisioner(), target: 1));
+        Assert.Contains("Another manager", ex.Message);
+
+        // Releasing sched1's lock (via RunToDrain on empty queue) frees it.
+        sched1.RunToDrain(pollMs: 0);
+
+        // A third Scheduler can now acquire the (released) lock.
+        var sched3 = new Scheduler(_layout, _queue, new FakeProvisioner(), target: 1);
+        sched3.RunToDrain(pollMs: 0);  // must not throw
+    }
+
+    // ── A2: failure matrix persistence ──────────────────────────────────────
+
+    [Fact]
+    public void FailureMatrixSurvivesSchedulerRestart()
+    {
+        var matrix = new FailureMatrix(hostBlacklistThreshold: 2, taskPoisonThreshold: 99, retryCap: 99);
+        var sched1 = new Scheduler(_layout, _queue, new FakeProvisioner(), target: 1,
+            failureMatrix: matrix);
+
+        // Record one failure on nodeA and tick so it's persisted.
+        EnqueueClaimFail("0000001-a", "w1", "nodeA");
+        sched1.Tick();
+        sched1.RunToDrain(pollMs: 0);  // releases lock
+
+        // Assert manager.state.json was written.
+        Assert.True(File.Exists(_layout.ManagerState));
+
+        // Restart: new Scheduler loads persisted matrix.  nodeA has 1 failure so
+        // far (threshold=2), so not yet blacklisted — but the data is in memory.
+        var matrix2 = new FailureMatrix(hostBlacklistThreshold: 2, taskPoisonThreshold: 99, retryCap: 99);
+        var sched2 = new Scheduler(_layout, _queue, new FakeProvisioner(), target: 1,
+            failureMatrix: matrix2);
+
+        // A second failure on nodeA from a different task should trigger blacklist.
+        EnqueueClaimFail("0000002-b", "w2", "nodeA");
+        sched2.Tick();
+
+        Assert.True(File.Exists(Path.Combine(_layout.Blacklist, "nodeA")),
+            "nodeA should be blacklisted after 2 distinct failures, even across a restart");
+        sched2.RunToDrain(pollMs: 0);
+    }
 }

@@ -21,6 +21,7 @@ namespace Warp.Workers.Scheduling
         private readonly long _workerStartupGraceMs;
         private readonly HeartbeatWriter _managerHeartbeat;
         private readonly FailureMatrix _failures;
+        private FileStream _lockHandle;
 
         // Per-worker monitors, created lazily as worker dirs appear.
         private readonly System.Collections.Generic.Dictionary<string, HeartbeatMonitor> _monitors = new();
@@ -35,8 +36,29 @@ namespace Warp.Workers.Scheduling
             _target = target;
             _workerStallTimeoutMs = workerStallTimeoutMs;
             _workerStartupGraceMs = workerStartupGraceMs;
-            _failures = failureMatrix ?? new FailureMatrix();
             _managerHeartbeat = new HeartbeatWriter(layout.Heartbeat, "tick-");
+
+            // Load persisted failure matrix if one exists (spec §A2), then apply
+            // the caller-supplied matrix on top (for tests that inject specific thresholds).
+            var persisted = FailureMatrix.LoadFromFile(layout.ManagerState);
+            _failures = persisted != null
+                ? persisted.WithThresholds(failureMatrix ?? new FailureMatrix())
+                : failureMatrix ?? new FailureMatrix();
+
+            // Acquire an exclusive lock on the queue dir. Fails fast if another
+            // Scheduler is already running against the same dir (spec §A1).
+            Directory.CreateDirectory(Path.GetDirectoryName(layout.Lock) ?? layout.Root);
+            try
+            {
+                _lockHandle = File.Open(layout.Lock, FileMode.OpenOrCreate,
+                    FileAccess.Write, FileShare.None);
+            }
+            catch (IOException)
+            {
+                throw new IOException(
+                    $"Another manager is already using queue dir '{layout.Root}'. " +
+                    "Use --task_dir to choose a different location, or wait for the previous run to finish.");
+            }
         }
 
         public bool IsDrained()
@@ -53,6 +75,7 @@ namespace Warp.Workers.Scheduling
             _managerHeartbeat.WriteTick();
             SweepStalledWorkers();
             ProcessFailures();
+            _failures.SaveToFile(_layout.ManagerState);
             _provisioner.EnsureWorkers(_target);
         }
 
@@ -137,11 +160,20 @@ namespace Warp.Workers.Scheduling
         /// <summary>Run until drained. poll = ms between ticks.</summary>
         public void RunToDrain(int pollMs = 2000)
         {
-            while (true)
+            try
             {
-                Tick();
-                if (IsDrained()) { _provisioner.Shutdown(); return; }
-                System.Threading.Thread.Sleep(pollMs);
+                while (true)
+                {
+                    Tick();
+                    if (IsDrained()) { _provisioner.Shutdown(); return; }
+                    System.Threading.Thread.Sleep(pollMs);
+                }
+            }
+            finally
+            {
+                _lockHandle?.Dispose();
+                _lockHandle = null;
+                try { File.Delete(_layout.Lock); } catch { }
             }
         }
     }
