@@ -168,8 +168,6 @@ The Scheduler is the **sole writer on `failed/`** (reading + deleting) and the
 
 - `pool.lock` (prevent two managers sharing one queue dir)
 - `manager.state.json` persistence (failure matrix survives manager restart)
-- CPU-only fallback for blacklisted workers (currently they exit)
-- `max_runtime_s` self-timeout in worker
-- Preemption SIGTERM handler
-- Per-worker `logs/<wid>.log` virtual-console wiring
-- Sick-worker stdout count for Relay
+- Preemption SIGTERM handler (clean exit leaving task for sweep, not crash)
+- `LocalProvisioner` slot-assignment fix for multi-device respawn after differential exits
+- Relay integration: `ExternalProvisioner` wiring, CLI flag to suppress local worker spawning

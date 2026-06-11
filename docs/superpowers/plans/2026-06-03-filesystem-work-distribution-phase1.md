@@ -2366,14 +2366,11 @@ does exactly this; the WorkPool unit test drives terminal states directly.
 **Deferred beyond Phase 1 (not gaps — explicitly out of scope):** `pool.lock`
 (§7), `manager.state.json` persistence of the failure matrix across manager
 restart (§7, §12.3 — in Phase 1 the matrix is in-memory, so a manager restart
-resets blacklist progress), CPU-only fallback for blacklisted workers (§12.3 — in
-Phase 1 a blacklisted worker exits rather than falling back to CPU tasks),
-sick-worker stdout count parsing (§12.3), `max_runtime_s` self-timeout enforcement
-in the worker (§9.4), preemption SIGTERM handler (§9.4), per-worker `logs/<wid>.log`
-virtual-console wiring (§4). Each should become its own follow-up task once the
-single-task-type port is proven. Add a Phase 2 plan covering them before porting
-additional task types that depend on them (notably the SIGTERM handler and
-manager-state persistence, which matter most in a real preemptable cluster queue).
+resets blacklist progress), preemption SIGTERM handler (§9.4),
+`LocalProvisioner` slot-assignment fix for multi-device setups. Each should
+become its own follow-up task. CPU-only fallback for blacklisted workers,
+`max_runtime_s` per-task timeout, and per-worker `logs/<wid>.log` routing have
+been **removed from scope** — see implementation deviations above for rationale.
 
 **Type consistency:** `QueueLayout` members (`Pending`/`Running`/`Failed`/
 `Poisoned`/`Sick`/`Blacklist`/`RunningFor`/…), `TaskItem`

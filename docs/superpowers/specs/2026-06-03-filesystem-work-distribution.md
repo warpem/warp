@@ -72,7 +72,7 @@ Relay  (OPTIONAL outer layer — DEFERRED, documented in §12, not implemented n
   │   submitted/running; replaces ended ones; caps total submissions.
   └── Knows nothing about the task queue contents. Reads only:
         - the Manager job's scheduler status (alive / ended / failed)
-        - the Manager's stdout (progress + sick-worker count), same as today
+        - the Manager's stdout (progress), same as today
 
 Manager  (WarpTools / MTools / MCore binary, runs on a cluster node in cluster mode,
           or on the local machine in local mode)
@@ -132,8 +132,7 @@ queue_dir/
   poisoned/                <task_id>.json            # exceeded per-task retry cap (§10)
   heartbeat/               tick-NNNNNN               # manager liveness (latest only kept)
   sick/                    <wid>                     # hardware-excluded workers (contains hostname)
-  logs/                    <wid>.log                 # per-worker virtual-console output
-                           <wid>.exit                # per-worker exit reason (one line)
+  logs/                    <wid>.exit                # per-worker exit reason (one line)
   manager.state.json       # manager bookkeeping: failure matrices, counters, (local) child PIDs
   pool.config.json         # target count, allowed stages, worker command(s), heartbeat params
   pool.lock                # guards against two managers sharing one queue dir
@@ -165,7 +164,6 @@ through JSON, so it can be written to and reloaded from disk without change).
   "init":  [ <NamedSerializableObject>, ... ],   // resource-loading prerequisites
   "main":  [ <NamedSerializableObject>, ... ],   // the actual work
   "init_fingerprint": "<sha256 over the serialized init array>",
-  "max_runtime_s": 3600,                // worker self-timeout backstop for THIS task
   "retry_count": 0,                     // incremented each time it lands in failed/ then re-pended
   "created_at": "<iso8601>"
 }
@@ -318,7 +316,7 @@ Per scheduler tick the manager:
 5. Checks the exit condition: if `pending==0 && running==0`, the queue is drained
    — exit. (Orphan sweep in step 2 guarantees in-flight work has settled into
    done/failed/poisoned or been re-pended before this check.)
-6. Emits progress + sick-worker count to stdout (§12.3).
+6. Emits progress to stdout.
 
 `pool.lock` prevents two managers from sharing one queue dir (which would double
 the worker count). The scheduler acquires it on startup and fails fast if held.
@@ -460,8 +458,6 @@ A worker exits on any of:
 - **Empty queue** polled twice with nothing to claim (natural completion).
 - **Manager heartbeat stall** (§8.1) — manager dead.
 - **Hardware fault / unrecoverable state** (§9.1 b/c).
-- **Self-imposed `max_runtime_s`** reached for the current task — a backstop set
-  below the cluster walltime so the worker exits cleanly before SIGKILL.
 - **Preemption / walltime SIGTERM** — handled via `PosixSignalRegistration`:
   finish any filesystem rename already in flight, then exit, leaving the current
   task in `running/` for the sweep. Do **not** mark it failed (preemption is not
@@ -469,6 +465,12 @@ A worker exits on any of:
 
 `max_units` (exit after N tasks) is intentionally **not** included — no clear need
 and it complicates the common case.
+
+`max_runtime_s` per-task self-timeout is also **not** included. The bidirectional
+heartbeat already handles both manager death (worker exits) and worker death
+(manager sweeps). A genuinely hung task will either be caught by the heartbeat
+sweep when the worker process itself hangs, or by the cluster walltime. A
+per-task runtime backstop adds complexity for a case that is already covered.
 
 Set the cluster `--signal` option (e.g. `B:SIGTERM@60`) so workers get a grace
 window before walltime SIGKILL.
@@ -578,11 +580,10 @@ queue (the bad node is usually the free one). Handling:
   anyway because the amount of CPU work before a task hits the GPU is
   unpredictable. Thresholds (e.g. 3–5 distinct) are configurable.
 - **Worker self-exclusion:** a worker checks the blacklist for its own hostname
-  before each claim. If blacklisted, it skips GPU tasks. With `requires_gpu` on
-  each task (§5), a blacklisted worker may still claim CPU-only tasks (alignment,
-  file I/O, metadata) rather than fully idling — workers on a bad node are usually
-  still fine for CPU work. (CPU-only fallback: include from the start if cheap;
-  otherwise an acknowledged later addition.)
+  before each claim. If blacklisted, it exits. This is correct because in
+  practice a GPU hardware fault on one GPU usually means the whole node's driver
+  is unhealthy; CPU-only work on that node is not worth the complexity of a
+  fallback path.
 - **The all-on-one-bad-node deadlock:** if every requested worker lands on the same
   bad host and all go sick, Relay must not spin forever submitting replacements
   that also land there. Two guards: (1) the Manager reports its known **sick-worker
@@ -643,7 +644,7 @@ bodies and the dispatch mechanism are unchanged.
    worker binary. Lifts the WarpCore command dispatch + command bodies + mock
    mode; drops all controller networking. Adds: claim loop, init/main execution
    with fingerprint skip, exception taxonomy + health probe, both heartbeats,
-   self-exclusion check, exit conditions, per-worker log/exit files.
+   self-exclusion check, exit conditions, per-worker exit files.
 2. **Distribution helpers** in WarpLib — refactored from the existing
    `WorkerWrapper` command-builders to emit task files (init+main sequences,
    computed `init_fingerprint`) and block on results keyed by `task_id`. Shares
@@ -670,7 +671,7 @@ ported.** Relay is not touched this phase.
 | Failure | Handling |
 |---|---|
 | Worker crash mid-task | Task in `running/<wid>/`; manager heartbeat sweep re-pends it (§8). |
-| Worker preempted (SIGTERM) | Finish in-flight rename, exit, leave task for sweep; not marked failed (§9.4). |
+| Worker preempted (SIGTERM) | Finish in-flight rename, exit, leave task in running/ for sweep; not marked failed (§9.4). |
 | Worker walltime SIGKILL | Same as crash — task swept (§8). `--signal` gives grace. |
 | GPU/driver dead at startup | Health probe fails → `sick` + exit (§9.3, §12.3). |
 | GPU fault mid-task | Probe fails → `sick` + exit, task left for sweep (§9.2). |
