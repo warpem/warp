@@ -171,6 +171,11 @@ namespace WarpTools.Commands
                         m.ProcessingStatus = ProcessingStatus.LeaveOut;
                         m.SaveMeta();
                         snapshotWriter.Record(m, succeeded: false);
+
+                        // Clear the live progress line so the error doesn't append to it
+                        // (matches legacy IterateOverItems failure handling).
+                        if (!CLI.StrictFormatting)
+                            VirtualConsole.ClearLastLine();
                         Console.Error.WriteLine($"Failed to process {m.Path}, marked as unselected. " +
                             "Use the change_selection WarpTool to reactivate it if required." +
                             (string.IsNullOrEmpty(result.Error) ? "" : "\n" + result.Error));

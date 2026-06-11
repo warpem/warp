@@ -11,6 +11,9 @@ namespace WarpWorker2
         [Option('q', "queue-dir", Required = true, HelpText = "Path to the shared queue directory")]
         public string QueueDir { get; set; }
 
+        [Option("log-dir", HelpText = "Directory for per-item processing logs (<task_id>.log). Defaults to <queue-dir>/logs")]
+        public string LogDir { get; set; }
+
         [Option("stages", HelpText = "Space-separated stages this worker may claim; empty = any")]
         public IEnumerable<string> Stages { get; set; }
 

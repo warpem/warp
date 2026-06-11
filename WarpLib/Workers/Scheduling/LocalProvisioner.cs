@@ -19,17 +19,20 @@ namespace Warp.Workers.Scheduling
         private readonly int _perDevice;
         private readonly bool _mock;
         private readonly string _workerExeName;
+        private readonly string _logDir;
         private readonly List<Process> _procs = new();
         private readonly object _sync = new();
 
         public LocalProvisioner(string queueDir, int[] devices, int perDevice,
-                                bool mock = false, string workerExeName = "WarpWorker2")
+                                bool mock = false, string workerExeName = "WarpWorker2",
+                                string logDir = null)
         {
             _queueDir = queueDir;
             _devices = devices;
             _perDevice = perDevice;
             _mock = mock;
             _workerExeName = workerExeName;
+            _logDir = logDir;
         }
 
         public void EnsureWorkers(int target)
@@ -53,7 +56,8 @@ namespace Warp.Workers.Scheduling
         private Process Spawn(int device)
         {
             string exe = Path.Combine(AppContext.BaseDirectory, _workerExeName);
-            string args = $"-d {device} -q \"{_queueDir}\"{(_mock ? " --mock" : "")}";
+            string args = $"-d {device} -q \"{_queueDir}\"{(_mock ? " --mock" : "")}" +
+                          (string.IsNullOrEmpty(_logDir) ? "" : $" --log-dir \"{_logDir}\"");
             var psi = new ProcessStartInfo
             {
                 FileName = exe,

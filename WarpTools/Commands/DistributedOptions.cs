@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -103,7 +104,12 @@ namespace WarpTools.Commands
                 throw new Exception("No devices found or specified");
             int target = Math.Min(InputSeries.Length, devices.Count * ProcessesPerDevice);
 
-            var provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice);
+            // Per-item processing logs go to <output>/logs/<task_id>.log, matching the
+            // location the legacy IterateOverItems path used. The queue dir (which may be
+            // on fast scratch via --task_dir) keeps only worker lifecycle files.
+            string logDir = Path.Combine(OutputProcessing, "logs");
+            Directory.CreateDirectory(logDir);
+            var provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
             var scheduler = new Scheduler(layout, queue, provisioner, target);
 
             Console.WriteLine($"Distributing {tasks.Count} tasks across up to {target} local worker(s)...");
@@ -116,6 +122,16 @@ namespace WarpTools.Commands
 
             var processed = new List<T>();
             var failed = new List<T>();
+
+            // Live progress indicator updated after every item, matching the legacy
+            // IterateOverItems format ("{done}/{total}, {failed} failed, {eta} remaining").
+            // ETA is wall-time/done * remaining, which already accounts for the worker
+            // count because elapsed wall time reflects whatever concurrency is running.
+            int total = tasks.Count;
+            int nDone = 0, nFailed = 0;
+            var progressSync = new object();
+            var progressTimer = Stopwatch.StartNew();
+            Console.Write($"0/{total}");
 
             var schedThread = new Thread(() => scheduler.RunToDrain()) { IsBackground = true };
             schedThread.Start();
@@ -134,6 +150,25 @@ namespace WarpTools.Commands
                             lock (processed) processed.Add(item);
                         else
                             lock (failed) failed.Add(item);
+
+                        lock (progressSync)
+                        {
+                            nDone++;
+                            if (result.Outcome != WorkOutcome.Done)
+                                nFailed++;
+
+                            long avgMs = (long)(progressTimer.ElapsedMilliseconds / (double)nDone);
+                            TimeSpan remaining = TimeSpan.FromMilliseconds((total - nDone) * avgMs);
+                            string failedString = nFailed > 0 ? $", {nFailed} failed" : "";
+                            string timeString = remaining.ToString((int)remaining.TotalDays > 0
+                                ? @"dd\.hh\:mm\:ss"
+                                : ((int)remaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss"));
+
+                            // Clearing the line in a real terminal would break strict formatting.
+                            if (!StrictFormatting)
+                                VirtualConsole.ClearLastLine();
+                            Console.Write($"{nDone}/{total}{failedString}, {timeString} remaining");
+                        }
                     },
                     pollMs: pollMs);
             }
@@ -141,6 +176,8 @@ namespace WarpTools.Commands
             {
                 provisioner.Shutdown();
             }
+
+            Console.WriteLine();
 
             return (processed, failed);
         }

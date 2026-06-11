@@ -109,6 +109,16 @@ namespace WarpWorker2
             string wdir = layout.RunningFor(workerId);
             System.IO.Directory.CreateDirectory(wdir);
 
+            // Per-item processing logs. Capture command-body Console output into a
+            // VirtualConsole buffer that is flushed to <logDir>/<task_id>.log after
+            // every write (mirrors the old WorkerWrapper per-item log files). Run
+            // silent so this child process does not write through to the manager's
+            // inherited stdout; everything of interest lives in the per-item log.
+            string logDir = string.IsNullOrEmpty(opts.LogDir) ? layout.Logs : opts.LogDir;
+            System.IO.Directory.CreateDirectory(logDir);
+            VirtualConsole.IsSilent = true;
+            VirtualConsole.AttachToConsole();
+
             // Record hostname for the manager's failure matrix (spec §12.3).
             System.IO.File.WriteAllText(System.IO.Path.Combine(wdir, "hostname"), Environment.MachineName);
 
@@ -156,6 +166,13 @@ namespace WarpWorker2
                     continue;
                 }
                 consecutiveEmpty = 0;
+
+                // Start a fresh per-item log: detach the previous file, reset the
+                // buffer, then point at this task's log so init+main output for this
+                // item lands in its own <task_id>.log.
+                VirtualConsole.FileOutputPath = null;
+                VirtualConsole.ClearAll();
+                VirtualConsole.FileOutputPath = System.IO.Path.Combine(logDir, task.TaskId + ".log");
 
                 // ---- init sequence (skip if fingerprint matches) ----
                 if (task.InitFingerprint != lastFingerprint)
