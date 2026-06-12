@@ -139,7 +139,8 @@ namespace WarpTools.Commands
             var progressTimer = Stopwatch.StartNew();
             Console.Write($"0/{total}");
 
-            var schedThread = new Thread(() => scheduler.RunToDrain()) { IsBackground = true };
+            var schedCts = new System.Threading.CancellationTokenSource();
+            var schedThread = new Thread(() => scheduler.RunToDrain(cancel: schedCts.Token)) { IsBackground = true };
             schedThread.Start();
 
             try
@@ -208,6 +209,11 @@ namespace WarpTools.Commands
             }
             finally
             {
+                // Cancel the scheduler thread so it exits promptly instead of
+                // spinning until its next poll interval. Shutdown workers after
+                // the thread exits so no new workers are spawned post-cancel.
+                schedCts.Cancel();
+                schedThread.Join();
                 provisioner.Shutdown();
             }
 

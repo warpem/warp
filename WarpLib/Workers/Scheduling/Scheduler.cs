@@ -157,16 +157,28 @@ namespace Warp.Workers.Scheduling
             catch { /* not empty or racing; leave it */ }
         }
 
-        /// <summary>Run until drained. poll = ms between ticks.</summary>
-        public void RunToDrain(int pollMs = 2000)
+        /// <summary>
+        /// Run until drained or <paramref name="cancel"/> is requested.
+        /// The caller should cancel the token after <c>WorkPool.Distribute</c>
+        /// returns so the background scheduler thread exits promptly rather than
+        /// spinning until its next poll interval.
+        /// </summary>
+        public void RunToDrain(int pollMs = 2000,
+            System.Threading.CancellationToken cancel = default)
         {
             try
             {
-                while (true)
+                while (!cancel.IsCancellationRequested)
                 {
                     Tick();
                     if (IsDrained()) { _provisioner.Shutdown(); return; }
-                    System.Threading.Thread.Sleep(pollMs);
+                    // Sleep in short increments so cancellation is noticed quickly.
+                    int slept = 0;
+                    while (slept < pollMs && !cancel.IsCancellationRequested)
+                    {
+                        System.Threading.Thread.Sleep(Math.Min(50, pollMs - slept));
+                        slept += 50;
+                    }
                 }
             }
             finally

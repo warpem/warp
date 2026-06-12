@@ -54,10 +54,16 @@ public class EndToEndMockTests : IDisposable
         pool.Enqueue(tasks);
 
         // Run the scheduler on a background thread; Distribute polls until all terminal.
-        var schedThread = new System.Threading.Thread(() => scheduler.RunToDrain(pollMs: 500)) { IsBackground = true };
+        // Cancel the scheduler as soon as Distribute returns so the thread exits
+        // promptly and doesn't spin against the (soon-to-be-deleted) temp directory.
+        var schedCts = new System.Threading.CancellationTokenSource();
+        var schedThread = new System.Threading.Thread(
+            () => scheduler.RunToDrain(pollMs: 500, cancel: schedCts.Token)) { IsBackground = true };
         schedThread.Start();
 
         var results = pool.Distribute(tasks, pollMs: 200);
+        schedCts.Cancel();
+        schedThread.Join();
 
         Assert.Equal(4, results.Count);
         Assert.All(results.Values, r => Assert.Equal(WorkOutcome.Done, r.Outcome));
