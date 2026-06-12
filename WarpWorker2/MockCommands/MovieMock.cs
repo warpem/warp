@@ -26,8 +26,6 @@ static partial class WorkerProcess
     {
         string Path = (string)Command.Content[0];
         ProcessingOptionsMovieCTF Options = (ProcessingOptionsMovieCTF)Command.Content[1];
-        // Tolerate a missing stack (e.g. a task without a LoadStack init/main step):
-        // fall back to a nominal size rather than NPE.
         int3 StackDims = OriginalStack?.Dims ?? new int3(64, 64, 1);
         Options.Dimensions = StackDims.MultXY((float)Options.BinnedPixelSizeMean);
 
@@ -45,6 +43,40 @@ static partial class WorkerProcess
         Thread.Sleep(3000 + Random.Shared.Next(1000));
         M.SaveMeta();
 
-        Console.WriteLine($"Processed CTF for {Path}");
+        Console.WriteLine($"[MOCK] Processed CTF for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.MovieProcessMovement))]
+    static void MockMovieProcessMovement(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        ProcessingOptionsMovieMovement Options = (ProcessingOptionsMovieMovement)Command.Content[1];
+        int3 StackDims = OriginalStack?.Dims ?? new int3(64, 64, 1);
+        Options.Dimensions = StackDims.MultXY((float)Options.BinnedPixelSizeMean);
+
+        Movie M = new Movie(Path);
+        M.OptionsMovement = Options;
+        // Fabricate trivial motion (zero shifts) so SaveMeta has something to write.
+        M.GridMovementX = new CubicGrid(new int3(1), new float[] { 0 });
+        M.GridMovementY = new CubicGrid(new int3(1), new float[] { 0 });
+        Thread.Sleep(100 + Random.Shared.Next(50));
+        M.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Processed movement for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.MovieExportMovie))]
+    static void MockMovieExportMovie(NamedSerializableObject Command)
+    {
+        // No-op in mock mode: we have no real stack to write.
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped export for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.MovieCreateThumbnail))]
+    static void MockMovieCreateThumbnail(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped thumbnail for {Path}");
     }
 }

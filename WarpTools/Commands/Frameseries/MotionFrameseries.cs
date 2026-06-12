@@ -4,6 +4,8 @@ using System.IO;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 
 namespace WarpTools.Commands
@@ -83,30 +85,49 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-
             ProcessingOptionsMovieMovement OptionsMovement = Options.GetProcessingMovieMovement();
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
 
-            IterateOverItems<Movie>(Workers, CLI, (worker, m) =>
+            decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+
+            var loadGainRef = WorkerCommands.LoadGainRef(
+                Options.Import.GainPath,
+                Options.Import.GainFlipX,
+                Options.Import.GainFlipY,
+                Options.Import.GainTranspose,
+                Options.Import.DefectsPath);
+
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+            CLI.DistributeItems<Movie>(buildTask: (m, i) =>
             {
-                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
-
-                worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-                worker.MovieProcessMovement(m.Path, OptionsMovement);
+                // MovieExportMovie is async (background write). WaitAsyncTasks as the
+                // last Main command ensures MarkDone is not called until it finishes.
+                var main = new System.Collections.Generic.List<NamedSerializableObject>
+                {
+                    WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                    WorkerCommands.MovieProcessMovement(m.Path, OptionsMovement),
+                };
                 if (CLI.Averages || CLI.AverageHalves)
-                    worker.MovieExportMovie(m.Path, OptionsMovieExport);
+                    main.Add(WorkerCommands.MovieExportMovie(m.Path, OptionsMovieExport));
+                main.Add(WorkerCommands.WaitAsyncTasks());
+                main.Add(WorkerCommands.GcCollect());
 
-                worker.GcCollect();
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-motion-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadGainRef },
+                    Main = main.ToArray(),
+                };
+                task.ComputeInitFingerprint();
+                return task;
             });
 
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
-
             Console.Write("Saving settings...");
-            Options.Save(Path.Combine(CLI.OutputProcessing, "align_frameseries.settings"));
+            Options.Save(Path.Combine(CLI.OutputProcessing, "motion_frameseries.settings"));
             Console.WriteLine(" Done");
         }
     }
