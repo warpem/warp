@@ -38,6 +38,13 @@ namespace Warp.Workers
             string path, int size, float range) =>
             new(nameof(WorkerWrapper.MovieCreateThumbnail), path, size, range);
 
+        public static NamedSerializableObject LoadBoxNet(
+            string path, int boxSize, int batchSize = 1) =>
+            new(nameof(WorkerWrapper.LoadBoxNet), path, boxSize, batchSize);
+
+        public static NamedSerializableObject DropBoxNet() =>
+            new(nameof(WorkerWrapper.DropBoxNet));
+
         public static NamedSerializableObject MoviePickBoxNet(
             string path, ProcessingOptionsBoxNet options) =>
             new(nameof(WorkerWrapper.MoviePickBoxNet), path, options);

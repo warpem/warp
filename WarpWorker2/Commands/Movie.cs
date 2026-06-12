@@ -60,4 +60,56 @@ static partial class WorkerProcess
 
         Console.WriteLine($"Created thumbnail for {Path}");
     }
+
+    [Command(nameof(WorkerWrapper.LoadBoxNet))]
+    static void LoadBoxNet(NamedSerializableObject Command)
+    {
+        BoxNetModel?.Dispose();
+
+        string Path = (string)Command.Content[0];
+        int BoxSize = (int)Command.Content[1];
+        int BatchSize = (int)Command.Content[2];
+
+        BoxNetModel = new BoxNetTorch(new int2(BoxSize), new float[3], new[] { DeviceID }, BatchSize);
+        BoxNetModel.Load(Path);
+
+        Console.WriteLine($"BoxNet loaded: box={BoxSize}, batch={BatchSize}, path={Path}");
+    }
+
+    [Command(nameof(WorkerWrapper.DropBoxNet))]
+    static void DropBoxNet(NamedSerializableObject Command)
+    {
+        BoxNetModel?.Dispose();
+        BoxNetModel = null;
+        Console.WriteLine("BoxNet dropped");
+    }
+
+    [Command(nameof(WorkerWrapper.MoviePickBoxNet))]
+    static void MoviePickBoxNet(NamedSerializableObject Command)
+    {
+        if (BoxNetModel == null)
+            throw new Exception("No BoxNet model loaded");
+
+        string Path = (string)Command.Content[0];
+        ProcessingOptionsBoxNet Options = (ProcessingOptionsBoxNet)Command.Content[1];
+
+        Movie M = new Movie(Path);
+        M.MatchBoxNet2(new[] { BoxNetModel }, Options, null);
+        M.SaveMeta();
+
+        Console.WriteLine($"Picked particles for {Path}");
+    }
+
+    [Command(nameof(WorkerWrapper.MovieExportParticles))]
+    static void MovieExportParticles(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        ProcessingOptionsParticleExport Options = (ProcessingOptionsParticleExport)Command.Content[1];
+        float2[] Coordinates = (float2[])Command.Content[2];
+
+        Movie M = new Movie(Path);
+        M.ExportParticles(OriginalStack, Coordinates, Options);
+
+        Console.WriteLine($"Exported {Coordinates.Length} particles for {Path}");
+    }
 }

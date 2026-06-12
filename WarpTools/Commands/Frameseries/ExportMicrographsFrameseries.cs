@@ -4,6 +4,8 @@ using System.IO;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 
 namespace WarpTools.Commands
@@ -70,32 +72,46 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
-            
+
             if (CLI.Highpass.HasValue && CLI.Highpass.Value > 0)
                 OptionsMovieExport.HighpassAngstrom = (decimal)CLI.Highpass.Value;
 
-            IterateOverItems<Movie>(Workers, 
-                                    CLI, 
-                                    (worker, m) =>
+            decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+
+            var loadGainRef = WorkerCommands.LoadGainRef(
+                Options.Import.GainPath,
+                Options.Import.GainFlipX,
+                Options.Import.GainFlipY,
+                Options.Import.GainTranspose,
+                Options.Import.DefectsPath);
+
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+            CLI.DistributeItems<Movie>(buildTask: (m, i) =>
             {
-                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
-
-                worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-                worker.MovieExportMovie(m.Path, OptionsMovieExport);
-
+                var main = new System.Collections.Generic.List<NamedSerializableObject>
+                {
+                    WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                    WorkerCommands.MovieExportMovie(m.Path, OptionsMovieExport),
+                };
                 if (CLI.Thumbnails.HasValue)
-                    worker.MovieCreateThumbnail(m.Path, CLI.Thumbnails.Value, 3);
+                    main.Add(WorkerCommands.MovieCreateThumbnail(m.Path, CLI.Thumbnails.Value, 3));
+                main.Add(WorkerCommands.WaitAsyncTasks());
+                main.Add(WorkerCommands.GcCollect());
 
-                worker.GcCollect();
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-export-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadGainRef },
+                    Main = main.ToArray(),
+                };
+                task.ComputeInitFingerprint();
+                return task;
             });
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
 
             Console.Write("Saving settings...");
             Options.Save(Path.Combine(CLI.OutputProcessing, "export_movies.settings"));

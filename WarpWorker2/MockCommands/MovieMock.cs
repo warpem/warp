@@ -79,4 +79,34 @@ static partial class WorkerProcess
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped thumbnail for {Path}");
     }
+
+    [MockCommand(nameof(WorkerWrapper.LoadBoxNet))]
+    static void MockLoadBoxNet(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped BoxNet load from {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.DropBoxNet))]
+    static void MockDropBoxNet(NamedSerializableObject Command)
+    {
+        Console.WriteLine("[MOCK] Skipped BoxNet drop");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.MoviePickBoxNet))]
+    static void MockMoviePickBoxNet(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        // Write empty coordinates so downstream code that reads the XML doesn't fail.
+        Movie M = new Movie(Path);
+        M.SaveMeta();
+        Console.WriteLine($"[MOCK] Skipped BoxNet inference for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.MovieExportParticles))]
+    static void MockMovieExportParticles(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped particle export for {Path}");
+    }
 }

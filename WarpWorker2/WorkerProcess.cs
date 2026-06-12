@@ -34,6 +34,7 @@ namespace WarpWorker2
         static float[][] RawLayers = null;
         static string OriginalStackOwner = "";
         static Image OriginalStack = null;
+        static BoxNetTorch BoxNetModel = null;
 
         static void RegisterCommands()
         {
