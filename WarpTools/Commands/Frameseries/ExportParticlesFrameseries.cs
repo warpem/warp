@@ -1,4 +1,4 @@
-﻿using CommandLine;
+using CommandLine;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Headers;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 
 namespace WarpTools.Commands.Frameseries
@@ -117,7 +119,7 @@ namespace WarpTools.Commands.Frameseries
             if (CLI.Diameter <= 0)
                 throw new Exception("--diameter must be positive");
 
-            { 
+            {
                 var Exports = new bool[] { CLI.ExportAverages, CLI.ExportAverageHalves, CLI.ExportStar };
 
                 if (!Exports.Any())
@@ -161,7 +163,7 @@ namespace WarpTools.Commands.Frameseries
             ExportOptions.BoxSize = CLI.BoxSize;
             ExportOptions.Diameter = CLI.Diameter;
             ExportOptions.Suffix = CLI.SuffixOut;
-            
+
             {
                 MapHeader Header = MapHeader.ReadFromFile(CLI.InputSeries.First().DataPath);
                 ExportOptions.Dimensions = Header.Dimensions.MultXY((float)Options.Import.PixelSize);
@@ -284,11 +286,11 @@ namespace WarpTools.Commands.Frameseries
                 else
                     TableIn.SetColumn("rlnOpticsGroup", Helper.ArrayOfConstant("1", TableIn.RowCount));
 
-                OpticsIn = new Star(new string[] 
-                { 
-                    "rlnVoltage", 
-                    "rlnImagePixelSize", 
-                    "rlnSphericalAberration", 
+                OpticsIn = new Star(new string[]
+                {
+                    "rlnVoltage",
+                    "rlnImagePixelSize",
+                    "rlnSphericalAberration",
                     "rlnAmplitudeContrast",
                     "rlnOpticsGroup",
                     "rlnImageSize",
@@ -366,11 +368,11 @@ namespace WarpTools.Commands.Frameseries
                 if (ShiftsInAngstrom)
                     CLI.AngpixShifts = 1;
 
-                ShiftX = TableIn.HasColumn(LabelShiftX) ? 
-                         TableIn.GetColumn(LabelShiftX).Select(v => float.Parse(v, CultureInfo.InvariantCulture) * (float)CLI.AngpixShifts).ToArray() : 
+                ShiftX = TableIn.HasColumn(LabelShiftX) ?
+                         TableIn.GetColumn(LabelShiftX).Select(v => float.Parse(v, CultureInfo.InvariantCulture) * (float)CLI.AngpixShifts).ToArray() :
                          new float[TableIn.RowCount];
-                ShiftY = TableIn.HasColumn(LabelShiftY) ? 
-                         TableIn.GetColumn(LabelShiftY).Select(v => float.Parse(v, CultureInfo.InvariantCulture) * (float)CLI.AngpixShifts).ToArray() : 
+                ShiftY = TableIn.HasColumn(LabelShiftY) ?
+                         TableIn.GetColumn(LabelShiftY).Select(v => float.Parse(v, CultureInfo.InvariantCulture) * (float)CLI.AngpixShifts).ToArray() :
                          new float[TableIn.RowCount];
 
                 if (!CLI.DontCenter)
@@ -390,38 +392,37 @@ namespace WarpTools.Commands.Frameseries
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-
-            IterateOverItems<Movie>(Workers, CLI, (worker, m) =>
+            // Builds the resolved output paths for a movie, respecting --relative_output_paths.
+            (string PathStack, string PathMicrograph) ResolvePaths(Movie m)
             {
-                if (!RowGroups.ContainsKey(m.RootName))
-                    return;
-
-                #region Stack and micrograph paths
-
-                string PathStack = Path.Combine(m.ParticlesDir, m.RootName + ExportOptions.Suffix + ".mrcs");
-                string PathMicrograph = m.Path;
+                string pathStack = Path.Combine(m.ParticlesDir, m.RootName + ExportOptions.Suffix + ".mrcs");
+                string pathMicrograph = m.Path;
                 if (CLI.OutputPathsRelativeToStarFile)
                 {
-                    PathMicrograph = Helper.MakePathRelativeTo(PathMicrograph, CLI.StarOut);
-                    PathStack = Helper.MakePathRelativeTo(PathStack, CLI.StarOut);
+                    pathMicrograph = Helper.MakePathRelativeTo(pathMicrograph, CLI.StarOut);
+                    pathStack = Helper.MakePathRelativeTo(pathStack, CLI.StarOut);
                 }
                 else
                 {
-                    PathMicrograph = Helper.MakePathRelativeTo(PathMicrograph, Path.Combine(Environment.CurrentDirectory, "my.star"));
-                    PathStack = Helper.MakePathRelativeTo(PathStack, Path.Combine(Environment.CurrentDirectory, "my.star"));
+                    pathMicrograph = Helper.MakePathRelativeTo(pathMicrograph, Path.Combine(Environment.CurrentDirectory, "my.star"));
+                    pathStack = Helper.MakePathRelativeTo(pathStack, Path.Combine(Environment.CurrentDirectory, "my.star"));
                 }
+                return (pathStack, pathMicrograph);
+            }
 
-                #endregion
-
-                #region Update row values
-
-                List<float2> Positions = new List<float2>();
+            // Updates the shared TableIn rows for one movie: writes CTF columns,
+            // coordinates, rlnImageName, rlnMicrographName. Returns per-row positions.
+            // Called from the manager thread (onSuccess) — not concurrency-safe against
+            // other TableIn writers, but DistributeItems fires onResult sequentially so
+            // no locking is needed here.
+            List<float2> UpdateTableRows(Movie m, string pathStack, string pathMicrograph)
+            {
                 float Astigmatism = (float)m.CTF.DefocusDelta / 2;
-                float PhaseShift = (m.OptionsCTF.DoPhase && m.GridCTFPhase != null) ? 
-                                   m.GridCTFPhase.GetInterpolated(new float3(0.5f)) * 180 : 
+                float PhaseShift = (m.OptionsCTF.DoPhase && m.GridCTFPhase != null) ?
+                                   m.GridCTFPhase.GetInterpolated(new float3(0.5f)) * 180 :
                                    0;
 
+                var Positions = new List<float2>();
                 int iparticle = 0;
                 foreach (var r in RowGroups[m.RootName])
                 {
@@ -435,7 +436,6 @@ namespace WarpTools.Commands.Frameseries
                         TableIn.SetRowValue(r, "rlnDefocusU", ((LocalDefocus + Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture));
                         TableIn.SetRowValue(r, "rlnDefocusV", ((LocalDefocus - Astigmatism) * 1e4f).ToString("F1", CultureInfo.InvariantCulture));
                         TableIn.SetRowValue(r, "rlnDefocusAngle", m.CTF.DefocusAngle.ToString("F1", CultureInfo.InvariantCulture));
-
                         TableIn.SetRowValue(r, "rlnPhaseShift", PhaseShift.ToString("F1", CultureInfo.InvariantCulture));
                         TableIn.SetRowValue(r, "rlnCtfMaxResolution", m.CTFResolutionEstimate.ToString("F1", CultureInfo.InvariantCulture));
                     }
@@ -452,32 +452,68 @@ namespace WarpTools.Commands.Frameseries
                         }
                     }
 
-                    TableIn.SetRowValue(r, "rlnImageName", $"{++iparticle:D7}@{PathStack}");
-
-                    TableIn.SetRowValue(r, "rlnMicrographName", PathMicrograph);
+                    TableIn.SetRowValue(r, "rlnImageName", $"{++iparticle:D7}@{pathStack}");
+                    TableIn.SetRowValue(r, "rlnMicrographName", pathMicrograph);
 
                     Positions.Add(new float2(PosX[r], PosY[r]));
                 }
+                return Positions;
+            }
 
-                #endregion
+            #region --only_star: manager-only loop, no workers needed
 
-                #region Export actual particle (half-)averages if needed
-
-                if (CLI.ExportAverages || CLI.ExportAverageHalves)
+            if (CLI.ExportStar)
+            {
+                foreach (Movie m in CLI.InputSeries)
                 {
-                    decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)ExportOptions.BinTimes);
-                    worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
+                    if (!RowGroups.ContainsKey(m.RootName))
+                        continue;
 
-                    worker.MovieExportParticles(m.Path, ExportOptions, Positions.ToArray());
+                    var (pathStack, pathMicrograph) = ResolvePaths(m);
+                    UpdateTableRows(m, pathStack, pathMicrograph);
                 }
+            }
 
-                #endregion
+            #endregion
 
-                worker.GcCollect();
-            });
+            #region --averages / --halves: distribute GPU work to workers
 
-            Console.Write("Saving STAR file...");      
-            
+            else
+            {
+                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)ExportOptions.BinTimes);
+
+                CLI.DistributeItems<Movie>(
+                    buildTask: (m, i) =>
+                    {
+                        // No STAR rows for this movie — skip it entirely.
+                        if (!RowGroups.ContainsKey(m.RootName))
+                            return null;
+
+                        var (pathStack, pathMicrograph) = ResolvePaths(m);
+                        var positions = UpdateTableRows(m, pathStack, pathMicrograph);
+
+                        var task = new TaskItem
+                        {
+                            TaskId = $"{i:D7}-exportparticles-{m.RootName}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Init = System.Array.Empty<NamedSerializableObject>(),
+                            Main = new[]
+                            {
+                                WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                                WorkerCommands.MovieExportParticles(m.Path, ExportOptions, positions.ToArray()),
+                                WorkerCommands.GcCollect(),
+                            },
+                        };
+                        task.ComputeInitFingerprint();
+                        return task;
+                    });
+            }
+
+            #endregion
+
+            Console.Write("Saving STAR file...");
+
             TableIn.RemoveRows(RowsNotIncluded.ToArray());
             Star.SaveMultitable(CLI.StarOut, new()
             {
@@ -485,11 +521,6 @@ namespace WarpTools.Commands.Frameseries
                 { "particles", TableIn }
             });
 
-            Console.WriteLine(" Done");
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
             Console.WriteLine(" Done");
         }
     }

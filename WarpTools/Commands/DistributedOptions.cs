@@ -94,6 +94,7 @@ namespace WarpTools.Commands
                 }
 
                 TaskItem task = buildTask(m, i);
+                if (task == null) continue;   // buildTask returns null to skip this item
                 tasks.Add(task);
                 taskIdToItem[task.TaskId] = m;
             }
