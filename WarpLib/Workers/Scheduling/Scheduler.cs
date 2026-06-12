@@ -11,7 +11,7 @@ namespace Warp.Workers.Scheduling
     /// never the cluster scheduler), process failures (matrix + blacklist +
     /// re-pend/poison), top up via the provisioner. Exits when the queue drains.
     /// </summary>
-    public class Scheduler
+    public class Scheduler : IDisposable
     {
         private readonly QueueLayout _layout;
         private readonly TaskQueue _queue;
@@ -157,6 +157,14 @@ namespace Warp.Workers.Scheduling
             catch { /* not empty or racing; leave it */ }
         }
 
+        /// <summary>Release the pool.lock without draining. Use in tests or error paths.</summary>
+        public void Dispose()
+        {
+            _lockHandle?.Dispose();
+            _lockHandle = null;
+            try { File.Delete(_layout.Lock); } catch { }
+        }
+
         /// <summary>
         /// Run until drained or <paramref name="cancel"/> is requested.
         /// The caller should cancel the token after <c>WorkPool.Distribute</c>
@@ -183,9 +191,7 @@ namespace Warp.Workers.Scheduling
             }
             finally
             {
-                _lockHandle?.Dispose();
-                _lockHandle = null;
-                try { File.Delete(_layout.Lock); } catch { }
+                Dispose();
             }
         }
     }
