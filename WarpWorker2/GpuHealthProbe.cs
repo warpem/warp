@@ -13,6 +13,13 @@ namespace WarpWorker2
     {
         public static bool Probe(int deviceId)
         {
+            // Clear error from any previous kernels
+            try
+            {
+                GPU.CheckGPUExceptions();
+            }
+            catch { }
+            
             try
             {
                 GPU.SetDevice(deviceId);

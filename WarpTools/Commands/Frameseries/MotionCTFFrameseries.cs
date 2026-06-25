@@ -246,7 +246,7 @@ namespace WarpTools.Commands
 
                 var task = new TaskItem
                 {
-                    TaskId = $"{i:D7}-motioncTF-{m.RootName}",
+                    TaskId = $"{i:D7}-motionctf-{m.RootName}",
                     Stage = "preprocess",
                     RequiresGpu = true,
                     Init = new[] { loadGainRef },
