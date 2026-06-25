@@ -222,7 +222,13 @@ namespace WarpTools.Commands
                                 ? @"dd\.hh\:mm\:ss"
                                 : ((int)remaining.TotalHours > 0 ? @"hh\:mm\:ss" : @"mm\:ss"));
 
-                            if (!StrictFormatting) VirtualConsole.ClearLastLine();
+                            // Clear unconditionally (matching legacy IterateOverItems):
+                            // the progress line is refreshed in place by emptying the last
+                            // log entry and re-writing it, so consecutive updates consolidate
+                            // into one line. Gating this on StrictFormatting (as Relay sets)
+                            // makes every Write append instead, producing one ever-growing
+                            // line Relay cannot parse.
+                            VirtualConsole.ClearLastLine();
                             Console.Write($"{nDone}/{total}{failedString}, {timeString} remaining");
                         }
                     },
