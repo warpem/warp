@@ -59,7 +59,7 @@ of [warpem.github.io/warp](https://warpem.github.io/warp/).
 
 After cloning this repository, run these commands:
 ```
-conda env create -f warp_build.yml
+conda env create -f warp_build.yml --channel-priority flexible
 conda activate warp_build
 ./scripts/build-native-unix.sh
 ./scripts/publish-unix.sh
@@ -67,7 +67,7 @@ conda activate warp_build
 
 If you're building on a machine without an NVIDIA GPU, set `CONDA_OVERRIDE_CUDA=12.9` before creating the environment so that conda installs the CUDA variant of PyTorch:
 ```
-CONDA_OVERRIDE_CUDA=12.9 conda env create -f warp_build.yml
+CONDA_OVERRIDE_CUDA=12.9 conda env create -f warp_build.yml --channel-priority flexible
 ```
 All binaries will be in `Release/linux-x64/publish`.
 
@@ -107,4 +107,4 @@ The documentation is built and deployed by calling `mkdocs build` on GitHub acti
 
 Warp was originally developed by [Dimitry Tegunov](mailto:tegunov@gmail.com) in Patrick Cramer's lab at the Max Planck Institute for Biophysical Chemistry in Göttingen, Germany. This code is available [in its original repository](https://github.com/cramerlab/warp).
 
-Warp is now being developed by Dimitry Tegunov and Alister Burt at Genentech, Inc. in South San Francisco, USA. For a list of changes that occurred between the last release under the Max Planck Society and the first release at Genentech, please see CHANGELOG.
+Warp is now being developed by Dimitry Tegunov at Genentech, Inc. in South San Francisco, USA. For a list of changes that occurred between the last release under the Max Planck Society and the first release at Genentech, please see CHANGELOG.
