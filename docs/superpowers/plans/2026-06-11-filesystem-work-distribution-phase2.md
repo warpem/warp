@@ -254,6 +254,11 @@ A3 (SIGTERM handler)   — last; only matters for cluster preemption
   path is well-exercised. Relay work requires: `ExternalProvisioner` wiring,
   CLI flag to suppress local worker spawning, Relay job-type pool interface,
   submission cap, re-adoption on Relay restart. These become Phase 3.
+  - **Update (2026-06-24):** the first two are now landed — `DistributeItems`
+    selects `ExternalProvisioner` when the `--external_provisioner` flag is set,
+    suppressing local worker spawning and device resolution. Relay already invokes
+    the WarpTools with this flag. The remaining Phase 3 items (pool interface,
+    submission cap, re-adoption) live on the Relay side.
 - **Tilt-series command ports** — different item type (`TiltSeries` vs `Movie`);
   `DistributeItems<T>` is constrained to `T : Movie` today. Either generalize the
   constraint or add a parallel `DistributeTiltSeriesItems` helper. Separate plan.

@@ -33,6 +33,10 @@ namespace WarpTools.Commands
         [Option("workers", HelpText = "List of remote workers to be used instead of locally spawned processes. Formatted as hostname:port, separated by spaces")]
         public IEnumerable<string> Workers { get; set; }
 
+        [Option("external_provisioner", HelpText = "Don't spawn local worker processes. An external system (e.g. Relay) provisions " +
+                                                   "workers that claim tasks from the queue directory. Used for cluster execution.")]
+        public bool UseExternalProvisioner { get; set; }
+
         private WorkerWrapper[] ConnectedWorkers = null;
 
         public override void Evaluate()
@@ -99,23 +103,39 @@ namespace WarpTools.Commands
                 taskIdToItem[task.TaskId] = m;
             }
 
-            // Resolve devices, cap workers to actual item count.
-            List<int> devices = (DeviceList == null || !DeviceList.Any())
-                ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
-                : DeviceList.ToList();
-            if (devices.Count <= 0)
-                throw new Exception("No devices found or specified");
-            int target = Math.Min(InputSeries.Length, devices.Count * ProcessesPerDevice);
-
             // Per-item processing logs go to <output>/logs/<task_id>.log, matching the
             // location the legacy IterateOverItems path used. The queue dir (which may be
             // on fast scratch via --task_dir) keeps only worker lifecycle files.
             string logDir = Path.Combine(OutputProcessing, "logs");
             Directory.CreateDirectory(logDir);
-            var provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
-            var scheduler = new Scheduler(layout, queue, provisioner, target);
 
-            Console.WriteLine($"Distributing {tasks.Count} tasks across up to {target} local worker(s)...");
+            IWorkerProvisioner provisioner;
+            int target;
+            if (UseExternalProvisioner)
+            {
+                // Cluster mode: an external system (Relay) spawns workers that claim
+                // from the queue dir. The manager still runs the Scheduler (heartbeat,
+                // orphan sweep, failure processing) but never spawns or counts local
+                // processes — so we skip device resolution entirely, which also avoids
+                // touching the GPU on a manager node that may have none.
+                provisioner = new ExternalProvisioner();
+                target = 0;
+                Console.WriteLine($"Distributing {tasks.Count} tasks; workers provisioned externally...");
+            }
+            else
+            {
+                // Local mode: resolve devices, cap workers to actual item count.
+                List<int> devices = (DeviceList == null || !DeviceList.Any())
+                    ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
+                    : DeviceList.ToList();
+                if (devices.Count <= 0)
+                    throw new Exception("No devices found or specified");
+                target = Math.Min(InputSeries.Length, devices.Count * ProcessesPerDevice);
+                provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
+                Console.WriteLine($"Distributing {tasks.Count} tasks across up to {target} local worker(s)...");
+            }
+
+            var scheduler = new Scheduler(layout, queue, provisioner, target);
 
             // Enqueue ALL tasks before starting the scheduler thread so workers always
             // find work in pending/ on their first claim attempt. If tasks are enqueued

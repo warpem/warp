@@ -303,6 +303,10 @@ difference is a **pluggable provisioner**:
   at the queue dir + a `--device N` GPU index).
 - **`ExternalProvisioner`** — a no-op. In cluster mode, **Relay** provisions
   workers; the manager only does heartbeat + sweep + failure-tracking + stats.
+  Selected by the `--external_provisioner` CLI flag (`DistributedOptions`): when
+  set, `DistributeItems` skips device resolution (the manager node may have no GPU)
+  and builds an `ExternalProvisioner` instead of a `LocalProvisioner`. Relay invokes
+  the WarpTool with this flag and spawns workers pointed at the same queue dir.
 
 Per scheduler tick the manager:
 
