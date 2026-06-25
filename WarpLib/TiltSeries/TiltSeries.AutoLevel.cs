@@ -539,6 +539,11 @@ public class ProcessingOptionsTomoAutoLevel : TomoProcessingOptionsBase
                GridSize == other.GridSize;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsTomoAutoLevel left, ProcessingOptionsTomoAutoLevel right)
     {
         return Equals(left, right);

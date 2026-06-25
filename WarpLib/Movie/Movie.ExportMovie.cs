@@ -524,6 +524,11 @@ public class ProcessingOptionsMovieExport : ProcessingOptionsBase
                DosePerAngstromFrame == other.DosePerAngstromFrame;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsMovieExport left, ProcessingOptionsMovieExport right)
     {
         return Equals(left, right);

@@ -600,6 +600,11 @@ public class ProcessingOptionsTomoFullReconstruction : TomoProcessingOptionsBase
                KeepOnlyFullVoxels == other.KeepOnlyFullVoxels;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsTomoFullReconstruction left, ProcessingOptionsTomoFullReconstruction right)
     {
         return Equals(left, right);
