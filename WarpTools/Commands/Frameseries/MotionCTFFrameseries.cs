@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Warp;
@@ -200,6 +201,49 @@ namespace WarpTools.Commands
             ProcessingOptionsMovieMovement OptionsMovement = Options.GetProcessingMovieMovement();
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
+
+            // Filter to only process files that haven't been processed or where options changed
+            Movie[] OriginalInputSeries = CLI.InputSeries;
+            List<Movie> ItemsToProcess = new List<Movie>();
+            List<Movie> ItemsSkipped = new List<Movie>();
+
+            foreach (Movie m in OriginalInputSeries)
+            {
+                m.LoadMeta();
+
+                bool needsMotionProcessing = m.OptionsMovement == null || m.OptionsMovement != OptionsMovement;
+                bool needsCTFProcessing = m.OptionsCTF == null || m.OptionsCTF != OptionsCTF;
+
+                if (needsMotionProcessing || needsCTFProcessing)
+                {
+                    ItemsToProcess.Add(m);
+                }
+                else
+                {
+                    ItemsSkipped.Add(m);
+                }
+            }
+
+            CLI.InputSeries = ItemsToProcess.ToArray();
+
+            if (ItemsSkipped.Count > 0)
+            {
+                Console.WriteLine($"Skipping {ItemsSkipped.Count} files that were already processed with the same options.");
+            }
+
+            if (ItemsToProcess.Count == 0)
+            {
+                Console.WriteLine("All files have already been processed with the current options. Nothing to do.");
+
+                Console.Write("Saying goodbye to all workers...");
+                foreach (var worker in Workers)
+                    worker.Dispose();
+                Console.WriteLine(" Done");
+
+                return;
+            }
+
+            Console.WriteLine($"Processing {ItemsToProcess.Count} files...");
 
             IterateOverItems<Movie>(Workers, CLI, (worker, m) =>
             {
