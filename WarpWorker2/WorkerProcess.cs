@@ -154,6 +154,31 @@ namespace WarpWorker2
             string lastFingerprint = null;
             int consecutiveEmpty = 0;
 
+            // Heartbeat on a dedicated background thread, NOT once per claim. A single
+            // task can run for minutes (e.g. a tomogram reconstruction); if the only
+            // tick happened at the top of the claim loop, the heartbeat would go stale
+            // mid-task, the manager's stall sweep would declare the (still-alive) worker
+            // dead, re-pend its task and delete running/<wid>/ — after which the worker
+            // crashes writing into the vanished dir and the task is redone concurrently.
+            // The background ticker keeps a busy worker visibly alive. It is the sole
+            // caller of WriteTick (HeartbeatWriter is not safe for concurrent writers),
+            // and stops quietly if the dir is removed by a genuine sweep.
+            const int HeartbeatIntervalMs = 5000;
+            var hbCts = new System.Threading.CancellationTokenSource();
+            var hbThread = new System.Threading.Thread(() =>
+            {
+                while (!hbCts.IsCancellationRequested)
+                {
+                    try { myHeartbeat.WriteTick(); }
+                    catch { break; }   // dir swept away or transient FS error: stop ticking
+                    for (int slept = 0; slept < HeartbeatIntervalMs && !hbCts.IsCancellationRequested; slept += 100)
+                        System.Threading.Thread.Sleep(100);
+                }
+            }) { IsBackground = true, Name = "worker-heartbeat" };
+            hbThread.Start();
+
+            try
+            {
             while (true)
             {
                 // Check SIGTERM first — after any prior task completed, before claiming.
@@ -163,7 +188,6 @@ namespace WarpWorker2
                     return;
                 }
 
-                myHeartbeat.WriteTick();
                 managerMonitor.Observe();
                 if (!DebugMode && managerMonitor.IsStalled())
                 {
@@ -237,6 +261,12 @@ namespace WarpWorker2
                     // Healthy hardware: init state intact, do NOT reset. Fail task, continue.
                     queue.MarkFailed(workerId, task, Flatten(ex), Environment.MachineName);
                 }
+            }
+            }
+            finally
+            {
+                hbCts.Cancel();
+                try { hbThread.Join(1000); } catch { }
             }
         }
 

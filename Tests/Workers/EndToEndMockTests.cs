@@ -68,4 +68,62 @@ public class EndToEndMockTests : IDisposable
         Assert.Equal(4, results.Count);
         Assert.All(results.Values, r => Assert.Equal(WorkOutcome.Done, r.Outcome));
     }
+
+    // Regression test for the heartbeat-during-long-task bug: the worker used to write
+    // its heartbeat only at the top of the claim loop (once per task), so any task that
+    // ran longer than the manager's stall timeout looked dead. The sweep would re-pend
+    // the task and delete running/<wid>/ under the still-alive worker, which then crashed
+    // and the task got redone. Tilt-series reconstruction (minutes per task) hit this on
+    // essentially every task. With the background heartbeat ticker, a busy worker stays
+    // alive: the task completes once and is never re-pended (RetryCount stays 0).
+    [Fact]
+    public void LongTaskIsNotSweptWhileWorkerIsAlive()
+    {
+        var layout = new QueueLayout(_root);
+        layout.EnsureDirectories();
+        var queue = new TaskQueue(layout);
+        var pool = new WorkPool(layout, queue);
+
+        // One task whose Main runs ~10 s (three mock CTF steps, each sleeps 3-4 s) —
+        // comfortably longer than the 8 s stall timeout below, but the 5 s heartbeat
+        // ticker keeps the worker visibly alive throughout.
+        var task = new TaskItem
+        {
+            TaskId = "0000001-longmock",
+            Main = new[]
+            {
+                new NamedSerializableObject(nameof(WorkerWrapper.LoadStack), "movie.mrc", 1M, 1, true),
+                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), "movie.mrc", new ProcessingOptionsMovieCTF()),
+                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), "movie.mrc", new ProcessingOptionsMovieCTF()),
+                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), "movie.mrc", new ProcessingOptionsMovieCTF()),
+            },
+        };
+        task.ComputeInitFingerprint();
+        var tasks = new[] { task };
+
+        var provisioner = new LocalProvisioner(_root, new[] { 0 }, perDevice: 1, mock: true);
+        var scheduler = new Scheduler(layout, queue, provisioner, target: 1,
+            workerStallTimeoutMs: 8_000, workerStartupGraceMs: 60_000);
+
+        pool.Enqueue(tasks);
+
+        var schedCts = new System.Threading.CancellationTokenSource();
+        var schedThread = new System.Threading.Thread(
+            () => scheduler.RunToDrain(pollMs: 500, cancel: schedCts.Token)) { IsBackground = true };
+        schedThread.Start();
+
+        var results = pool.Distribute(tasks, pollMs: 200);
+        schedCts.Cancel();
+        schedThread.Join();
+
+        Assert.Single(results);
+        Assert.Equal(WorkOutcome.Done, results[task.TaskId].Outcome);
+
+        // The decisive check: a falsely-swept task would have been re-pended with
+        // RetryCount incremented before being redone. A never-swept task stays at 0.
+        var donePath = Path.Combine(layout.Done, task.TaskId + ".json");
+        Assert.True(File.Exists(donePath));
+        var doneTask = TaskItem.FromJson(File.ReadAllText(donePath));
+        Assert.Equal(0, doneTask.RetryCount);
+    }
 }
