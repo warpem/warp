@@ -1,3 +1,4 @@
+using Warp;
 using Warp.Tools;
 
 namespace Warp.Workers
@@ -52,6 +53,12 @@ namespace Warp.Workers
         public static NamedSerializableObject MovieExportParticles(
             string path, ProcessingOptionsParticleExport options, float2[] coordinates) =>
             new(nameof(WorkerWrapper.MovieExportParticles), path, options, coordinates);
+
+        // --- Tilt series ---
+
+        public static NamedSerializableObject TomoStack(
+            string path, ProcessingOptionsTomoStack options) =>
+            new(nameof(WorkerWrapper.TomoStack), path, options);
 
         public static NamedSerializableObject WaitAsyncTasks() =>
             new(nameof(WorkerWrapper.WaitAsyncTasks));
