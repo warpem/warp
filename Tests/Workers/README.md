@@ -16,7 +16,7 @@ GPU; the end-to-end test spawns the real `WarpWorker2 --mock` binary.
 | `FailureMatrixTests.cs` | `FailureMatrix`: host blacklist threshold, dedup, task poison threshold, retry cap |
 | `SchedulerTests.cs` | `Scheduler`: stall sweep, drain detection, re-pend below cap, poison at cap, host blacklist marker |
 | `WorkPoolTests.cs` | `WorkPool`: distribute blocks until terminal, poisoned outcome |
-| `EndToEndMockTests.cs` | Full pipeline: LocalProvisioner spawns WarpWorker2 --mock, Scheduler + WorkPool drain 4 tasks |
+| `EndToEndMockTests.cs` | Full pipeline (spawns WarpWorker2 --mock): drain 4 tasks; long-task-not-falsely-swept regression; `--persistent` worker survives an empty queue |
 | `SmokeTests.cs` | Sanity check (test harness works) |
 
 ---
@@ -31,8 +31,8 @@ directory. Tests never share filesystem state.
 
 ## End-to-end test
 
-`EndToEndMockTests.MockPipelineDrainsQueue` is the only test that launches an
-external process. It exercises the full stack:
+`EndToEndMockTests` launches real `WarpWorker2 --mock` processes (the other
+classes never spawn workers). `MockPipelineDrainsQueue` exercises the full stack:
 
 ```
 Test process
@@ -67,7 +67,7 @@ The test runs automatically in `dotnet test` without manual setup.
 ## Running the tests
 
 ```bash
-# All tests (including e2e):
+# All tests (including e2e) — Debug, the default:
 dotnet test Tests/Tests.csproj
 
 # Unit tests only (fast, no subprocess):
@@ -76,6 +76,16 @@ dotnet test Tests/Tests.csproj --filter "FullyQualifiedName!~EndToEndMockTests"
 # Specific class:
 dotnet test Tests/Tests.csproj --filter SchedulerTests
 ```
+
+**Run the worker-spawning e2e tests in Debug, not Release.** WarpWorker2's Release
+config sets `PlatformTarget=x64` (the deployed worker must be an x64 process so the
+x64-only CUDA/native libs load; the cluster artifact is pinned x64 by the
+`--runtime linux-x64` publish anyway). On an arm64 machine that x64 worker DLL
+fails to load (`FileLoadException: architecture is not compatible`), so a spawned
+worker dies immediately and `WorkPool.Distribute` — which has no timeout — polls
+forever and the test hangs. The Debug build is AnyCPU, so it runs natively on both
+arm64 and x64; mock mode never touches the native libs. `CopyWorkerBinary` copies
+from `..\bin\` (the Debug output) for this reason.
 
 ---
 

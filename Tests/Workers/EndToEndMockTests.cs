@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Warp;
@@ -125,5 +126,65 @@ public class EndToEndMockTests : IDisposable
         Assert.True(File.Exists(donePath));
         var doneTask = TaskItem.FromJson(File.ReadAllText(donePath));
         Assert.Equal(0, doneTask.RetryCount);
+    }
+
+    // A --persistent worker must NOT exit when the queue is empty: it keeps polling
+    // for work that arrives later. Without this, an externally managed pool (Relay)
+    // relaunches workers that quit before the manager has exited — causing end-of-run
+    // job churn — and online processing (queue empty between bursts) is impossible.
+    //
+    // Spawns a real WarpWorker2 process, so it requires an arch-compatible worker
+    // binary: run in Debug locally (AnyCPU). The Release build is x64-only for the
+    // CUDA/cluster artifact and will not load on an arm64 dev machine.
+    [Fact]
+    public void PersistentWorkerSurvivesEmptyQueueAndDrainsLateTask()
+    {
+        var layout = new QueueLayout(_root);
+        layout.EnsureDirectories();
+        var queue = new TaskQueue(layout);
+        var pool = new WorkPool(layout, queue);
+
+        // Located the same way the LocalProvisioner finds it, against an empty queue.
+        string exe = Path.Combine(AppContext.BaseDirectory, "WarpWorker2");
+        var psi = new ProcessStartInfo
+        {
+            FileName = exe,
+            Arguments = $"-d 0 -q \"{_root}\" --mock --persistent --worker-id testpersist",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        using var proc = Process.Start(psi);
+        try
+        {
+            // A non-persistent worker exits "queue empty" after ~1 s (2 empty polls).
+            // Give it well past that, then assert it is still alive.
+            System.Threading.Thread.Sleep(4000);
+            Assert.False(proc.HasExited, "persistent worker exited on empty queue");
+
+            // Work that arrives later must still be claimed and completed.
+            var t = new TaskItem
+            {
+                TaskId = "0000001-latemock",
+                Main = new[]
+                {
+                    new NamedSerializableObject(nameof(WorkerWrapper.LoadStack), "m.mrc", 1M, 1, true),
+                    new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessMovement), "m.mrc", new ProcessingOptionsMovieMovement()),
+                },
+            };
+            t.ComputeInitFingerprint();
+            pool.Enqueue(new[] { t });
+
+            string donePath = Path.Combine(layout.Done, t.TaskId + ".json");
+            var sw = Stopwatch.StartNew();
+            while (!File.Exists(donePath) && sw.ElapsedMilliseconds < 15_000)
+                System.Threading.Thread.Sleep(200);
+
+            Assert.True(File.Exists(donePath), "persistent worker did not process the late-arriving task");
+            Assert.False(proc.HasExited, "persistent worker exited after draining the queue");
+        }
+        finally
+        {
+            try { if (!proc.HasExited) proc.Kill(true); } catch { }
+        }
     }
 }
