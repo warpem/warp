@@ -20,4 +20,39 @@ static partial class WorkerProcess
 
         Console.WriteLine($"[MOCK] Skipped tilt stack for {Path}");
     }
+
+    [MockCommand(nameof(WorkerWrapper.TomoReconstruct))]
+    static void MockTomoReconstruct(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped full reconstruction for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoAutoLevel))]
+    static void MockTomoAutoLevel(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped auto-leveling for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.LoadTomoDenoiser))]
+    static void MockLoadTomoDenoiser(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped denoiser load from {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoDenoise))]
+    static void MockTomoDenoise(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped denoising for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoPeakAlign))]
+    static void MockTomoPeakAlign(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped peak alignment for {Path}");
+    }
 }

@@ -35,6 +35,7 @@ namespace WarpWorker2
         static string OriginalStackOwner = "";
         static Image OriginalStack = null;
         static BoxNetTorch BoxNetModel = null;
+        static NoiseNet3DTorch DenoiserModel = null;
 
         static void RegisterCommands()
         {

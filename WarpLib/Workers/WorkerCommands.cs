@@ -60,6 +60,27 @@ namespace Warp.Workers
             string path, ProcessingOptionsTomoStack options) =>
             new(nameof(WorkerWrapper.TomoStack), path, options);
 
+        public static NamedSerializableObject TomoReconstruct(
+            string path, ProcessingOptionsTomoFullReconstruction options) =>
+            new(nameof(WorkerWrapper.TomoReconstruct), path, options);
+
+        public static NamedSerializableObject TomoAutoLevel(
+            string path, ProcessingOptionsTomoAutoLevel options) =>
+            new(nameof(WorkerWrapper.TomoAutoLevel), path, options);
+
+        public static NamedSerializableObject LoadTomoDenoiser(
+            string path, int3 windowSize, int batchSize) =>
+            new(nameof(WorkerWrapper.LoadTomoDenoiser), path, windowSize, batchSize);
+
+        public static NamedSerializableObject TomoDenoise(
+            string path, ProcessingOptionsTomoDenoise options) =>
+            new(nameof(WorkerWrapper.TomoDenoise), path, options);
+
+        public static NamedSerializableObject TomoPeakAlign(
+            string path, ProcessingOptionsTomoPeakAlign options,
+            string templatePath, float3[] positions, float3[] angles) =>
+            new(nameof(WorkerWrapper.TomoPeakAlign), path, options, templatePath, positions, angles);
+
         public static NamedSerializableObject WaitAsyncTasks() =>
             new(nameof(WorkerWrapper.WaitAsyncTasks));
 
