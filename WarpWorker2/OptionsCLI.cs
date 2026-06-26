@@ -29,6 +29,12 @@ namespace WarpWorker2
         [Option("debug", HelpText = "Debug output; do not exit on heartbeat stall")]
         public bool Debug { get; set; }
 
+        [Option("persistent", HelpText = "Don't exit when the queue is empty; keep polling for new tasks. " +
+                                         "For online processing or externally managed worker pools (e.g. Relay), where " +
+                                         "the queue is transiently empty but more work will arrive. The worker still " +
+                                         "exits on SIGTERM or when the manager's heartbeat goes stale.")]
+        public bool Persistent { get; set; }
+
         [Option("debug_attach", HelpText = "Attach a debugger to this worker")]
         public bool DebugAttach { get; set; }
     }

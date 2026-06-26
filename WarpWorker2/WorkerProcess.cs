@@ -208,8 +208,18 @@ namespace WarpWorker2
                 var task = queue.ClaimOne(workerId, opts.Stages != null && opts.Stages.Any() ? opts.Stages : null);
                 if (task == null)
                 {
-                    consecutiveEmpty++;
-                    if (consecutiveEmpty >= 2) { WriteExit(layout, workerId, "queue empty"); return; }
+                    // Persistent workers keep polling instead of exiting on an empty
+                    // queue. This avoids end-of-run churn under an externally managed
+                    // pool (Relay relaunches a worker that quits before the manager has
+                    // exited) and is required for online processing, where the queue is
+                    // transiently empty between bursts. The SIGTERM and manager-heartbeat
+                    // checks at the loop top still let a persistent worker exit cleanly
+                    // when it is torn down or the manager goes away.
+                    if (!opts.Persistent)
+                    {
+                        consecutiveEmpty++;
+                        if (consecutiveEmpty >= 2) { WriteExit(layout, workerId, "queue empty"); return; }
+                    }
                     System.Threading.Thread.Sleep(500);
                     continue;
                 }
