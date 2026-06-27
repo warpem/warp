@@ -55,4 +55,26 @@ static partial class WorkerProcess
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped peak alignment for {Path}");
     }
+
+    // Touch the metadata so the orchestrator's onSuccess hook (which builds the 3D
+    // output STAR table from the loaded tilt-series meta) has something to load.
+    [MockCommand(nameof(WorkerWrapper.TomoExportParticleSubtomos))]
+    static void MockTomoExportParticleSubtomos(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Skipped subtomo export for {Path}");
+    }
+
+    // 2D export is not exercised in mock mode: the real worker writes the per-series
+    // temp STAR file that onSuccess reads back, which the mock does not produce.
+    [MockCommand(nameof(WorkerWrapper.TomoExportParticleSeries))]
+    static void MockTomoExportParticleSeries(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped particle-series export for {Path}");
+    }
 }

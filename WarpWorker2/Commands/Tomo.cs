@@ -103,4 +103,39 @@ static partial class WorkerProcess
 
         Console.WriteLine($"Performed alignment to peaks for {Path}");
     }
+
+    [Command(nameof(WorkerWrapper.TomoExportParticleSubtomos))]
+    static void TomoExportParticleSubtomos(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        var Options = (ProcessingOptionsTomoSubReconstruction)Command.Content[1];
+        float3[] Coordinates = (float3[])Command.Content[2];
+        float3[] Angles = Command.Content[3] != null ? (float3[])Command.Content[3] : null;
+
+        TiltSeries T = new TiltSeries(Path);
+        T.ReconstructSubtomos(Options, Coordinates, Angles);
+        T.SaveMeta();
+
+        Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+    }
+
+    [Command(nameof(WorkerWrapper.TomoExportParticleSeries))]
+    static void TomoExportParticleSeries(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        var Options = (ProcessingOptionsTomoSubReconstruction)Command.Content[1];
+        float3[] Coordinates = (float3[])Command.Content[2];
+        float3[] Angles = Command.Content[3] != null ? (float3[])Command.Content[3] : null;
+        string PathsRelativeTo = (string)Command.Content[4];
+        string PathTableOut = (string)Command.Content[5];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.ReconstructParticleSeries(Options, Coordinates, Angles, PathsRelativeTo, out Star TableOut);
+        T.SaveMeta();
+
+        if (!string.IsNullOrEmpty(PathTableOut))
+            TableOut.Save(PathTableOut);
+
+        Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+    }
 }

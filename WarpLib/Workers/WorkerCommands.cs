@@ -81,6 +81,17 @@ namespace Warp.Workers
             string templatePath, float3[] positions, float3[] angles) =>
             new(nameof(WorkerWrapper.TomoPeakAlign), path, options, templatePath, positions, angles);
 
+        public static NamedSerializableObject TomoExportParticleSubtomos(
+            string path, ProcessingOptionsTomoSubReconstruction options,
+            float3[] coordinates, float3[] angles) =>
+            new(nameof(WorkerWrapper.TomoExportParticleSubtomos), path, options, coordinates, angles);
+
+        public static NamedSerializableObject TomoExportParticleSeries(
+            string path, ProcessingOptionsTomoSubReconstruction options,
+            float3[] coordinates, float3[] angles, string pathsRelativeTo, string pathTableOut) =>
+            new(nameof(WorkerWrapper.TomoExportParticleSeries),
+                path, options, coordinates, angles, pathsRelativeTo, pathTableOut);
+
         public static NamedSerializableObject WaitAsyncTasks() =>
             new(nameof(WorkerWrapper.WaitAsyncTasks));
 
