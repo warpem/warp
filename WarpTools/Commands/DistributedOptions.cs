@@ -256,6 +256,107 @@ namespace WarpTools.Commands
             return (processed, failed);
         }
 
+        /// <summary>
+        /// Distribute an explicit list of tasks that are NOT derived per-item from
+        /// InputSeries, through the same scheduler + worker pool as DistributeItems,
+        /// blocking until all reach a terminal state. Used for whole-run steps — e.g.
+        /// the single reduce task that finalizes an averaged reconstruction by summing
+        /// the per-worker partials. There is no per-item metadata handling here; the
+        /// caller owns whatever the tasks read/write.
+        /// </summary>
+        internal void DistributeTasks(IReadOnlyList<TaskItem> tasks, int pollMs = 500)
+        {
+            if (Workers != null && Workers.Any())
+                throw new Exception(
+                    $"The --workers (remote hostname:port) option is not supported by the " +
+                    $"filesystem-based distribution path. Use --device_list / --perdevice for " +
+                    $"local GPU distribution, or run under Relay for cluster execution.");
+
+            if (tasks == null || tasks.Count == 0)
+                return;
+
+            string queuePath = !string.IsNullOrEmpty(TaskDir)
+                ? TaskDir
+                : Path.Combine(OutputProcessing, "tasks");
+            var layout = new QueueLayout(queuePath);
+            layout.EnsureDirectories();
+            var queue = new TaskQueue(layout);
+            queue.Clear();
+            var pool = new WorkPool(layout, queue);
+
+            string logDir = Path.Combine(OutputProcessing, "logs");
+            Directory.CreateDirectory(logDir);
+
+            IWorkerProvisioner provisioner;
+            int target;
+            if (UseExternalProvisioner)
+            {
+                provisioner = new ExternalProvisioner();
+                target = 0;
+                Console.WriteLine($"Distributing {tasks.Count} task(s); workers provisioned externally...");
+            }
+            else
+            {
+                List<int> devices = (DeviceList == null || !DeviceList.Any())
+                    ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
+                    : DeviceList.ToList();
+                if (devices.Count <= 0)
+                    throw new Exception("No devices found or specified");
+                target = Math.Min(tasks.Count, devices.Count * ProcessesPerDevice);
+                provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
+                Console.WriteLine($"Distributing {tasks.Count} task(s) across up to {target} local worker(s)...");
+            }
+
+            var scheduler = new Scheduler(layout, queue, provisioner, target);
+
+            var taskList = tasks.ToList();
+            pool.Enqueue(taskList);
+
+            int total = taskList.Count;
+            int nDone = 0, nFailed = 0;
+            var progressTimer = Stopwatch.StartNew();
+            Console.Write($"0/{total}");
+
+            var schedCts = new System.Threading.CancellationTokenSource();
+            var schedThread = new Thread(() => scheduler.RunToDrain(cancel: schedCts.Token)) { IsBackground = true };
+            schedThread.Start();
+
+            try
+            {
+                pool.Distribute(taskList,
+                    onResult: result =>
+                    {
+                        bool succeeded = result.Outcome == WorkOutcome.Done;
+                        nDone++;
+                        if (!succeeded)
+                        {
+                            nFailed++;
+                            if (!StrictFormatting) VirtualConsole.ClearLastLine();
+                            Console.Error.WriteLine($"Task {result.TaskId} failed.");
+                            Console.Error.WriteLine($"Check logs in {logDir} for more info.");
+                            if (!string.IsNullOrEmpty(result.Error))
+                                Console.Error.WriteLine("Exception details:\n" + result.Error);
+                        }
+
+                        VirtualConsole.ClearLastLine();
+                        string failedString = nFailed > 0 ? $", {nFailed} failed" : "";
+                        Console.Write($"{nDone}/{total}{failedString}");
+                    },
+                    pollMs: pollMs);
+            }
+            finally
+            {
+                schedCts.Cancel();
+                schedThread.Join();
+                provisioner.Shutdown();
+            }
+
+            Console.WriteLine();
+
+            if (nFailed == total && total > 0)
+                throw new Exception("All tasks failed to process. Check logs for more info.");
+        }
+
         // Writes two atomic JSON snapshots (processed + failed item lists) for Relay
         // live-progress consumption. Uses a temp-file + rename to prevent partial reads.
         private static void WriteItemSnapshots<T>(

@@ -17,6 +17,9 @@ namespace WarpWorker2
         static readonly Dictionary<string, MethodInfo> MockCommandMethods = new();
 
         static int DeviceID = 0;
+        // This worker's id, used by accumulating commands to name their per-worker
+        // output (e.g. reconstruction partials). Set once in Main.
+        static string WorkerId = "";
         static bool MockMode = false;
         static bool DebugMode = false;
         static bool IsSilent = false;
@@ -36,6 +39,11 @@ namespace WarpWorker2
         static Image OriginalStack = null;
         static BoxNetTorch BoxNetModel = null;
         static NoiseNet3DTorch DenoiserModel = null;
+        // Fourier-space accumulators for averaged reconstruction. Allocated by the
+        // InitReconstructions init command (amortized once per worker) and added to by
+        // each TomoAddToReconstructionAndSave task — so a worker keeps accumulating
+        // across the tilt series it claims, and safe-saves its running partial each time.
+        static Projector[] Reconstructions = null;
 
         static void RegisterCommands()
         {
@@ -110,6 +118,7 @@ namespace WarpWorker2
             string workerId = string.IsNullOrEmpty(opts.WorkerId)
                 ? $"local-{Environment.ProcessId}-gpu{DeviceID}"
                 : opts.WorkerId;
+            WorkerId = workerId;
 
             var layout = new Warp.Workers.Queue.QueueLayout(opts.QueueDir);
             var queue = new Warp.Workers.Queue.TaskQueue(layout);
@@ -289,6 +298,11 @@ namespace WarpWorker2
             GainRef?.Dispose(); GainRef = null;
             OriginalStack?.Dispose(); OriginalStack = null;
             DefectMap?.Dispose(); DefectMap = null;
+            if (Reconstructions != null)
+            {
+                foreach (var rec in Reconstructions) rec?.Dispose();
+                Reconstructions = null;
+            }
             GPU.SetDevice(DeviceID);
         }
 

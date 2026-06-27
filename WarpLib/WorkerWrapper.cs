@@ -544,6 +544,42 @@ namespace Warp
                                                     pixelSize));
         }
 
+        // Filesystem-distribution variants. The worker keeps a resident accumulator
+        // (InitReconstructions in the task's init), adds one tilt series' particles per
+        // task, then atomically saves its running partial under a per-worker name in
+        // tempDir — so a crash loses at most the current item. The reduce task
+        // (TomoFinishReconstruction) sums all per-worker partials into a fresh
+        // accumulator and writes the final map(s).
+        public void TomoAddToReconstructionAndSave(string path,
+                                                   ProcessingOptionsTomoAddToReconstruction options,
+                                                   float3[][] positions,
+                                                   float3[][] angles,
+                                                   string tempDir)
+        {
+            SendCommand(new NamedSerializableObject("TomoAddToReconstructionAndSave",
+                                                    path,
+                                                    options,
+                                                    positions,
+                                                    angles,
+                                                    tempDir));
+        }
+
+        public void TomoFinishReconstruction(string[][] partialPaths,
+                                             string[] symmetries,
+                                             string[] outputPaths,
+                                             float pixelSize,
+                                             int boxSize,
+                                             int oversample)
+        {
+            SendCommand(new NamedSerializableObject("TomoFinishReconstruction",
+                                                    partialPaths,
+                                                    symmetries,
+                                                    outputPaths,
+                                                    pixelSize,
+                                                    boxSize,
+                                                    oversample));
+        }
+
         public void MPAPrepareSpecies(string path, string stagingSave)
         {
             SendCommand(new NamedSerializableObject("MPAPrepareSpecies",

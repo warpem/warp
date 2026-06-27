@@ -116,6 +116,24 @@ namespace Warp.Workers
             new(nameof(WorkerWrapper.TomoExportParticleSeries),
                 path, options, coordinates, angles, pathsRelativeTo, pathTableOut);
 
+        // --- Averaged reconstruction (filesystem map-reduce) ---
+
+        public static NamedSerializableObject InitReconstructions(
+            int nreconstructions, int boxSize, int oversample) =>
+            new(nameof(WorkerWrapper.InitReconstructions), nreconstructions, boxSize, oversample);
+
+        public static NamedSerializableObject TomoAddToReconstructionAndSave(
+            string path, ProcessingOptionsTomoAddToReconstruction options,
+            float3[][] positions, float3[][] angles, string tempDir) =>
+            new(nameof(WorkerWrapper.TomoAddToReconstructionAndSave),
+                path, options, positions, angles, tempDir);
+
+        public static NamedSerializableObject TomoFinishReconstruction(
+            string[][] partialPaths, string[] symmetries, string[] outputPaths,
+            float pixelSize, int boxSize, int oversample) =>
+            new(nameof(WorkerWrapper.TomoFinishReconstruction),
+                partialPaths, symmetries, outputPaths, pixelSize, boxSize, oversample);
+
         public static NamedSerializableObject WaitAsyncTasks() =>
             new(nameof(WorkerWrapper.WaitAsyncTasks));
 
