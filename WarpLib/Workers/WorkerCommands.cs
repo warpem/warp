@@ -60,6 +60,30 @@ namespace Warp.Workers
             string path, ProcessingOptionsTomoStack options) =>
             new(nameof(WorkerWrapper.TomoStack), path, options);
 
+        public static NamedSerializableObject TomoProcessCTF(
+            string path, ProcessingOptionsMovieCTF options) =>
+            new(nameof(WorkerWrapper.TomoProcessCTF), path, options);
+
+        public static NamedSerializableObject TomoMatch(
+            string path, ProcessingOptionsTomoFullMatch options, string templatePath) =>
+            new(nameof(WorkerWrapper.TomoMatch), path, options, templatePath);
+
+        public static NamedSerializableObject TomoAretomo(
+            string path, ProcessingOptionsTomoAretomo options) =>
+            new(nameof(WorkerWrapper.TomoAretomo), path, options);
+
+        public static NamedSerializableObject TomoAretomo3(
+            string path, ProcessingOptionsTomoAretomo3 options) =>
+            new(nameof(WorkerWrapper.TomoAretomo3), path, options);
+
+        public static NamedSerializableObject TomoEtomoFiducials(
+            string path, ProcessingOptionsTomoEtomoFiducials options) =>
+            new(nameof(WorkerWrapper.TomoEtomoFiducials), path, options);
+
+        public static NamedSerializableObject TomoEtomoPatchTrack(
+            string path, ProcessingOptionsTomoEtomoPatch options) =>
+            new(nameof(WorkerWrapper.TomoEtomoPatchTrack), path, options);
+
         public static NamedSerializableObject TomoReconstruct(
             string path, ProcessingOptionsTomoFullReconstruction options) =>
             new(nameof(WorkerWrapper.TomoReconstruct), path, options);

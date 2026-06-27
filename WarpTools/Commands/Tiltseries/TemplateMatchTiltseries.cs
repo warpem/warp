@@ -10,6 +10,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -300,7 +302,35 @@ namespace WarpTools.Commands
                     throw new Exception("Can't match with 0 orientations, please increase --tilt_range");
             }
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
+            // Local helper: one template-matching task per current InputSeries item,
+            // distributed via the filesystem work queue, against the given template.
+            // The optional hook runs orchestrator-side after each item completes — used
+            // by --check_hand to read back the per-series peak STAR the worker wrote.
+            void RunMatch(string templatePath, Action<TiltSeries> onSuccess = null)
+            {
+                foreach (var item in CLI.InputSeries)
+                    item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+                CLI.DistributeItems<TiltSeries>(
+                    buildTask: (t, i) =>
+                    {
+                        var task = new TaskItem
+                        {
+                            TaskId = $"{i:D7}-match-{t.RootName}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Init = Array.Empty<NamedSerializableObject>(),
+                            Main = new[]
+                            {
+                                WorkerCommands.TomoMatch(t.Path, OptionsMatch, templatePath),
+                                WorkerCommands.GcCollect(),
+                            },
+                        };
+                        task.ComputeInitFingerprint();
+                        return task;
+                    },
+                    onSuccess: onSuccess);
+            }
 
             if (CLI.CheckHandN > 0)
             {
@@ -308,57 +338,34 @@ namespace WarpTools.Commands
                 List<float> ScoresOriginal = new();
                 List<float> ScoresFlipped = new();
 
+                // onSuccess runs single-threaded on the result-polling thread, so the
+                // score lists need no locking (unlike the old concurrent callbacks).
+                Action<TiltSeries> CollectTopPeaks(List<float> scores) => t =>
+                {
+                    string PeakTablePath = Path.Combine(t.MatchingDir, t.RootName +
+                                                                       $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
+                                                                       "_" + OptionsMatch.TemplateName + ".star");
+                    List<float> PeakValues = Star.LoadFloat(PeakTablePath, "rlnAutopickFigureOfMerit").ToList();
+                    PeakValues.Sort();
+                    PeakValues = PeakValues.TakeLast(20).ToList();
+                    scores.AddRange(PeakValues);
+                };
+
                 CLI.InputSeries = AllItems.Take(CLI.CheckHandN).ToArray();
 
                 // Unflipped
                 {
                     Console.WriteLine("Testing matching with original template:");
-
                     OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.TemplatePath);
-
-                    IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                    {
-                        worker.TomoMatch(t.Path, OptionsMatch, CLI.TemplatePath);
-
-                        string PeakTablePath = Path.Combine(t.MatchingDir, t.RootName +
-                                                                           $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
-                                                                           "_" + OptionsMatch.TemplateName + ".star");
-                        List<float> PeakValues = Star.LoadFloat(PeakTablePath, "rlnAutopickFigureOfMerit").ToList();
-                        PeakValues.Sort();
-                        PeakValues = PeakValues.TakeLast(20).ToList();
-
-                        lock(Workers)
-                            ScoresOriginal.AddRange(PeakValues);
-
-                        worker.GcCollect();
-                    });
-
+                    RunMatch(CLI.TemplatePath, CollectTopPeaks(ScoresOriginal));
                     Console.WriteLine($"Average top peak value with original template: {ScoresOriginal.Average():F3}");
                 }
 
                 // Flipped
                 {
                     Console.WriteLine("Testing matching with flipped template:");
-
                     OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.FlippedTemplatePath);
-
-                    IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                    {
-                        worker.TomoMatch(t.Path, OptionsMatch, CLI.FlippedTemplatePath);
-
-                        string PeakTablePath = Path.Combine(t.MatchingDir, t.RootName +
-                                                                           $"_{OptionsMatch.BinnedPixelSizeMean:F2}Apx" +
-                                                                           "_" + OptionsMatch.TemplateName + ".star");
-                        List<float> PeakValues = Star.LoadFloat(PeakTablePath, "rlnAutopickFigureOfMerit").ToList();
-                        PeakValues.Sort();
-                        PeakValues = PeakValues.TakeLast(20).ToList();
-
-                        lock (Workers)
-                            ScoresFlipped.AddRange(PeakValues);
-
-                        worker.GcCollect();
-                    });
-
+                    RunMatch(CLI.FlippedTemplatePath, CollectTopPeaks(ScoresFlipped));
                     Console.WriteLine($"Average top peak value with flipped template: {ScoresFlipped.Average():F3}");
                 }
 
@@ -377,17 +384,7 @@ namespace WarpTools.Commands
 
             OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.TemplatePath);
 
-            IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-            {
-                worker.TomoMatch(t.Path, OptionsMatch, CLI.TemplatePath);
-
-                worker.GcCollect();
-            });
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
+            RunMatch(CLI.TemplatePath);
         }
 
         async Task<byte[]> DownloadFileAsync(string url)

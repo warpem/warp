@@ -20,6 +20,46 @@ static partial class WorkerProcess
         Console.WriteLine($"Created tilt stack for {Path}");
     }
 
+    [Command(nameof(WorkerWrapper.TomoProcessCTF))]
+    static void TomoProcessCTF(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        ProcessingOptionsMovieCTF Options = (ProcessingOptionsMovieCTF)Command.Content[1];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.ProcessCTFSimultaneous(Options);
+        T.SaveMeta();
+
+        Console.WriteLine($"Processed CTF for {Path}");
+    }
+
+    [Command(nameof(WorkerWrapper.TomoMatch))]
+    static void TomoMatch(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        var Options = (ProcessingOptionsTomoFullMatch)Command.Content[1];
+        var TemplatePath = (string)Command.Content[2];
+
+        Image Template = Image.FromFile(TemplatePath);
+
+        string LastMessage = "";
+        TiltSeries T = new TiltSeries(Path);
+        T.MatchLargeVolume(Options, Template, (fraction, message) =>
+        {
+            if (message != LastMessage)
+            {
+                LastMessage = message;
+                Console.WriteLine(message);
+            }
+            Console.WriteLine($"{fraction * 100}%");
+            return false;
+        });
+
+        Template.Dispose();
+
+        Console.WriteLine($"Template-matched {Path}");
+    }
+
     [Command(nameof(WorkerWrapper.TomoReconstruct))]
     static void TomoReconstruct(NamedSerializableObject Command)
     {

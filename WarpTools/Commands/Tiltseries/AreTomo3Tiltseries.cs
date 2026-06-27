@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -124,8 +126,6 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-
             Func<float> CalculateAverageAxis = () =>
             {
                 float2 MedianVec = new float2(1, 0);
@@ -175,18 +175,38 @@ namespace WarpTools.Commands
                     CLI.InputSeries = AllSeries;
                 }
 
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                {
-                    if (iiter == 0 || NotUsedForSearch.Contains(t))
-                        worker.TomoStack(t.Path, OptionsStack);
+                foreach (var item in CLI.InputSeries)
+                    item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-                    worker.TomoAretomo3(t.Path, OptionsAretomo3);
+                CLI.DistributeItems<TiltSeries>(
+                    buildTask: (t, i) =>
+                    {
+                        // Stack on the first iteration for every series; on later
+                        // iterations only for series excluded from the axis search, which
+                        // were never stacked (the search subset was stacked in iter 0).
+                        var main = new List<NamedSerializableObject>();
+                        if (iiter == 0 || NotUsedForSearch.Contains(t))
+                            main.Add(WorkerCommands.TomoStack(t.Path, OptionsStack));
+                        main.Add(WorkerCommands.TomoAretomo3(t.Path, OptionsAretomo3));
 
-                    t.ImportAlignments(OptionsImport);
-
-                    if (LastIter)
-                        t.SaveMeta();
-                });
+                        var task = new TaskItem
+                        {
+                            TaskId = $"{i:D7}-aretomo3-{t.RootName}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Init = Array.Empty<NamedSerializableObject>(),
+                            Main = main.ToArray(),
+                        };
+                        task.ComputeInitFingerprint();
+                        return task;
+                    },
+                    onSuccess: t =>
+                    {
+                        // AreTomo3 wrote the alignment files; import them orchestrator-side.
+                        t.ImportAlignments(OptionsImport);
+                        if (LastIter)
+                            t.SaveMeta();
+                    });
 
                 AxisAngle = CalculateAverageAxis();
             }
@@ -207,11 +227,6 @@ namespace WarpTools.Commands
 
                 Console.WriteLine("Done");
             }
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
         }
     }
-} 
+}

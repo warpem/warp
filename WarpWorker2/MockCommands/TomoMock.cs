@@ -77,4 +77,70 @@ static partial class WorkerProcess
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped particle-series export for {Path}");
     }
+
+    // Touch the metadata so anything downstream that loads it has a file to read.
+    [MockCommand(nameof(WorkerWrapper.TomoProcessCTF))]
+    static void MockTomoProcessCTF(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Skipped CTF for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoMatch))]
+    static void MockTomoMatch(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped template matching for {Path}");
+    }
+
+    // The external alignment tools (AreTomo/Etomo) are not exercisable in mock mode:
+    // the orchestrator's onSuccess imports the alignment files they produce, which the
+    // mock does not generate. Touch the meta so a LoadMeta downstream still succeeds.
+    [MockCommand(nameof(WorkerWrapper.TomoAretomo))]
+    static void MockTomoAretomo(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Skipped AreTomo for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoAretomo3))]
+    static void MockTomoAretomo3(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Skipped AreTomo3 for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoEtomoFiducials))]
+    static void MockTomoEtomoFiducials(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Skipped Etomo fiducials for {Path}");
+    }
+
+    [MockCommand(nameof(WorkerWrapper.TomoEtomoPatchTrack))]
+    static void MockTomoEtomoPatchTrack(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+
+        TiltSeries T = new TiltSeries(Path);
+        T.SaveMeta();
+
+        Console.WriteLine($"[MOCK] Skipped Etomo patch tracking for {Path}");
+    }
 }
