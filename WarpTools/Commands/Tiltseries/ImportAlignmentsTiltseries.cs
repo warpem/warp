@@ -54,7 +54,7 @@ namespace WarpTools.Commands
             if (Helper.IsDebug && !CLI.StrictFormatting)
                 Console.WriteLine($"override results dir: {OptionsImport.OverrideResultsDir}");
 
-            IterateOverItems<TiltSeries>(null, CLI, (_, series) =>
+            IterateOverItems<TiltSeries>(CLI, series =>
             {
                 OptionsImport.OverrideResultsDir = Path.Combine(CLI.AlignmentPath, series.RootName);
                 series.ImportAlignments(OptionsImport);

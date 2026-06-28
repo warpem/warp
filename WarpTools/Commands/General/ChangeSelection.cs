@@ -56,7 +56,7 @@ namespace WarpTools.Commands
             int[] StatsBefore = new int[3];
             int[] StatsAfter = new int[3];
 
-            IterateOverItems<Movie>(null, CLI, (_, item) =>
+            IterateOverItems<Movie>(CLI, item =>
             {
                 if (item.UnselectManual.HasValue)
                     StatsBefore[item.UnselectManual.Value ? 0 : 1]++;
