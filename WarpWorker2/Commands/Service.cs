@@ -2,13 +2,13 @@ using System;
 using Warp;
 using Warp.Headers;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
 static partial class WorkerProcess
 {
-    [Command(nameof(WorkerWrapper.WaitAsyncTasks))]
+    [Command(WorkerCommandNames.WaitAsyncTasks)]
     static void WaitAsyncTasks(NamedSerializableObject command)
     {
         Console.Write("Waiting for all async tasks to finish...");
@@ -18,7 +18,7 @@ static partial class WorkerProcess
         Console.WriteLine($" Done");
     }
 
-    [Command(nameof(WorkerWrapper.GcCollect))]
+    [Command(WorkerCommandNames.GcCollect)]
     static void GcCollect(NamedSerializableObject command)
     {
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
@@ -26,7 +26,7 @@ static partial class WorkerProcess
         Console.WriteLine("Garbage collection performed");
     }
 
-    [Command(nameof(WorkerWrapper.SetHeaderlessParams))]
+    [Command(WorkerCommandNames.SetHeaderlessParams)]
     static void SetHeaderlessParams(NamedSerializableObject command)
     {
         HeaderlessDims = (int2)command.Content[0];
@@ -36,7 +36,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Set headerless parameters to {HeaderlessDims}, {HeaderlessOffset}, {HeaderlessType}");
     }
 
-    [Command(nameof(WorkerWrapper.LoadGainRef))]
+    [Command(WorkerCommandNames.LoadGainRef)]
     static void LoadGainRef(NamedSerializableObject command)
     {
         GainRef?.Dispose();
@@ -60,7 +60,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Loaded gain reference and defect map: {GainRef}, {FlipX}, {FlipY}, {Transpose}, {DefectsPath}");
     }
 
-    [Command(nameof(WorkerWrapper.LoadStack))]
+    [Command(WorkerCommandNames.LoadStack)]
     static void LoadStack(NamedSerializableObject command)
     {
         string Path = (string)command.Content[0];

@@ -16,23 +16,17 @@ namespace MCore
         [Option("devicelist", HelpText = "Space-separated list of GPU IDs to use for processing. Default: all GPUs in the system")]
         public IEnumerable<int> DeviceList { get; set; }
 
-        [Option("perdevice_preprocess", HelpText = "Number of processes per GPU used for map pre-processing; leave blank = default to --perdevice_refine value")]
-        public int? ProcessesPerDevicePreprocess { get; set; }
+        [Option("perdevice", Default = 1, HelpText = "Number of worker processes per GPU; set to >1 to improve utilization if your GPUs have enough memory")]
+        public int ProcessesPerDevice { get; set; }
 
-        [Option("perdevice_refine", Default = 1, HelpText = "Number of processes per GPU used for refinement; set to >1 to improve utilization if your GPUs have enough memory")]
-        public int ProcessesPerDeviceRefine { get; set; }
+        [Option("task_dir", HelpText = "Directory for the filesystem work queue used by this run. " +
+                                       "Defaults to a 'tasks' subdirectory inside the population's refinement_temp folder. " +
+                                       "Set this to a fast local scratch path when the population is on a slow network filesystem.")]
+        public string TaskDir { get; set; }
 
-        [Option("perdevice_postprocess", HelpText = "Number of processes per GPU used for map pre-processing; leave blank = default to --perdevice_refine value")]
-        public int? ProcessesPerDevicePostprocess { get; set; }
-
-        [Option("workers_preprocess", HelpText = "List of remote workers to be used instead of locally spawned processes for map pre-processing. Formatted as hostname:port, separated by spaces")]
-        public IEnumerable<string> WorkersPreprocess { get; set; }
-
-        [Option("workers_refine", HelpText = "List of remote workers to be used instead of locally spawned processes for refinement. Formatted as hostname:port, separated by spaces")]
-        public IEnumerable<string> WorkersRefine { get; set; }
-
-        [Option("workers_postprocess", HelpText = "List of remote workers to be used instead of locally spawned processes for map post-processing. Formatted as hostname:port, separated by spaces")]
-        public IEnumerable<string> WorkersPostprocess { get; set; }
+        [Option("external_provisioner", HelpText = "Don't spawn local worker processes. An external system (e.g. Relay) provisions " +
+                                                   "workers that claim tasks from the queue directory. Used for cluster execution.")]
+        public bool UseExternalProvisioner { get; set; }
 
 
         #region General refinement

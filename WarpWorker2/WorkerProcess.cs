@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 using CommandLine;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
 
 namespace WarpWorker2
 {
@@ -44,6 +43,11 @@ namespace WarpWorker2
         // each TomoAddToReconstructionAndSave task — so a worker keeps accumulating
         // across the tilt series it claims, and safe-saves its running partial each time.
         static Projector[] Reconstructions = null;
+        // Resident population for multi-particle refinement. Loaded once per data source
+        // by the MPAPreparePopulation init command and accumulated into by each
+        // MPARefineAndSave task (half-map reconstructions + updated poses), which then
+        // safe-saves the worker's running progress. Reloaded (and freed) per source.
+        static Warp.Sociology.Population MPAPopulation = null;
 
         static void RegisterCommands()
         {
@@ -302,6 +306,11 @@ namespace WarpWorker2
             {
                 foreach (var rec in Reconstructions) rec?.Dispose();
                 Reconstructions = null;
+            }
+            if (MPAPopulation != null)
+            {
+                MPAPopulation.FreeRefinementResources();
+                MPAPopulation = null;
             }
             GPU.SetDevice(DeviceID);
         }

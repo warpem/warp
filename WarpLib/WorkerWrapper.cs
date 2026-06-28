@@ -609,6 +609,21 @@ namespace Warp
                                                     path));
         }
 
+        // Filesystem-distribution variant of refinement. The worker keeps the resident
+        // population (MPAPreparePopulation in the task's init) accumulating across the
+        // items it claims, refines one item, then atomically saves its running progress
+        // (half-map partials + updated particle poses) under a per-worker folder in
+        // tempDir — so a crash loses at most the current item. MPAFinishSpecies then
+        // gathers every per-worker progress folder into the final map(s).
+        public void MPARefineAndSave(string path, ProcessingOptionsMPARefine options, DataSource source, string tempDir)
+        {
+            SendCommand(new NamedSerializableObject("MPARefineAndSave",
+                                                    path,
+                                                    options,
+                                                    source,
+                                                    tempDir));
+        }
+
         public void MPAFinishSpecies(string path, string stagingDirectory, string[] progressFolders)
         {
             SendCommand(new NamedSerializableObject("MPAFinishSpecies",

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -21,6 +21,9 @@ using Microsoft.AspNetCore.Components;
 using System.Reflection;
 using Warp.Sociology;
 using Microsoft.Extensions.Options;
+using Warp.Workers;
+using Warp.Workers.Queue;
+using Warp.Workers.Scheduling;
 
 
 namespace MCore
@@ -35,10 +38,6 @@ namespace MCore
 
         public static bool AppRunning = true;
         public static string ProcessingMessage = "";
-
-        public static readonly List<WorkerWrapper> WorkersPostprocess = new List<WorkerWrapper>();
-        public static readonly List<WorkerWrapper> WorkersRefine = new List<WorkerWrapper>();
-        public static readonly List<WorkerWrapper> WorkersPreprocess = new List<WorkerWrapper>();
 
         public static Task ProcessingTask;
 
@@ -64,13 +63,8 @@ namespace MCore
 
             #region Figure out settings
 
-            if (OptionsCLI.ProcessesPerDeviceRefine < 1)
+            if (OptionsCLI.ProcessesPerDevice < 1)
                 throw new Exception("Number of processes per device should be at least 1");
-
-            if (OptionsCLI.ProcessesPerDevicePreprocess == null || (int)OptionsCLI.ProcessesPerDevicePreprocess <= 0)
-                OptionsCLI.ProcessesPerDevicePreprocess = OptionsCLI.ProcessesPerDeviceRefine;
-            if (OptionsCLI.ProcessesPerDevicePostprocess == null || (int)OptionsCLI.ProcessesPerDevicePostprocess <= 0)
-                OptionsCLI.ProcessesPerDevicePostprocess = OptionsCLI.ProcessesPerDeviceRefine;
 
             SetOptionsFromCLI(OptionsCLI);
 
@@ -181,88 +175,109 @@ namespace MCore
             #endregion
         }
 
-        #region Worker management
+        #region Work distribution
 
-        static void PrepareWorkers()
+        /// <summary>
+        /// Run an explicit list of tasks through the filesystem work queue (scheduler +
+        /// ephemeral worker pool) and block until all reach a terminal state. Mirrors
+        /// WarpTools' DistributedOptions.DistributeTasks but is parameterized by MCore's
+        /// OptionsCLI. Each call sets up a fresh queue, spawns workers, and tears them
+        /// down on completion — so refinement's three phases (and each data source) run on
+        /// their own short-lived pool, matching the ts_reconstruct_average pattern and
+        /// keeping only one pool's worth of CUDA-initialized processes alive at a time.
+        /// <paramref name="onItemDone"/> runs single-threaded on the polling thread after
+        /// each task finishes (the seam for per-item orchestrator output).
+        /// </summary>
+        static void RunTasks(string queueDir, string logDir, IReadOnlyList<TaskItem> tasks,
+                             Action<TaskItem, bool> onItemDone = null, int pollMs = 500)
         {
-            PopulateWorkerCollection(WorkersPreprocess, (int)OptionsCLI.ProcessesPerDevicePreprocess, OptionsCLI.WorkersPreprocess);
-            PopulateWorkerCollection(WorkersRefine, OptionsCLI.ProcessesPerDeviceRefine, OptionsCLI.WorkersRefine);
-            PopulateWorkerCollection(WorkersPostprocess, (int)OptionsCLI.ProcessesPerDevicePostprocess, OptionsCLI.WorkersPostprocess);
-        }
+            if (tasks == null || tasks.Count == 0)
+                return;
 
-        static void PopulateWorkerCollection(List<WorkerWrapper> collection, int perDevice, IEnumerable<string> remoteArgs, bool attachDebugger = false)
-        {
-            if (remoteArgs == null || remoteArgs.Count() == 0)
+            var layout = new QueueLayout(queueDir);
+            layout.EnsureDirectories();
+            var queue = new TaskQueue(layout);
+            queue.Clear();
+            var pool = new WorkPool(layout, queue);
+
+            Directory.CreateDirectory(logDir);
+
+            IWorkerProvisioner provisioner;
+            int target;
+            if (OptionsCLI.UseExternalProvisioner)
             {
-                List<int> UsedDevices = (OptionsCLI.DeviceList == null || !OptionsCLI.DeviceList.Any()) ?
-                                        Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList() :
-                                        OptionsCLI.DeviceList.ToList();
-                int NDevices = UsedDevices.Count;
-                //List<int> UsedDeviceProcesses = Helper.Combine(Helper.ArrayOfFunction(i => UsedDevices.Select(d => d + i * NDevices).ToArray(), perDevice)).ToList();
-                if (NDevices <= 0)
-                    throw new Exception("No devices found or specified");
-
-                foreach (var id in UsedDevices)
-                {
-                    for (int i = 0; i < perDevice; i++)
-                    {
-                        WorkerWrapper NewWorker = new WorkerWrapper(id, true, attachDebugger: attachDebugger);
-                        NewWorker.WorkerDied += WorkerDied;
-
-                        collection.Add(NewWorker);
-                    }
-                }
+                provisioner = new ExternalProvisioner();
+                target = 0;
+                Console.WriteLine($"Distributing {tasks.Count} task(s); workers provisioned externally...");
             }
             else
             {
-                foreach (var workerspec in remoteArgs)
-                    AttachWorker(workerspec, collection);
+                List<int> devices = (OptionsCLI.DeviceList == null || !OptionsCLI.DeviceList.Any())
+                    ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
+                    : OptionsCLI.DeviceList.ToList();
+                if (devices.Count <= 0)
+                    throw new Exception("No devices found or specified");
+                target = Math.Min(tasks.Count, devices.Count * OptionsCLI.ProcessesPerDevice);
+                provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), OptionsCLI.ProcessesPerDevice, logDir: logDir);
+                Console.WriteLine($"Distributing {tasks.Count} task(s) across up to {target} local worker(s)...");
             }
-        }
 
-        static void AttachWorker(string spec, List<WorkerWrapper> collection)
-        {
-            string[] Parts = spec.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
-            string Host = Parts[0];
-            int Port = int.Parse(Parts[1]);
+            var scheduler = new Scheduler(layout, queue, provisioner, target);
 
-            if (collection.Any(w => w.Host == Host && w.Port == Port))
-                throw new Exception($"Worker {spec} already attached");
+            var taskList = tasks.ToList();
+            var taskById = taskList.ToDictionary(t => t.TaskId, t => t);
+            pool.Enqueue(taskList);
 
-            var ConnectedWorker = new WorkerWrapper(Host, Port);
-            ConnectedWorker.WorkerDied += WorkerDied;
+            int total = taskList.Count;
+            int nDone = 0, nFailed = 0;
+            var progressSync = new object();
+            Console.Write($"0/{total}");
 
-            collection.Add(ConnectedWorker);
-        }
+            var schedCts = new CancellationTokenSource();
+            var schedThread = new Thread(() => scheduler.RunToDrain(cancel: schedCts.Token)) { IsBackground = true };
+            schedThread.Start();
 
-        static void DropWorkers()
-        {
-            if (OptionsCLI.WorkersPreprocess == null || OptionsCLI.WorkersPreprocess.Count() == 0)
+            try
             {
-                foreach (var worker in WorkersPreprocess)
-                {
-                    worker.WorkerDied -= WorkerDied;
-                    worker.Dispose();
-                }
+                pool.Distribute(taskList,
+                    onResult: result =>
+                    {
+                        bool succeeded = result.Outcome == WorkOutcome.Done;
+                        taskById.TryGetValue(result.TaskId, out var task);
+
+                        lock (progressSync)
+                        {
+                            nDone++;
+                            if (!succeeded)
+                            {
+                                nFailed++;
+                                VirtualConsole.ClearLastLine();
+                                Console.Error.WriteLine($"Task {result.TaskId} failed.");
+                                Console.Error.WriteLine($"Check logs in {logDir} for more info.");
+                                if (!string.IsNullOrEmpty(result.Error))
+                                    Console.Error.WriteLine("Exception details:\n" + result.Error);
+                            }
+
+                            try { onItemDone?.Invoke(task, succeeded); } catch { }
+
+                            VirtualConsole.ClearLastLine();
+                            string failedString = nFailed > 0 ? $", {nFailed} failed" : "";
+                            Console.Write($"{nDone}/{total}{failedString}");
+                        }
+                    },
+                    pollMs: pollMs);
+            }
+            finally
+            {
+                schedCts.Cancel();
+                schedThread.Join();
+                provisioner.Shutdown();
             }
 
-            if (OptionsCLI.WorkersRefine == null || OptionsCLI.WorkersRefine.Count() == 0)
-            {
-                foreach (var worker in WorkersRefine)
-                {
-                    worker.WorkerDied -= WorkerDied;
-                    worker.Dispose();
-                }
-            }
+            Console.WriteLine();
 
-            if (OptionsCLI.WorkersPostprocess == null || OptionsCLI.WorkersPostprocess.Count() == 0)
-            {
-                foreach (var worker in WorkersPostprocess)
-                {
-                    worker.WorkerDied -= WorkerDied;
-                    worker.Dispose();
-                }
-            }
+            if (nFailed == total && total > 0)
+                throw new Exception("All tasks failed to process. Check logs for more info.");
         }
 
         #endregion
@@ -285,301 +300,157 @@ namespace MCore
             if (Directory.Exists(LogDirectory))
                 Directory.Delete(LogDirectory, true);
             Directory.CreateDirectory(LogDirectory);
+
+            // Filesystem work queue. Lives under refinement_temp by default; --task_dir
+            // can point it at fast local scratch when the population is on a slow share.
+            string TaskDirectory = !string.IsNullOrEmpty(OptionsCLI.TaskDir)
+                ? OptionsCLI.TaskDir
+                : Path.Combine(ActivePopulation.FolderPath, "refinement_temp", "tasks");
             Console.WriteLine("Done");
-
-            Console.Write("Spawning workers... ");
-            PrepareWorkers();
-            Console.WriteLine("Done");
-
-            string[] WorkerFolders = new string[WorkersRefine.Count];
-
-            Console.WriteLine("Preparing for refinement – this will take a few minutes per species");
-
-            string[] CurrentlyRefinedItems = new string[WorkersRefine.Count];
-
-            System.Timers.Timer StatusUpdater = null;
-
-            {
-                StatusUpdater = new System.Timers.Timer(501);
-                StatusUpdater.Elapsed += (s, e) =>
-                {
-                    lock (CurrentlyRefinedItems)
-                    {
-                        StringBuilder StatusMessage = new StringBuilder();
-
-                        for (int iworker = 0; iworker < WorkersRefine.Count; iworker++)
-                        {
-                            try
-                            {
-                                var Lines = WorkersRefine[iworker].Console.GetLastNLines(1);
-                                if (Lines.Count > 0 && !string.IsNullOrWhiteSpace(Lines[0].Message))
-                                    StatusMessage.Append(CurrentlyRefinedItems[iworker] + ": " + Lines[0].Message + "\n");
-                            }
-                            catch { }
-                        }
-
-                        string FinalMessage = StatusMessage.ToString();
-
-                        if (!string.IsNullOrWhiteSpace(FinalMessage))
-                            Console.Write(FinalMessage);
-                    }
-                };
-            }
 
             try
             {
-                #region Preprocessing
+                #region Pre-flight (per species): denoise/filter references into staging
+
                 {
-                    Console.WriteLine($"Preparing refinement requisites...");
-                    Console.Write($"0/{ActivePopulation.Species.Count}");
+                    Console.WriteLine("Preparing refinement requisites (this takes a few minutes per species)...");
 
-                    Queue<WorkerWrapper> Preparers = new Queue<WorkerWrapper>(WorkersPreprocess);
-                    int NDone = 0;
-
-                    Helper.ForCPU(0, ActivePopulation.Species.Count, WorkersPreprocess.Count, null, (ispecies, threadID) =>
+                    var tasks = new List<TaskItem>();
+                    for (int i = 0; i < ActivePopulation.Species.Count; i++)
                     {
-                        WorkerWrapper Preparer = null;
-                        while (true)
-                            lock (Preparers)
-                            {
-                                if (Preparers.Count == 0)
-                                {
-                                    Thread.Sleep(10);
-                                    continue;
-                                }
-
-                                Preparer = Preparers.Dequeue();
-                                break;
-                            }
-
-                        Species S = ActivePopulation.Species[ispecies];
-
-                        Preparer.Console.Clear();
-                        Preparer.Console.SetFileOutput(Path.Combine(LogDirectory, $"preprocess_{S.NameSafe}.log"));
-
-                        Preparer.MPAPrepareSpecies(S.Path, StagingDirectory);
-
-                        Preparer.Console.SetFileOutput("");
-
-                        lock (Preparers)
+                        Species S = ActivePopulation.Species[i];
+                        var task = new TaskItem
                         {
-                            Preparers.Enqueue(Preparer);
-
-                            VirtualConsole.ClearLastLine();
-                            NDone++;
-                            Console.Write($"{NDone}/{ActivePopulation.Species.Count}");
-                        }
-                    }, null);
-
-                    foreach (var item in WorkersPreprocess)
-                    {
-                        item.WorkerDied -= WorkerDied;
-                        item.Dispose();
+                            TaskId = $"{i:D4}-preprocess-{S.NameSafe}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Main = new[]
+                            {
+                                WorkerCommands.MPAPrepareSpecies(S.Path, StagingDirectory),
+                                WorkerCommands.GcCollect(),
+                            },
+                        };
+                        task.ComputeInitFingerprint();
+                        tasks.Add(task);
                     }
 
-                    Console.WriteLine("");
+                    RunTasks(TaskDirectory, LogDirectory, tasks);
                 }
+
                 #endregion
 
-                #region Refining
+                #region Refine (per source, per item): accumulate per-worker progress
 
                 Console.WriteLine("Performing refinement");
 
                 List<string> AllProcessingFolders = new List<string>();
 
-                int SourcesDone = 0;
-
                 foreach (var source in ActivePopulation.Sources)
                 {
-                    for (int iworker = 0; iworker < WorkersRefine.Count; iworker++)
-                    {
-                        WorkerFolders[iworker] = Path.Combine(ActivePopulation.FolderPath, "refinement_temp", source.Name, $"worker{iworker}");
-                        Directory.CreateDirectory(WorkerFolders[iworker]);
+                    // Per-source temp dir; each worker safe-saves its running progress into
+                    // its own worker_<id> subfolder here after every item it refines.
+                    string SourceTempDir = Path.Combine(ActivePopulation.FolderPath, "refinement_temp", source.Name);
+                    if (Directory.Exists(SourceTempDir))
+                        Directory.Delete(SourceTempDir, true);
+                    Directory.CreateDirectory(SourceTempDir);
 
-                        AllProcessingFolders.Add(WorkerFolders[iworker]);
+                    // Amortized init (runs once per worker): load the resident population
+                    // and this source's gain/defects. Identical across the source's tasks,
+                    // so the init fingerprint matches and it is skipped after the first.
+                    var initHeaderless = WorkerCommands.SetHeaderlessParams(new int2(0), 0, "float");
+                    var initGain = WorkerCommands.LoadGainRef(source.GainPath,
+                                                              source.GainFlipX,
+                                                              source.GainFlipY,
+                                                              source.GainTranspose,
+                                                              source.DefectsPath);
+                    var initPopulation = WorkerCommands.MPAPreparePopulation(ActivePopulation.Path, StagingDirectory);
 
-                        WorkersRefine[iworker].SetHeaderlessParams(new int2(0), 0, "float");
-                    }
-
-                    #region Data source preflight
-
-                    Console.Write($"Preparing population for data source {source.Name}...");
-
-                    Helper.ForCPU(0, WorkersRefine.Count, WorkersRefine.Count, null, (iworker, threadID) =>
-                    {
-                        WorkersRefine[iworker].MPAPreparePopulation(ActivePopulation.Path, StagingDirectory);
-                    }, null);
-                    Console.WriteLine("Done");
-
-                    Console.Write($"Loading gain reference for {source.Name}... ");
-
-                    try
-                    {
-                        Helper.ForCPU(0, WorkersRefine.Count, WorkersRefine.Count, null, (iworker, threadID) =>
-                        {
-                            WorkersRefine[iworker].LoadGainRef(source.GainPath,
-                                                                source.GainFlipX,
-                                                                source.GainFlipY,
-                                                                source.GainTranspose,
-                                                                source.DefectsPath);
-                        }, null);
-                    }
-                    catch
-                    {
-                        throw new Exception($"Could not load gain reference for {source.Name}.");
-                    }
-                    Console.WriteLine("Done");
-
-                    #endregion
-
-                    //StatusUpdater.Start();
-
-                    Queue<WorkerWrapper> Refiners = new Queue<WorkerWrapper>(WorkersRefine);
                     string[] AllPaths = source.Files.Values.ToArray();
 
-                    bool IsCanceled = false;
-
-                    Console.WriteLine($"Refining all series in data source...");
-                    Console.Write($"0/{source.Files.Count}");
-
-                    int NDone = 0;
-                    Helper.ForCPU(0, source.Files.Count, WorkersRefine.Count, null, (ifile, threadID) =>
+                    var tasks = new List<TaskItem>();
+                    for (int i = 0; i < AllPaths.Length; i++)
                     {
-                        if (IsCanceled)
-                            return;
-
-                        WorkerWrapper Refiner = null;
-                        while (true)
-                            lock (Refiners)
+                        string ItemPath = Path.Combine(source.FolderPath, AllPaths[i]);
+                        var task = new TaskItem
+                        {
+                            TaskId = $"{i:D6}-refine-{Helper.PathToName(AllPaths[i])}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Init = new[] { initHeaderless, initGain, initPopulation },
+                            Main = new[]
                             {
-                                if (Refiners.Count == 0)
-                                {
-                                    Thread.Sleep(10);
-                                    continue;
-                                }
+                                WorkerCommands.MPARefineAndSave(ItemPath, Options, source, SourceTempDir),
+                                WorkerCommands.GcCollect(),
+                            },
+                        };
+                        task.ComputeInitFingerprint();
+                        tasks.Add(task);
+                    }
 
-                                Refiner = Refiners.Dequeue();
-                                break;
-                            }
+                    Console.WriteLine($"Refining {tasks.Count} series in data source {source.Name}...");
+                    RunTasks(TaskDirectory, LogDirectory, tasks);
 
-                        int iworker = WorkersRefine.IndexOf(Refiner);
-
-                        {
-                            lock (CurrentlyRefinedItems)
-                                CurrentlyRefinedItems[iworker] = Helper.PathToName(AllPaths[ifile]);
-
-                            Refiner.Console.Clear();
-                            Refiner.Console.SetFileOutput(Path.Combine(LogDirectory, $"refine_{Helper.PathToName(AllPaths[ifile])}.log"));
-
-                            Refiner.MPARefine(Path.Combine(source.FolderPath, AllPaths[ifile]),
-                                              WorkerFolders[iworker],
-                                              Options,
-                                              source);
-
-                            Refiner.Console.SetFileOutput("");
-
-                            lock (CurrentlyRefinedItems)
-                                CurrentlyRefinedItems[iworker] = null;
-                        }
-
-                        lock (Refiners)
-                        {
-                            Refiners.Enqueue(Refiner);
-
-                            VirtualConsole.ClearLastLine();
-                            NDone++;
-                            Console.Write($"{NDone}/{source.Files.Count}");
-                        }
-                    }, null);
-
-                    Console.WriteLine("");
-                    //StatusUpdater.Stop();
-
-                    Console.Write($"Commiting changes in {source.Name}...");
-
+                    Console.Write($"Committing changes in {source.Name}... ");
                     source.Commit();
-                    SourcesDone++;
-
                     Console.WriteLine("Done");
 
-                    Console.Write($"Saving intermediate refinement results for {source.Name}...");
-
-                    Helper.ForCPU(0, WorkersRefine.Count, WorkersRefine.Count, null, (iworker, threadID) =>
-                    {
-                        WorkersRefine[iworker].MPASaveProgress(WorkerFolders[iworker]);
-                    }, null);
-                    Console.WriteLine("Done");
-                }
-
-                foreach (var refiner in WorkersRefine)
-                {
-                    refiner.WorkerDied -= WorkerDied;
-                    refiner.Dispose();
+                    // Gather this source's per-worker progress folders for post-flight.
+                    if (Directory.Exists(SourceTempDir))
+                        AllProcessingFolders.AddRange(Directory.GetDirectories(SourceTempDir, "worker_*"));
                 }
 
                 #endregion
 
-                #region Finish
+                #region Post-flight (per species): gather, reconstruct, filter, commit
 
                 Console.WriteLine("Finishing refinement");
+                Console.WriteLine("Gathering intermediate results, then reconstructing and filtering...");
 
                 {
-                    Console.WriteLine("Gathering intermediate results, then reconstructing and filtering...");
-                    Console.Write($"0/{ActivePopulation.Species.Count}");
-                    int NDone = 0;
+                    string[] ProgressFolders = AllProcessingFolders.ToArray();
 
-                    Queue<WorkerWrapper> Finishers = new Queue<WorkerWrapper>(WorkersPostprocess);
-
-                    Helper.ForCPU(0, ActivePopulation.Species.Count, WorkersPreprocess.Count, null, (ispecies, threadID) =>
+                    var taskToSpecies = new Dictionary<string, Species>();
+                    var tasks = new List<TaskItem>();
+                    for (int i = 0; i < ActivePopulation.Species.Count; i++)
                     {
-                        WorkerWrapper Finisher = null;
-                        while (true)
-                            lock (Finishers)
-                            {
-                                if (Finishers.Count == 0)
-                                {
-                                    Thread.Sleep(10);
-                                    continue;
-                                }
-
-                                Finisher = Finishers.Dequeue();
-                                break;
-                            }
-
-                        Species S = ActivePopulation.Species[ispecies];
-
-                        Finisher.Console.Clear();
-                        Finisher.Console.SetFileOutput(Path.Combine(LogDirectory, $"postprocess_{S.NameSafe}.log"));
-
-                        Finisher.MPAFinishSpecies(S.Path, StagingDirectory, AllProcessingFolders.ToArray());
-
-                        Finisher.Console.SetFileOutput("");
-
-                        lock (Finishers)
+                        Species S = ActivePopulation.Species[i];
+                        var task = new TaskItem
                         {
-                            Finishers.Enqueue(Finisher);
-
-                            VirtualConsole.ClearLastLine();
-
-                            Console.WriteLine($"{S.Name}: {Species.FromFile(S.Path).GlobalResolution:F2} Å");
-
-                            NDone++;
-                            Console.Write($"{NDone}/{ActivePopulation.Species.Count}");
-                        }
-                    }, null);
-
-                    foreach (var finisher in WorkersPostprocess)
-                    {
-                        finisher.WorkerDied -= WorkerDied;
-                        finisher.Dispose();
+                            TaskId = $"{i:D4}-postprocess-{S.NameSafe}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Main = new[]
+                            {
+                                WorkerCommands.MPAFinishSpecies(S.Path, StagingDirectory, ProgressFolders),
+                                WorkerCommands.GcCollect(),
+                            },
+                        };
+                        task.ComputeInitFingerprint();
+                        tasks.Add(task);
+                        taskToSpecies[task.TaskId] = S;
                     }
 
-                    foreach (var folder in AllProcessingFolders)
-                        if (Directory.Exists(folder))
-                            Directory.Delete(folder, true);
-
-                    Console.WriteLine("");
+                    RunTasks(TaskDirectory, LogDirectory, tasks, onItemDone: (task, ok) =>
+                    {
+                        if (ok && task != null && taskToSpecies.TryGetValue(task.TaskId, out var S))
+                        {
+                            try
+                            {
+                                VirtualConsole.ClearLastLine();
+                                Console.WriteLine($"{S.Name}: {Species.FromFile(S.Path).GlobalResolution:F2} Å");
+                            }
+                            catch { }
+                        }
+                    });
                 }
+
+                #endregion
+
+                #region Clean up
+
+                foreach (var folder in AllProcessingFolders)
+                    if (Directory.Exists(folder))
+                        try { Directory.Delete(folder, true); } catch { }
 
                 ActivePopulation.Save();
 
@@ -592,11 +463,6 @@ namespace MCore
             }
 
             AppRunning = false;
-        }
-
-        private static void WorkerDied(object sender, EventArgs e)
-        {
-            throw new NotImplementedException();
         }
     }
 

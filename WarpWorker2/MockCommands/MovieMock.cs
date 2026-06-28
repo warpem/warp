@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
@@ -12,7 +12,7 @@ static partial class WorkerProcess
     // be a no-op and leave OriginalStack null. Allocate a tiny host-only placeholder
     // instead so downstream mock handlers (e.g. MockMovieProcessCTF, which reads
     // OriginalStack.Dims) have a valid stack to work with — no GPU required.
-    [MockCommand(nameof(WorkerWrapper.LoadStack))]
+    [MockCommand(WorkerCommandNames.LoadStack)]
     static void MockLoadStack(NamedSerializableObject Command)
     {
         OriginalStack?.Dispose();
@@ -21,7 +21,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Loaded placeholder stack {OriginalStack.Dims}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.MovieProcessCTF))]
+    [MockCommand(WorkerCommandNames.MovieProcessCTF)]
     static void MockMovieProcessCTF(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -46,7 +46,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Processed CTF for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.MovieProcessMovement))]
+    [MockCommand(WorkerCommandNames.MovieProcessMovement)]
     static void MockMovieProcessMovement(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -65,7 +65,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Processed movement for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.MovieExportMovie))]
+    [MockCommand(WorkerCommandNames.MovieExportMovie)]
     static void MockMovieExportMovie(NamedSerializableObject Command)
     {
         // No-op in mock mode: we have no real stack to write.
@@ -73,27 +73,27 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped export for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.MovieCreateThumbnail))]
+    [MockCommand(WorkerCommandNames.MovieCreateThumbnail)]
     static void MockMovieCreateThumbnail(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped thumbnail for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.LoadBoxNet))]
+    [MockCommand(WorkerCommandNames.LoadBoxNet)]
     static void MockLoadBoxNet(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped BoxNet load from {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.DropBoxNet))]
+    [MockCommand(WorkerCommandNames.DropBoxNet)]
     static void MockDropBoxNet(NamedSerializableObject Command)
     {
         Console.WriteLine("[MOCK] Skipped BoxNet drop");
     }
 
-    [MockCommand(nameof(WorkerWrapper.MoviePickBoxNet))]
+    [MockCommand(WorkerCommandNames.MoviePickBoxNet)]
     static void MockMoviePickBoxNet(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -103,7 +103,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped BoxNet inference for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.MovieExportParticles))]
+    [MockCommand(WorkerCommandNames.MovieExportParticles)]
     static void MockMovieExportParticles(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];

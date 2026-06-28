@@ -1,7 +1,7 @@
 using System;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
@@ -10,7 +10,7 @@ static partial class WorkerProcess
     // Mock TomoStack: the real StackTilts does heavy GPU/I-O to write a .st stack.
     // In mock mode just touch the metadata so downstream collection has something to
     // load, and skip the actual stacking — no GPU required.
-    [MockCommand(nameof(WorkerWrapper.TomoStack))]
+    [MockCommand(WorkerCommandNames.TomoStack)]
     static void MockTomoStack(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -21,35 +21,35 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped tilt stack for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoReconstruct))]
+    [MockCommand(WorkerCommandNames.TomoReconstruct)]
     static void MockTomoReconstruct(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped full reconstruction for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoAutoLevel))]
+    [MockCommand(WorkerCommandNames.TomoAutoLevel)]
     static void MockTomoAutoLevel(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped auto-leveling for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.LoadTomoDenoiser))]
+    [MockCommand(WorkerCommandNames.LoadTomoDenoiser)]
     static void MockLoadTomoDenoiser(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped denoiser load from {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoDenoise))]
+    [MockCommand(WorkerCommandNames.TomoDenoise)]
     static void MockTomoDenoise(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
         Console.WriteLine($"[MOCK] Skipped denoising for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoPeakAlign))]
+    [MockCommand(WorkerCommandNames.TomoPeakAlign)]
     static void MockTomoPeakAlign(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -58,7 +58,7 @@ static partial class WorkerProcess
 
     // Touch the metadata so the orchestrator's onSuccess hook (which builds the 3D
     // output STAR table from the loaded tilt-series meta) has something to load.
-    [MockCommand(nameof(WorkerWrapper.TomoExportParticleSubtomos))]
+    [MockCommand(WorkerCommandNames.TomoExportParticleSubtomos)]
     static void MockTomoExportParticleSubtomos(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -71,7 +71,7 @@ static partial class WorkerProcess
 
     // 2D export is not exercised in mock mode: the real worker writes the per-series
     // temp STAR file that onSuccess reads back, which the mock does not produce.
-    [MockCommand(nameof(WorkerWrapper.TomoExportParticleSeries))]
+    [MockCommand(WorkerCommandNames.TomoExportParticleSeries)]
     static void MockTomoExportParticleSeries(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -79,7 +79,7 @@ static partial class WorkerProcess
     }
 
     // Touch the metadata so anything downstream that loads it has a file to read.
-    [MockCommand(nameof(WorkerWrapper.TomoProcessCTF))]
+    [MockCommand(WorkerCommandNames.TomoProcessCTF)]
     static void MockTomoProcessCTF(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -90,7 +90,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped CTF for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoMatch))]
+    [MockCommand(WorkerCommandNames.TomoMatch)]
     static void MockTomoMatch(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -100,7 +100,7 @@ static partial class WorkerProcess
     // The external alignment tools (AreTomo/Etomo) are not exercisable in mock mode:
     // the orchestrator's onSuccess imports the alignment files they produce, which the
     // mock does not generate. Touch the meta so a LoadMeta downstream still succeeds.
-    [MockCommand(nameof(WorkerWrapper.TomoAretomo))]
+    [MockCommand(WorkerCommandNames.TomoAretomo)]
     static void MockTomoAretomo(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -111,7 +111,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped AreTomo for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoAretomo3))]
+    [MockCommand(WorkerCommandNames.TomoAretomo3)]
     static void MockTomoAretomo3(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -122,7 +122,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped AreTomo3 for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoEtomoFiducials))]
+    [MockCommand(WorkerCommandNames.TomoEtomoFiducials)]
     static void MockTomoEtomoFiducials(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -133,7 +133,7 @@ static partial class WorkerProcess
         Console.WriteLine($"[MOCK] Skipped Etomo fiducials for {Path}");
     }
 
-    [MockCommand(nameof(WorkerWrapper.TomoEtomoPatchTrack))]
+    [MockCommand(WorkerCommandNames.TomoEtomoPatchTrack)]
     static void MockTomoEtomoPatchTrack(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];

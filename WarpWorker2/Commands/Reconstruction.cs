@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
@@ -17,7 +17,7 @@ namespace WarpWorker2;
 // then sums every per-worker partial into a fresh accumulator and writes the maps.
 static partial class WorkerProcess
 {
-    [Command(nameof(WorkerWrapper.InitReconstructions))]
+    [Command(WorkerCommandNames.InitReconstructions)]
     static void InitReconstructions(NamedSerializableObject Command)
     {
         if (Reconstructions != null)
@@ -33,7 +33,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Initialized {NReconstructions} reconstruction(s)");
     }
 
-    [Command(nameof(WorkerWrapper.TomoAddToReconstructionAndSave))]
+    [Command(WorkerCommandNames.TomoAddToReconstructionAndSave)]
     static void TomoAddToReconstructionAndSave(NamedSerializableObject Command)
     {
         if (Reconstructions == null)
@@ -76,7 +76,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Added particles from {Path}; saved partial for worker {WorkerId}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoFinishReconstruction))]
+    [Command(WorkerCommandNames.TomoFinishReconstruction)]
     static void TomoFinishReconstruction(NamedSerializableObject Command)
     {
         string[][] PartialPaths = (string[][])Command.Content[0];

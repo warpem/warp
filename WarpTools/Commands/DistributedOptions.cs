@@ -30,9 +30,6 @@ namespace WarpTools.Commands
         public string TaskDir { get; set; }
 
         [OptionGroup("Advanced remote work distribution", 102)]
-        [Option("workers", HelpText = "List of remote workers to be used instead of locally spawned processes. Formatted as hostname:port, separated by spaces")]
-        public IEnumerable<string> Workers { get; set; }
-
         [Option("external_provisioner", HelpText = "Don't spawn local worker processes. An external system (e.g. Relay) provisions " +
                                                    "workers that claim tasks from the queue directory. Used for cluster execution.")]
         public bool UseExternalProvisioner { get; set; }
@@ -60,12 +57,6 @@ namespace WarpTools.Commands
             Action<T, WorkResult> onFailure = null,
             int pollMs = 500) where T : Movie
         {
-            if (Workers != null && Workers.Any())
-                throw new Exception(
-                    $"The --workers (remote hostname:port) option is not supported by the " +
-                    $"filesystem-based distribution path. Use --device_list / --perdevice for " +
-                    $"local GPU distribution, or run under Relay for cluster execution.");
-
             string queuePath = !string.IsNullOrEmpty(TaskDir)
                 ? TaskDir
                 : Path.Combine(OutputProcessing, "tasks");
@@ -264,12 +255,6 @@ namespace WarpTools.Commands
         /// </summary>
         internal void DistributeTasks(IReadOnlyList<TaskItem> tasks, int pollMs = 500)
         {
-            if (Workers != null && Workers.Any())
-                throw new Exception(
-                    $"The --workers (remote hostname:port) option is not supported by the " +
-                    $"filesystem-based distribution path. Use --device_list / --perdevice for " +
-                    $"local GPU distribution, or run under Relay for cluster execution.");
-
             if (tasks == null || tasks.Count == 0)
                 return;
 

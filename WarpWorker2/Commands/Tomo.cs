@@ -1,13 +1,13 @@
 using System;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
 static partial class WorkerProcess
 {
-    [Command(nameof(WorkerWrapper.TomoStack))]
+    [Command(WorkerCommandNames.TomoStack)]
     static void TomoStack(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -20,7 +20,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Created tilt stack for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoProcessCTF))]
+    [Command(WorkerCommandNames.TomoProcessCTF)]
     static void TomoProcessCTF(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -33,7 +33,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Processed CTF for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoMatch))]
+    [Command(WorkerCommandNames.TomoMatch)]
     static void TomoMatch(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -60,7 +60,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Template-matched {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoReconstruct))]
+    [Command(WorkerCommandNames.TomoReconstruct)]
     static void TomoReconstruct(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -81,7 +81,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Reconstructed full tomogram for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoAutoLevel))]
+    [Command(WorkerCommandNames.TomoAutoLevel)]
     static void TomoAutoLevel(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -94,7 +94,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Processed auto-leveling for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.LoadTomoDenoiser))]
+    [Command(WorkerCommandNames.LoadTomoDenoiser)]
     static void LoadTomoDenoiser(NamedSerializableObject Command)
     {
         DenoiserModel?.Dispose();
@@ -109,7 +109,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Denoiser model with window size = {WindowSize}, batch size = {BatchSize} loaded from {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoDenoise))]
+    [Command(WorkerCommandNames.TomoDenoise)]
     static void TomoDenoise(NamedSerializableObject Command)
     {
         if (DenoiserModel == null)
@@ -124,7 +124,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Denoised {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoPeakAlign))]
+    [Command(WorkerCommandNames.TomoPeakAlign)]
     static void TomoPeakAlign(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -144,7 +144,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Performed alignment to peaks for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoExportParticleSubtomos))]
+    [Command(WorkerCommandNames.TomoExportParticleSubtomos)]
     static void TomoExportParticleSubtomos(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -159,7 +159,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoExportParticleSeries))]
+    [Command(WorkerCommandNames.TomoExportParticleSeries)]
     static void TomoExportParticleSeries(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];

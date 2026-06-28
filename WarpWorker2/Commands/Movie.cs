@@ -1,13 +1,13 @@
 using System;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
 static partial class WorkerProcess
 {
-    [Command(nameof(WorkerWrapper.MovieProcessCTF))]
+    [Command(WorkerCommandNames.MovieProcessCTF)]
     static void MovieProcessCTF(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -21,7 +21,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Processed CTF for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.MovieProcessMovement))]
+    [Command(WorkerCommandNames.MovieProcessMovement)]
     static void MovieProcessMovement(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -35,7 +35,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Processed movement for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.MovieExportMovie))]
+    [Command(WorkerCommandNames.MovieExportMovie)]
     static void MovieExportMovie(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -48,7 +48,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Exported movie for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.MovieCreateThumbnail))]
+    [Command(WorkerCommandNames.MovieCreateThumbnail)]
     static void MovieCreateThumbnail(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];
@@ -61,7 +61,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Created thumbnail for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.LoadBoxNet))]
+    [Command(WorkerCommandNames.LoadBoxNet)]
     static void LoadBoxNet(NamedSerializableObject Command)
     {
         BoxNetModel?.Dispose();
@@ -76,7 +76,7 @@ static partial class WorkerProcess
         Console.WriteLine($"BoxNet loaded: box={BoxSize}, batch={BatchSize}, path={Path}");
     }
 
-    [Command(nameof(WorkerWrapper.DropBoxNet))]
+    [Command(WorkerCommandNames.DropBoxNet)]
     static void DropBoxNet(NamedSerializableObject Command)
     {
         BoxNetModel?.Dispose();
@@ -84,7 +84,7 @@ static partial class WorkerProcess
         Console.WriteLine("BoxNet dropped");
     }
 
-    [Command(nameof(WorkerWrapper.MoviePickBoxNet))]
+    [Command(WorkerCommandNames.MoviePickBoxNet)]
     static void MoviePickBoxNet(NamedSerializableObject Command)
     {
         if (BoxNetModel == null)
@@ -100,7 +100,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Picked particles for {Path}");
     }
 
-    [Command(nameof(WorkerWrapper.MovieExportParticles))]
+    [Command(WorkerCommandNames.MovieExportParticles)]
     static void MovieExportParticles(NamedSerializableObject Command)
     {
         string Path = (string)Command.Content[0];

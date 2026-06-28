@@ -4,7 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Warp;
 using Warp.Tools;
-using WorkerWrapper = Warp.WorkerWrapper;
+using Warp.Workers;
 
 namespace WarpWorker2;
 
@@ -31,7 +31,7 @@ static partial class WorkerProcess
         proc.WaitForExit();
     }
 
-    [Command(nameof(WorkerWrapper.TomoAretomo))]
+    [Command(WorkerCommandNames.TomoAretomo)]
     static void TomoAretomo(NamedSerializableObject Command)
     {
         string SeriesPath = (string)Command.Content[0];
@@ -69,7 +69,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Executed AreTomo for {SeriesPath}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoAretomo3))]
+    [Command(WorkerCommandNames.TomoAretomo3)]
     static void TomoAretomo3(NamedSerializableObject Command)
     {
         string SeriesPath = (string)Command.Content[0];
@@ -114,7 +114,7 @@ static partial class WorkerProcess
         Console.WriteLine($"Executed AreTomo3 for {SeriesPath}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoEtomoFiducials))]
+    [Command(WorkerCommandNames.TomoEtomoFiducials)]
     static void TomoEtomoFiducials(NamedSerializableObject Command)
     {
         string TiltSeriesPath = (string)Command.Content[0];
@@ -196,7 +196,7 @@ static partial class WorkerProcess
             Console.WriteLine($"Finished for {TiltSeriesPath}");
     }
 
-    [Command(nameof(WorkerWrapper.TomoEtomoPatchTrack))]
+    [Command(WorkerCommandNames.TomoEtomoPatchTrack)]
     static void TomoEtomoPatchTrack(NamedSerializableObject Command)
     {
         string TiltSeriesPath = (string)Command.Content[0];
