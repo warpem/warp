@@ -37,8 +37,6 @@ namespace WarpTools.Commands
                                                    "workers that claim tasks from the queue directory. Used for cluster execution.")]
         public bool UseExternalProvisioner { get; set; }
 
-        private WorkerWrapper[] ConnectedWorkers = null;
-
         public override void Evaluate()
         {
             base.Evaluate();
@@ -376,72 +374,6 @@ namespace WarpTools.Commands
             File.WriteAllText(tmp, json.ToJsonString(
                 new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
             File.Move(tmp, path, overwrite: true);
-        }
-
-        public virtual WorkerWrapper[] GetWorkers(bool attachDebugger = false)
-        {
-            if (ConnectedWorkers != null)
-                return ConnectedWorkers;
-
-            Console.WriteLine("Connecting to workers...");
-
-            if (Workers == null || !Workers.Any())
-            {
-                List<int> UsedDevices = (DeviceList == null || !DeviceList.Any()) ?
-                                        Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList() :
-                                        DeviceList.ToList();
-                int NDevices = UsedDevices.Count;
-
-                if (NDevices <= 0)
-                    throw new Exception("No devices found or specified");
-
-                int MaxWorkers = Math.Min(InputSeries.Length, UsedDevices.Count * ProcessesPerDevice);
-                List<WorkerWrapper> NewWorkers = new List<WorkerWrapper>();
-                foreach (var id in UsedDevices)
-                {
-                    for (int i = 0; i < ProcessesPerDevice; i++)
-                    {
-                        if (NewWorkers.Count < MaxWorkers)
-                        {
-                            WorkerWrapper NewWorker = new WorkerWrapper(id,
-                                                                        !Helper.IsDebug, 
-                                                                        attachDebugger: attachDebugger);
-                            NewWorkers.Add(NewWorker);
-                        }
-                    }
-                }
-
-                ConnectedWorkers = NewWorkers.ToArray();
-            }
-            else
-            {
-                ConnectedWorkers = new WorkerWrapper[Workers.Count()];
-
-                for (int i = 0; i < Workers.Count(); i++)
-                {
-                    string[] Parts = Workers.ElementAt(i).Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
-                    string Host = Parts[0];
-                    int Port = int.Parse(Parts[1]);
-
-                    ConnectedWorkers[i] = new WorkerWrapper(Host, Port);
-                }
-            }
-
-            if (Options != null)
-            {
-                Helper.ForCPU(0, ConnectedWorkers.Length, ConnectedWorkers.Length, null, (i, threadID) =>
-                {
-                    ConnectedWorkers[i].LoadGainRef(Options.Import.GainPath, 
-                                                    Options.Import.GainFlipX, 
-                                                    Options.Import.GainFlipY, 
-                                                    Options.Import.GainTranspose, 
-                                                    Options.Import.DefectsPath);
-                }, null);
-            }
-
-            Console.WriteLine($"Connected to {ConnectedWorkers.Length} workers");
-
-            return ConnectedWorkers;
         }
     }
 }
