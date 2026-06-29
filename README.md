@@ -119,10 +119,13 @@ module load warp
 
 A few notes on `{{command}}`:
 
-- Each worker job requests **one GPU** (`--gres=gpu:1`) and the worker uses device `0`,
+- Each worker job requests **one GPU** (`--gres=gpu:1`); the worker(s) use device `0`,
   i.e. whatever SLURM exposes to that job via `CUDA_VISIBLE_DEVICES`.
-- The worker names itself `"$(hostname)-$$"`, which your shell expands on the compute
-  node so ids never collide across nodes. This is why the script must run in a shell.
+- With `--perdevice N` (see below), `{{command}}` launches **N worker processes** in the
+  background on that GPU and ends with `wait`, so the job holds its allocation until they
+  finish. Each process names itself `"$(hostname)-$$-<i>"` — your shell expands
+  `$(hostname)` and `$$` on the compute node, and the index keeps ids unique across the
+  whole pool. This is why the script must run in a shell.
 - Workers are started with `--persistent` so a momentarily empty queue does not make them
   quit early; WarpTools cancels them (via `cancel`) once everything is done.
 
@@ -136,6 +139,7 @@ WarpTools fs_motion_and_ctf \
     --cluster_script worker.slurm \
     --cluster_config slurm.json \
     --pool_size 16 \
+    --perdevice 2 \
     --cluster_var partition=gpu \
     --cluster_var time=04:00:00 \
     --cluster_var cpus=8 \
@@ -145,15 +149,16 @@ WarpTools fs_motion_and_ctf \
 - `--cluster_script` — path to the submission-script template. Its presence switches the
   command into cluster mode.
 - `--cluster_config` — path to the cluster-config JSON.
-- `--pool_size` — how many worker jobs to submit.
+- `--pool_size` — how many worker **jobs** to submit (one GPU each).
+- `--perdevice` — worker processes per job (per GPU); default `1`. The pool holds up to
+  `pool_size × perdevice` workers — the example above is 16 GPUs × 2 = 32 workers.
 - `--cluster_var key=value` — repeatable; fills one `{{key}}` placeholder in the template.
   Whitespace around `=` is tolerated (`--cluster_var partition = gpu` works too); quote
   values that contain spaces, e.g. `--cluster_var "account=my project"`.
 
-In cluster mode `--device_list` and `--perdevice` are ignored (one job = one GPU = one
-worker). If the template still contains any placeholder you didn't provide, the command
-stops immediately and tells you which ones are missing, rather than submitting a broken
-script.
+In cluster mode `--device_list` is ignored (the scheduler allocates each job its GPU). If
+the template still contains any placeholder you didn't provide, the command stops
+immediately and tells you which ones are missing, rather than submitting a broken script.
 
 # Build Warp on Linux
 

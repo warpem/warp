@@ -86,9 +86,10 @@ Cluster mode is selected when `--cluster_script` is present. Then:
 - `--cluster_config` is **required** (error if missing).
 - `--pool_size` must be **> 0** (error otherwise).
 - `--external_provisioner` must **not** also be set (error on conflict).
-- `--device_list` / `--perdevice` are **ignored** (one cluster job = one GPU = one
-  worker). Emit a warning if either is explicitly set, so the user is not confused
-  about why it had no effect.
+- `--device_list` is **ignored** (the scheduler allocates each job its GPU). Emit a
+  warning if it is explicitly set.
+- `--pool_size` counts cluster **jobs** (one GPU each); `--perdevice` worker processes
+  run per job, so the pool holds up to `pool_size × perdevice` workers.
 
 All validation throws early with an actionable message before any task is enqueued.
 
@@ -147,23 +148,28 @@ The orchestrator. Implements `EnsureWorkers(int target)`, `LiveWorkerCount()`,
 
 **Constructor**
 
-- Builds the built-in `{{command}}` value:
+- Builds the built-in `{{command}}` value. For `--perdevice N` it launches N worker
+  processes in the background on the job's one GPU and ends with `wait` (so the job
+  holds its allocation until the workers exit):
   ```
-  <abs WarpWorker2> --device 0 --queue-dir "<queueDir>" --log-dir "<logDir>" --persistent --worker-id "$(hostname)-$$"
+  "<abs WarpWorker2>" --device 0 --queue-dir "<queueDir>" --log-dir "<logDir>" --persistent --worker-id "$(hostname)-$$-0" &
+  ... (one line per process, index 0..N-1) ...
+  wait
   ```
   - Executable is the absolute path `Path.Combine(AppContext.BaseDirectory,
     "WarpWorker2")`, same as `LocalProvisioner`. Assumes the WarpTools install is
     reachable at the same path on compute nodes (typical shared-filesystem HPC).
   - Device is always `0` — each cluster job owns one GPU and sees it as device 0
-    (scheduler isolates via `CUDA_VISIBLE_DEVICES`).
+    (scheduler isolates via `CUDA_VISIBLE_DEVICES`); `--perdevice` processes share it.
   - `--persistent` so workers survive transient empty queues (see lifecycle).
-  - `--worker-id "$(hostname)-$$"` — the compute node's shell expands `$(hostname)`
-    and `$$` at runtime, giving a pool-unique id. (Our default worker id is
-    `local-{pid}-gpu{dev}` with **no** hostname, which would collide across nodes, so
-    an explicit id is mandatory here.)
+  - `--worker-id "$(hostname)-$$-<i>"` — the compute node's shell expands `$(hostname)`
+    and `$$` at runtime; the per-process index `<i>` is required because `$$` (the
+    script's pid) is shared by all background children of one job. (Our default worker
+    id is `local-{pid}-gpu{dev}` with **no** hostname, which would collide across nodes,
+    so an explicit id is mandatory here.)
 - Renders the template **once** (built-in `command` + `cluster_var` values) to
-  `<queue>/cluster/worker.sh`. All workers are byte-identical, so one script is
-  submitted `pool_size` times.
+  `<queue>/cluster/worker.sh`. Every job is byte-identical, so one script is submitted
+  `pool_size` times (each submission running `--perdevice` workers).
 - Registers `Console.CancelKeyPress` and `PosixSignalRegistration` for SIGINT/SIGTERM,
   each calling `Shutdown()`, so a Ctrl-C or `kill` on the manager cancels the pool
   before the process dies.
@@ -210,7 +216,7 @@ for every ported command and for whole-run reduce tasks for free.
 1. Enqueue all tasks (before the scheduler thread starts).
 2. `Scheduler` tick → `EnsureWorkers(pool_size)` → render-once → `submit` × N →
    parse and store job ids.
-3. Cluster workers land on compute nodes, self-name `$(hostname)-$$`, claim tasks
+3. Cluster workers land on compute nodes, self-name `$(hostname)-$$-<i>`, claim tasks
    from the shared queue, run `--persistent`.
 4. Manager polls `done/`/`poisoned/` until drained.
 5. On drain (or Ctrl-C / SIGTERM) → `Shutdown()` → `cancel` every stored job id.

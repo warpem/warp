@@ -81,10 +81,12 @@ namespace WarpTools.Commands
         {
             if (!string.IsNullOrEmpty(ClusterScript))
             {
-                if ((DeviceList != null && DeviceList.Any()) || ProcessesPerDevice != 1)
-                    Console.Error.WriteLine("Warning: --device_list/--perdevice are ignored in cluster mode " +
-                                            "(one cluster job = one GPU = one worker).");
+                if (DeviceList != null && DeviceList.Any())
+                    Console.Error.WriteLine("Warning: --device_list is ignored in cluster mode " +
+                                            "(each cluster job is allocated one GPU by the scheduler).");
 
+                // --pool_size counts cluster jobs (one GPU each); --perdevice worker
+                // processes run per job, so the pool holds up to pool_size * perdevice workers.
                 target = Math.Min(itemCount, PoolSize);
                 string workerExe = Path.Combine(AppContext.BaseDirectory, "WarpWorker2");
                 var prov = ClusterProvisioner.Create(
@@ -92,11 +94,13 @@ namespace WarpTools.Commands
                     clusterConfigPath: ClusterConfig,
                     externalProvisioner: UseExternalProvisioner,
                     poolSize: PoolSize,
+                    perDevice: ProcessesPerDevice,
                     clusterVars: ClusterVars,
                     workerExePath: workerExe,
                     queueDir: layout.Root,
                     logDir: logDir);
-                Console.WriteLine($"Distributing {itemCount} item(s) across a cluster pool of up to {target} worker(s)...");
+                Console.WriteLine($"Distributing {itemCount} item(s) across a cluster pool of up to " +
+                                  $"{target} job(s) x {ProcessesPerDevice} worker(s)...");
                 return prov;
             }
 

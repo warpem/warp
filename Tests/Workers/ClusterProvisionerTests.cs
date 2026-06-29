@@ -101,7 +101,7 @@ public class ClusterProvisionerTests
     {
         Assert.ThrowsAny<Exception>(() => ClusterProvisioner.Create(
             clusterScriptPath: "x", clusterConfigPath: "y", externalProvisioner: true,
-            poolSize: 1, clusterVars: null, workerExePath: "w", queueDir: Path.GetTempPath(),
+            poolSize: 1, perDevice: 1, clusterVars: null, workerExePath: "w", queueDir: Path.GetTempPath(),
             logDir: Path.GetTempPath(), runner: null, registerSignalHandlers: false));
     }
 
@@ -110,7 +110,7 @@ public class ClusterProvisionerTests
     {
         Assert.ThrowsAny<Exception>(() => ClusterProvisioner.Create(
             clusterScriptPath: "x", clusterConfigPath: "y", externalProvisioner: false,
-            poolSize: 0, clusterVars: null, workerExePath: "w", queueDir: Path.GetTempPath(),
+            poolSize: 0, perDevice: 1, clusterVars: null, workerExePath: "w", queueDir: Path.GetTempPath(),
             logDir: Path.GetTempPath(), runner: null, registerSignalHandlers: false));
     }
 
@@ -119,7 +119,7 @@ public class ClusterProvisionerTests
     {
         Assert.ThrowsAny<Exception>(() => ClusterProvisioner.Create(
             clusterScriptPath: "x", clusterConfigPath: "", externalProvisioner: false,
-            poolSize: 1, clusterVars: null, workerExePath: "w", queueDir: Path.GetTempPath(),
+            poolSize: 1, perDevice: 1, clusterVars: null, workerExePath: "w", queueDir: Path.GetTempPath(),
             logDir: Path.GetTempPath(), runner: null, registerSignalHandlers: false));
     }
 
@@ -143,7 +143,7 @@ public class ClusterProvisionerTests
         {
             var prov = ClusterProvisioner.Create(
                 clusterScriptPath: tmplPath, clusterConfigPath: cfgPath, externalProvisioner: false,
-                poolSize: 2, clusterVars: new[] { "partition=gpu" },
+                poolSize: 2, perDevice: 1, clusterVars: new[] { "partition=gpu" },
                 workerExePath: "/opt/warp/WarpWorker2", queueDir: queueDir, logDir: Path.Combine(queueDir, "logs"),
                 runner: shell.Run, registerSignalHandlers: false);
 
@@ -155,6 +155,44 @@ public class ClusterProvisionerTests
 
             prov.EnsureWorkers(2);
             Assert.Equal(2, shell.Submits.Count);
+        }
+        finally
+        {
+            File.Delete(cfgPath); File.Delete(tmplPath);
+            try { Directory.Delete(queueDir, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Create_PerDeviceGreaterThanOne_LaunchesMultipleWorkersAndWaits()
+    {
+        string cfgPath = Path.Combine(Path.GetTempPath(), "cfg_" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(cfgPath, @"{
+            ""submit"": ""SUBMIT {{script_path}}"",
+            ""submit_job_id_regex"": ""Submitted batch job (\\d+)"",
+            ""cancel"": ""CANCEL {{job_id}}""
+        }");
+        string tmplPath = Path.Combine(Path.GetTempPath(), "tmpl_" + Guid.NewGuid().ToString("N") + ".sh");
+        File.WriteAllText(tmplPath, "#!/bin/bash\n{{command}}\n");
+        string queueDir = Path.Combine(Path.GetTempPath(), "q_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(queueDir);
+
+        try
+        {
+            ClusterProvisioner.Create(
+                clusterScriptPath: tmplPath, clusterConfigPath: cfgPath, externalProvisioner: false,
+                poolSize: 1, perDevice: 3, clusterVars: null,
+                workerExePath: "/opt/warp/WarpWorker2", queueDir: queueDir, logDir: Path.Combine(queueDir, "logs"),
+                runner: _ => new ShellResult(0, "Submitted batch job 1", ""), registerSignalHandlers: false);
+
+            string written = File.ReadAllText(Path.Combine(queueDir, "cluster", "worker.sh"));
+            // Three backgrounded worker processes, each with a distinct per-process index.
+            Assert.Contains("$(hostname)-$$-0", written);
+            Assert.Contains("$(hostname)-$$-1", written);
+            Assert.Contains("$(hostname)-$$-2", written);
+            Assert.Equal(3, Regex.Matches(written, @"--persistent").Count);
+            // A single trailing `wait` so the job holds its allocation until workers exit.
+            Assert.EndsWith("wait", written.TrimEnd());
         }
         finally
         {

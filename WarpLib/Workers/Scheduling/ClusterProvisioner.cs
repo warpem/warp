@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Warp.Workers.Scheduling
@@ -59,7 +60,7 @@ namespace Warp.Workers.Scheduling
         /// </summary>
         public static ClusterProvisioner Create(
             string clusterScriptPath, string clusterConfigPath, bool externalProvisioner,
-            int poolSize, IEnumerable<string> clusterVars,
+            int poolSize, int perDevice, IEnumerable<string> clusterVars,
             string workerExePath, string queueDir, string logDir,
             ShellRunner runner = null, bool registerSignalHandlers = true)
         {
@@ -77,13 +78,21 @@ namespace Warp.Workers.Scheduling
 
             Dictionary<string, string> vars = ClusterVarParser.Parse(clusterVars);
 
-            // Built-in command: one GPU per job (device 0), self-naming by hostname+pid so
-            // ids never collide across nodes; --persistent so a transient empty queue does
-            // not make the worker exit and hang a re-pended task. The compute node's shell
-            // expands $(hostname) and $$ at runtime.
-            string command =
-                $"\"{workerExePath}\" --device 0 --queue-dir \"{queueDir}\" --log-dir \"{logDir}\" " +
-                $"--persistent --worker-id \"$(hostname)-$$\"";
+            // Built-in command: each cluster job owns one GPU (device 0). When --perdevice
+            // > 1 we launch that many worker processes in the background sharing the GPU,
+            // then `wait` so the job holds its allocation until they exit. Each process gets
+            // a distinct id: $$ (the script's pid) is shared by all background children, so a
+            // per-process index keeps "$(hostname)-$$-<i>" unique across the whole pool.
+            // --persistent stops a worker quitting on a transient empty queue. The compute
+            // node's shell expands $(hostname) and $$ at runtime.
+            int workersPerJob = Math.Max(1, perDevice);
+            var sb = new StringBuilder();
+            for (int i = 0; i < workersPerJob; i++)
+                sb.AppendLine(
+                    $"\"{workerExePath}\" --device 0 --queue-dir \"{queueDir}\" --log-dir \"{logDir}\" " +
+                    $"--persistent --worker-id \"$(hostname)-$$-{i}\" &");
+            sb.Append("wait");
+            string command = sb.ToString();
             vars["command"] = command;   // built-in wins over any user-supplied command var
 
             string template = File.ReadAllText(clusterScriptPath);
