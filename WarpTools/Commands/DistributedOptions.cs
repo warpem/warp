@@ -34,6 +34,26 @@ namespace WarpTools.Commands
                                                    "workers that claim tasks from the queue directory. Used for cluster execution.")]
         public bool UseExternalProvisioner { get; set; }
 
+        [Option("cluster_script", HelpText = "Path to a batch-scheduler submission-script template. " +
+                                             "Use {{command}} where the WarpWorker2 invocation should go, plus any " +
+                                             "{{custom}} placeholders filled by --cluster_var. Presence of this option " +
+                                             "selects cluster mode. Assumes the queue dir is on a shared filesystem, " +
+                                             "the WarpTools install is at the same path on compute nodes, and the script " +
+                                             "shell expands $(hostname)/$$.")]
+        public string ClusterScript { get; set; }
+
+        [Option("cluster_config", HelpText = "Path to the cluster queue-definition JSON. Required with --cluster_script. " +
+                                             "Fields: submit, submit_job_id_regex (first capture group = job id), cancel.")]
+        public string ClusterConfig { get; set; }
+
+        [Option("pool_size", HelpText = "Cluster mode: number of worker jobs to submit to the scheduler.")]
+        public int PoolSize { get; set; }
+
+        [Option("cluster_var", HelpText = "Cluster mode: a key=value pair substituted into the submission template " +
+                                          "(repeatable). Whitespace around '=' is tolerated. Quote values containing " +
+                                          "spaces, e.g. --cluster_var \"account=my project\".")]
+        public IEnumerable<string> ClusterVars { get; set; }
+
         public override void Evaluate()
         {
             base.Evaluate();
@@ -51,6 +71,52 @@ namespace WarpTools.Commands
         /// hooks for domain-specific extras that run after the standard handling.
         /// Most commands leave both null.
         /// </summary>
+        /// <summary>
+        /// Select and construct the worker provisioner for this run: cluster mode
+        /// (--cluster_script), external mode (--external_provisioner), or local mode
+        /// (default). Sets <paramref name="target"/> to the desired live worker count.
+        /// </summary>
+        private IWorkerProvisioner CreateProvisioner(
+            QueueLayout layout, string logDir, int itemCount, out int target)
+        {
+            if (!string.IsNullOrEmpty(ClusterScript))
+            {
+                if ((DeviceList != null && DeviceList.Any()) || ProcessesPerDevice != 1)
+                    Console.Error.WriteLine("Warning: --device_list/--perdevice are ignored in cluster mode " +
+                                            "(one cluster job = one GPU = one worker).");
+
+                target = Math.Min(itemCount, PoolSize);
+                string workerExe = Path.Combine(AppContext.BaseDirectory, "WarpWorker2");
+                var prov = ClusterProvisioner.Create(
+                    clusterScriptPath: ClusterScript,
+                    clusterConfigPath: ClusterConfig,
+                    externalProvisioner: UseExternalProvisioner,
+                    poolSize: PoolSize,
+                    clusterVars: ClusterVars,
+                    workerExePath: workerExe,
+                    queueDir: layout.Root,
+                    logDir: logDir);
+                Console.WriteLine($"Distributing {itemCount} item(s) across a cluster pool of up to {target} worker(s)...");
+                return prov;
+            }
+
+            if (UseExternalProvisioner)
+            {
+                target = 0;
+                Console.WriteLine($"Distributing {itemCount} item(s); workers provisioned externally...");
+                return new ExternalProvisioner();
+            }
+
+            List<int> devices = (DeviceList == null || !DeviceList.Any())
+                ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
+                : DeviceList.ToList();
+            if (devices.Count <= 0)
+                throw new Exception("No devices found or specified");
+            target = Math.Min(itemCount, devices.Count * ProcessesPerDevice);
+            Console.WriteLine($"Distributing {itemCount} item(s) across up to {target} local worker(s)...");
+            return new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
+        }
+
         internal (List<T> Processed, List<T> Failed) DistributeItems<T>(
             Func<T, int, TaskItem> buildTask,
             Action<T> onSuccess = null,
@@ -98,31 +164,7 @@ namespace WarpTools.Commands
             string logDir = Path.Combine(OutputProcessing, "logs");
             Directory.CreateDirectory(logDir);
 
-            IWorkerProvisioner provisioner;
-            int target;
-            if (UseExternalProvisioner)
-            {
-                // Cluster mode: an external system (Relay) spawns workers that claim
-                // from the queue dir. The manager still runs the Scheduler (heartbeat,
-                // orphan sweep, failure processing) but never spawns or counts local
-                // processes — so we skip device resolution entirely, which also avoids
-                // touching the GPU on a manager node that may have none.
-                provisioner = new ExternalProvisioner();
-                target = 0;
-                Console.WriteLine($"Distributing {tasks.Count} tasks; workers provisioned externally...");
-            }
-            else
-            {
-                // Local mode: resolve devices, cap workers to actual item count.
-                List<int> devices = (DeviceList == null || !DeviceList.Any())
-                    ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
-                    : DeviceList.ToList();
-                if (devices.Count <= 0)
-                    throw new Exception("No devices found or specified");
-                target = Math.Min(InputSeries.Length, devices.Count * ProcessesPerDevice);
-                provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
-                Console.WriteLine($"Distributing {tasks.Count} tasks across up to {target} local worker(s)...");
-            }
+            IWorkerProvisioner provisioner = CreateProvisioner(layout, logDir, InputSeries.Length, out int target);
 
             var scheduler = new Scheduler(layout, queue, provisioner, target);
 
@@ -270,25 +312,7 @@ namespace WarpTools.Commands
             string logDir = Path.Combine(OutputProcessing, "logs");
             Directory.CreateDirectory(logDir);
 
-            IWorkerProvisioner provisioner;
-            int target;
-            if (UseExternalProvisioner)
-            {
-                provisioner = new ExternalProvisioner();
-                target = 0;
-                Console.WriteLine($"Distributing {tasks.Count} task(s); workers provisioned externally...");
-            }
-            else
-            {
-                List<int> devices = (DeviceList == null || !DeviceList.Any())
-                    ? Helper.ArrayOfSequence(0, GPU.GetDeviceCount(), 1).ToList()
-                    : DeviceList.ToList();
-                if (devices.Count <= 0)
-                    throw new Exception("No devices found or specified");
-                target = Math.Min(tasks.Count, devices.Count * ProcessesPerDevice);
-                provisioner = new LocalProvisioner(layout.Root, devices.ToArray(), ProcessesPerDevice, logDir: logDir);
-                Console.WriteLine($"Distributing {tasks.Count} task(s) across up to {target} local worker(s)...");
-            }
+            IWorkerProvisioner provisioner = CreateProvisioner(layout, logDir, tasks.Count, out int target);
 
             var scheduler = new Scheduler(layout, queue, provisioner, target);
 
