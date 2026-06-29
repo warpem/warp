@@ -46,7 +46,21 @@ namespace Warp.Workers.Queue
             HashSet<string> allowed = allowedStages == null ? null : new HashSet<string>(allowedStages);
 
             string[] candidates = Directory.GetFiles(_layout.Pending, "*.json");
-            Array.Sort(candidates, StringComparer.Ordinal);
+
+            // Claim in random order, NOT sorted. Workers have no knowledge of each
+            // other, so a deterministic order (e.g. Ordinal) makes every worker target
+            // the same lexicographically-first file: all but one lose the File.Move race
+            // and fall through, producing a thundering herd of failed metadata ops on the
+            // same inodes — worst exactly at startup when pending/ is largest. Sampling a
+            // random permutation spreads concurrent workers across the pending set with no
+            // coordination, approximating load balancing. On a lost race we simply advance
+            // to the next random candidate. Processing order is irrelevant here; the
+            // processed/failed snapshots are re-sorted canonically before they are written.
+            for (int i = candidates.Length - 1; i > 0; i--)
+            {
+                int j = System.Random.Shared.Next(i + 1);
+                (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+            }
 
             foreach (string src in candidates)
             {

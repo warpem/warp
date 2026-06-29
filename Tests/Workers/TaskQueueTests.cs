@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -73,14 +74,22 @@ public class TaskQueueTests : IDisposable
     }
 
     [Fact]
-    public void ClaimsInSortedOrder()
+    public void ClaimsEveryPendingTaskExactlyOnce()
     {
+        // Claim order is randomized (workers spread across pending/ to avoid a
+        // thundering herd), so we assert set membership rather than order: every
+        // enqueued task is claimed exactly once and the queue then drains to empty.
         _queue.Enqueue(MakeTask("0000003-c"));
         _queue.Enqueue(MakeTask("0000001-a"));
         _queue.Enqueue(MakeTask("0000002-b"));
-        Assert.Equal("0000001-a", _queue.ClaimOne("w").TaskId);
-        Assert.Equal("0000002-b", _queue.ClaimOne("w").TaskId);
-        Assert.Equal("0000003-c", _queue.ClaimOne("w").TaskId);
+        var claimed = new HashSet<string>
+        {
+            _queue.ClaimOne("w").TaskId,
+            _queue.ClaimOne("w").TaskId,
+            _queue.ClaimOne("w").TaskId,
+        };
+        Assert.Equal(new[] { "0000001-a", "0000002-b", "0000003-c" }, claimed.OrderBy(x => x));
+        Assert.Null(_queue.ClaimOne("w"));
     }
 
     [Fact]

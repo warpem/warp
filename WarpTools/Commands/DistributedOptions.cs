@@ -382,8 +382,13 @@ namespace WarpTools.Commands
         private static void AtomicWriteMiniJson<T>(string path, IEnumerable<T> items) where T : Movie
         {
             string tmp = path + ".tmp." + Environment.ProcessId + "." + Guid.NewGuid().ToString("N");
+            // Sort canonically by Path so the file is stable regardless of the order items
+            // happened to finish (workers now claim tasks in random order). This keeps
+            // processed_items.json / failed_items.json — and Relay's GUI, which reads them —
+            // in a consistent order across runs and across re-runs.
             var json = new System.Text.Json.Nodes.JsonArray(
-                items.Select(m => m.ToMiniJson("particles")).ToArray());
+                items.OrderBy(m => m.Path, StringComparer.Ordinal)
+                     .Select(m => m.ToMiniJson("particles")).ToArray());
             File.WriteAllText(tmp, json.ToJsonString(
                 new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
             File.Move(tmp, path, overwrite: true);

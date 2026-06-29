@@ -11,7 +11,7 @@ GPU; the end-to-end test spawns the real `WarpWorker2 --mock` binary.
 |---|---|
 | `QueueLayoutTests.cs` | `QueueLayout` path construction + `EnsureDirectories()` |
 | `TaskItemTests.cs` | `TaskItem` JSON round-trip + fingerprint stability + content-sensitivity |
-| `TaskQueueTests.cs` | `TaskQueue`: enqueue, atomic claim, stage filter, sort order, done/failed, orphan recovery, summary |
+| `TaskQueueTests.cs` | `TaskQueue`: enqueue, atomic claim, stage filter, full random-order claim coverage, done/failed, orphan recovery, summary |
 | `HeartbeatTests.cs` | `HeartbeatWriter`/`HeartbeatReader`/`HeartbeatMonitor`: tick increment, max sequence, stall detection, startup grace |
 | `FailureMatrixTests.cs` | `FailureMatrix`: host blacklist threshold, dedup, task poison threshold, retry cap |
 | `SchedulerTests.cs` | `Scheduler`: stall sweep, drain detection, re-pend below cap, poison at cap, host blacklist marker |

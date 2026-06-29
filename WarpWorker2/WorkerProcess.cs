@@ -160,9 +160,17 @@ namespace WarpWorker2
             });
 
             // Heartbeats (spec §8). Worker writes its own; monitors the manager's.
+            // Timeout is generous (120 s, not 30 s) because the manager's single
+            // scheduler thread refreshes the tick from the same shared filesystem the
+            // workers hammer: with many workers listing/moving files in pending/ and
+            // running/ on a contended NFS/GPFS mount, an individual metadata syscall on
+            // the manager can block for tens of seconds. A 30 s window made every such
+            // hiccup look like a dead manager, so all live workers exited at once and the
+            // external pool churned (re-provisioned wave after wave). 120 s tolerates the
+            // stalls while still catching a genuinely dead manager within ~2 min.
             var myHeartbeat = new Warp.Workers.Queue.HeartbeatWriter(wdir, "hb-");
             var managerMonitor = new Warp.Workers.Queue.HeartbeatMonitor(
-                layout.Heartbeat, "tick-", timeoutMs: 30_000, startupGraceMs: 60_000);
+                layout.Heartbeat, "tick-", timeoutMs: 120_000, startupGraceMs: 120_000);
 
             string lastFingerprint = null;
             int consecutiveEmpty = 0;

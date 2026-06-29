@@ -26,8 +26,16 @@ namespace Warp.Workers.Scheduling
         // Per-worker monitors, created lazily as worker dirs appear.
         private readonly System.Collections.Generic.Dictionary<string, HeartbeatMonitor> _monitors = new();
 
+        // Stall/grace default to 120 s to mirror the worker's view of the manager
+        // (WorkerProcess.cs). The manager and workers share one contended NFS/GPFS mount,
+        // so the same metadata hiccups that can delay the manager's tick can delay a live
+        // worker's hb- write (or the manager's read of it). At 30 s the manager would
+        // wrongly sweep a still-alive worker, re-pend its in-flight task and delete
+        // running/<wid>/ out from under it (duplicate work + the MarkSick crash described
+        // in WorkerProcess.cs). Keeping both sides at 120 s avoids that asymmetry; tests
+        // inject smaller values to exercise sweeping quickly.
         public Scheduler(QueueLayout layout, TaskQueue queue, IWorkerProvisioner provisioner,
-                         int target, long workerStallTimeoutMs = 30_000, long workerStartupGraceMs = 60_000,
+                         int target, long workerStallTimeoutMs = 120_000, long workerStartupGraceMs = 120_000,
                          FailureMatrix failureMatrix = null)
         {
             _layout = layout;
