@@ -402,7 +402,7 @@ namespace gtom
 			for (int y = 0; y < dims.y; y++)
 				for (int x = threadIdx.x; x < dims.x; x += blockDim.x)
 				{
-					int zz = y - dims.z / 2;
+					int zz = z - dims.z / 2;
 					int yy = y - dims.y / 2;
 					int xx = x - dims.x / 2;
 
