@@ -2569,6 +2569,11 @@ namespace Warp
                    Dimensions == other.Dimensions;
         }
 
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
         public static bool operator ==(TomoProcessingOptionsBase left, TomoProcessingOptionsBase right)
         {
             return Equals(left, right);

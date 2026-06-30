@@ -38,7 +38,7 @@ namespace WarpTools.Commands.General
 
             CLI.Evaluate();
 
-            IterateOverItems<Movie>(null, CLI, (_, movie) =>
+            IterateOverItems<Movie>(CLI, movie =>
             {
                 movie.SaveMeta();
             }, oversubscribe: 8);

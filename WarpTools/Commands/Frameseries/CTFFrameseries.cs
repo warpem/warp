@@ -1,9 +1,11 @@
-﻿using CommandLine;
+using CommandLine;
 using System;
 using System.IO;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 
 namespace WarpTools.Commands
@@ -103,32 +105,52 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
+            decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
-            IterateOverItems<Movie>(
-                Workers,
-                CLI,
-                (worker, m) =>
+            // The init sequence loads the gain reference + defect map. Identical for every
+            // movie → all tasks share one init fingerprint → each worker runs LoadGainRef
+            // exactly once and reuses the loaded gain across all its tasks (same amortization
+            // as the old GetWorkers() up-front load). Empty paths make it a cheap no-op.
+            var loadGainRef = WorkerCommands.LoadGainRef(
+                Options.Import.GainPath,
+                Options.Import.GainFlipX,
+                Options.Import.GainFlipY,
+                Options.Import.GainTranspose,
+                Options.Import.DefectsPath);
+
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+            // Behavior note: unlike the old IterateOverItems (fail on first exception),
+            // failures here are retried by the Scheduler up to the retry cap before being
+            // poisoned, so a Poisoned outcome already means "failed after retries".
+            // Standard per-item handling (LoadMeta, status update, SaveMeta, snapshot
+            // writes, progress/error output) is owned by DistributeItems.
+            CLI.DistributeItems<Movie>(buildTask: (m, i) =>
+            {
+                // correctGain=true matches the original fs_ctf default. The sibling
+                // fs_motion_and_ctf passes false for the average (already gain-corrected
+                // and binned). Preserved for behavioral fidelity; see manual acceptance
+                // test notes for the --use_sum + gain-reference caveat.
+                bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
+                var task = new TaskItem
                 {
-                    decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
-
-                    if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
-                        worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames);
-                    else
-                        worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-                    
-                    worker.MovieProcessCTF(m.Path, OptionsCTF);
-
-                    worker.GcCollect();
-                }
-            );
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
+                    TaskId = $"{i:D7}-ctf-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadGainRef },
+                    Main = new[]
+                    {
+                        useSum ? WorkerCommands.LoadStack(m.AveragePath, 1M, Options.Import.EERGroupFrames)
+                               : WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                        WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF),
+                        WorkerCommands.GcCollect(),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                return task;
+            });
 
             Console.Write("Saving settings...");
             Options.Save(Path.Combine(CLI.OutputProcessing, "ctf_movies.settings"));

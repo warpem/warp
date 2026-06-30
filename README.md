@@ -55,6 +55,111 @@ You will also need an NVIDIA driver that supports CUDA 12.x (version >= 525.60.1
 For information on how to use Warp, M and friends please check out the user guide section
 of [warpem.github.io/warp](https://warpem.github.io/warp/).
 
+# Distributing WarpTools across a cluster (SLURM example)
+
+Every WarpTools command that processes many items in parallel (e.g. `fs_motion_and_ctf`,
+`fs_ctf`, `ts_ctf`, `ts_reconstruct`, …) can spread the work across a pool of worker
+processes. By default it spawns those workers locally, one per GPU. It can instead
+submit a pool of workers to a batch scheduler such as SLURM, where each worker is a job
+that claims tasks from a shared work queue. You point WarpTools at two files — a
+submission-script template and a small cluster-config JSON — and it submits `--pool_size`
+identical worker jobs, waits for them to chew through the queue, then cancels them when
+the run is done (also on Ctrl-C).
+
+> This is a minimal, built-in alternative to a full workflow manager. It assumes the
+> output/queue directory is on a **shared filesystem** visible to every compute node, and
+> that the Warp install is reachable at the **same path** on the compute nodes (e.g. via
+> the same module). For larger deployments, Relay will provide richer scheduling.
+
+## 1. The cluster-config JSON
+
+Describes how to talk to the scheduler. Exactly three fields:
+
+```json
+{
+  "submit": "sbatch {{script_path}}",
+  "submit_job_id_regex": "Submitted batch job (\\d+)",
+  "cancel": "scancel {{job_id}}"
+}
+```
+
+- `submit` — command that submits the rendered script. `{{script_path}}` is filled in
+  with the path of the script WarpTools writes. WarpTools reads the command's stdout to
+  learn the job id.
+- `submit_job_id_regex` — the **first capture group** extracts the job id from that
+  stdout. The example matches the default `sbatch` output. (If you prefer, use
+  `"submit": "sbatch --parsable {{script_path}}"` together with `"submit_job_id_regex": "(\\d+)"`.)
+- `cancel` — runs once per job id, with `{{job_id}}` substituted, when the run finishes
+  or is interrupted.
+
+Note the doubled backslash (`\\d`) — it is a JSON string, so the backslash must be escaped.
+
+## 2. The submission-script template
+
+A normal SLURM batch script with `{{ }}` placeholders. The only required placeholder is
+`{{command}}`, which WarpTools replaces with the full worker invocation (it already
+contains the queue directory, the log directory, the GPU device, and a unique worker id).
+Everything else is up to you; any `{{custom}}` placeholders you add are filled from the
+command line (next step).
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=warp-worker
+#SBATCH --partition={{partition}}
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task={{cpus}}
+#SBATCH --mem={{mem}}
+#SBATCH --time={{time}}
+#SBATCH --output=warp-worker-%j.out
+
+module load warp
+
+{{command}}
+```
+
+A few notes on `{{command}}`:
+
+- Each worker job requests **one GPU** (`--gres=gpu:1`); the worker(s) use device `0`,
+  i.e. whatever SLURM exposes to that job via `CUDA_VISIBLE_DEVICES`.
+- With `--perdevice N` (see below), `{{command}}` launches **N worker processes** in the
+  background on that GPU and ends with `wait`, so the job holds its allocation until they
+  finish. Each process names itself `"$(hostname)-$$-<i>"` — your shell expands
+  `$(hostname)` and `$$` on the compute node, and the index keeps ids unique across the
+  whole pool. This is why the script must run in a shell.
+- Workers are started with `--persistent` so a momentarily empty queue does not make them
+  quit early; WarpTools cancels them (via `cancel`) once everything is done.
+
+## 3. Run a command in cluster mode
+
+Add four options to any distributed WarpTools command:
+
+```bash
+WarpTools fs_motion_and_ctf \
+    --settings warp_frameseries.settings \
+    --cluster_script worker.slurm \
+    --cluster_config slurm.json \
+    --pool_size 16 \
+    --perdevice 2 \
+    --cluster_var partition=gpu \
+    --cluster_var time=04:00:00 \
+    --cluster_var cpus=8 \
+    --cluster_var mem=32G
+```
+
+- `--cluster_script` — path to the submission-script template. Its presence switches the
+  command into cluster mode.
+- `--cluster_config` — path to the cluster-config JSON.
+- `--pool_size` — how many worker **jobs** to submit (one GPU each).
+- `--perdevice` — worker processes per job (per GPU); default `1`. The pool holds up to
+  `pool_size × perdevice` workers — the example above is 16 GPUs × 2 = 32 workers.
+- `--cluster_var key=value` — repeatable; fills one `{{key}}` placeholder in the template.
+  Whitespace around `=` is tolerated (`--cluster_var partition = gpu` works too); quote
+  values that contain spaces, e.g. `--cluster_var "account=my project"`.
+
+In cluster mode `--device_list` is ignored (the scheduler allocates each job its GPU). If
+the template still contains any placeholder you didn't provide, the command stops
+immediately and tells you which ones are missing, rather than submitting a broken script.
+
 # Build Warp on Linux
 
 After cloning this repository, run these commands:

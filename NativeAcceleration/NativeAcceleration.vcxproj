@@ -254,6 +254,15 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>NativeAcceleration</ProjectName>
   </PropertyGroup>
+  <PropertyGroup Label="ForceVS2022Toolchain">
+    <!-- Pin this project to the VS 2022 (v170) toolchain + CUDA 12.8 build customization,
+         even when the solution is opened in a newer VS (e.g. VS 18 / 2026) whose VCTargetsPath
+         only ships CUDA 13.3. Every Import below routes through $(VCTargetsPath), so this one
+         override redirects Microsoft.Cpp.*, the v143 toolset, and the CUDA customization to
+         the VS 2022 install. Only kicks in when the host VS lacks the 12.8 customization.
+         Adjust the path if VS 2022 is not the Community edition / not on the default drive. -->
+    <VCTargetsPath Condition="!Exists('$(VCTargetsPath)BuildCustomizations\CUDA 12.8.props')">C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\</VCTargetsPath>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -271,7 +280,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.8.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -281,20 +290,20 @@
   </ImportGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.6.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.8.targets" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
-    <IncludePath>$(ProjectDir);$(CONDA_INCLUDE);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir);$(CONDA_INCLUDE);$(CUDA_PATH_V12_8)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(CONDA_LIB)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)Release\</OutDir>
-    <IncludePath>$(ProjectDir);$(CONDA_INCLUDE);$(CUDA_PATH)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_PATH)\lib\x64;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(CONDA_LIB)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(CONDA_INCLUDE);$(CUDA_PATH_V12_8)\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH_V12_8)\lib\x64;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(CONDA_LIB)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -319,15 +328,15 @@
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(CudaToolkitLibDir)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(CUDA_PATH)\bin\cudart64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufft64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufftw64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublas64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublasLt64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
+      <Command>copy "$(CUDA_PATH_V12_8)\bin\cudart64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cufft64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cufftw64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cublas64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cublasLt64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\curand64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cusolver64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cusparse64_*.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\zlib.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"
@@ -378,15 +387,15 @@ copy "$(CONDA_BIN)\fftw3f.dll" "$(OutDir)"</Command>
       </Version>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(CUDA_PATH)\bin\cudart64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufft64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cufftw64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublas64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cublasLt64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cudnn64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\curand64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusolver64_*.dll" "$(OutDir)"
-copy "$(CUDA_PATH)\bin\cusparse64_*.dll" "$(OutDir)"
+      <Command>copy "$(CUDA_PATH_V12_8)\bin\cudart64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cufft64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cufftw64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cublas64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cublasLt64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cudnn64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\curand64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cusolver64_*.dll" "$(OutDir)"
+copy "$(CUDA_PATH_V12_8)\bin\cusparse64_*.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\tiff.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\zlib.dll" "$(OutDir)"
 copy "$(CONDA_BIN)\deflate.dll" "$(OutDir)"

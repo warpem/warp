@@ -447,6 +447,11 @@ public class ProcessingOptionsParticleExport : ProcessingOptionsBase
                PreflipPhases == other.PreflipPhases;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsParticleExport left, ProcessingOptionsParticleExport right)
     {
         return Equals(left, right);

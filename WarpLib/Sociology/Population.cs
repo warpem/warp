@@ -208,17 +208,45 @@ namespace Warp.Sociology
 
         public void SaveRefinementProgress(string folder)
         {
+            // Write each file to a temp name and atomically rename over the target. With
+            // the filesystem work-distribution path a worker safe-saves its running
+            // progress after every item, so a crash mid-write must never leave a truncated
+            // partial that a later gather would fail to read — the rename is the only
+            // durability point, leaving the previous complete partial intact on failure.
+            static void AtomicWriteMRC(Projector p, string path)
+            {
+                if (p == null) return;
+                p.WriteMRC(path + ".tmp");
+                System.IO.File.Move(path + ".tmp", path, overwrite: true);
+            }
+
             foreach (var species in Species)
             {
                 string SpeciesID = species.GUID.ToString().Substring(0, 8);
 
                 for (int i = 0; i < species.HalfMap1Reconstruction.Length; i++)
                 {
-                    species.HalfMap1Reconstruction[i]?.WriteMRC(System.IO.Path.Combine(folder, $"{SpeciesID}_half1_{i}.mrc"));
-                    species.HalfMap2Reconstruction[i]?.WriteMRC(System.IO.Path.Combine(folder, $"{SpeciesID}_half2_{i}.mrc"));
+                    AtomicWriteMRC(species.HalfMap1Reconstruction[i], System.IO.Path.Combine(folder, $"{SpeciesID}_half1_{i}.mrc"));
+                    AtomicWriteMRC(species.HalfMap2Reconstruction[i], System.IO.Path.Combine(folder, $"{SpeciesID}_half2_{i}.mrc"));
                 }
-                species.ParticlesToStar().Save(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star"));
+
+                string starPath = System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star");
+                species.ParticlesToStar().Save(starPath + ".tmp");
+                System.IO.File.Move(starPath + ".tmp", starPath, overwrite: true);
             }
+        }
+
+        /// <summary>
+        /// Free the GPU/host resources held by every species' refinement projectors and
+        /// reconstruction accumulators. Call before reloading the population for a new
+        /// data source, or when tearing down an in-process refinement worker, so resident
+        /// device memory does not accumulate across sources. Previously this was reclaimed
+        /// implicitly by killing the refinement worker process between sources.
+        /// </summary>
+        public void FreeRefinementResources()
+        {
+            foreach (var species in Species)
+                species.FreeRefinementResources();
         }
 
         public void GatherRefinementProgress(string[] folders)

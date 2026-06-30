@@ -148,7 +148,7 @@ namespace WarpTools.Commands.Tiltseries
             int NDone = 0;
             Console.Write($"Processing tilt series: {NDone}/{CLI.InputSeries.Length}");
 
-            IterateOverItems<TiltSeries>(null, CLI, (_, series) =>
+            IterateOverItems<TiltSeries>(CLI, series =>
             {
                 series.VolumeDimensionsPhysical = TomogramDims;
                 var ImageHeader = MapHeader.ReadFromFile(new Movie(Path.Combine(series.DataOrProcessingDirectoryName, series.TiltMoviePaths.First())).DataPath);

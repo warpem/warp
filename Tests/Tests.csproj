@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WarpLib\WarpLib.csproj" />
+    <!-- Build WarpWorker2 alongside the tests but don't reference its assembly —
+         we just need the executable copied next to the test output so
+         LocalProvisioner can find it at AppContext.BaseDirectory. -->
+    <ProjectReference Include="..\WarpWorker2\WarpWorker2.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="None" />
+  </ItemGroup>
+  <Target Name="CopyWorkerBinary" AfterTargets="Build">
+    <ItemGroup>
+      <!-- Copy the full WarpWorker2 build output (apphost + dll + deps + runtimeconfig)
+           so the dotnet apphost can locate its managed assembly at test time. -->
+      <WorkerFiles Include="$(MSBuildThisFileDirectory)..\bin\WarpWorker2*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WorkerFiles)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

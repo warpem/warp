@@ -481,6 +481,11 @@ public class ProcessingOptionsMovieMovement : ProcessingOptionsBase
                DosePerAngstromFrame == other.DosePerAngstromFrame;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsMovieMovement left, ProcessingOptionsMovieMovement right)
     {
         return Equals(left, right);

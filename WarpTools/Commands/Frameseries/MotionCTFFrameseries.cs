@@ -1,9 +1,12 @@
 ﻿using CommandLine;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 
 namespace WarpTools.Commands
@@ -195,38 +198,63 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-
             ProcessingOptionsMovieMovement OptionsMovement = Options.GetProcessingMovieMovement();
             ProcessingOptionsMovieCTF OptionsCTF = Options.GetProcessingMovieCTF();
             ProcessingOptionsMovieExport OptionsMovieExport = Options.GetProcessingMovieExport();
 
-            IterateOverItems<Movie>(Workers, CLI, (worker, m) =>
-            {
-                decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
+            decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)Options.Import.BinTimes);
 
-                worker.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames);
-                worker.MovieProcessMovement(m.Path, OptionsMovement);
+            var loadGainRef = WorkerCommands.LoadGainRef(
+                Options.Import.GainPath,
+                Options.Import.GainFlipX,
+                Options.Import.GainFlipY,
+                Options.Import.GainTranspose,
+                Options.Import.DefectsPath);
+
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+            CLI.DistributeItems<Movie>(buildTask: (m, i) =>
+            {
+                var main = new List<NamedSerializableObject>
+                {
+                    WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                    WorkerCommands.MovieProcessMovement(m.Path, OptionsMovement),
+                };
+
                 if (CLI.OutAverages || CLI.OutAverageHalves)
-                    worker.MovieExportMovie(m.Path, OptionsMovieExport);
+                    main.Add(WorkerCommands.MovieExportMovie(m.Path, OptionsMovieExport));
 
                 if (CLI.OutThumbnails.HasValue)
-                    worker.MovieCreateThumbnail(m.Path, CLI.OutThumbnails.Value, 3);
+                    main.Add(WorkerCommands.MovieCreateThumbnail(m.Path, CLI.OutThumbnails.Value, 3));
 
                 if (Options.CTF.UseMovieSum)
-                    worker.WaitAsyncTasks();
+                {
+                    // Drain the async export before loading the average — same
+                    // ordering as the old worker.WaitAsyncTasks() call.
+                    main.Add(WorkerCommands.WaitAsyncTasks());
+                    // Average is already gain-corrected; correctGain=false avoids
+                    // applying it a second time (unlike standalone fs_ctf).
+                    if (File.Exists(m.AveragePath))
+                        main.Add(WorkerCommands.LoadStack(m.AveragePath, 1M,
+                            Options.Import.EERGroupFrames, correctGain: false));
+                }
 
-                if (Options.CTF.UseMovieSum && File.Exists(m.AveragePath))
-                    worker.LoadStack(m.AveragePath, 1, Options.Import.EERGroupFrames, false);
-                worker.MovieProcessCTF(m.Path, OptionsCTF);
+                main.Add(WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF));
+                main.Add(WorkerCommands.WaitAsyncTasks());
+                main.Add(WorkerCommands.GcCollect());
 
-                worker.GcCollect();
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-motionctf-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadGainRef },
+                    Main = main.ToArray(),
+                };
+                task.ComputeInitFingerprint();
+                return task;
             });
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
 
             Console.Write("Saving settings...");
             Options.Save(Path.Combine(CLI.OutputProcessing, "align_and_ctf_frameseries.settings"));

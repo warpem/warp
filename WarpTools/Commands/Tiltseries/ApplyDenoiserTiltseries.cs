@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -63,32 +65,32 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
+            // The denoiser model load is an Init command: each worker runs it once on
+            // its first task and reuses the loaded model thereafter (fingerprint-amortized),
+            // replacing the legacy explicit Parallel.ForEach pre-load over all workers.
+            var loadDenoiser = WorkerCommands.LoadTomoDenoiser(
+                CLI.ModelPath, new int3(CLI.WindowSize), CLI.BatchSize);
 
-            // Load denoiser model on all workers
-            Console.Write("Loading denoiser model on all workers... ");
-            Parallel.ForEach(Workers, worker =>
-            {
-                worker.LoadTomoDenoiser(CLI.ModelPath, new int3(CLI.WindowSize), CLI.BatchSize);
-            });
-            Console.WriteLine("Done");
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-            try
+            CLI.DistributeItems<TiltSeries>(buildTask: (m, i) =>
             {
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
+                var task = new TaskItem
                 {
-                    worker.TomoDenoise(m.Path, OptionsDenoise);
-                });
-            }
-            finally
-            {
-                // No need to drop model explicitly since we're shutting down all workers anyway
-
-                Console.Write("Saying goodbye to all workers...");
-                foreach (var worker in Workers)
-                    worker.Dispose();
-                Console.WriteLine(" Done");
-            }
+                    TaskId = $"{i:D7}-denoise-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadDenoiser },
+                    Main = new[]
+                    {
+                        WorkerCommands.TomoDenoise(m.Path, OptionsDenoise),
+                        WorkerCommands.GcCollect(),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                return task;
+            });
         }
     }
 }

@@ -1093,7 +1093,7 @@ namespace Warp
             Stream?.Dispose();
         }
 
-        public string? ReadLine()
+        public string ReadLine()
         {
             ReadOnlySpan<char> LineSpan;
             bool Success = TryReadLineSpan(out LineSpan);

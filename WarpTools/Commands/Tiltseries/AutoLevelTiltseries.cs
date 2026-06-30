@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands;
 
@@ -53,18 +55,25 @@ class AutoLevelTiltseries : BaseCommand
 
         #endregion
 
-        WorkerWrapper[] Workers = CLI.GetWorkers();
+        foreach (var item in CLI.InputSeries)
+            item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-        IterateOverItems<TiltSeries>(Workers, CLI, (worker, m) =>
+        CLI.DistributeItems<TiltSeries>(buildTask: (m, i) =>
         {
-            worker.TomoAutoLevel(m.Path, OptionsLevel);
-
-            worker.GcCollect();
+            var task = new TaskItem
+            {
+                TaskId = $"{i:D7}-autolevel-{m.RootName}",
+                Stage = "preprocess",
+                RequiresGpu = true,
+                Init = Array.Empty<NamedSerializableObject>(),
+                Main = new[]
+                {
+                    WorkerCommands.TomoAutoLevel(m.Path, OptionsLevel),
+                    WorkerCommands.GcCollect(),
+                },
+            };
+            task.ComputeInitFingerprint();
+            return task;
         });
-
-        Console.Write("Saying goodbye to all workers...");
-        foreach (var worker in Workers)
-            worker.Dispose();
-        Console.WriteLine(" Done");
     }
 }

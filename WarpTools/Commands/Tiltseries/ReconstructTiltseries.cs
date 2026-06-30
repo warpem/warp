@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -122,19 +124,26 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-            IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
+            CLI.DistributeItems<TiltSeries>(buildTask: (t, i) =>
             {
-                worker.TomoReconstruct(t.Path, OptionsReconstruction);
-
-                worker.GcCollect();
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-reconstruct-{t.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = Array.Empty<NamedSerializableObject>(),
+                    Main = new[]
+                    {
+                        WorkerCommands.TomoReconstruct(t.Path, OptionsReconstruction),
+                        WorkerCommands.GcCollect(),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                return task;
             });
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
         }
     }
 }

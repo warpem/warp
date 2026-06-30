@@ -1744,8 +1744,13 @@ namespace Warp.Sociology
             MapDenoised.Multiply(0.5f);
 
             NoiseNet3DTorch.Denoise(MapDenoised, new[] { Denoiser });
-            //Denoiser.Dispose();
-            //Denoiser = null;
+            // Dispose the PyTorch denoiser: it holds tens-hundreds of MB of resident CUDA
+            // weights/tensors. Previously the worker process was killed after this step so
+            // CUDA reclaimed it; with one long-lived worker doing many species back-to-back
+            // it would otherwise leak a whole network per species. Each use reloads from
+            // PathNoiseNet, so there is nothing to keep resident.
+            Denoiser?.Dispose();
+            Denoiser = null;
             TorchSharp.Torch.CudaEmptyCache();
             //TFHelper.TF_FreeAllMemory();
 
@@ -1961,6 +1966,14 @@ namespace Warp.Sociology
                             HalfMap2Padded.FreeDevice();
                             HalfMap2Padded = ForDenoising2[0];
                             //HalfMap2Padded.WriteMRC($"d_denoised_half2_{Name}_{GPU.GetDevice()}.mrc", true);
+
+                            // Dispose the PyTorch denoiser (resident CUDA weights/tensors).
+                            // Pre-flight runs once per species; with a long-lived worker this
+                            // would otherwise leak a whole network per species. The next use
+                            // reloads from PathNoiseNet, so nothing needs to stay resident.
+                            Denoiser?.Dispose();
+                            Denoiser = null;
+                            TorchSharp.Torch.CudaEmptyCache();
                         }
                         else
                         {
@@ -2054,6 +2067,32 @@ namespace Warp.Sociology
 
             HalfMap1Reconstruction = Helper.ArrayOfFunction(i => (singleGPU < 0 || singleGPU == i) ? new Projector(new int3(SizeReconstruction), 1) : null, GPU.GetDeviceCount());
             HalfMap2Reconstruction = Helper.ArrayOfFunction(i => (singleGPU < 0 || singleGPU == i) ? new Projector(new int3(SizeReconstruction), 1) : null, GPU.GetDeviceCount());
+        }
+
+        /// <summary>
+        /// Dispose the GPU/host resources held by this species' refinement reference
+        /// projectors and reconstruction accumulators. Use it when the species was
+        /// prepared for refinement but will NOT be finished in this process (e.g. the
+        /// pre-flight staging pass, which discards the species after writing references to
+        /// disk). FinishRefinement already disposes these on the post-flight path, so do
+        /// not also call this there. Previously the leak was reclaimed by worker-process
+        /// death; a long-lived worker must free it explicitly.
+        /// </summary>
+        public void FreeRefinementResources()
+        {
+            if (HalfMap1Projector != null)
+                foreach (var p in HalfMap1Projector) p?.Dispose();
+            if (HalfMap2Projector != null)
+                foreach (var p in HalfMap2Projector) p?.Dispose();
+            if (HalfMap1Reconstruction != null)
+                foreach (var p in HalfMap1Reconstruction) p?.Dispose();
+            if (HalfMap2Reconstruction != null)
+                foreach (var p in HalfMap2Reconstruction) p?.Dispose();
+
+            HalfMap1Projector = null;
+            HalfMap2Projector = null;
+            HalfMap1Reconstruction = null;
+            HalfMap2Reconstruction = null;
         }
 
         public void GatherRefinementProgress(string[] folders, int gpuID = -1)
@@ -2297,8 +2336,10 @@ namespace Warp.Sociology
             Path = Helper.PathCombine(OriginalFolderPath, FileName);
             Save();
 
-            //Denoiser?.Dispose();
-            //Denoiser = null;
+            // Release the resident PyTorch denoiser (CUDA weights/tensors). A long-lived
+            // worker commits many species; without this each leaks a whole network.
+            Denoiser?.Dispose();
+            Denoiser = null;
             TorchSharp.Torch.CudaEmptyCache();
             //TFHelper.TF_FreeAllMemory();
         }

@@ -58,7 +58,7 @@ namespace WarpTools.Commands.Tiltseries
 
                 var Correlations = new List<float>();
 
-                IterateOverItems<TiltSeries>(null, CLI, (_, series) =>
+                IterateOverItems<TiltSeries>(CLI, series =>
                 {
                     bool OriginalFlip = series.AreAnglesInverted;
                     series.AreAnglesInverted = false;

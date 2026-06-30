@@ -1380,7 +1380,7 @@ namespace Warp.Tools
 
         public static string GetSHA1(byte[] data)
         {
-            using (SHA1 hasher = new SHA1CryptoServiceProvider())
+            using (SHA1 hasher = SHA1.Create())
             {
                 byte[] HashBytes = hasher.ComputeHash(data);
 

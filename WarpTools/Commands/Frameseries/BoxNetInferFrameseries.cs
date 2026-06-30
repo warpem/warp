@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 
 namespace WarpTools.Commands.Frameseries
@@ -98,36 +100,31 @@ namespace WarpTools.Commands.Frameseries
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
+            // LoadBoxNet is placed in Init so the model is loaded once per worker and
+            // reused across all items (fingerprint-amortized). The old --perprocess
+            // oversubscription (intra-worker thread concurrency) has no equivalent in
+            // the filesystem distribution model; parallelism comes from --perdevice.
+            var loadBoxNet = WorkerCommands.LoadBoxNet(ModelPath, CLI.PatchSize, batchSize: 1);
 
-            #region Load model
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-            Console.Write("Loading model...");
-
-            Helper.ForCPU(0, Workers.Length, Workers.Length, null, (iworker, threadID) =>
+            CLI.DistributeItems<Movie>(buildTask: (m, i) =>
             {
-                WorkerWrapper Worker = Workers[threadID];
-                Worker.LoadBoxNet(ModelPath, CLI.PatchSize, 1);
-            }, null);
-
-            Console.WriteLine(" Done");
-
-            #endregion
-
-            IterateOverItems<Movie>(
-                Workers,
-                CLI,
-                (worker, m) => { worker.MoviePickBoxNet(m.Path, OptionsPick); },
-                oversubscribe: CLI.NThreads
-            );
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-boxnet-{m.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { loadBoxNet },
+                    Main = new[] { WorkerCommands.MoviePickBoxNet(m.Path, OptionsPick) },
+                };
+                task.ComputeInitFingerprint();
+                return task;
+            });
 
             Console.Write("Saving settings...");
-            Options.Save(Path.Combine(CLI.OutputProcessing, "align_frameseries.settings"));
+            Options.Save(Path.Combine(CLI.OutputProcessing, "boxnet_frameseries.settings"));
             Console.WriteLine(" Done");
         }
     }

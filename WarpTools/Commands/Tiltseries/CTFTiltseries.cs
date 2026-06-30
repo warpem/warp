@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -57,7 +59,6 @@ namespace WarpTools.Commands
             CLI.Evaluate();
 
             OptionsWarp Options = CLI.Options;
-            WorkerWrapper[] Workers = CLI.GetWorkers();
 
             #region Validate options
 
@@ -114,12 +115,38 @@ namespace WarpTools.Commands
 
             var OptionsCTF = Options.GetProcessingMovieCTF();
 
+            // Local helper: one CTF task per current InputSeries item, distributed via
+            // the filesystem work queue. The auto-hand path calls it up to three times
+            // (subset for the handedness check, then the full set), each time over the
+            // current value of CLI.InputSeries — exactly as the legacy IterateOverItems
+            // calls did.
+            void RunCTF()
+            {
+                foreach (var item in CLI.InputSeries)
+                    item.ProcessingStatus = ProcessingStatus.Unprocessed;
+
+                CLI.DistributeItems<TiltSeries>(buildTask: (t, i) =>
+                {
+                    var task = new TaskItem
+                    {
+                        TaskId = $"{i:D7}-ctf-{t.RootName}",
+                        Stage = "preprocess",
+                        RequiresGpu = true,
+                        Init = Array.Empty<NamedSerializableObject>(),
+                        Main = new[]
+                        {
+                            WorkerCommands.TomoProcessCTF(t.Path, OptionsCTF),
+                            WorkerCommands.GcCollect(),
+                        },
+                    };
+                    task.ComputeInitFingerprint();
+                    return task;
+                });
+            }
+
             if (CLI.AutoHand == 0)
             {
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                {
-                    worker.TomoProcessCTF(t.Path, OptionsCTF);
-                });
+                RunCTF();
             }
             else
             {
@@ -129,10 +156,7 @@ namespace WarpTools.Commands
                 CLI.InputSeries = SeriesToUse;
 
                 Console.WriteLine($"Estimating the CTF for {CLI.AutoHand} tilt series to check handedness...");
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                {
-                    worker.TomoProcessCTF(t.Path, OptionsCTF);
-                });
+                RunCTF();
 
                 #region Calculate correlation
 
@@ -240,16 +264,8 @@ namespace WarpTools.Commands
                 #endregion
 
                 Console.WriteLine("Now running CTF estimation for all tilt series with correct defocus handedness...");
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                {
-                    worker.TomoProcessCTF(t.Path, OptionsCTF);
-                });
+                RunCTF();
             }
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
 
             Console.Write("Saving settings...");
             Options.Save(Path.Combine(CLI.OutputProcessing, "ctf_tiltseries.settings"));

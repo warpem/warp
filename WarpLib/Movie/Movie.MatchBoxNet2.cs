@@ -491,6 +491,11 @@ public class ProcessingOptionsBoxNet : ProcessingOptionsBase
                OverrideImagePath == other.OverrideImagePath;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsBoxNet left, ProcessingOptionsBoxNet right)
     {
         return Equals(left, right);

@@ -399,18 +399,25 @@ namespace Warp
 
                     ResultPredicted.Dispose();
                     ResultPredictedDeconv.Dispose();
+                    ResultPredictedRotated.Dispose();
 
                     for (int i = 0; i < NDevices; i++)
                     {
                         TensorSource[i].Dispose();
                         TensorTarget[i].Dispose();
                         TensorCTF[i].Dispose();
-                        //TensorMask[i].Dispose();
+                        TensorMask[i].Dispose();
+                        TensorOne[i].Dispose();
 
                         UNetModel[i].Dispose();
                     }
 
                     Optimizer.Dispose();
+
+                    // Release the CUDA caching allocator's freed blocks back to the driver
+                    // so a disposed network's device memory is actually returned, not just
+                    // pooled. Matters now that workers are long-lived (no process death).
+                    TorchSharp.Torch.CudaEmptyCache();
                 }
             }
         }
@@ -840,6 +847,16 @@ namespace Warp
 
                 #endregion
             }
+
+            // Dispose the prepared working volumes. These are distinct from the returned
+            // HalvesForDenoising (separate GetCopy()s above), so this is not a double-free.
+            // In the training path they were re-read onto the device for textures and leak
+            // device+host otherwise; in the prep path (niterations == 0) only host leaks.
+            // Previously reclaimed by worker-process death.
+            foreach (var item in Maps1)
+                item.Dispose();
+            foreach (var item in Maps2)
+                item.Dispose();
 
             return (HalvesForDenoising1.ToArray(), HalvesForDenoising2.ToArray(), StatsForDenoising.ToArray());
         }

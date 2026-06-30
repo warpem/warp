@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Warp;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -87,8 +89,6 @@ namespace WarpTools.Commands
 
             #endregion
 
-            WorkerWrapper[] Workers = CLI.GetWorkers();
-            
             // define a function to calculate the average tilt axis over the whole dataset
             Func<float> CalculateAverageAxis = () =>
             {
@@ -120,19 +120,37 @@ namespace WarpTools.Commands
             OptionsEtomoPatchTrack.DoAxisAngleSearch = CLI.DoAxisAngleSearch;
             
             
-            Console.WriteLine("Performing patch tracking alignment on all tilt-series...");
-            IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
+            // onSuccess runs after DistributeItems has already reloaded the meta, so the
+            // hook only needs to import the alignment Etomo produced and persist it.
+            Action<TiltSeries> ImportAndSave = t =>
             {
-                worker.TomoStack(t.Path, OptionsStack);
-                worker.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack);
-                
-                t.LoadMeta();
-
                 t.ImportAlignments(OptionsImport);
-
                 t.SaveMeta();
-            });
-            
+            };
+
+            Console.WriteLine("Performing patch tracking alignment on all tilt-series...");
+            foreach (var item in CLI.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
+            CLI.DistributeItems<TiltSeries>(
+                buildTask: (t, i) =>
+                {
+                    var task = new TaskItem
+                    {
+                        TaskId = $"{i:D7}-etomopatch-{t.RootName}",
+                        Stage = "preprocess",
+                        RequiresGpu = true,
+                        Init = Array.Empty<NamedSerializableObject>(),
+                        Main = new[]
+                        {
+                            WorkerCommands.TomoStack(t.Path, OptionsStack),
+                            WorkerCommands.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack),
+                        },
+                    };
+                    task.ComputeInitFingerprint();
+                    return task;
+                },
+                onSuccess: ImportAndSave);
+
             // Second iteration, calculate new alignments with average tilt axis angle from full dataset
             if (CLI.DoAxisAngleSearch) // only update alignments if it was requested
             {
@@ -140,22 +158,29 @@ namespace WarpTools.Commands
                 OptionsEtomoPatchTrack.DoPatchTracking = true;
                 OptionsEtomoPatchTrack.DoTiltAlign = true;
                 OptionsEtomoPatchTrack.DoAxisAngleSearch = false;  // fix the new tilt axis angle
-                
+
                 Console.WriteLine($"Average tilt axis angle from patch tracking: {OptionsEtomoPatchTrack.AxisAngle}");
                 Console.WriteLine($"Recalculating alignments for all tilt series with new average tilt axis angle...");
-            
-                IterateOverItems<TiltSeries>(Workers, CLI, (worker, t) =>
-                {
-                    worker.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack);
-                    
-                    t.LoadMeta();
-                    
-                    t.ImportAlignments(OptionsImport);
 
-                    t.SaveMeta();
-                });
+                foreach (var item in CLI.InputSeries)
+                    item.ProcessingStatus = ProcessingStatus.Unprocessed;
+                CLI.DistributeItems<TiltSeries>(
+                    buildTask: (t, i) =>
+                    {
+                        var task = new TaskItem
+                        {
+                            TaskId = $"{i:D7}-etomopatch2-{t.RootName}",
+                            Stage = "preprocess",
+                            RequiresGpu = true,
+                            Init = Array.Empty<NamedSerializableObject>(),
+                            Main = new[] { WorkerCommands.TomoEtomoPatchTrack(t.Path, OptionsEtomoPatchTrack) },
+                        };
+                        task.ComputeInitFingerprint();
+                        return task;
+                    },
+                    onSuccess: ImportAndSave);
             }
-            
+
             if (CLI.DeleteIntermediate)
             {
                 Console.Write("Deleting intermediate stacks... ");
@@ -172,11 +197,6 @@ namespace WarpTools.Commands
 
                 Console.WriteLine("Done");
             }
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
         }
     }
 }

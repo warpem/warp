@@ -53,6 +53,13 @@
     <RootNamespace>LibTorchSharp</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
+  <PropertyGroup Label="ForceVS2022Toolchain">
+    <!-- Pin this project to the VS 2022 (v170) toolchain so it builds with the v143 toolset
+         from the VS 2022 install, even when opened in a newer VS (e.g. VS 18 / 2026). Only
+         kicks in when the host VS does not ship the v143 platform toolset.
+         Adjust the path if VS 2022 is not the Community edition / not on the default drive. -->
+    <VCTargetsPath Condition="!Exists('$(VCTargetsPath)Platforms\x64\PlatformToolsets\v143\Toolset.props')">C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\</VCTargetsPath>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -89,14 +96,14 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(PYTORCH_DIR)\include\torch\csrc\api\include;$(PYTORCH_DIR)\include;$(CUDA_PATH)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_DIR)\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(PYTORCH_DIR)\include\torch\csrc\api\include;$(PYTORCH_DIR)\include;$(CUDA_PATH_V12_8)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH_V12_8)\lib\x64;$(PYTORCH_DIR)\lib;$(LibraryPath)</LibraryPath>
     <OutDir>../bin</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(PYTORCH_DIR)\include\torch\csrc\api\include;$(PYTORCH_DIR)\include;$(CUDA_PATH)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_PATH)\lib\x64;$(PYTORCH_DIR)\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(PYTORCH_DIR)\include\torch\csrc\api\include;$(PYTORCH_DIR)\include;$(CUDA_PATH_V12_8)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(CUDA_PATH_V12_8)\lib\x64;$(PYTORCH_DIR)\lib;$(LibraryPath)</LibraryPath>
     <OutDir>../Release</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -129,8 +136,7 @@
     </Link>
     <PostBuildEvent>
       <Command>copy /y $(PYTORCH_DIR)\bin\*.dll $(TargetDir)
-copy /y $(PYTORCH_DIR)\lib\*.dll $(TargetDir)
-copy /y "C:\Program Files\NVIDIA Corporation\NvToolsExt\bin\x64\nvToolsExt64_1.dll" $(TargetDir)</Command>
+copy /y $(PYTORCH_DIR)\lib\*.dll $(TargetDir)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

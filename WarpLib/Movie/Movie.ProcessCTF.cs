@@ -863,6 +863,11 @@ public class ProcessingOptionsMovieCTF : ProcessingOptionsBase
                DosePerAngstromFrame == other.DosePerAngstromFrame;
     }
 
+    public override int GetHashCode()
+    {
+        return base.GetHashCode();
+    }
+
     public static bool operator ==(ProcessingOptionsMovieCTF left, ProcessingOptionsMovieCTF right)
     {
         return Equals(left, right);

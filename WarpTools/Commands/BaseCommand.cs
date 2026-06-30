@@ -60,25 +60,23 @@ namespace WarpTools.Commands
             Console.WriteLine("");
         }
 
-        internal void IterateOverItems<T>(WorkerWrapper[] workers,
-                                          BaseOptions cli,
-                                          Action<WorkerWrapper, T> body,
+        // CPU-only per-item iteration helper. Runs body on the orchestrator for each
+        // input item (optionally oversubscribed across threads), with the same progress
+        // line + processed/failed snapshot writing as the worker path. GPU work goes
+        // through DistributedOptions.DistributeItems instead; this is for the handful of
+        // commands that only touch metadata/files (change_selection, move_data, etc.).
+        internal void IterateOverItems<T>(BaseOptions cli,
+                                          Action<T> body,
                                           Func<int, int, T[]> getBatch = null,
                                           int oversubscribe = 1,
                                           bool crashOnFail = false) where T : Movie
         {
-            Action<WorkerWrapper, T[]> wrappedBody = (worker, items) => body(worker, items.First());
-            IterateOverItems<T>(workers, 
-                                cli, 
-                                wrappedBody, 
-                                getBatch, 
-                                oversubscribe,
-                                crashOnFail);
+            Action<T[]> wrappedBody = items => body(items.First());
+            IterateOverItems<T>(cli, wrappedBody, getBatch, oversubscribe, crashOnFail);
         }
 
-        internal void IterateOverItems<T>(WorkerWrapper[] workers,
-                                          BaseOptions cli,
-                                          Action<WorkerWrapper, T[]> body,
+        internal void IterateOverItems<T>(BaseOptions cli,
+                                          Action<T[]> body,
                                           Func<int, int, T[]> getBatch = null,
                                           int oversubscribe = 1,
                                           bool crashOnFail = false) where T : Movie
@@ -109,13 +107,13 @@ namespace WarpTools.Commands
             Stopwatch timerOverall = Stopwatch.StartNew();
 
             bool isBatch = getBatch != null;
-            int nBatches = (workers?.Length ?? 1) * oversubscribe;
+            int nBatches = oversubscribe;
             int itemsPerBatch = (int)Math.Ceiling(cli.InputSeries.Length / (double)nBatches);
 
             if (!isBatch)
             {
                 // single-item processing
-                Helper.ForCPUGreedy(0, cli.InputSeries.Length, (workers?.Length ?? 1) * oversubscribe,
+                Helper.ForCPUGreedy(0, cli.InputSeries.Length, oversubscribe,
                                     null,
                                     (iitem, threadID) => { ProcessItem(iitem, threadID, iitem); },
                                     null);
@@ -133,7 +131,7 @@ namespace WarpTools.Commands
 
                     int endIndex = Math.Min(startIndex + itemsPerBatch, cli.InputSeries.Length);
 
-                    Console.WriteLine($"Submitted {endIndex - startIndex} items in batch {batchIndex} to worker process {batchIndex % (workers?.Length ?? 1)}");
+                    Console.WriteLine($"Submitted {endIndex - startIndex} items in batch {batchIndex}");
 
                     int currentBatch = batchIndex;
                     batchTasks.Add(Task.Run(() => ProcessItem(currentBatch, currentBatch, currentBatch)));
@@ -162,7 +160,6 @@ namespace WarpTools.Commands
             void ProcessItem(int index, int threadID, int jsonIndex)
             {
                 Stopwatch timer = Stopwatch.StartNew();
-                WorkerWrapper processor = workers?[threadID % workers.Length];
 
                 T[] itemsToProcess = internalGetBatch(index, isBatch ?
                                                                  Math.Min(index + itemsPerBatch,
@@ -183,16 +180,9 @@ namespace WarpTools.Commands
                     }
                 }
 
-                // Log file setup (differs slightly for batches)
-                processor?.Console.Clear();
-                string logFile = isBatch ?
-                                     Path.Combine(logDirectory, $"batch{index}.log") :
-                                     Path.Combine(logDirectory, $"{itemsToProcess[0].RootName}.log");
-                processor?.Console.SetFileOutput(logFile);
-
                 try
                 {
-                    body(processor, itemsToProcess);
+                    body(itemsToProcess);
 
                     foreach (var item in itemsToProcess)
                     {
@@ -237,8 +227,6 @@ namespace WarpTools.Commands
                 }
                 finally
                 {
-                    processor?.Console.SetFileOutput("");
-
                     jsonTasks.Add(Task.Run(() =>
                     {
                         List<T> immutableProcessed;
@@ -283,11 +271,7 @@ namespace WarpTools.Commands
                         if (processingTimes.Count > 20)
                             processingTimes.Dequeue();
 
-                        // Time calculation differs slightly for batches
-                        long averageTime = (long)Math.Max(1, processingTimes.Average() /
-                                                             (isBatch ?
-                                                                  (workers?.Length ?? 1) * oversubscribe :
-                                                                  ((workers?.Length ?? 1) * oversubscribe)));
+                        long averageTime = (long)Math.Max(1, processingTimes.Average() / oversubscribe);
                         long remainingTime = (cli.InputSeries.Length - nDone) * averageTime;
                         TimeSpan remainingTimeSpan = TimeSpan.FromMilliseconds(remainingTime);
 
@@ -310,6 +294,81 @@ namespace WarpTools.Commands
             JsonArray itemsJson = new JsonArray(items.Select(series => series.ToMiniJson("particles"))
                                                      .ToArray());
             File.WriteAllText(path, itemsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        }
+
+        /// <summary>
+        /// Tracks processed/failed items and publishes a live atomic JSON snapshot after
+        /// each one completes — identical pattern to IterateOverItems' per-item write, so
+        /// Relay always sees an up-to-date processed_items.json without parsing per-item XML.
+        ///
+        /// Usage:
+        ///   var writer = new ItemSnapshotWriter&lt;Movie&gt;(this, successPath, failPath);
+        ///   // pass writer.Record as the onItemResult callback to DistributeItems
+        ///   writer.WaitAll();    // after distribution finishes, flush any pending writes
+        /// </summary>
+        protected class ItemSnapshotWriter<T> where T : Movie
+        {
+            private readonly BaseCommand _cmd;
+            private readonly string _successPath;
+            private readonly string _failPath;
+            private readonly List<T> _processed = new();
+            private readonly List<T> _failed = new();
+            private readonly List<Task> _tasks = new();
+            private readonly object _sync = new();
+            private int _index = 0;
+
+            public IReadOnlyList<T> Processed => _processed;
+            public IReadOnlyList<T> Failed => _failed;
+
+            public ItemSnapshotWriter(BaseCommand cmd, string successPath, string failPath)
+            {
+                _cmd = cmd;
+                _successPath = successPath;
+                _failPath = failPath;
+            }
+
+            /// <summary>Pass this as the onItemResult callback to DistributeItems.</summary>
+            public void Record(T item, bool succeeded)
+            {
+                int idx;
+                List<T> snapshotProcessed, snapshotFailed;
+                lock (_sync)
+                {
+                    if (succeeded) _processed.Add(item);
+                    else _failed.Add(item);
+                    idx = _index++;
+                    snapshotProcessed = _processed.ToList();
+                    snapshotFailed = _failed.ToList();
+                }
+
+                // Write the snapshot on a background thread so the polling loop isn't blocked.
+                _tasks.Add(Task.Run(() =>
+                {
+                    string tempSuccess = _successPath + $".{idx}";
+                    string tempFail = _failPath + $".{idx}";
+                    _cmd.WriteMiniJson(tempSuccess, snapshotProcessed);
+                    if (snapshotFailed.Any()) _cmd.WriteMiniJson(tempFail, snapshotFailed);
+
+                    // Atomic rename with retry (concurrent writes from previous items may race).
+                    var watch = Stopwatch.StartNew();
+                    bool done = false;
+                    while (!done && watch.ElapsedMilliseconds < 10_000)
+                        try
+                        {
+                            lock (_sync)
+                            {
+                                File.Move(tempSuccess, _successPath, overwrite: true);
+                                if (snapshotFailed.Any())
+                                    File.Move(tempFail, _failPath, overwrite: true);
+                            }
+                            done = true;
+                        }
+                        catch { System.Threading.Thread.Sleep(10); }
+                }));
+            }
+
+            /// <summary>Block until all pending snapshot writes have landed on disk.</summary>
+            public void WaitAll() => Task.WaitAll(_tasks.ToArray());
         }
     }
 

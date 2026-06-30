@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Sociology;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -212,38 +214,32 @@ namespace WarpTools.Commands
 
             #region Do processing
 
-            WorkerWrapper[] Workers = cli.GetWorkers();
+            // Per-worker reconstruction partials accumulate here. Because workers are
+            // ephemeral, we don't reduce per-item: instead each worker keeps a resident
+            // accumulator (InitReconstructions runs once via the amortized init), adds
+            // each tilt series it claims, and atomically rewrites its own partial after
+            // every item — so a crash loses at most the current item. A single reduce
+            // task then sums all per-worker partials into the final map(s).
+            string tempFolder = Path.Combine(cli.Options.Import.ProcessingFolder,
+                                             $"temp-{Guid.NewGuid().ToString().Substring(0, 8)}");
+            Directory.CreateDirectory(tempFolder);
 
-            #region Initialise reconstructions
+            var initReconstructions = WorkerCommands.InitReconstructions(
+                nreconstructions, cli.BoxSize, cli.Oversample);
 
-            Console.Write("Initialising reconstructions...");
-
-            Task.WaitAll(Workers.Select(w => Task.Run(() =>
-            {
-                w.InitReconstructions(nreconstructions, cli.BoxSize, cli.Oversample);
-            })).ToArray());
-
-            Console.WriteLine(" Done");
-
-            #endregion
-
-            #region Perform back-projection from individual tilt series
+            #region Map: back-project each tilt series into its worker's partial
 
             Console.WriteLine("Extracting particles from tilt series and back-projecting...");
 
-            IterateOverItems<TiltSeries>(Workers, cli, (worker, t) =>
-            {
-                // Validate presence of CTF info and particles for this TS, early exit if not found
-                // if (t.OptionsCTF == null)
-                // {
-                //     Console.WriteLine($"No CTF metadata found for {t.Name}, skipping...");
-                //     return;
-                // }
+            foreach (var item in cli.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
+            cli.DistributeItems<TiltSeries>(buildTask: (t, i) =>
+            {
                 if (!tiltSeriesIdToParticleIndices.ContainsKey(t.Name))
                 {
                     Console.WriteLine($"no particles found in {t.Name}, skipping...");
-                    return;
+                    return null;
                 }
 
                 // Get positions and orientations for this tilt-series, rescale to Angstroms
@@ -251,49 +247,42 @@ namespace WarpTools.Commands
                 float3[] tsPositionAngst = new float3[tsParticleIdx.Count];
                 float3[] tsAngles = new float3[tsParticleIdx.Count];
 
-                if (Helper.IsDebug)
-                    Console.WriteLine($"{tsParticleIdx.Count} particles for {t.Name}");
-
-                for (int i = 0; i < tsParticleIdx.Count; i++)
+                for (int p = 0; p < tsParticleIdx.Count; p++)
                 {
                     // get positions
                     if (cli.InputCoordinatesAreNormalized)
                     {
-                        xyz[tsParticleIdx[i]].X *= (float)(cli.Options.Tomo.DimensionsX - 1);
-                        xyz[tsParticleIdx[i]].Y *= (float)(cli.Options.Tomo.DimensionsY - 1);
-                        xyz[tsParticleIdx[i]].Z *= (float)(cli.Options.Tomo.DimensionsZ - 1);
-                        tsPositionAngst[i] = xyz[tsParticleIdx[i]] * (float)cli.Options.Import.PixelSize;
+                        xyz[tsParticleIdx[p]].X *= (float)(cli.Options.Tomo.DimensionsX - 1);
+                        xyz[tsParticleIdx[p]].Y *= (float)(cli.Options.Tomo.DimensionsY - 1);
+                        xyz[tsParticleIdx[p]].Z *= (float)(cli.Options.Tomo.DimensionsZ - 1);
+                        tsPositionAngst[p] = xyz[tsParticleIdx[p]] * (float)cli.Options.Import.PixelSize;
                     }
                     else
-                        tsPositionAngst[i] = xyz[tsParticleIdx[i]] * (float)cli.InputPixelSize;
+                        tsPositionAngst[p] = xyz[tsParticleIdx[p]] * (float)cli.InputPixelSize;
 
                     // get euler angles
-                    tsAngles[i] = rotTiltPsi[tsParticleIdx[i]];
+                    tsAngles[p] = rotTiltPsi[tsParticleIdx[p]];
                 }
 
-                float3[][] subsetPositions = doingHalves ?
-                                               new float3[2][] :
-                                               new float3[1][];
-                float3[][] subsetAngles = doingHalves ?
-                                            new float3[2][] :
-                                            new float3[1][];
+                float3[][] subsetPositions = doingHalves ? new float3[2][] : new float3[1][];
+                float3[][] subsetAngles = doingHalves ? new float3[2][] : new float3[1][];
 
                 if (doingHalves)
                 {
                     int subsetColumn = inputStar.GetColumnID("rlnRandomSubset");
-                    int[] indices1 = tsParticleIdx.Select((id, i) => (id, i))
+                    int[] indices1 = tsParticleIdx.Select((id, idx) => (id, idx))
                                                   .Where(pair => inputStar.GetRowValue(pair.id, subsetColumn) == "1")
-                                                  .Select(pair => pair.i)
+                                                  .Select(pair => pair.idx)
                                                   .ToArray();
-                    int[] indices2 = tsParticleIdx.Select((id, i) => (id, i))
+                    int[] indices2 = tsParticleIdx.Select((id, idx) => (id, idx))
                                                   .Where(pair => inputStar.GetRowValue(pair.id, subsetColumn) == "2")
-                                                  .Select(pair => pair.i)
+                                                  .Select(pair => pair.idx)
                                                   .ToArray();
 
-                    subsetPositions[0] = indices1.Select(i => tsPositionAngst[i]).ToArray();
-                    subsetPositions[1] = indices2.Select(i => tsPositionAngst[i]).ToArray();
-                    subsetAngles[0] = indices1.Select(i => tsAngles[i]).ToArray();
-                    subsetAngles[1] = indices2.Select(i => tsAngles[i]).ToArray();
+                    subsetPositions[0] = indices1.Select(idx => tsPositionAngst[idx]).ToArray();
+                    subsetPositions[1] = indices2.Select(idx => tsPositionAngst[idx]).ToArray();
+                    subsetAngles[0] = indices1.Select(idx => tsAngles[idx]).ToArray();
+                    subsetAngles[1] = indices2.Select(idx => tsAngles[idx]).ToArray();
                 }
                 else
                 {
@@ -301,61 +290,33 @@ namespace WarpTools.Commands
                     subsetAngles[0] = tsAngles;
                 }
 
-                // Replicate positions and angles NTilts times because the
-                // WarpWorker method is parametrised for particle trajectories
-                for (int i = 0; i < subsetPositions.Length; i++)
+                // Replicate positions and angles NTilts times because the worker
+                // method is parametrised for particle trajectories
+                for (int s = 0; s < subsetPositions.Length; s++)
                 {
-                    subsetPositions[i] = subsetPositions[i].SelectMany(p => Helper.ArrayOfConstant(p, t.NTilts)).ToArray();
-                    subsetAngles[i] = subsetAngles[i].SelectMany(p => Helper.ArrayOfConstant(p, t.NTilts)).ToArray();
+                    subsetPositions[s] = subsetPositions[s].SelectMany(p => Helper.ArrayOfConstant(p, t.NTilts)).ToArray();
+                    subsetAngles[s] = subsetAngles[s].SelectMany(p => Helper.ArrayOfConstant(p, t.NTilts)).ToArray();
                 }
 
-                worker.TomoAddToReconstructions(t.Path, optionsBackproject, subsetPositions, subsetAngles);
-
-                worker.GcCollect();
+                var task = new TaskItem
+                {
+                    TaskId = $"{i:D7}-recadd-{t.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = new[] { initReconstructions },
+                    Main = new[]
+                    {
+                        WorkerCommands.TomoAddToReconstructionAndSave(t.Path, optionsBackproject, subsetPositions, subsetAngles, tempFolder),
+                        WorkerCommands.GcCollect(),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                return task;
             });
 
             #endregion
 
-            #region Save intermediate results
-
-            string tempFolder = null;
-            string[][] intermediatePaths = [[]];
-
-            // We only need to do this if we combine intermediate results from multiple workers
-            if (Workers.Length > 1)
-            {
-                tempFolder = Path.Combine(cli.Options.Import.ProcessingFolder,
-                                         $"temp-{Guid.NewGuid().ToString().Substring(0, 8)}");
-                Directory.CreateDirectory(tempFolder);
-
-                intermediatePaths = new string[nreconstructions][];
-                for (int i = 0; i < nreconstructions; i++)
-                { 
-                    intermediatePaths[i] = new string[Workers.Length - 1];
-                    for (int j = 0; j < Workers.Length - 1; j++)
-                        intermediatePaths[i][j] = Path.Combine(tempFolder, $"{cli.OutputName}_half{i + 1}_part{j + 1}.mrc");
-                }
-
-                Task.WaitAll(Workers.Skip(1)
-                                    .Select((worker, i) => Task.Run(() =>
-                {
-                    string[] workerPaths = intermediatePaths.Select(paths => paths[i]).ToArray();
-                    worker.SaveIntermediateReconstructions(workerPaths);
-                })).ToArray());
-            }
-
-            #endregion
-
-            #region Dispose all except first worker
-
-            Console.Write("Saying goodbye to all but first worker...");
-            foreach (var worker in Workers.Skip(1))
-                worker.Dispose();
-            Console.WriteLine(" Done");
-
-            #endregion
-
-            #region Finish reconstructions on first worker
+            #region Reduce: sum per-worker partials into the final map(s)
 
             string[] symmetries = Enumerable.Repeat(cli.Symmetry, nreconstructions).ToArray();
             string[] outputPaths = nreconstructions > 1 ?
@@ -364,23 +325,41 @@ namespace WarpTools.Commands
                                                .ToArray() :
                                      [Path.Combine(cli.Options.Import.ProcessingFolder, $"{cli.OutputName}.mrc")];
 
-            Console.Write("Finalizing reconstructions...");
+            // Each worker that did any work left one partial per reconstruction; gather
+            // them per reconstruction index. Workers that died before saving leave none
+            // (their items were re-pended and redone elsewhere).
+            string[][] partialPaths = new string[nreconstructions][];
+            for (int irec = 0; irec < nreconstructions; irec++)
+                partialPaths[irec] = Directory.GetFiles(tempFolder, $"partial_*_rec{irec}.mrc");
 
-            Workers.First().FinishReconstructions(intermediatePaths, symmetries, outputPaths, (float)optionsBackproject.BinnedPixelSizeMean);
+            int totalPartials = partialPaths.Sum(p => p.Length);
+            if (totalPartials == 0)
+                throw new Exception("No reconstruction partials were produced. Check that rlnMicrographName/rlnTomoName " +
+                                    "entries match the tilt series and that particles were found.");
 
-            if (!string.IsNullOrEmpty(tempFolder))
-                Directory.Delete(tempFolder, recursive: true);
+            Console.WriteLine($"Reducing {totalPartials} per-worker partial(s) into {nreconstructions} reconstruction(s)...");
 
-            Console.WriteLine(" Done");
+            var reduceTask = new TaskItem
+            {
+                TaskId = "reduce-reconstruction",
+                Stage = "preprocess",
+                RequiresGpu = true,
+                Init = Array.Empty<NamedSerializableObject>(),
+                Main = new[]
+                {
+                    WorkerCommands.TomoFinishReconstruction(partialPaths, symmetries, outputPaths,
+                        (float)optionsBackproject.BinnedPixelSizeMean, cli.BoxSize, cli.Oversample),
+                },
+            };
+            reduceTask.ComputeInitFingerprint();
+
+            cli.DistributeTasks(new[] { reduceTask });
+
+            Directory.Delete(tempFolder, recursive: true);
+
+            Console.WriteLine($"Wrote {nreconstructions} reconstruction(s)");
 
             #endregion
-            #endregion
-
-            #region Dispose of workers
-
-            Console.Write("Saying goodbye to remaining workers...");
-            Workers.First().Dispose();
-            Console.WriteLine(" Done");
 
             #endregion
         }

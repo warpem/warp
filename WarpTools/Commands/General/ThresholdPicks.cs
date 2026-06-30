@@ -74,7 +74,7 @@ namespace WarpTools.Commands
             var AverageScores = new Dictionary<Movie, float>();
 
             string FullSuffix = "";  // store the full suffix for use when writing output files
-            IterateOverItems<Movie>(null, CLI, (_, item) =>
+            IterateOverItems<Movie>(CLI, item =>
             {
                 var MatchingFiles = Directory.EnumerateFiles(path: item.MatchingDir, searchPattern: $"{item.RootName}_*{CLI.InSuffix}.star");
                 if (MatchingFiles.Count() > 1)

@@ -50,5 +50,4 @@ public partial class TiltSeries
 [Serializable]
 public class ProcessingOptionsTomoDenoise : TomoProcessingOptionsBase
 {
-    [WarpSerializable] public decimal PixelSize { get; set; }
 }

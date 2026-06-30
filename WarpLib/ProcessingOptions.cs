@@ -38,6 +38,14 @@ namespace Warp
         public decimal BinnedPixelSizeMean => PixelSizeMean * DownsampleFactor;
         
 
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((ProcessingOptionsBase)obj);
+        }
+
         protected bool Equals(ProcessingOptionsBase other)
         {
             return PixelSize == other.PixelSize &&
@@ -48,6 +56,13 @@ namespace Warp
                    (string.IsNullOrEmpty(DefectsHash) ? DefectsPath == other.DefectsPath : DefectsHash == other.DefectsHash) &&
                    BinTimes == other.BinTimes &&
                    (EERGroupFrames == 0 || other.EERGroupFrames == 0 || EERGroupFrames == other.EERGroupFrames);
+        }
+
+        public override int GetHashCode()
+        {
+            // Only combine fields that Equals always requires to match (no wildcards,
+            // no path/hash-asymmetric fields), so equal instances always hash equal.
+            return HashCode.Combine(PixelSize, BinTimes, GainFlipX, GainFlipY, GainTranspose);
         }
 
         public static bool operator ==(ProcessingOptionsBase left, ProcessingOptionsBase right)

@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using Warp;
 using Warp.Sociology;
 using Warp.Tools;
+using Warp.Workers;
+using Warp.Workers.Queue;
 
 namespace WarpTools.Commands
 {
@@ -178,21 +180,22 @@ namespace WarpTools.Commands
 
             #region Do processing
 
-            WorkerWrapper[] Workers = cli.GetWorkers();
+            foreach (var item in cli.InputSeries)
+                item.ProcessingStatus = ProcessingStatus.Unprocessed;
 
-            IterateOverItems<TiltSeries>(Workers, cli, (worker, t) =>
+            cli.DistributeItems<TiltSeries>(buildTask: (t, idx) =>
             {
-                // Validate presence of CTF info and particles for this TS, early exit if not found
+                // Validate presence of CTF info and particles for this TS, skip if not found
                 if (t.OptionsCTF == null)
                 {
                     Console.WriteLine($"No CTF metadata found for {t.Name}, skipping...");
-                    return;
+                    return null;
                 }
 
                 if (!tiltSeriesIdToParticleIndices.ContainsKey(t.Name))
                 {
                     Console.WriteLine($"no particles found in {t.Name}, skipping...");
-                    return;
+                    return null;
                 }
 
                 // Get positions and orientations for this tilt-series, rescale to Angstroms
@@ -225,19 +228,21 @@ namespace WarpTools.Commands
                 float3[] tsPositionsRepl = tsPositionAngst.SelectMany(p => Helper.ArrayOfConstant(p, t.NTilts)).ToArray();
                 float3[] tsAnglesRepl = tsAngles.SelectMany(p => Helper.ArrayOfConstant(p, t.NTilts)).ToArray();
 
-                worker.TomoPeakAlign(t.Path, optionsAlign, cli.TemplatePath, tsPositionsRepl, tsAnglesRepl);
-
-                worker.GcCollect();
+                var task = new TaskItem
+                {
+                    TaskId = $"{idx:D7}-peakalign-{t.RootName}",
+                    Stage = "preprocess",
+                    RequiresGpu = true,
+                    Init = Array.Empty<NamedSerializableObject>(),
+                    Main = new[]
+                    {
+                        WorkerCommands.TomoPeakAlign(t.Path, optionsAlign, cli.TemplatePath, tsPositionsRepl, tsAnglesRepl),
+                        WorkerCommands.GcCollect(),
+                    },
+                };
+                task.ComputeInitFingerprint();
+                return task;
             });
-
-            #endregion
-
-            #region Dispose of workers
-
-            Console.Write("Saying goodbye to all workers...");
-            foreach (var worker in Workers)
-                worker.Dispose();
-            Console.WriteLine(" Done");
 
             #endregion
         }
