@@ -444,6 +444,8 @@ namespace MTools.Commands
                     ParticlesFinal[p].ResampleAngles(Options.TemporalSamples);
                 }
 
+                Species.AttachExtraColumns(ParticlesFinal, TableWarp, Species.IsReservedParticleColumn);
+
                 #endregion
             }
             else if (!string.IsNullOrEmpty(Options.ParticlesRelion))
@@ -629,6 +631,9 @@ namespace MTools.Commands
                     particle.ResampleCoordinates(Options.TemporalSamples);
                     particle.ResampleAngles(Options.TemporalSamples);
                 }
+
+                // Keep only non-RELION (custom) columns, e.g. aisFilamentID; drop all rln* bookkeeping
+                Species.AttachExtraColumns(ParticlesFinal, CleanRelion, n => n.StartsWith("rln", StringComparison.Ordinal));
 
                 #endregion
             }

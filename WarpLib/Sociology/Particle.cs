@@ -48,6 +48,9 @@ namespace Warp.Sociology
 
         public float FOM;
 
+        // Passthrough metadata columns from the input STAR file (key = column name)
+        public Dictionary<string, string> Extra = new Dictionary<string, string>();
+
         public Particle(float3[] coordinates, float3[] angles, int randomSubset, string sourceName, string sourceHash, float fom = 0)
         {
             Coordinates = coordinates;
@@ -193,7 +196,10 @@ namespace Warp.Sociology
 
         public Particle GetCopy()
         {
-            return new Particle(Coordinates.ToArray(), Angles.ToArray(), RandomSubset, SourceName, SourceHash);
+            return new Particle(Coordinates.ToArray(), Angles.ToArray(), RandomSubset, SourceName, SourceHash)
+            {
+                Extra = new Dictionary<string, string>(Extra)
+            };
         }
 
         public bool IsSameMicrograph(Particle other)
