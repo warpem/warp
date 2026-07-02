@@ -974,6 +974,31 @@ namespace Warp.Sociology
             Particles = newParticles;
         }
 
+        public static bool IsReservedParticleColumn(string name)
+        {
+            if (name == "wrpRandomSubset" || name == "wrpSourceName" || name == "wrpSourceHash")
+                return true;
+
+            foreach (string prefix in new[] { "wrpCoordinateX", "wrpCoordinateY", "wrpCoordinateZ",
+                                              "wrpAngleRot", "wrpAngleTilt", "wrpAnglePsi" })
+                if (name.StartsWith(prefix) && int.TryParse(name.Substring(prefix.Length), out _))
+                    return true;
+
+            return false;
+        }
+
+        public static void AttachExtraColumns(Particle[] particles, Star table, Func<string, bool> isConsumedColumn)
+        {
+            string[] Names = table.GetColumnNames().Where(n => !isConsumedColumn(n)).ToArray();
+            if (Names.Length == 0)
+                return;
+
+            string[][] Columns = Names.Select(n => table.GetColumn(n)).ToArray();
+            for (int p = 0; p < particles.Length; p++)
+                for (int e = 0; e < Names.Length; e++)
+                    particles[p].Extra[Names[e]] = Columns[e][p];
+        }
+
         public Star ParticlesToStar()
         {
             if (Particles.Length == 0)
@@ -1004,6 +1029,15 @@ namespace Warp.Sociology
             ColumnNames.Add("wrpSourceName");
             ColumnNames.Add("wrpSourceHash");
 
+            List<string> ExtraColumnNames = new List<string>();
+            HashSet<string> ExtraColumnSeen = new HashSet<string>();
+            foreach (var particle in Particles)
+                if (particle.Extra != null)
+                    foreach (var key in particle.Extra.Keys)
+                        if (!IsReservedParticleColumn(key) && ExtraColumnSeen.Add(key))
+                            ExtraColumnNames.Add(key);
+            ColumnNames.AddRange(ExtraColumnNames);
+
             Star TableOut = new Star(ColumnNames.ToArray());
 
             // Create rows
@@ -1026,6 +1060,14 @@ namespace Warp.Sociology
                 Row.Add((particle.RandomSubset + 1).ToString(CultureInfo.InvariantCulture));
                 Row.Add(particle.SourceName);
                 Row.Add(particle.SourceHash);
+
+                foreach (var columnName in ExtraColumnNames)
+                {
+                    string Value = null;
+                    particle.Extra?.TryGetValue(columnName, out Value);
+                    // Empty tokens would break STAR column alignment, so substitute a placeholder
+                    Row.Add(string.IsNullOrEmpty(Value) ? "null" : Value);
+                }
 
                 TableOut.AddRow(Row.ToArray());
             }
@@ -1060,6 +1102,9 @@ namespace Warp.Sociology
             string[] ColumnSourceName = tableIn.GetColumn("wrpSourceName");
             string[] ColumnSourceHash = tableIn.GetColumn("wrpSourceHash");
 
+            string[] ExtraColumnNames = tableIn.GetColumnNames().Where(n => !IsReservedParticleColumn(n)).ToArray();
+            string[][] ExtraColumns = ExtraColumnNames.Select(n => tableIn.GetColumn(n)).ToArray();
+
             Particle[] Result = new Particle[tableIn.RowCount];
 
             for (int p = 0; p < Result.Length; p++)
@@ -1072,6 +1117,9 @@ namespace Warp.Sociology
                                                                          ColumnsAnglePsi[i][p]), TemporalResolutionMovement);
 
                 Result[p] = new Particle(Coordinates, Angles, ColumnSubset[p], ColumnSourceName[p], ColumnSourceHash[p]);
+
+                for (int e = 0; e < ExtraColumnNames.Length; e++)
+                    Result[p].Extra[ExtraColumnNames[e]] = ExtraColumns[e][p];
             }
 
             return Result;
