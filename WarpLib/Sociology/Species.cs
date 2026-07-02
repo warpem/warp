@@ -1066,7 +1066,7 @@ namespace Warp.Sociology
                     string Value = null;
                     particle.Extra?.TryGetValue(columnName, out Value);
                     // Empty tokens would break STAR column alignment, so substitute a placeholder
-                    Row.Add(string.IsNullOrEmpty(Value) ? "0" : Value);
+                    Row.Add(string.IsNullOrEmpty(Value) ? "null" : Value);
                 }
 
                 TableOut.AddRow(Row.ToArray());
