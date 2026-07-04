@@ -18,7 +18,7 @@ static partial class WorkerProcess
     static DataReceivedEventHandler StreamToConsole =>
         (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
 
-    static void RunToCompletion(Process proc)
+    static void RunToCompletion(Process proc, string executableName = null)
     {
         proc.OutputDataReceived += StreamToConsole;
         proc.ErrorDataReceived += StreamToConsole;
@@ -29,6 +29,12 @@ static partial class WorkerProcess
         proc.BeginErrorReadLine();
 
         proc.WaitForExit();
+
+        if (proc.ExitCode != 0)
+        {
+            string name = executableName ?? proc.StartInfo.FileName;
+            throw new Exception($"{name} exited with code {proc.ExitCode}");
+        }
     }
 
     [Command(WorkerCommandNames.TomoAretomo)]

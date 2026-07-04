@@ -205,16 +205,45 @@ namespace WarpTools.Commands
                     onResult: result =>
                     {
                         T item = taskIdToItem[result.TaskId];
-                        bool succeeded = result.Outcome == WorkOutcome.Done;
+                        bool workerSucceeded = result.Outcome == WorkOutcome.Done;
+                        // Tracks the final per-item outcome after the onSuccess hook runs;
+                        // a hook exception downgrades a successful worker result to failed.
+                        bool itemSucceeded = workerSucceeded;
 
                         // Standard per-item handling, identical for every ported command.
                         item.LoadMeta();
-                        if (succeeded)
+                        if (workerSucceeded)
                         {
                             item.ProcessingStatus = ProcessingStatus.Processed;
                             item.SaveMeta();
-                            processed.Add(item);
-                            onSuccess?.Invoke(item);
+
+                            if (onSuccess != null)
+                            {
+                                try
+                                {
+                                    onSuccess(item);
+                                }
+                                catch (Exception hookEx)
+                                {
+                                    // The worker completed successfully but the orchestrator-side
+                                    // hook (e.g. ImportAlignments) failed.  Treat this the same as
+                                    // a worker failure: deselect the item and log the error.
+                                    itemSucceeded = false;
+                                    item.UnselectManual = true;
+                                    item.ProcessingStatus = ProcessingStatus.LeaveOut;
+                                    item.SaveMeta();
+                                    failed.Add(item);
+                                    result = new WorkResult
+                                    {
+                                        TaskId = result.TaskId,
+                                        Outcome = WorkOutcome.Poisoned,
+                                        Error = hookEx.ToString()
+                                    };
+                                }
+                            }
+
+                            if (itemSucceeded)
+                                processed.Add(item);
                         }
                         else
                         {
@@ -236,11 +265,11 @@ namespace WarpTools.Commands
                         lock (progressSync)
                         {
                             nDone++;
-                            if (!succeeded) nFailed++;
+                            if (!itemSucceeded) nFailed++;
 
                             // On failure: clear the current progress line so the error block
                             // does not append to it, then redraw the updated progress below.
-                            if (!succeeded)
+                            if (!itemSucceeded)
                             {
                                 if (!StrictFormatting) VirtualConsole.ClearLastLine();
                                 Console.Error.WriteLine($"Failed to process {item.Path}, marked as unselected.");

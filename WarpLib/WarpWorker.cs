@@ -429,6 +429,9 @@ namespace Warp
 
                     BatchRunTomo.WaitForExit();
 
+                    if (BatchRunTomo.ExitCode != 0)
+                        throw new Exception($"{BatchRunTomoExecutable} exited with code {BatchRunTomo.ExitCode}");
+
                     // Run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
                     {
@@ -457,6 +460,9 @@ namespace Warp
                         TiltAlign.BeginErrorReadLine();
 
                         TiltAlign.WaitForExit();
+
+                        if (TiltAlign.ExitCode != 0)
+                            throw new Exception($"{SubMfgExecutable} exited with code {TiltAlign.ExitCode}");
                     }
 
                     if (Options.DoPatchTracking)
@@ -528,6 +534,9 @@ namespace Warp
 
                     BatchRunTomo.WaitForExit();
 
+                    if (BatchRunTomo.ExitCode != 0)
+                        throw new Exception($"{BatchRunTomoExecutable} exited with code {BatchRunTomo.ExitCode}");
+
                     // run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
                     {
@@ -556,6 +565,9 @@ namespace Warp
                         TiltAlign.BeginErrorReadLine();
 
                         TiltAlign.WaitForExit();
+
+                        if (TiltAlign.ExitCode != 0)
+                            throw new Exception($"{SubMfgExecutable} exited with code {TiltAlign.ExitCode}");
                     }
 
                     if (Options.DoFiducialTracking)
