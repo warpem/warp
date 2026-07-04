@@ -183,7 +183,34 @@ namespace WarpTools.Commands
 
             string jsonSuccessPath = Path.Combine(OutputProcessing, "processed_items.json");
             string jsonFailPath    = Path.Combine(OutputProcessing, "failed_items.json");
-            var snapshotTasks = new List<System.Threading.Tasks.Task>();
+
+            // Debounced snapshot writer: at most one write per 5 s during the run.
+            // A dedicated background thread picks up the latest snapshot whenever the
+            // timer fires, so the polling thread is never blocked by I/O. A final
+            // synchronous write after Distribute() ensures the completed lists land
+            // on disk before we exit — without a Task.WaitAll tail.
+            List<T> _pendingProcessed = null;
+            List<T> _pendingFailed    = null;
+            var _snapshotSync  = new object();
+            var _snapshotTimer = new System.Timers.Timer(5_000) { AutoReset = true };
+            System.Threading.Tasks.Task _snapshotTask = System.Threading.Tasks.Task.CompletedTask;
+            _snapshotTimer.Elapsed += (_, _) =>
+            {
+                List<T> snapP, snapF;
+                lock (_snapshotSync)
+                {
+                    if (_pendingProcessed == null) return;   // nothing new since last write
+                    snapP = _pendingProcessed;
+                    snapF = _pendingFailed;
+                    _pendingProcessed = null;
+                    _pendingFailed    = null;
+                }
+                // Wait for any previous snapshot write to finish before starting the next,
+                // so we don't pile up concurrent large writes on a slow filesystem.
+                _snapshotTask = _snapshotTask.ContinueWith(_ =>
+                    WriteItemSnapshots(jsonSuccessPath, jsonFailPath, snapP, snapF));
+            };
+            _snapshotTimer.Start();
 
             // Live progress indicator updated after every item, matching the legacy
             // IterateOverItems format ("{done}/{total}, {failed} failed, {eta} remaining").
@@ -254,13 +281,14 @@ namespace WarpTools.Commands
                             onFailure?.Invoke(item, result);
                         }
 
-                        // Atomic live snapshot: Relay reads these files for progress updates
-                        // without parsing per-item XML. Fire on a background task so the
-                        // polling thread is not blocked by I/O; take immutable list copies.
-                        var snapProcessed = processed.ToList();
-                        var snapFailed    = failed.ToList();
-                        snapshotTasks.Add(System.Threading.Tasks.Task.Run(() =>
-                            WriteItemSnapshots(jsonSuccessPath, jsonFailPath, snapProcessed, snapFailed)));
+                        // Mark new snapshots available for the debounced writer.
+                        // The timer thread picks these up at most every 5 s, so we never
+                        // saturate the filesystem with O(n) large JSON writes.
+                        lock (_snapshotSync)
+                        {
+                            _pendingProcessed = processed.ToList();
+                            _pendingFailed    = failed.ToList();
+                        }
 
                         lock (progressSync)
                         {
@@ -300,6 +328,15 @@ namespace WarpTools.Commands
             }
             finally
             {
+                // Stop the debounced snapshot timer and wait for any in-flight write.
+                _snapshotTimer.Stop();
+                _snapshotTimer.Dispose();
+                _snapshotTask.Wait();
+
+                // Final snapshot: write the completed lists synchronously now, so the
+                // file is up-to-date before we exit regardless of where the timer last fired.
+                WriteItemSnapshots(jsonSuccessPath, jsonFailPath, processed, failed);
+
                 // Cancel the scheduler thread so it exits promptly instead of
                 // spinning until its next poll interval. Shutdown workers after
                 // the thread exits so no new workers are spawned post-cancel.
@@ -307,8 +344,6 @@ namespace WarpTools.Commands
                 schedThread.Join();
                 provisioner.Shutdown();
             }
-
-            System.Threading.Tasks.Task.WaitAll(snapshotTasks.ToArray());
 
             Console.WriteLine();
             Console.WriteLine($"Finished processing in {TimeSpan.FromMilliseconds(progressTimer.ElapsedMilliseconds):hh\\:mm\\:ss}");
