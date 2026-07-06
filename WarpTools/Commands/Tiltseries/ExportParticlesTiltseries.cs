@@ -399,6 +399,29 @@ namespace WarpTools.Commands
                         OutputStarTables.Add(tiltSeries.RootName + "_optics", ParticleOpticsTable);
                         OutputStarTables.Add(tiltSeries.RootName + "_tomograms_global", TomogramsGeneralTable);
                         OutputStarTables.Add(tiltSeries.RootName + "_tomograms_tiltseries", TomogramsTiltSeriesTable);
+
+                        if (cli.ExtractRaw)
+                        {
+                            // Same particles/geometry as above -- only the image paths (pointing
+                            // at raw/) and the premultiplied flag differ, so the tomogram tables
+                            // are reused as-is and only a parallel particles/optics pair is needed.
+                            Star ParticleTableRaw = Construct2DParticleTableRaw(tempParticleStarPath: TempTiltSeriesParticleStarPath,
+                                                                                opticsGroup: opticsGroup);
+                            if (tsAdditionalColumns != null)
+                                foreach (var pair in tsAdditionalColumns)
+                                    if (!ParticleTableRaw.HasColumn(pair.Key))
+                                        ParticleTableRaw.AddColumn(pair.Key, pair.Value);
+
+                            Star ParticleOpticsTableRaw = Construct2DOpticsTable(tiltSeries: tiltSeries,
+                                                                                tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
+                                                                                downsamplingFactor: (float)ExportOptions.DownsampleFactor,
+                                                                                boxSize: ExportOptions.BoxSize,
+                                                                                opticsGroup: opticsGroup,
+                                                                                premultiplied: false);
+
+                            OutputStarTables.Add(tiltSeries.RootName + "_particles_raw", ParticleTableRaw);
+                            OutputStarTables.Add(tiltSeries.RootName + "_optics_raw", ParticleOpticsTableRaw);
+                        }
                     }
 
                     // Add particle count so it makes it into processed_items.json
@@ -879,7 +902,8 @@ namespace WarpTools.Commands
             float tiltSeriesPixelSize,
             float downsamplingFactor,
             int boxSize,
-            int opticsGroup
+            int opticsGroup,
+            bool premultiplied = true
         )
         {
             string[] columnNames = new string[]
@@ -905,7 +929,7 @@ namespace WarpTools.Commands
                     { FormattableString.Invariant($"{tiltSeries.CTF.Voltage:F3}") },
                 new string[]
                     { FormattableString.Invariant($"{tiltSeriesPixelSize:F5}") },
-                new string[] { "1" },
+                new string[] { premultiplied ? "1" : "0" },
                 new string[] { "2" },
                 new string[]
                     { FormattableString.Invariant($"{downsamplingFactor:F5}") },
@@ -928,6 +952,27 @@ namespace WarpTools.Commands
             ParticleTable.ModifyAllValuesInColumn("rlnOpticsGroup",
                                                   v => $"{opticsGroup}");
             return ParticleTable;
+        }
+
+        // ReconstructParticleSeries writes the raw counterpart of every corrected
+        // .mrcs file into a "raw/" subdirectory next to it, same filename. The temp
+        // star's rlnImageName already points at the corrected file, so the raw
+        // table just needs that column rewritten to insert "raw/" before the
+        // filename -- no separate temp star from the worker is needed.
+        private Star Construct2DParticleTableRaw(string tempParticleStarPath,
+                                                 int opticsGroup)
+        {
+            Star ParticleTable = Construct2DParticleTable(tempParticleStarPath, opticsGroup);
+            ParticleTable.ModifyAllValuesInColumn("rlnImageName", InsertRawSubdirectory);
+            return ParticleTable;
+        }
+
+        private static string InsertRawSubdirectory(string imagePath)
+        {
+            int lastSlash = imagePath.LastIndexOf('/');
+            return lastSlash < 0
+                ? $"raw/{imagePath}"
+                : imagePath.Substring(0, lastSlash + 1) + "raw/" + imagePath.Substring(lastSlash + 1);
         }
 
         private Star Construct2DTomogramStarGeneralTable(
@@ -1161,6 +1206,61 @@ namespace WarpTools.Commands
                                   $"_rlnTomoParticlesFile   {particleFile}\n" +
                                   $"_rlnTomoTomogramsFile   {tomogramsFile}\n";
                 File.WriteAllText(path: optimisationSetPath, contents: contents);
+
+                #endregion
+
+                #region combine info and write out raw particles.star + optimisation set
+
+                bool hasRawOutput = perTiltSeriesTables.Keys.Any(k => k.EndsWith("_particles_raw"));
+                if (hasRawOutput)
+                {
+                    Star tableOpticsRawCombined = new Star(perTiltSeriesTables.Where(
+                                                                                  kvp => kvp.Key.EndsWith("_optics_raw")
+                                                                                 ).ToDictionary(
+                                                                                                kvp => kvp.Key, kvp => kvp.Value
+                                                                                               ).Values.ToArray()
+                                                       );
+                    Star tableParticlesRaw = new Star(perTiltSeriesTables.Where(
+                                                                             kvp => kvp.Key.EndsWith("_particles_raw")
+                                                                            ).ToDictionary(
+                                                                                           kvp => kvp.Key, kvp => kvp.Value
+                                                                                          ).Values.ToArray()
+                                                  );
+
+                    // Same particles as the corrected output (just different image paths and
+                    // premultiplied flag), so apply the identical missing-tilts filter to keep
+                    // the two STAR files' particle sets in lockstep.
+                    tableParticlesRaw.RemoveRowsWhere(
+                                                      columnName: "rlnTomoVisibleFrames",
+                                                      match: s => s
+                                                                  .Trim('[', ']')
+                                                                  .Split(',')
+                                                                  .Select(int.Parse)
+                                                                  .Count(value => value == 0) > maxMissingTilts
+                                                     );
+
+                    string particleStarPathRaw = Path.Combine(particleStarDirectory,
+                                                              Helper.PathToName(particleStarPath) + "_raw.star");
+                    Star.SaveMultitable(
+                                        particleStarPathRaw, new Dictionary<string, Star>()
+                                        {
+                                            { "general", table2DMode },
+                                            { "optics", tableOpticsRawCombined },
+                                            { "particles", tableParticlesRaw }
+                                        }
+                                       );
+
+                    // Geometry/alignment is identical to the corrected export, so the raw
+                    // optimisation set reuses the tomograms.star written above as-is.
+                    string particleFileRaw = Helper.MakePathRelativeTo(particleStarPathRaw, pathsRelativeTo);
+                    string optimisationSetPathRaw = Path.Combine(particleStarDirectory,
+                                                                 Helper.PathToName(particleStarPath) + "_raw_optimisation_set.star");
+                    string contentsRaw = "data_\n" +
+                                        "\n" +
+                                        $"_rlnTomoParticlesFile   {particleFileRaw}\n" +
+                                        $"_rlnTomoTomogramsFile   {tomogramsFile}\n";
+                    File.WriteAllText(path: optimisationSetPathRaw, contents: contentsRaw);
+                }
 
                 #endregion
             }
