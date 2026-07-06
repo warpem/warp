@@ -409,7 +409,11 @@ namespace WarpTools.Commands
                                                                                 opticsGroup: opticsGroup);
                             if (tsAdditionalColumns != null)
                                 foreach (var pair in tsAdditionalColumns)
-                                    if (!ParticleTableRaw.HasColumn(pair.Key))
+                                    // rlnCtfDataAreCtfPremultiplied is preserved from the input star's
+                                    // (optics-flattened) particle rows like any other unrecognized column,
+                                    // but that value describes the input, not this raw export -- keeping it
+                                    // here would contradict the correct value set in the optics table above.
+                                    if (pair.Key != "rlnCtfDataAreCtfPremultiplied" && !ParticleTableRaw.HasColumn(pair.Key))
                                         ParticleTableRaw.AddColumn(pair.Key, pair.Value);
 
                             Star ParticleOpticsTableRaw = Construct2DOpticsTable(tiltSeries: tiltSeries,
