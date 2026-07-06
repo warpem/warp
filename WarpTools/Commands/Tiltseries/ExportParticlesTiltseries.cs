@@ -101,6 +101,11 @@ namespace WarpTools.Commands
                     "Particles not visible in more than this number of tilts will be excluded (only works with --2d)",
                 Default = 5)]
         public int MaxMissingTilts { get; set; }
+
+        [Option("extract_raw",
+                HelpText = 
+                    "In addition to the normal CTF-premultiplied particle series, also write a raw stack into a 'raw/' subdirectory (only works with --2d)")]
+	public bool ExtractRaw { get; set; }
     }
 
     class ExportParticlesTiltseries : BaseCommand
@@ -497,6 +502,7 @@ namespace WarpTools.Commands
 
             ProcessingOptionsTomoSubReconstruction ExportOptions =
                 options.GetProcessingTomoSubReconstruction();
+                ExportOptions.ExtractRaw = cli.ExtractRaw;
             return ExportOptions;
         }
 
