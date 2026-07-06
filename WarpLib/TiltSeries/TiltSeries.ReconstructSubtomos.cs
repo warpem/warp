@@ -344,4 +344,5 @@ public class ProcessingOptionsTomoSubReconstruction : TomoProcessingOptionsBase
     [WarpSerializable] public int NTilts { get; set; }
     [WarpSerializable] public bool MakeSparse { get; set; }
     [WarpSerializable] public bool UseCPU { get; set; }
+    [WarpSerializable] public bool ExtractRaw { get; set; } = false;
 }
