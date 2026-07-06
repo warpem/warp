@@ -17,6 +17,10 @@ public partial class TiltSeries
         if (!Directory.Exists(ParticleSeriesDir))
             Directory.CreateDirectory(ParticleSeriesDir);
 
+        string ParticleSeriesRawDir = System.IO.Path.Combine(ParticleSeriesDir, "raw");
+        if (options.ExtractRaw && !Directory.Exists(ParticleSeriesRawDir))
+            Directory.CreateDirectory(ParticleSeriesRawDir);
+
         #region Dimensions
 
         VolumeDimensionsPhysical = options.DimensionsPhysical;
@@ -111,6 +115,16 @@ public partial class TiltSeries
 
         Image SumAllParticles = new Image(new int3(SizeSub, SizeSub, NTilts));
 
+        // Raw (non-CTF-premultiplied, non-weighted) counterparts, only allocated when requested.
+        // GPU.IFFT's underlying cuFFT C2R plan is destructive on its input, so the raw copy must be
+        // IFFT'd from a scratch copy of ImagesFT taken before CTF/weight multiplication, not from
+        // ImagesFT itself, or the corrected output below would be corrupted.
+        Image ImagesRaw = options.ExtractRaw ? new Image(new int3(SizeSub, SizeSub, NTilts)) : null;
+        Image ImagesFTRawScratch = options.ExtractRaw ? new Image(new int3(SizeSub, SizeSub, NTilts), true, true) : null;
+        Image UsedParticlesRaw = options.ExtractRaw ? new Image(new int3(SizeSub, SizeSub, UsedTilts.Count)) : null;
+        float[][] UsedParticlesRawData = options.ExtractRaw ? UsedParticlesRaw.GetHost(Intent.Write) : null;
+        Image SumAllParticlesRaw = options.ExtractRaw ? new Image(new int3(SizeSub, SizeSub, NTilts)) : null;
+
         // Needed as long as we can't specify per-tilt B-factors in tomograms.star
         // B-factors are strictly tied to exposure, and aren't B-factors but Niko's formula
         Image RelionWeights = new Image(new int3(SizeSub, SizeSub, NTilts), true, false);
@@ -145,6 +159,27 @@ public partial class TiltSeries
 
             ImagesFT = GetImagesForOneParticle(options, TiltData, SizeSub, ParticlePositions, PlanForwParticle, -1, 0, false, Images, ImagesFT);
             GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, false, false, false, CTFs);
+
+            if (options.ExtractRaw)
+            {
+                // IFFT a scratch copy of the not-yet-multiplied particle FFT. GPU.IFFT's cuFFT C2R
+                // plan is destructive on its input, so ImagesFT itself must stay untouched here for
+                // the corrected path below.
+                GPU.CopyDeviceToDevice(ImagesFT.GetDevice(Intent.Read), ImagesFTRawScratch.GetDevice(Intent.Write), ImagesFT.ElementsReal);
+
+                GPU.IFFT(ImagesFTRawScratch.GetDevice(Intent.Read),
+                    ImagesRaw.GetDevice(Intent.Write),
+                    ImagesFT.Dims.Slice(),
+                    (uint)ImagesFT.Dims.Z,
+                    PlanBackParticle,
+                    false);
+
+                SumAllParticlesRaw.Add(ImagesRaw);
+
+                float[][] ImagesRawData = ImagesRaw.GetHost(Intent.Read);
+                for (int i = 0; i < UsedTilts.Count; i++)
+                    Array.Copy(ImagesRawData[UsedTilts[i]], 0, UsedParticlesRawData[i], 0, ImagesRawData[0].Length);
+            }
 
             ImagesFT.Multiply(CTFs);
             ImagesFT.Multiply(RelionWeights);
@@ -199,6 +234,12 @@ public partial class TiltSeries
 
             UsedParticles.WriteMRC16b(SeriesPath, (float)options.BinnedPixelSizeMean, true);
 
+            if (options.ExtractRaw)
+            {
+                string SeriesPathRaw = System.IO.Path.Combine(ParticleSeriesRawDir, System.IO.Path.GetFileName(SeriesPath));
+                UsedParticlesRaw.WriteMRC16b(SeriesPathRaw, (float)options.BinnedPixelSizeMean, true);
+            }
+
             if (IsCanceled)
                 break;
         }
@@ -213,6 +254,18 @@ public partial class TiltSeries
 
             string SumPath = System.IO.Path.Combine(ProcessingDirectoryName, ToParticleSeriesAveragePath(RootName, options.BinnedPixelSizeMean));
             UsedParticles.WriteMRC16b(SumPath, (float)options.BinnedPixelSizeMean, true);
+
+            if (options.ExtractRaw)
+            {
+                SumAllParticlesRaw.Multiply(1f / Math.Max(1, NParticles));
+
+                float[][] SumAllParticlesRawData = SumAllParticlesRaw.GetHost(Intent.Read);
+                for (int i = 0; i < UsedTilts.Count; i++)
+                    Array.Copy(SumAllParticlesRawData[UsedTilts[i]], 0, UsedParticlesRawData[i], 0, SumAllParticlesRawData[0].Length);
+
+                string SumPathRaw = System.IO.Path.Combine(ParticleSeriesRawDir, System.IO.Path.GetFileName(SumPath));
+                UsedParticlesRaw.WriteMRC16b(SumPathRaw, (float)options.BinnedPixelSizeMean, true);
+            }
         }
 
         #region Teardown
@@ -224,6 +277,14 @@ public partial class TiltSeries
         ImagesFT.Dispose();
         CTFs.Dispose();
         CTFCoords.Dispose();
+
+        if (options.ExtractRaw)
+        {
+            SumAllParticlesRaw.Dispose();
+            UsedParticlesRaw.Dispose();
+            ImagesRaw.Dispose();
+            ImagesFTRawScratch.Dispose();
+        }
 
         GPU.DestroyFFTPlan(PlanForwParticle);
         GPU.DestroyFFTPlan(PlanBackParticle);
