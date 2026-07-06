@@ -2,6 +2,10 @@
 
 ## v2.0.0dev39
 
+### New Features
+
+- **`ts_export_particles --extract_raw`**: 2D particle export can now optionally also write non-CTF-premultiplied, non-weighted copies of every particle stack to a `raw/` subdirectory, plus a matching `_raw.star` and `_raw_optimisation_set.star`, for use with tools that expect non-premultiplied particles (e.g. tomoDRGN). Existing output is unchanged when the flag is not passed.
+
 ### Bug Fixes
 
 - **LibTorchSharp ABI mismatch with conda-forge PyTorch**: Removed the `-D_GLIBCXX_USE_CXX11_ABI=0` flag from LibTorchSharp. conda-forge's PyTorch (cuda129 builds) uses the new C++11 ABI, so LibTorchSharp must match. The old ABI flag caused undefined symbol errors for `torch::serialize::InputArchive::read` when MCore loaded LibTorchSharp against the new-ABI libtorch.
