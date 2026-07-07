@@ -170,7 +170,7 @@ namespace WarpTools.Commands
 
             IWorkerProvisioner provisioner = CreateProvisioner(layout, logDir, InputSeries.Length, out int target);
 
-            var scheduler = new Scheduler(layout, queue, provisioner, target);
+            var scheduler = new Scheduler(layout, queue, provisioner, target, logDir: logDir);
 
             // Enqueue ALL tasks before starting the scheduler thread so workers always
             // find work in pending/ on their first claim attempt. If tasks are enqueued
@@ -382,7 +382,7 @@ namespace WarpTools.Commands
 
             IWorkerProvisioner provisioner = CreateProvisioner(layout, logDir, tasks.Count, out int target);
 
-            var scheduler = new Scheduler(layout, queue, provisioner, target);
+            var scheduler = new Scheduler(layout, queue, provisioner, target, logDir: logDir);
 
             var taskList = tasks.ToList();
             pool.Enqueue(taskList);

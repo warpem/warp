@@ -21,6 +21,7 @@ namespace Warp.Workers.Scheduling
         private readonly long _workerStartupGraceMs;
         private readonly HeartbeatWriter _managerHeartbeat;
         private readonly FailureMatrix _failures;
+        private readonly string _logDir;   // external per-item log dir; null → fall back to _layout.Logs
         private FileStream _lockHandle;
 
         // Per-worker monitors, created lazily as worker dirs appear.
@@ -36,7 +37,7 @@ namespace Warp.Workers.Scheduling
         // inject smaller values to exercise sweeping quickly.
         public Scheduler(QueueLayout layout, TaskQueue queue, IWorkerProvisioner provisioner,
                          int target, long workerStallTimeoutMs = 120_000, long workerStartupGraceMs = 120_000,
-                         FailureMatrix failureMatrix = null)
+                         FailureMatrix failureMatrix = null, string logDir = null)
         {
             _layout = layout;
             _queue = queue;
@@ -44,6 +45,7 @@ namespace Warp.Workers.Scheduling
             _target = target;
             _workerStallTimeoutMs = workerStallTimeoutMs;
             _workerStartupGraceMs = workerStartupGraceMs;
+            _logDir = logDir;
             _managerHeartbeat = new HeartbeatWriter(layout.Heartbeat, "tick-");
 
             // Load persisted failure matrix if one exists (spec §A2), then apply
@@ -147,7 +149,7 @@ namespace Warp.Workers.Scheduling
         /// </summary>
         private void WriteLogTailToStderr(string taskId, int tailLines = 8)
         {
-            string logPath = Path.Combine(_layout.Logs, taskId + ".log");
+            string logPath = Path.Combine(_logDir ?? _layout.Logs, taskId + ".log");
             if (!File.Exists(logPath)) return;
             try
             {
