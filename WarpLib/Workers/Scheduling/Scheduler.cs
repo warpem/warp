@@ -90,6 +90,8 @@ namespace Warp.Workers.Scheduling
         /// <summary>
         /// Drain failed/: record each failure into the matrix, blacklist bad hosts,
         /// then either re-pend (below retry cap) or poison the task (spec §10, §12.3).
+        /// Writes a summary including the tail of the item's processing log to stderr
+        /// so the user can see what went wrong without digging through worker logs.
         /// </summary>
         private void ProcessFailures()
         {
@@ -112,7 +114,17 @@ namespace Warp.Workers.Scheduling
                     }
                 }
 
-                if (_failures.ShouldPoison(t.TaskId) || _failures.ShouldPoisonByRetry(t.RetryCount + 1))
+                bool willPoison = _failures.ShouldPoison(t.TaskId) || _failures.ShouldPoisonByRetry(t.RetryCount + 1);
+                string disposition = willPoison
+                    ? $"poisoned after {t.RetryCount + 1} attempt(s)"
+                    : $"will retry (attempt {t.RetryCount + 1})";
+                string failedHost = string.IsNullOrEmpty(t.FailedOnHost) ? "unknown host" : t.FailedOnHost;
+                Console.Error.WriteLine($"[pool] task {t.TaskId} failed on {failedHost} — {disposition}");
+                if (!string.IsNullOrEmpty(t.Error))
+                    Console.Error.WriteLine($"[pool]   error: {t.Error}");
+                WriteLogTailToStderr(t.TaskId, tailLines: 8);
+
+                if (willPoison)
                 {
                     File.Move(f, Path.Combine(_layout.Poisoned, t.TaskId + ".json"), overwrite: true);
                 }
@@ -126,6 +138,26 @@ namespace Warp.Workers.Scheduling
                     _queue.Enqueue(t);
                 }
             }
+        }
+
+        /// <summary>
+        /// Write the last <paramref name="tailLines"/> lines of the per-item processing
+        /// log to stderr, prefixed so they're easy to find in the manager's SLURM output.
+        /// Silently skips if the log doesn't exist (e.g. crash before any output was written).
+        /// </summary>
+        private void WriteLogTailToStderr(string taskId, int tailLines = 8)
+        {
+            string logPath = Path.Combine(_layout.Logs, taskId + ".log");
+            if (!File.Exists(logPath)) return;
+            try
+            {
+                string[] lines = File.ReadAllLines(logPath);
+                int start = Math.Max(0, lines.Length - tailLines);
+                Console.Error.WriteLine($"[pool]   last {lines.Length - start} line(s) from {taskId}.log:");
+                for (int i = start; i < lines.Length; i++)
+                    Console.Error.WriteLine($"[pool]     {lines[i]}");
+            }
+            catch { }
         }
 
         private void SweepStalledWorkers()
@@ -145,7 +177,48 @@ namespace Warp.Workers.Scheduling
                 if (mon.IsStalled())
                 {
                     if (hasTasks)
-                        _queue.RecoverOrphans(workerId);   // re-pend; sweep handles dead worker
+                    {
+                        // Read the hostname written by the worker so we can attribute
+                        // the crash to the right node in the failure matrix.
+                        string crashedHost = null;
+                        try { crashedHost = File.ReadAllText(Path.Combine(wdir, "hostname")).Trim(); } catch { }
+
+                        var orphans = _queue.RecoverOrphans(workerId);
+                        foreach (var t in orphans)
+                        {
+                            if (crashedHost != null)
+                                _failures.RecordFailure(crashedHost, t.TaskId);
+
+                            bool willPoison = _failures.ShouldPoison(t.TaskId) || _failures.ShouldPoisonByRetry(t.RetryCount);
+                            string disposition = willPoison
+                                ? $"poisoned after {t.RetryCount} attempt(s)"
+                                : $"will retry (attempt {t.RetryCount})";
+                            string host = crashedHost ?? "unknown host";
+                            Console.Error.WriteLine($"[pool] task {t.TaskId} crashed on {host} (worker stalled) — {disposition}");
+                            WriteLogTailToStderr(t.TaskId, tailLines: 8);
+
+                            if (willPoison)
+                            {
+                                string dst = Path.Combine(_layout.Poisoned, t.TaskId + ".json");
+                                try { File.WriteAllText(dst, t.ToJson()); } catch { }
+                            }
+                            else
+                            {
+                                _queue.Enqueue(t);
+                            }
+                        }
+
+                        // Blacklist host if it hit the threshold.
+                        if (crashedHost != null)
+                            foreach (string h in _failures.BlacklistedHosts())
+                            {
+                                string marker = Path.Combine(_layout.Blacklist, h);
+                                if (!File.Exists(marker))
+                                    try { File.WriteAllText(marker, "blacklisted"); } catch { }
+                            }
+
+                        TryRemoveEmptyDir(wdir);
+                    }
                     else
                         TryRemoveEmptyDir(wdir);           // clean exit / sick worker, nothing to recover
                     _monitors.Remove(workerId);

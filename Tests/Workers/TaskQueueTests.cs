@@ -118,13 +118,19 @@ public class TaskQueueTests : IDisposable
     }
 
     [Fact]
-    public void RecoverOrphansReturnsTasksToPendingAndIncrementsRetry()
+    public void RecoverOrphansReturnsTasksWithIncrementedRetryWithoutReenqueuing()
     {
         _queue.Enqueue(MakeTask("0000001-a"));
         _queue.ClaimOne("w-dead");
-        int recovered = _queue.RecoverOrphans("w-dead");
+        var recovered = _queue.RecoverOrphans("w-dead");
 
-        Assert.Equal(1, recovered);
+        Assert.Single(recovered);
+        Assert.Equal(1, recovered[0].RetryCount);
+        // RecoverOrphans only removes from running/; caller decides re-queue vs poison.
+        Assert.Empty(Directory.GetFiles(_layout.Pending, "*.json"));
+
+        // Simulate the caller re-enqueueing.
+        _queue.Enqueue(recovered[0]);
         string[] pend = Directory.GetFiles(_layout.Pending, "*.json");
         Assert.Single(pend);
         TaskItem back = TaskItem.FromJson(File.ReadAllText(pend[0]));

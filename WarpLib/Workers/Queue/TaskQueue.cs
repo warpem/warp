@@ -107,31 +107,30 @@ namespace Warp.Workers.Queue
         }
 
         /// <summary>
-        /// Return every task file in running/&lt;workerId&gt;/ to pending/,
-        /// incrementing RetryCount. Used by sweep and by a worker recovering its
-        /// own dir at startup. Returns count recovered.
+        /// Remove every task file from running/&lt;workerId&gt;/ and return the task items
+        /// with RetryCount already incremented. Does NOT re-enqueue or poison — the caller
+        /// decides. Used by the Scheduler sweep (which applies the failure matrix before
+        /// re-pending or poisoning) and by Clear() (which discards the return value).
         /// </summary>
-        public int RecoverOrphans(string workerId)
+        public List<TaskItem> RecoverOrphans(string workerId)
         {
             string wdir = _layout.RunningFor(workerId);
-            if (!Directory.Exists(wdir)) return 0;
+            var recovered = new List<TaskItem>();
+            if (!Directory.Exists(wdir)) return recovered;
 
-            int n = 0;
             foreach (string f in Directory.GetFiles(wdir, "*.json"))
             {
                 try
                 {
                     TaskItem t = TaskItem.FromJson(File.ReadAllText(f));
                     t.RetryCount++;
-                    string pendPath = Path.Combine(_layout.Pending, t.TaskId + ".json");
-                    AtomicWrite(f, t.ToJson());          // persist incremented retry first
-                    File.Move(f, pendPath);
-                    n++;
+                    File.Delete(f);
+                    recovered.Add(t);
                 }
-                catch (FileNotFoundException) { continue; } // raced away; skip without counting
+                catch (FileNotFoundException) { continue; } // raced away; skip
                 catch (IOException) { continue; }           // concurrent claim/sweep; skip
             }
-            return n;
+            return recovered;
         }
 
         /// <summary>

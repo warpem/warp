@@ -27,6 +27,10 @@ namespace WarpWorker2
         // MarkDone/MarkFailed always completes before we honour the signal.
         static volatile bool _sigTermReceived = false;
 
+        // The task currently being executed, or null between tasks. Read by the SIGABRT
+        // handler so it can call MarkFailed before the process dies.
+        static volatile Warp.Workers.Queue.TaskItem _currentTask = null;
+
         // Worker resource state (loaded by init commands; survives across tasks).
         static Image GainRef = null;
         static DefectModel DefectMap = null;
@@ -253,6 +257,8 @@ namespace WarpWorker2
                 VirtualConsole.ClearAll();
                 VirtualConsole.FileOutputPath = System.IO.Path.Combine(logDir, task.TaskId + ".log");
 
+                _currentTask = task;
+
                 // ---- init sequence (skip if fingerprint matches) ----
                 if (task.InitFingerprint != lastFingerprint)
                 {
@@ -265,12 +271,14 @@ namespace WarpWorker2
                     {
                         if (!MockMode && !GpuHealthProbe.Probe(DeviceID))
                         {
+                            _currentTask = null;
                             MarkSick(layout, wdir, workerId, "GPU fault during init: " + Flatten(ex));
                             return; // leave task in running/ for the sweep
                         }
                         // Healthy hardware, but init half-ran: reset state, clear fp, fail task, continue.
                         ResetResourceState();
                         lastFingerprint = null;
+                        _currentTask = null;
                         queue.MarkFailed(workerId, task, "init failed: " + Flatten(ex), Environment.MachineName);
                         continue;
                     }
@@ -280,16 +288,19 @@ namespace WarpWorker2
                 try
                 {
                     foreach (var cmd in task.Main) EvaluateCommand(cmd);
+                    _currentTask = null;
                     queue.MarkDone(workerId, task, null);
                 }
                 catch (Exception ex)
                 {
                     if (!MockMode && !GpuHealthProbe.Probe(DeviceID))
                     {
+                        _currentTask = null;
                         MarkSick(layout, wdir, workerId, "GPU fault during main: " + Flatten(ex));
                         return; // leave task in running/ for the sweep
                     }
                     // Healthy hardware: init state intact, do NOT reset. Fail task, continue.
+                    _currentTask = null;
                     queue.MarkFailed(workerId, task, Flatten(ex), Environment.MachineName);
                 }
             }
