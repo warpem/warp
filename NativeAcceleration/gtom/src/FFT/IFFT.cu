@@ -48,9 +48,9 @@ namespace gtom
 	void d_IFFTC2R(tcomplex* const d_input, tfloat* const d_output, cufftHandle* plan)
 	{
 #ifdef GTOM_DOUBLE
-		cufftExecZ2D(*plan, d_input, d_output);
+		CHECK_CUFFT_ERRORS(cufftExecZ2D(*plan, d_input, d_output));
 #else
-		cufftExecC2R(*plan, d_input, d_output);
+		CHECK_CUFFT_ERRORS(cufftExecC2R(*plan, d_input, d_output));
 #endif
 		cudaStreamSynchronize(cudaStreamDefault);
 	}
