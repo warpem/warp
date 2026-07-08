@@ -45,6 +45,7 @@ namespace Warp.Workers.Queue
 
             HashSet<string> allowed = allowedStages == null ? null : new HashSet<string>(allowedStages);
 
+            if (!Directory.Exists(_layout.Pending)) return null;
             string[] candidates = Directory.GetFiles(_layout.Pending, "*.json");
 
             // Claim in random order, NOT sorted. Workers have no knowledge of each
