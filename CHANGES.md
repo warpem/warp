@@ -4,7 +4,7 @@
 
 ### New Features
 
-- **`ts_export_particles --extract_raw`**: 2D particle export can now optionally also write non-CTF-premultiplied, non-weighted copies of every particle stack to a `raw/` subdirectory, plus a matching `_raw.star` and `_raw_optimisation_set.star`, for use with tools that expect non-premultiplied particles (e.g. tomoDRGN). Existing output is unchanged when the flag is not passed.
+- **`ts_export_particles --extract_raw`**: 2D particle export can now write non-CTF-premultiplied, non-weighted particle stacks instead of the default CTF-premultiplied output, for use with tools that expect raw particles (e.g. tomoDRGN). Existing output is unchanged when the flag is not passed.
 
 ### Bug Fixes
 
