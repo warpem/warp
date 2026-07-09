@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.0.0dev40
+
+### New Features
+
+- **`ts_export_particles --dont_premultiply`**: 2D particle export can now write particle stacks without CTF premultiplication or RELION weighting, for use with tools that expect non-premultiplied particles (e.g. tomoDRGN). Existing output is unchanged when the flag is not passed.
+
 ## v2.0.0dev39
 
 ### Bug Fixes

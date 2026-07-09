@@ -146,8 +146,11 @@ public partial class TiltSeries
             ImagesFT = GetImagesForOneParticle(options, TiltData, SizeSub, ParticlePositions, PlanForwParticle, -1, 0, false, Images, ImagesFT);
             GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, false, false, false, CTFs);
 
-            ImagesFT.Multiply(CTFs);
-            ImagesFT.Multiply(RelionWeights);
+            if (!options.DontPremultiply)
+            {
+                ImagesFT.Multiply(CTFs);
+                ImagesFT.Multiply(RelionWeights);
+            }
 
             GPU.IFFT(ImagesFT.GetDevice(Intent.Read),
                 Images.GetDevice(Intent.Write),

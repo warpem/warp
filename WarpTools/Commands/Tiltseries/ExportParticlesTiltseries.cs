@@ -101,6 +101,11 @@ namespace WarpTools.Commands
                     "Particles not visible in more than this number of tilts will be excluded (only works with --2d)",
                 Default = 5)]
         public int MaxMissingTilts { get; set; }
+
+        [Option("dont_premultiply",
+                HelpText =
+                    "Don't premultiply 2D particle series by CTFs or RELION weights")]
+        public bool DontPremultiply { get; set; }
     }
 
     class ExportParticlesTiltseries : BaseCommand
@@ -375,11 +380,15 @@ namespace WarpTools.Commands
                             foreach (var pair in tsAdditionalColumns)
                                 if (!ParticleTable.HasColumn(pair.Key))
                                     ParticleTable.AddColumn(pair.Key, pair.Value);
+                        if (ParticleTable.HasColumn("rlnCtfDataAreCtfPremultiplied"))
+                            ParticleTable.ModifyAllValuesInColumn("rlnCtfDataAreCtfPremultiplied",
+                                                                  v => cli.DontPremultiply ? "0" : "1");
                         Star ParticleOpticsTable = Construct2DOpticsTable(tiltSeries: tiltSeries,
                                                                           tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
                                                                           downsamplingFactor: (float)ExportOptions.DownsampleFactor,
                                                                           boxSize: ExportOptions.BoxSize,
-                                                                          opticsGroup: opticsGroup);
+                                                                          opticsGroup: opticsGroup,
+                                                                          premultiplied: !cli.DontPremultiply);
 
                         // generate necessary metadata for tomograms.star
                         Star TomogramsGeneralTable = Construct2DTomogramStarGeneralTable(tiltSeries: tiltSeries,
@@ -497,6 +506,7 @@ namespace WarpTools.Commands
 
             ProcessingOptionsTomoSubReconstruction ExportOptions =
                 options.GetProcessingTomoSubReconstruction();
+            ExportOptions.DontPremultiply = cli.DontPremultiply;
             return ExportOptions;
         }
 
@@ -873,7 +883,8 @@ namespace WarpTools.Commands
             float tiltSeriesPixelSize,
             float downsamplingFactor,
             int boxSize,
-            int opticsGroup
+            int opticsGroup,
+            bool premultiplied = true
         )
         {
             string[] columnNames = new string[]
@@ -899,7 +910,7 @@ namespace WarpTools.Commands
                     { FormattableString.Invariant($"{tiltSeries.CTF.Voltage:F3}") },
                 new string[]
                     { FormattableString.Invariant($"{tiltSeriesPixelSize:F5}") },
-                new string[] { "1" },
+                new string[] { premultiplied ? "1" : "0" },
                 new string[] { "2" },
                 new string[]
                     { FormattableString.Invariant($"{downsamplingFactor:F5}") },
@@ -1157,6 +1168,7 @@ namespace WarpTools.Commands
                 File.WriteAllText(path: optimisationSetPath, contents: contents);
 
                 #endregion
+
             }
             else if (outputDimensionality == 3)
             {
