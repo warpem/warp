@@ -102,10 +102,10 @@ namespace WarpTools.Commands
                 Default = 5)]
         public int MaxMissingTilts { get; set; }
 
-        [Option("extract_raw",
-                HelpText = 
-                    "Write raw, non-CTF-premultiplied 2D particle series instead of the default CTF-premultiplied output")]
-        public bool ExtractRaw { get; set; }
+        [Option("dont_premultiply",
+                HelpText =
+                    "Don't premultiply 2D particle series by CTFs or RELION weights")]
+        public bool DontPremultiply { get; set; }
     }
 
     class ExportParticlesTiltseries : BaseCommand
@@ -382,13 +382,13 @@ namespace WarpTools.Commands
                                     ParticleTable.AddColumn(pair.Key, pair.Value);
                         if (ParticleTable.HasColumn("rlnCtfDataAreCtfPremultiplied"))
                             ParticleTable.ModifyAllValuesInColumn("rlnCtfDataAreCtfPremultiplied",
-                                                                  v => cli.ExtractRaw ? "0" : "1");
+                                                                  v => cli.DontPremultiply ? "0" : "1");
                         Star ParticleOpticsTable = Construct2DOpticsTable(tiltSeries: tiltSeries,
                                                                           tiltSeriesPixelSize: (float)cli.Options.Import.PixelSize,
                                                                           downsamplingFactor: (float)ExportOptions.DownsampleFactor,
                                                                           boxSize: ExportOptions.BoxSize,
                                                                           opticsGroup: opticsGroup,
-                                                                          premultiplied: !cli.ExtractRaw);
+                                                                          premultiplied: !cli.DontPremultiply);
 
                         // generate necessary metadata for tomograms.star
                         Star TomogramsGeneralTable = Construct2DTomogramStarGeneralTable(tiltSeries: tiltSeries,
@@ -506,7 +506,7 @@ namespace WarpTools.Commands
 
             ProcessingOptionsTomoSubReconstruction ExportOptions =
                 options.GetProcessingTomoSubReconstruction();
-            ExportOptions.ExtractRaw = cli.ExtractRaw;
+            ExportOptions.DontPremultiply = cli.DontPremultiply;
             return ExportOptions;
         }
 
