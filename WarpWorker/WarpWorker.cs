@@ -623,6 +623,7 @@ namespace WarpWorker
                                     $"comparam.align.tiltalign.MagOption = 0\n" +
                                     $"comparam.align.tiltalign.TiltOption = 0\n" +
                                     $"comparam.align.tiltalign.RotOption = {RotOption}\n" +
+                                    $"comparam.restrictalign.restrictalign.UseCrossValidation = 0\n" +
                                     $"comparam.align.tiltalign.RobustFitting = 1\n" +
                                     $"comparam.align.tiltalign.WeightWholeTracks = 1\n";
                     File.WriteAllText(path: DirectiveFile, contents: BRTConfig);
@@ -721,6 +722,7 @@ namespace WarpWorker
                                     $"comparam.align.tiltalign.MagOption = 0\n" +
                                     $"comparam.align.tiltalign.TiltOption = 0\n" +
                                     $"comparam.align.tiltalign.RotOption = {RotOption}\n" +
+                                    $"comparam.restrictalign.restrictalign.UseCrossValidation = 0\n" +
                                     $"comparam.align.tiltalign.RobustFitting = 1\n" +
                                     $"comparam.align.tiltalign.WeightWholeTracks = 1\n";
 
