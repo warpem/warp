@@ -1738,6 +1738,31 @@ namespace Warp.Sociology
 
             #region Denoising
 
+            if (!ApplyDenoising)
+            {
+                // --dont_use_denoiser: skip training/inference entirely.
+                // Produce the same map that would have gone into the denoiser:
+                // the half-map average, low-passed to the best local resolution.
+                progressCallback?.Invoke("4/5: Skipping denoiser (disabled); writing low-pass filtered map");
+
+                List<float> LocalResSortedND = LocalResolution.GetHostContinuousCopy().ToList();
+                LocalResSortedND.Sort();
+                DenoisedAtResolution = Math.Max(PixelSize * 2, (decimal)LocalResSortedND[(int)(0.005 * LocalResSortedND.Count)]);
+                DenoisedAtResolution = Math.Min(DenoisedAtResolution, GlobalResolution);
+                if (fixedResolution > 0)
+                    DenoisedAtResolution = Math.Max(DenoisedAtResolution, (decimal)fixedResolution);
+
+                MapDenoised = HalfMap1.GetCopyGPU();
+                MapDenoised.Add(HalfMap2);
+                MapDenoised.Multiply(0.5f);
+                MapDenoised.Bandpass(0, (float)PixelSize * 2 / (float)DenoisedAtResolution, true, 0.05f);
+                MapDenoised.FreeDevice();
+
+                progressCallback?.Invoke("5/5: Done");
+            }
+            else
+            {
+
             progressCallback?.Invoke("4/5: Training denoising");
 
             HalfMap1.FreeDevice();
@@ -1804,6 +1829,8 @@ namespace Warp.Sociology
 
             MapDenoised.TransformValues(v => v * ForDenoisingStats[0].Y + ForDenoisingStats[0].X);
             MapDenoised.FreeDevice();
+
+            } // end else (ApplyDenoising)
 
             #endregion
 
