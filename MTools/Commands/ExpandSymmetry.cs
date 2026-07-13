@@ -119,6 +119,42 @@ namespace MTools.Commands
                 Symmetry Sym = new Symmetry(Options.ExpandFrom);
                 Matrix3[] SymMats = Sym.GetRotationMatrices();
 
+                // Remove matrices already covered by the output symmetry so that
+                // we only generate the extra copies, not |ExpandFrom| copies.
+                Symmetry SymTo = new Symmetry(Options.ExpandTo);
+                Matrix3[] SymToMats = SymTo.GetRotationMatrices();
+
+                bool MatricesApproxEqual(Matrix3 a, Matrix3 b, float tol = 1e-4f)
+                {
+                    return Math.Abs(a.M11 - b.M11) < tol && Math.Abs(a.M21 - b.M21) < tol && Math.Abs(a.M31 - b.M31) < tol &&
+                           Math.Abs(a.M12 - b.M12) < tol && Math.Abs(a.M22 - b.M22) < tol && Math.Abs(a.M32 - b.M32) < tol &&
+                           Math.Abs(a.M13 - b.M13) < tol && Math.Abs(a.M23 - b.M23) < tol && Math.Abs(a.M33 - b.M33) < tol;
+                }
+
+                // Keep one representative per left coset of SymTo in SymFrom.
+                // Two ExpandFrom matrices are in the same coset if their product with
+                // the inverse of one of them lies in SymTo.  A simple equivalent:
+                // retain a matrix from ExpandFrom only if no already-retained matrix,
+                // post-multiplied by the inverse of the candidate, is in SymTo.
+                List<Matrix3> CosetReps = new List<Matrix3>();
+                foreach (var m in SymMats)
+                {
+                    bool alreadyCovered = CosetReps.Any(rep =>
+                    {
+                        // rep * m^-1  — for rotation matrices the inverse is the transpose
+                        Matrix3 rel = rep * m.Transposed();
+                        return SymToMats.Any(s => MatricesApproxEqual(rel, s));
+                    });
+
+                    if (!alreadyCovered)
+                        CosetReps.Add(m);
+                }
+
+                if (CosetReps.Count * SymToMats.Length != SymMats.Length)
+                    Console.WriteLine($"Warning: ExpandTo ({Options.ExpandTo}, {SymToMats.Length} ops) does not appear to be a subgroup of " +
+                                      $"ExpandFrom ({Options.ExpandFrom}, {SymMats.Length} ops). " +
+                                      $"Found {CosetReps.Count} coset representatives; proceeding anyway.");
+
                 var ParticlesOld = Species.Particles;
 
                 List<Particle> ExpandedParticles = new List<Particle>();
@@ -129,7 +165,7 @@ namespace MTools.Commands
                     for (int i = 0; i < Angles.Length; i++)
                         Angles[i] = Matrix3.Euler(p.Angles[i] * Helper.ToRad);
 
-                    foreach (var m in SymMats)
+                    foreach (var m in CosetReps)
                     {
                         float3[] AnglesNew = Angles.Select(a => Matrix3.EulerFromMatrix(a * m) * Helper.ToDeg).ToArray();
                         Particle RotatedParticle = p.GetCopy();
