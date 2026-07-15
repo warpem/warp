@@ -2588,10 +2588,38 @@ public partial class TiltSeries
                     }
                 }
 
+                // Normalized cross-correlation score of a grid-search candidate.
+                // X = defocus offset, Y = AB (cross term), Z = reference power, W = particle power.
+                // Invalid candidates (non-finite terms or non-positive power) score -Infinity so
+                // they sort to the bottom and are excluded from the signal check below. The Z*W
+                // product is formed in double precision to avoid float overflow flushing the score to 0.
+                Func<float4, double> CandidateScore = v =>
+                {
+                    if (!float.IsFinite(v.Y) || !float.IsFinite(v.Z) || !float.IsFinite(v.W) || v.Z <= 0 || v.W <= 0)
+                        return double.NegativeInfinity;
+                    return v.Y / Math.Max(1e-10, Math.Sqrt((double)v.Z * v.W));
+                };
+
                 for (int i = 0; i < NTilts; i++)
                 {
-                    AllSearchValues[i].Sort((a, b) => -((a.Y / Math.Max(1e-10, Math.Sqrt(a.Z * a.W))).CompareTo(b.Y / Math.Max(1e-10, Math.Sqrt(b.Z * b.W)))));
-                    input[i * 4 + 0] += AllSearchValues[i][0].X;
+                    AllSearchValues[i].Sort((a, b) => -CandidateScore(a).CompareTo(CandidateScore(b)));
+
+                    // Only commit a defocus offset when the grid search actually produced usable
+                    // signal. If every candidate scores zero (e.g. MultiParticleDiff returned zeros,
+                    // or the containment mask zeroed all particles for this tilt) or the scores are
+                    // numerically tied, the sort order is arbitrary and applying AllSearchValues[i][0].X
+                    // would replace the defocus with a random grid offset rather than leave it as-is.
+                    // In that case leave the tilt's defocus unchanged and warn instead. See issue #480.
+                    List<double> FiniteScores = AllSearchValues[i].Select(v => CandidateScore(v)).Where(s => double.IsFinite(s)).ToList();
+                    bool HasSignal = FiniteScores.Count > 0 &&
+                                     FiniteScores.Max() > 0 &&
+                                     (FiniteScores.Max() - FiniteScores.Min()) > 1e-10;
+
+                    if (HasSignal)
+                        input[i * 4 + 0] += AllSearchValues[i][0].X;
+                    else
+                        Console.WriteLine($"Warning: exhaustive defocus grid search produced no usable signal for tilt {i} " +
+                                          $"(all candidate scores were zero, invalid, or tied); leaving this tilt's defocus unchanged.");
                 }
 
                 return input;
