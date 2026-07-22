@@ -887,6 +887,12 @@ namespace WarpTools.Commands
             bool premultiplied = true
         )
         {
+            // The exported particle stacks define a virtual tomogram sampled at
+            // the particle pixel size. This keeps legacy rlnCoordinateX/Y/Z in
+            // particle pixels while giving RELION the correct physical scale for
+            // its per-particle depth-defocus calculation.
+            float particlePixelSize = tiltSeriesPixelSize * downsamplingFactor;
+
             string[] columnNames = new string[]
             {
                 "rlnOpticsGroup",
@@ -909,15 +915,13 @@ namespace WarpTools.Commands
                 new string[]
                     { FormattableString.Invariant($"{tiltSeries.CTF.Voltage:F3}") },
                 new string[]
-                    { FormattableString.Invariant($"{tiltSeriesPixelSize:F5}") },
+                    { FormattableString.Invariant($"{particlePixelSize:F5}") },
                 new string[] { premultiplied ? "1" : "0" },
                 new string[] { "2" },
-                new string[]
-                    { FormattableString.Invariant($"{downsamplingFactor:F5}") },
+                new string[] { "1.00000" },
                 new string[]
                 {
-                    FormattableString.Invariant(
-                                                $"{tiltSeriesPixelSize * downsamplingFactor:F5}")
+                    FormattableString.Invariant($"{particlePixelSize:F5}")
                 },
                 new string[] { FormattableString.Invariant($"{boxSize}") },
                 new string[]
@@ -974,18 +978,23 @@ namespace WarpTools.Commands
             UsedTilts.Sort();
 
             tiltSeries.VolumeDimensionsPhysical = exportOptions.DimensionsPhysical;
+            float particlePixelSize = (float)exportOptions.BinnedPixelSizeMean;
+            int3 virtualTomogramDimensions = RelionParticleSeriesExport.GetVirtualTomogramDimensions(
+                exportOptions.DimensionsPhysical,
+                particlePixelSize);
 
             GeneralTable.AddRow(new string[]
             {
                 tiltSeries.RootName + ".tomostar",
                 "dummy.mrc", //series.RootName + ".mrc",
                 UsedTilts.Count.ToString(),
-                exportOptions.Dimensions.X.ToString(CultureInfo.InvariantCulture),
-                exportOptions.Dimensions.Y.ToString(CultureInfo.InvariantCulture),
-                exportOptions.Dimensions.Z.ToString(CultureInfo.InvariantCulture),
-                "-1.0",
+                virtualTomogramDimensions.X.ToString(CultureInfo.InvariantCulture),
+                virtualTomogramDimensions.Y.ToString(CultureInfo.InvariantCulture),
+                virtualTomogramDimensions.Z.ToString(CultureInfo.InvariantCulture),
+                RelionParticleSeriesExport.GetRelionHand(tiltSeries.AreAnglesInverted)
+                                          .ToString("F1", CultureInfo.InvariantCulture),
                 $"opticsGroup{opticsGroup}",
-                exportOptions.PixelSize.ToString("F5", CultureInfo.InvariantCulture),
+                particlePixelSize.ToString("F5", CultureInfo.InvariantCulture),
                 tiltSeries.CTF.Voltage.ToString("F3", CultureInfo.InvariantCulture),
                 tiltSeries.CTF.Cs.ToString("F3", CultureInfo.InvariantCulture),
                 tiltSeries.CTF.Amplitude.ToString("F3", CultureInfo.InvariantCulture),
@@ -1009,6 +1018,7 @@ namespace WarpTools.Commands
                 "rlnDefocusU",
                 "rlnDefocusV",
                 "rlnDefocusAngle",
+                "rlnPhaseShift",
                 "rlnCtfScalefactor",
                 "rlnMicrographPreExposure"
             });
@@ -1043,6 +1053,8 @@ namespace WarpTools.Commands
                     ((TiltCTF.Defocus - TiltCTF.DefocusDelta / 2) * 1e4M).ToString("F1",
                                                                                    CultureInfo.InvariantCulture),
                     TiltCTF.DefocusAngle.ToString("F3", CultureInfo.InvariantCulture),
+                    RelionParticleSeriesExport.GetPhaseShiftDegrees(TiltCTF.PhaseShift)
+                                              .ToString("F3", CultureInfo.InvariantCulture),
                     TiltCTF.Scale.ToString("F3", CultureInfo.InvariantCulture),
                     tiltSeries.Dose[i].ToString("F3", CultureInfo.InvariantCulture)
                 });
@@ -1099,11 +1111,17 @@ namespace WarpTools.Commands
                 int nParticlesBeforeFiltering = tableParticles.RowCount;
                 tableParticles.RemoveRowsWhere(
                                                columnName: "rlnTomoVisibleFrames",
-                                               match: s => s
-                                                           .Trim('[', ']') // remove surrounding brackets
-                                                           .Split(',') // split out individual values
-                                                           .Select(int.Parse) // to int
-                                                           .Count(value => value == 0) > maxMissingTilts
+                                               match: s =>
+                                               {
+                                                   int[] visibility = s
+                                                                      .Trim('[', ']')
+                                                                      .Split(',')
+                                                                      .Select(int.Parse)
+                                                                      .ToArray();
+                                                   int nVisible = visibility.Count(value => value != 0);
+                                                   int nMissing = visibility.Length - nVisible;
+                                                   return nVisible == 0 || nMissing > maxMissingTilts;
+                                               }
                                               );
                 int nParticlesAfterFiltering = tableParticles.RowCount;
                 if (Helper.IsDebug)

@@ -106,8 +106,14 @@ public partial class TiltSeries
         Image CTFs = new Image(new int3(SizeSub, SizeSub, NTilts), true, false);
         Image CTFCoords = CTF.GetCTFCoords(SizeSub, SizeSub);
 
-        Image UsedParticles = new Image(new int3(SizeSub, SizeSub, UsedTilts.Count));
-        float[][] UsedParticlesData = UsedParticles.GetHost(Intent.Write);
+        Image AverageParticles = new Image(new int3(SizeSub, SizeSub, UsedTilts.Count));
+        float[][] AverageParticlesData = AverageParticles.GetHost(Intent.Write);
+
+        // RELION pairs its compact list of visible ExpImage records with the
+        // physical slices in each particle stack. Reuse a host buffer while
+        // keeping its depth equal to the current particle's visible-frame count.
+        Image VisibleParticles = null;
+        float[][] VisibleParticlesData = null;
 
         Image SumAllParticles = new Image(new int3(SizeSub, SizeSub, NTilts));
 
@@ -161,10 +167,6 @@ public partial class TiltSeries
 
             SumAllParticles.Add(Images);
 
-            float[][] ImagesData = Images.GetHost(Intent.Read);
-            for (int i = 0; i < UsedTilts.Count; i++)
-                Array.Copy(ImagesData[UsedTilts[i]], 0, UsedParticlesData[i], 0, ImagesData[0].Length);
-
             bool[] Visibility = GetPositionInAllTilts(positions.Skip(p * NTilts).Take(NTilts).ToArray()).Select(p =>
             {
                 return p.X > options.ParticleDiameter / 2 && p.X < ImageDimensionsPhysical.X - options.ParticleDiameter / 2 &&
@@ -173,6 +175,26 @@ public partial class TiltSeries
             for (int t = 0; t < NTilts; t++)
                 Visibility[t] = Visibility[t] && UseTilt[t];
             Visibility = Helper.IndexedSubset(Visibility, UsedTilts.ToArray());
+
+            float[][] ImagesData = Images.GetHost(Intent.Read);
+            int[] VisibleTilts = RelionParticleSeriesExport.GetVisibleTiltIndices(UsedTilts, Visibility);
+            int NVisible = VisibleTilts.Length;
+            if (NVisible > 0)
+            {
+                if (VisibleParticles == null || VisibleParticles.Dims.Z != NVisible)
+                {
+                    VisibleParticles?.Dispose();
+                    VisibleParticles = new Image(new int3(SizeSub, SizeSub, NVisible));
+                    VisibleParticlesData = VisibleParticles.GetHost(Intent.Write);
+                }
+
+                for (int i = 0; i < VisibleTilts.Length; i++)
+                    Array.Copy(ImagesData[VisibleTilts[i]],
+                               0,
+                               VisibleParticlesData[i],
+                               0,
+                               ImagesData[0].Length);
+            }
 
 
             float3 Position0 = positions[p * NTilts + NTilts / 2] / (float)options.BinnedPixelSizeMean;
@@ -200,7 +222,10 @@ public partial class TiltSeries
                 $"[{string.Join(',', Visibility.Select(v => v ? "1" : "0").ToArray())}]"
             });
 
-            UsedParticles.WriteMRC16b(SeriesPath, (float)options.BinnedPixelSizeMean, true);
+            // A zero-visible particle is removed from the final STAR table by
+            // the manager, so it intentionally has no physical stack.
+            if (NVisible > 0)
+                VisibleParticles.WriteMRC16b(SeriesPath, (float)options.BinnedPixelSizeMean, true);
 
             if (IsCanceled)
                 break;
@@ -212,17 +237,18 @@ public partial class TiltSeries
 
             float[][] SumAllParticlesData = SumAllParticles.GetHost(Intent.Read);
             for (int i = 0; i < UsedTilts.Count; i++)
-                Array.Copy(SumAllParticlesData[UsedTilts[i]], 0, UsedParticlesData[i], 0, SumAllParticlesData[0].Length);
+                Array.Copy(SumAllParticlesData[UsedTilts[i]], 0, AverageParticlesData[i], 0, SumAllParticlesData[0].Length);
 
             string SumPath = System.IO.Path.Combine(ProcessingDirectoryName, ToParticleSeriesAveragePath(RootName, options.BinnedPixelSizeMean));
-            UsedParticles.WriteMRC16b(SumPath, (float)options.BinnedPixelSizeMean, true);
+            AverageParticles.WriteMRC16b(SumPath, (float)options.BinnedPixelSizeMean, true);
         }
 
         #region Teardown
 
         RelionWeights.Dispose();
         SumAllParticles.Dispose();
-        UsedParticles.Dispose();
+        VisibleParticles?.Dispose();
+        AverageParticles.Dispose();
         Images.Dispose();
         ImagesFT.Dispose();
         CTFs.Dispose();
