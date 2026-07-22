@@ -40,7 +40,7 @@ mkdir -p $PREFIX/bin
 mkdir -p $PREFIX/lib
 
 # Copy binaries to the bin directory
-cp $SRC_DIR/Release/linux-x64/publish/{EstimateWeights,Frankenmap,MCore,MTools,MrcConverter,Noise2Half,Noise2Map,Noise2Mic,Noise2Tomo,WarpTools,WarpWorker} $PREFIX/bin/
+cp $SRC_DIR/Release/linux-x64/publish/{EstimateWeights,Frankenmap,MCore,MTools,MrcConverter,Noise2Half,Noise2Map,Noise2Mic,Noise2Tomo,WarpTools,WarpWorker,WarpWorker2} $PREFIX/bin/
 
 # PDB and configs also go into bin
 cp $SRC_DIR/Release/linux-x64/publish/*.pdb $PREFIX/bin/

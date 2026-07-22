@@ -14,8 +14,12 @@ namespace Warp.Workers.Scheduling
     /// </summary>
     public static class TemplateRenderer
     {
-        // A placeholder name is one or more word characters (letters, digits, underscore).
-        private static readonly Regex Placeholder = new(@"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", RegexOptions.Compiled);
+        // Keep placeholder names shell/config friendly while allowing common dotted and
+        // hyphenated names. A separate broad scan below catches malformed/unfilled braces.
+        private static readonly Regex Placeholder = new(
+            @"\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}", RegexOptions.Compiled);
+        private static readonly Regex AnyPlaceholder = new(
+            @"\{\{\s*([^{}]*?)\s*\}\}", RegexOptions.Compiled);
 
         public static string Render(string template, IReadOnlyDictionary<string, string> values)
         {
@@ -29,9 +33,10 @@ namespace Warp.Workers.Scheduling
 
             var unfilled = new List<string>();
             var seen = new HashSet<string>();
-            foreach (Match m in Placeholder.Matches(result))
+            foreach (Match m in AnyPlaceholder.Matches(result))
             {
-                string n = m.Groups[1].Value;
+                string n = m.Groups[1].Value.Trim();
+                if (n.Length == 0) n = "(empty)";
                 if (seen.Add(n)) unfilled.Add("{{" + n + "}}");
             }
             if (unfilled.Count > 0)

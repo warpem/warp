@@ -73,13 +73,23 @@ the run is done (also on Ctrl-C).
 
 ## 1. The cluster-config JSON
 
-Describes how to talk to the scheduler. Exactly three fields:
+Describes how to talk to the scheduler. The first three fields are required. The
+status-related fields are optional, but enable running/pending counters and replacement
+of jobs that disappear while work remains:
 
 ```json
 {
   "submit": "sbatch {{script_path}}",
   "submit_job_id_regex": "Submitted batch job (\\d+)",
-  "cancel": "scancel {{job_id}}"
+  "cancel": "scancel {{job_id}}",
+  "status_list": "squeue -h -u {{user}} -o '%i,%T'",
+  "running_statuses": ["RUNNING", "COMPLETING"],
+  "pending_statuses": ["PENDING"],
+  "status_poll_seconds": 10,
+  "registration_grace_seconds": 120,
+  "max_submissions_per_tick": 32,
+  "max_submission_multiplier": 4,
+  "cancel_parallelism": 16
 }
 ```
 
@@ -91,8 +101,34 @@ Describes how to talk to the scheduler. Exactly three fields:
   `"submit": "sbatch --parsable {{script_path}}"` together with `"submit_job_id_regex": "(\\d+)"`.)
 - `cancel` — runs once per job id, with `{{job_id}}` substituted, when the run finishes
   or is interrupted.
+- `status_list` — command whose stdout contains one `job_id,status` record per line,
+  with no header. `{{user}}` is the current user. When omitted, the provisioner retains
+  its original submit-once behavior and cannot report scheduler counters or replenish
+  lost jobs.
+- `running_statuses` and `pending_statuses` — exact, case-sensitive scheduler state
+  tokens. These arrays are optional; WarpTools has defaults for common SLURM, PBS, LSF,
+  and SGE tokens. An unknown token is treated as pending so a scheduler upgrade cannot
+  trigger a submission storm.
+- `status_poll_seconds` — minimum interval between scheduler queries (default `10`).
+- `registration_grace_seconds` — how long a tracked job must be continuously absent
+  from successful status queries before it is considered gone (default `120`). This is
+  deliberately long enough for common scheduler registration delays.
+- `max_submissions_per_tick` — bounds one replenishment burst (default `32`).
+- `max_submission_multiplier` — bounds total submissions over the run to this multiple
+  of the requested pool size (default `4`). Reaching the cap is logged and requires
+  operator inspection rather than continuing to submit indefinitely.
+- `cancel_parallelism` — maximum concurrent scheduler cancellation commands (default
+  `16`). Failed cancellations remain tracked and are retried if shutdown runs again.
 
 Note the doubled backslash (`\\d`) — it is a JSON string, so the backslash must be escaped.
+
+Status reconciliation is fail-closed: a failed or malformed status query retains every
+tracked job and skips replenishment for that tick. A successful query must omit a job
+continuously for the full grace period before WarpTools submits a replacement. The
+provisioner also limits the pool to the number of pending task files (accounting for
+`--perdevice`) and never replenishes an idle queue. It writes timestamped diagnostics,
+including `running`, `pending`, and `registering` counts, to
+`<queue directory>/cluster/provisioner.log` as well as the manager console.
 
 ## 2. The submission-script template
 
@@ -100,7 +136,8 @@ A normal SLURM batch script with `{{ }}` placeholders. The only required placeho
 `{{command}}`, which WarpTools replaces with the full worker invocation (it already
 contains the queue directory, the log directory, the GPU device, and a unique worker id).
 Everything else is up to you; any `{{custom}}` placeholders you add are filled from the
-command line (next step).
+command line (next step). `{{tasks_dir}}` and `{{logs_dir}}` are also built in and expand
+to the shared queue directory and processing-log directory respectively.
 
 ```bash
 #!/bin/bash
@@ -110,7 +147,7 @@ command line (next step).
 #SBATCH --cpus-per-task={{cpus}}
 #SBATCH --mem={{mem}}
 #SBATCH --time={{time}}
-#SBATCH --output=warp-worker-%j.out
+#SBATCH --output={{logs_dir}}/warp-worker-%j.out
 
 module load warp
 

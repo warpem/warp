@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Warp.Workers.Scheduling
 {
@@ -15,6 +16,8 @@ namespace Warp.Workers.Scheduling
     /// </summary>
     public static class ClusterVarParser
     {
+        private static readonly Regex ValidKey = new(@"^[A-Za-z0-9_.-]+$", RegexOptions.Compiled);
+
         public static Dictionary<string, string> Parse(IEnumerable<string> tokens)
         {
             var result = new Dictionary<string, string>();
@@ -71,6 +74,10 @@ namespace Warp.Workers.Scheduling
                 value = value.Trim();
                 if (key.Length == 0)
                     throw new ArgumentException("--cluster_var has an empty key.");
+                if (!ValidKey.IsMatch(key))
+                    throw new ArgumentException(
+                        $"--cluster_var key '{key}' contains unsupported characters; " +
+                        "use letters, digits, underscore, dot, or hyphen.");
 
                 result[key] = value;
             }

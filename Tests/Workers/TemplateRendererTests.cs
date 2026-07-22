@@ -57,4 +57,20 @@ public class TemplateRendererTests
         Assert.Contains("a", ex.Message);
         Assert.Contains("b", ex.Message);
     }
+
+    [Fact]
+    public void DottedAndHyphenatedPlaceholder_IsSubstituted()
+    {
+        var r = TemplateRenderer.Render("{{scheduler.account-name}}",
+            new Dictionary<string, string> { ["scheduler.account-name"] = "project" });
+        Assert.Equal("project", r);
+    }
+
+    [Fact]
+    public void UnsupportedPlaceholderSyntax_DoesNotPassThroughSilently()
+    {
+        var ex = Assert.Throws<System.ArgumentException>(() =>
+            TemplateRenderer.Render("{{bad key}}", new Dictionary<string, string>()));
+        Assert.Contains("bad key", ex.Message);
+    }
 }

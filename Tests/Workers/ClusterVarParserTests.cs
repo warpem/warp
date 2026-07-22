@@ -75,4 +75,17 @@ public class ClusterVarParserTests
     {
         Assert.Throws<System.ArgumentException>(() => ClusterVarParser.Parse(new[] { "=gpu" }));
     }
+
+    [Fact]
+    public void KeyWithUnsupportedPlaceholderCharacters_Throws()
+    {
+        Assert.Throws<System.ArgumentException>(() => ClusterVarParser.Parse(new[] { "bad key=value" }));
+    }
+
+    [Fact]
+    public void DottedAndHyphenatedKeys_AreAccepted()
+    {
+        var r = ClusterVarParser.Parse(new[] { "scheduler.account-name=project" });
+        Assert.Equal("project", r["scheduler.account-name"]);
+    }
 }
