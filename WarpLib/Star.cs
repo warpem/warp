@@ -152,6 +152,11 @@ namespace Warp
 
         public Star(Star[] tables)
         {
+            // Callers usually build this array from a file glob, so an empty one means the
+            // glob matched nothing. Say that instead of dying on tables[0].
+            if (tables == null || tables.Length == 0)
+                throw new ArgumentException("Can't merge STAR tables because there are no tables to merge", nameof(tables));
+
             List<string> Common = new List<string>(tables[0].GetColumnNames());
 
             foreach (var table in tables)

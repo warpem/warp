@@ -163,10 +163,8 @@ namespace WarpTools.Commands
                 inputStar = ParseRelionParticleStar(cli.InputStarFile);
             else if (handleMultipleFiles)
             {
-                string[] inputStarFiles = Directory.EnumerateFiles(path: cli.InputDirectory, searchPattern: cli.InputPattern)
-                                                   .Where(p => !Helper.PathToName(p).StartsWith('.')).ToArray();
+                string[] inputStarFiles = FindInputFiles(cli.InputDirectory, cli.InputPattern);
 
-                Console.WriteLine($"Found {inputStarFiles.Length} files in {cli.InputDirectory} matching {cli.InputPattern};");
                 inputStar = new Star(inputStarFiles.Select(file => new Star(file)).ToArray());
             }
             else

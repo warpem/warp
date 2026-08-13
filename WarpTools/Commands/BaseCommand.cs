@@ -60,6 +60,33 @@ namespace WarpTools.Commands
             Console.WriteLine("");
         }
 
+        /// <summary>
+        /// Resolves --input_directory + --input_pattern into a list of files. Fails loudly when
+        /// nothing matches: handing an empty array to Star's merge constructor used to surface as
+        /// a bare IndexOutOfRangeException that told the user nothing.
+        /// </summary>
+        protected static string[] FindInputFiles(string directory, string pattern)
+        {
+            string[] Files = Directory.EnumerateFiles(path: directory, searchPattern: pattern)
+                                      .Where(p => !Helper.PathToName(p).StartsWith('.')).ToArray();
+
+            Console.WriteLine($"Found {Files.Length} files in {directory} matching {pattern};");
+
+            if (Files.Length == 0)
+            {
+                // A pattern without wildcards almost always means the shell expanded the glob
+                // against the working directory before WarpTools ever saw it.
+                string Hint = pattern.IndexOfAny(new[] { '*', '?' }) < 0
+                                  ? $" '{pattern}' contains no wildcards, so your shell probably expanded it " +
+                                    "before WarpTools was launched – quote the pattern, e.g. --input_pattern '*.star'."
+                                  : "";
+
+                throw new Exception($"No files in '{directory}' matched pattern '{pattern}'.{Hint}");
+            }
+
+            return Files;
+        }
+
         // CPU-only per-item iteration helper. Runs body on the orchestrator for each
         // input item (optionally oversubscribed across threads), with the same progress
         // line + processed/failed snapshot writing as the worker path. GPU work goes
