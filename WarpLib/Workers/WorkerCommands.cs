@@ -149,16 +149,39 @@ namespace Warp.Workers
         public static NamedSerializableObject MPAPrepareSpecies(string path, string stagingSave) =>
             new(WorkerCommandNames.MPAPrepareSpecies, path, stagingSave);
 
-        public static NamedSerializableObject MPAPreparePopulation(string path, string stagingLoad) =>
-            new(WorkerCommandNames.MPAPreparePopulation, path, stagingLoad);
+        /// <param name="makeRefs">
+        /// False allocates only the reconstruction accumulators, skipping the reference
+        /// projectors and the denoising/filtering that build them. Used by the
+        /// reconstruction-only path, whose species has no half-maps to make references from.
+        /// Trailing and optional so existing 2-element payloads keep working.
+        /// </param>
+        public static NamedSerializableObject MPAPreparePopulation(
+            string path, string stagingLoad, bool makeRefs = true) =>
+            new(WorkerCommandNames.MPAPreparePopulation, path, stagingLoad ?? "", makeRefs);
 
+        /// <param name="saveItemMeta">
+        /// False skips rewriting the item's .xml. Set it when nothing was refined
+        /// (NIterations = 0), so a reconstruction-only run never touches the user's metadata.
+        /// Trailing and optional so existing 4-element payloads keep working.
+        /// </param>
         public static NamedSerializableObject MPARefineAndSave(
-            string path, ProcessingOptionsMPARefine options, DataSource source, string tempDir) =>
-            new(WorkerCommandNames.MPARefineAndSave, path, options, source, tempDir);
+            string path, ProcessingOptionsMPARefine options, DataSource source, string tempDir,
+            bool saveItemMeta = true) =>
+            new(WorkerCommandNames.MPARefineAndSave, path, options, source, tempDir, saveItemMeta);
 
         public static NamedSerializableObject MPAFinishSpecies(
             string path, string stagingDirectory, string[] progressFolders) =>
             new(WorkerCommandNames.MPAFinishSpecies, path, stagingDirectory, progressFolders);
+
+        /// <summary>
+        /// Reconstruction-only post-flight: gather every worker's back-projection partial,
+        /// reconstruct both half-maps, optionally run the standard FSC/sharpening
+        /// postprocess, and save. Unlike MPAFinishSpecies this needs no staged references
+        /// and never commits a species version.
+        /// </summary>
+        public static NamedSerializableObject MPAReconstructAverage(
+            string speciesPath, string[] progressFolders, bool doPostprocess) =>
+            new(WorkerCommandNames.MPAReconstructAverage, speciesPath, progressFolders, doPostprocess);
 
         public static NamedSerializableObject WaitAsyncTasks() =>
             new(WorkerCommandNames.WaitAsyncTasks);
@@ -219,6 +242,7 @@ namespace Warp.Workers
         public const string MPAPreparePopulation = "MPAPreparePopulation";
         public const string MPARefineAndSave = "MPARefineAndSave";
         public const string MPAFinishSpecies = "MPAFinishSpecies";
+        public const string MPAReconstructAverage = "MPAReconstructAverage";
 
         // --- Service ---
         public const string WaitAsyncTasks = "WaitAsyncTasks";

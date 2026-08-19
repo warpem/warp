@@ -52,6 +52,11 @@ static partial class WorkerProcess
     {
         string Path = (string)command.Content[0];
         string StagingLoad = (string)command.Content[1];
+        // Trailing and optional: false = allocate reconstruction accumulators only, no
+        // reference projectors. Used by the reconstruction-only path, whose species has no
+        // half-maps or mask. Length-guarded because the legacy WorkerWrapper handlers still
+        // emit the 2-element form of this command.
+        bool MakeRefs = command.Content.Length > 2 ? (bool)command.Content[2] : true;
 
         // Free the previous source's resident population before reloading. Previously the
         // refine worker process was killed between sources; with a long-lived worker the
@@ -66,9 +71,12 @@ static partial class WorkerProcess
 
         foreach (var species in MPAPopulation.Species)
         {
-            Console.Write($"Preparing {species.Name} for refinement... ");
+            Console.Write(MakeRefs
+                ? $"Preparing {species.Name} for refinement... "
+                : $"Allocating reconstruction for {species.Name}... ");
 
-            species.PrepareRefinementRequisites(true, DeviceID, null, StagingLoad);
+            species.PrepareRefinementRequisites(MakeRefs, DeviceID, null,
+                                                MakeRefs ? StagingLoad : null);
 
             Console.WriteLine("Done.");
         }
@@ -84,6 +92,9 @@ static partial class WorkerProcess
         var Options = (ProcessingOptionsMPARefine)command.Content[1];
         var Source = (DataSource)command.Content[2];
         string TempDir = (string)command.Content[3];
+        // Trailing and optional: false skips rewriting the item's .xml, for runs that refine
+        // nothing (NIterations = 0). Length-guarded for the same reason as MPAPreparePopulation.
+        bool SaveItemMeta = command.Content.Length > 4 ? (bool)command.Content[4] : true;
 
         // Per-worker folder: both the refinement scratch and this worker's running
         // progress partial live here. Distinct per worker so partials never collide and
@@ -99,7 +110,8 @@ static partial class WorkerProcess
 
         Item.PerformMultiParticleRefinement(WorkerDir, Options, MPAPopulation.Species.ToArray(), Source, GainRef, DefectMap, Console.WriteLine);
 
-        Item.SaveMeta();
+        if (SaveItemMeta)
+            Item.SaveMeta();
 
         GPU.CheckGPUExceptions();
 
@@ -131,5 +143,43 @@ static partial class WorkerProcess
         S.Save();
 
         Console.WriteLine($"Finished species {S.Name}: {S.GlobalResolution:F2} A");
+    }
+
+    // Reconstruction-only post-flight. Differs from MPAFinishSpecies in three ways, all
+    // because the species carries no reference: requisites are prepared with makeRefs =
+    // false (no staging to load), the postprocess is optional, and the species is never
+    // committed — ComputeVersionHash dereferences the half-maps and mask, and a throwaway
+    // reconstruction has no reason to grow a versions/ tree.
+    [Command(WorkerCommandNames.MPAReconstructAverage)]
+    static void MPAReconstructAverage(NamedSerializableObject command)
+    {
+        string Path = (string)command.Content[0];
+        string[] ProgressFolders = (string[])command.Content[1];
+        bool DoPostprocess = (bool)command.Content[2];
+
+        Species S = Species.FromFile(Path);
+
+        // singleGPU = 0 so the lone accumulator lands at array index [0], which
+        // GatherRefinementProgress/MergeReconstructions/ReconstructHalfMaps read. The actual
+        // device binding comes from GPU.SetDevice(DeviceID), done per command.
+        S.PrepareRefinementRequisites(false, 0, null, null);
+        S.GatherRefinementProgress(ProgressFolders, DeviceID);
+        S.MergeReconstructions(DeviceID);
+        S.ReconstructHalfMaps();
+
+        if (DoPostprocess)
+        {
+            // Needs a mask; the caller guarantees one (a soft sphere at the particle
+            // diameter when the user supplied none). Sharpening itself is mask-free —
+            // FSC.GetWeightedSharpened fits a global B-factor from the FSC curve.
+            Console.WriteLine("Finalizing map...");
+            S.CalculateResolutionAndFilter(-1, s => Console.WriteLine(s), DeviceID);
+        }
+
+        S.Save();
+
+        Console.WriteLine(DoPostprocess
+            ? $"Reconstructed {S.Name}: {S.GlobalResolution:F2} A, B-factor {S.GlobalBFactor}"
+            : $"Reconstructed {S.Name}");
     }
 }

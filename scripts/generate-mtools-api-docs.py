@@ -34,6 +34,8 @@ cli_programs_mtools = [
     "create_population",
     "create_source",
     "create_species",
+    "reconstruct",
+    "postprocess",
     "rotate_species",
     "shift_species",
     "expand_symmetry",

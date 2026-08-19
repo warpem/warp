@@ -1938,11 +1938,14 @@ namespace Warp.Sociology
             if (!string.IsNullOrEmpty(stagingSave))
                 Directory.CreateDirectory(StagingDirectory);
 
-            int3 DimsCurrent = HalfMap1.Dims;
             int3 DimsDesired = new int3(Size);
 
-            // Refinement resolution is at FSC = 0.143
-            ResolutionRefinement = (float)GlobalResolution;
+            // Refinement resolution is at FSC = 0.143. A species that only accumulates a
+            // reconstruction has no resolution estimate yet (and no half-maps to make one
+            // from), so fall back to Nyquist — which makes SizeRefinement the full box.
+            // Without this guard GlobalResolution's -1 default would give a negative box,
+            // and a 0 would divide by zero.
+            ResolutionRefinement = GlobalResolution > 0 ? (float)GlobalResolution : (float)PixelSize * 2;
             int SizeRefinement = (int)Math.Round((float)PixelSize * 2 / ResolutionRefinement * DimsDesired.X / 2) * 2;
             ResolutionRefinement = DimsDesired.X / (float)SizeRefinement * (float)PixelSize * 2;    // Adjust resolution/pixel size to match multiple-of-2-sized box
 
@@ -2216,7 +2219,23 @@ namespace Warp.Sociology
             Rec2.FreeDevice();
         }
 
-        public void FinishRefinement(int gpuID = -1)
+        /// <summary>
+        /// The species' helical symmetry in reconstruction units, or null if it isn't helical.
+        /// </summary>
+        public HelicalSymmetry GetHelicalSymmetry()
+        {
+            if (HelicalUnits <= 1)
+                return null;
+
+            return new HelicalSymmetry(HelicalUnits, (float)HelicalTwist, (float)(HelicalRise / PixelSize));
+        }
+
+        /// <summary>
+        /// Drop the reference projectors and fold every per-GPU reconstruction accumulator
+        /// into index [0], leaving it ready for <see cref="ReconstructMap"/>. Needs no
+        /// reference or mask, so the reconstruction-only path can call it too.
+        /// </summary>
+        public void MergeReconstructions(int gpuID = -1)
         {
             if (gpuID >= 0)
                 GPU.SetDevice(gpuID);
@@ -2266,49 +2285,63 @@ namespace Warp.Sociology
             //HalfMap2Reconstruction[0].Data.AsImaginary().WriteMRC($"d_half2_im_{Name}.mrc");
             //HalfMap2Reconstruction[0].Weights.WriteMRC($"d_half2_weights_{Name}.mrc");
 
-            SaveParticles();
+        }
 
-            HelicalSymmetry Helical = null;
-            if (HelicalUnits > 1)
-                Helical = new HelicalSymmetry(HelicalUnits, (float)HelicalTwist, (float)(HelicalRise / PixelSize));
+        /// <summary>
+        /// Turn one filled reconstruction accumulator into a real-space map: reconstruct,
+        /// band-limit, apply helical symmetry if any, and soft-mask the box edge. Needs no
+        /// reference or mask.
+        /// </summary>
+        /// <param name="reconstruction">A merged accumulator; consumed if <paramref name="disposeAccumulator"/>.</param>
+        public Image ReconstructMap(Projector reconstruction, bool disposeAccumulator)
+        {
+            HelicalSymmetry Helical = GetHelicalSymmetry();
 
-            Console.WriteLine("Reconstructing half-map 1...");
-            HalfMap1 = HalfMap1Reconstruction[0].Reconstruct(false, Symmetry, Helical, -1, -1, -1, 0, true);
-            //HalfMap1Reconstruction[0].Data.AsReal().WriteMRC($"d_half1_re_{Name}.mrc");
-            //HalfMap1Reconstruction[0].Weights.WriteMRC($"d_half1_weights_{Name}.mrc");
-            HalfMap1Reconstruction[0].Dispose();
-            HalfMap1Reconstruction[0] = null;
-            HalfMap1.Bandpass(0, (float)(HalfMap1.Dims.X / 2 - 2) / (HalfMap1.Dims.X / 2), true);
+            Image Map = reconstruction.Reconstruct(false, Symmetry, Helical, -1, -1, -1, 0, true);
+            if (disposeAccumulator)
+                reconstruction.Dispose();
+
+            Map.Bandpass(0, (float)(Map.Dims.X / 2 - 2) / (Map.Dims.X / 2), true);
             if (Helical != null)
             {
-                HalfMap1 = HalfMap1.AsHelicalSymmetrized(Helical.Twist * Helper.ToRad, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap1.Dims.X / 2).AndDisposeParent();
-                HalfMap1.Multiply(Helical.Units);
+                Map = Map.AsHelicalSymmetrized(Helical.Twist * Helper.ToRad, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, Map.Dims.X / 2).AndDisposeParent();
+                Map.Multiply(Helical.Units);
             }
-            HalfMap1.MaskSpherically(HalfMap1.Dims.X - 32, 15, true);
+            Map.MaskSpherically(Map.Dims.X - 32, 15, true);
             //if (Helical != null)
-            //    HalfMap1.MaskRectangularly(new int3(HalfMap1.Dims.X, HalfMap1.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
-            HalfMap1.FreeDevice();
+            //    Map.MaskRectangularly(new int3(Map.Dims.X, Map.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
+            Map.FreeDevice();
+
+            return Map;
+        }
+
+        /// <summary>
+        /// Reconstruct <see cref="HalfMap1"/> and <see cref="HalfMap2"/> from the merged
+        /// accumulators. Assumes <see cref="MergeReconstructions"/> has already run.
+        /// Needs no reference or mask, so the reconstruction-only path stops here.
+        /// </summary>
+        public void ReconstructHalfMaps()
+        {
+            Console.WriteLine("Reconstructing half-map 1...");
+            HalfMap1 = ReconstructMap(HalfMap1Reconstruction[0], true);
+            HalfMap1Reconstruction[0] = null;
             if (Helper.IsDebug)
                 HalfMap1.WriteMRC($"d_half1_{Name}.mrc", true);
 
             Console.WriteLine("Reconstructing half-map 2...");
-            HalfMap2 = HalfMap2Reconstruction[0].Reconstruct(false, Symmetry, Helical, -1, -1, -1, 0, true);
-            //HalfMap2Reconstruction[0].Data.AsReal().WriteMRC($"d_half2_re_{Name}.mrc");
-            //HalfMap2Reconstruction[0].Weights.WriteMRC($"d_half2_weights_{Name}.mrc");
-            HalfMap2Reconstruction[0].Dispose();
+            HalfMap2 = ReconstructMap(HalfMap2Reconstruction[0], true);
             HalfMap2Reconstruction[0] = null;
-            HalfMap2.Bandpass(0, (float)(HalfMap2.Dims.X / 2 - 2) / (HalfMap2.Dims.X / 2), true);
-            if (Helical != null)
-            {
-                HalfMap2 = HalfMap2.AsHelicalSymmetrized(Helical.Twist * Helper.ToRad, Helical.Rise, (float)(HelicalHeight / PixelSize) * 0.5f, HalfMap2.Dims.X / 2).AndDisposeParent();
-                HalfMap2.Multiply(Helical.Units);
-            }
-            HalfMap2.MaskSpherically(HalfMap2.Dims.X - 32, 15, true);
-            //if (Helical != null)
-            //    HalfMap2.MaskRectangularly(new int3(HalfMap2.Dims.X, HalfMap2.Dims.Y, (int)(HelicalHeight / PixelSize)), 8, true);
-            HalfMap1.FreeDevice();
             if (Helper.IsDebug)
                 HalfMap2.WriteMRC($"d_half2_{Name}.mrc", true);
+        }
+
+        public void FinishRefinement(int gpuID = -1)
+        {
+            MergeReconstructions(gpuID);
+
+            SaveParticles();
+
+            ReconstructHalfMaps();
 
             Console.WriteLine("Finalizing map...");
             CalculateResolutionAndFilter(-1, s => Console.WriteLine(s), gpuID);

@@ -68,10 +68,16 @@ namespace Warp.Tools
         {
             lock (Lines)
             {
-                LogEntry Last = Lines[Lines.Count - 1];
-                Lines[Lines.Count - 1] = Last with { Message = "" };
+                // Nothing has been logged yet — which happens when the caller never called
+                // AttachToConsole (a test host, or a library consumer), so Console.Write is
+                // not redirected here. There is no line to clear; don't index past the end.
+                if (Lines.Count > 0)
+                {
+                    LogEntry Last = Lines[Lines.Count - 1];
+                    Lines[Lines.Count - 1] = Last with { Message = "" };
 
-                UpdateFileOutput();
+                    UpdateFileOutput();
+                }
             }
 
             if (IsAttached && !IsSilent)

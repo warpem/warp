@@ -37,4 +37,11 @@ static partial class WorkerProcess
         string Path = (string)command.Content[0];
         Console.WriteLine($"[MOCK] Skipped post-flight for {Path}");
     }
+
+    [MockCommand(WorkerCommandNames.MPAReconstructAverage)]
+    static void MockMPAReconstructAverage(NamedSerializableObject command)
+    {
+        string Path = (string)command.Content[0];
+        Console.WriteLine($"[MOCK] Skipped reconstruction post-flight for {Path}");
+    }
 }

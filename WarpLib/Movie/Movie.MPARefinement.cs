@@ -77,7 +77,15 @@ public partial class Movie
 
         #endregion
 
-        float4[] ParticleMags = Helper.ArrayOfConstant(new float4(0, 0, 0, 0), SpeciesParticles[allSpecies[0]].Length);
+        // Seed with the item's current magnification, NOT the zero matrix: the optimizer only
+        // overwrites this inside the "if (NIterations > 0)" block below, while the
+        // back-projection at the end of this method reads it unconditionally. With zeros, a
+        // zero-iteration run (reconstruction only, e.g. MCore --iter 0 or MTools reconstruct)
+        // would hand a zero matrix to d_rlnBackproject, which applies it for 2-D input and
+        // collapses every Fourier sample onto DC — silently producing an empty map.
+        // When NIterations > 0 this value is always replaced, because the ParticleMag
+        // optimization step is composed unconditionally.
+        float4[] ParticleMags = Helper.ArrayOfConstant(MagnificationCorrection.ToVec(), SpeciesParticles[allSpecies[0]].Length);
 
         #region Figure out dimensions
 
@@ -3493,14 +3501,30 @@ public partial class Movie
                 if (PlanForwSuper <= 0 || PlanBackSuper <= 0 || PlanForw <= 0)
                     throw new Exception("No FFT plans created!");
 
-                Particle[] ParticlesInside = SpeciesParticles[species].Where(p =>
+                // Keep each surviving particle's index into the unfiltered species array, so
+                // per-particle magnifications can be looked up by original index below.
+                var ParticlesInsideIndexed = SpeciesParticles[species].Select((p, i) => (Particle: p, Index: i)).Where(t =>
                 {
-                    float2 Center = new float2(p.Coordinates[0].X, p.Coordinates[0].Y);
+                    float2 Center = new float2(t.Particle.Coordinates[0].X, t.Particle.Coordinates[0].Y);
                     float2 Rectangle = ImageDimensionsPhysical;
                     float FractionInside = MathHelper.CircleFractionInsideRectangle(Center, AliasingFreeDiameter / 2, new float2(0, 0), Rectangle);
 
                     return FractionInside > 0.0;
                 }).ToArray();
+
+                Particle[] ParticlesInside = ParticlesInsideIndexed.Select(t => t.Particle).ToArray();
+
+                // ParticleMags is only ever populated for allSpecies[0] (the optimizer's
+                // per-particle magnification grid covers that species alone), and it is
+                // indexed by position in the UNFILTERED array. Pair mags with particles by
+                // original index; everything else falls back to the item's magnification.
+                // Indexing ParticleMags positionally against the filtered array instead
+                // would throw once any particle is dropped, and silently mispair whenever
+                // more than one species is refined.
+                float4[] MagsInside = ParticlesInsideIndexed.Select(t =>
+                    (species == allSpecies[0] && t.Index < ParticleMags.Length)
+                        ? ParticleMags[t.Index]
+                        : MagnificationCorrection.ToVec()).ToArray();
 
                 Console.WriteLine($"{ParticlesInside.Length} particles kept out of {SpeciesParticles[species].Length}, diameter = {AliasingFreeDiameter:F1}, area = {ImageDimensionsPhysical}");
                 Console.WriteLine($"Superres factor is {CTFSuperresFactor}");
@@ -3513,8 +3537,8 @@ public partial class Movie
 
                 float4[][] SubsetMags =
                 {
-                    ParticleMags.Where((m, p) => ParticlesInside[p].RandomSubset == 0).ToArray(),
-                    ParticleMags.Where((m, p) => ParticlesInside[p].RandomSubset == 1).ToArray()
+                    MagsInside.Where((m, p) => ParticlesInside[p].RandomSubset == 0).ToArray(),
+                    MagsInside.Where((m, p) => ParticlesInside[p].RandomSubset == 1).ToArray()
                 };
 
                 for (int isubset = 0; isubset < 2; isubset++)
