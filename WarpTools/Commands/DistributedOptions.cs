@@ -299,6 +299,8 @@ namespace WarpTools.Commands
                             // does not append to it, then redraw the updated progress below.
                             if (!itemSucceeded)
                             {
+                                CommandLineParserHelper.SetErrorExitCode();
+
                                 if (!StrictFormatting) VirtualConsole.ClearLastLine();
                                 Console.Error.WriteLine($"Failed to process {item.Path}, marked as unselected.");
                                 Console.Error.WriteLine($"Check logs in {logDir} for more info.");
@@ -405,6 +407,7 @@ namespace WarpTools.Commands
                         nDone++;
                         if (!succeeded)
                         {
+                            CommandLineParserHelper.SetErrorExitCode();
                             nFailed++;
                             if (!StrictFormatting) VirtualConsole.ClearLastLine();
                             Console.Error.WriteLine($"Task {result.TaskId} failed.");

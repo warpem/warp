@@ -500,6 +500,7 @@ namespace WarpTools.Commands
                     {
                         lock (MdocPaths)
                         {
+                            CommandLineParserHelper.SetErrorExitCode();
                             NFailed++;
                             Console.Error.WriteLine($"Failed to parse {Path.GetFileName(mdocPath)}: {exc.Message}");
                             

@@ -13,6 +13,43 @@ namespace Warp.Tools
 {
     public static class CommandLineParserHelper
     {
+        public const int ErrorExitCode = 1;
+        public const int InvalidArgumentsExitCode = 2;
+
+        /// <summary>
+        /// Returns the conventional process exit code for a command-line parse result.
+        /// Explicit help/version requests are successful; malformed or incomplete
+        /// command lines are not.
+        /// </summary>
+        public static int GetExitCode<T>(ParserResult<T> result)
+        {
+            if (result == null)
+                throw new ArgumentNullException(nameof(result));
+
+            if (result.Tag == ParserResultType.Parsed)
+                return 0;
+
+            bool InformationalRequest = result.Errors.Any(e =>
+                e.Tag == ErrorType.HelpVerbRequestedError ||
+                e.Tag == ErrorType.HelpRequestedError ||
+                e.Tag == ErrorType.VersionRequestedError);
+
+            return InformationalRequest ? 0 : InvalidArgumentsExitCode;
+        }
+
+        /// <summary>
+        /// Makes a handled processing error visible to the parent shell or scheduler.
+        /// The first failure wins so a more specific non-zero code is not overwritten.
+        /// </summary>
+        public static void SetErrorExitCode(int exitCode = ErrorExitCode)
+        {
+            if (exitCode == 0)
+                throw new ArgumentOutOfRangeException(nameof(exitCode), "An error exit code must be non-zero.");
+
+            if (Environment.ExitCode == 0)
+                Environment.ExitCode = exitCode;
+        }
+
         public static async Task<ParserResult<object>> ParseAndRun(string[] args, Func<object, Task> run, Type[] verbs, string appName = "")
         {
             if (verbs == null || !verbs.Any())
@@ -99,6 +136,7 @@ namespace Warp.Tools
                 }
             }
 
+            SetExitCode(Result);
             return Result;
         }
 
@@ -130,7 +168,15 @@ namespace Warp.Tools
                 PrintOptions(Result, null, Parser.Settings.MaximumDisplayWidth);
             }
 
+            SetExitCode(Result);
             return Result;
+        }
+
+        public static void SetExitCode<T>(ParserResult<T> result)
+        {
+            int ExitCode = GetExitCode(result);
+            if (ExitCode != 0)
+                SetErrorExitCode(ExitCode);
         }
 
         private static void PrintOptions<T>(ParserResult<T> result, string command, int maxDisplayWidth)

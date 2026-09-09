@@ -220,6 +220,8 @@ namespace WarpTools.Commands
                 }
                 catch (Exception ex)
                 {
+                    CommandLineParserHelper.SetErrorExitCode();
+
                     foreach (var item in itemsToProcess)
                     {
                         item.LoadMeta();
@@ -274,6 +276,7 @@ namespace WarpTools.Commands
                             WriteMiniJson(tempFail, immutableFailed);
 
                         bool success = false;
+                        Exception lastMoveError = null;
                         Stopwatch watch = Stopwatch.StartNew();
                         while (!success && watch.ElapsedMilliseconds < 10_000)
                             try
@@ -281,12 +284,20 @@ namespace WarpTools.Commands
                                 lock (sync)
                                 {
                                     File.Move(tempSuccess, jsonSuccessFilePath, true);
-                                    File.Move(tempFail, jsonFailFilePath, true);
+                                    if (immutableFailed.Any())
+                                        File.Move(tempFail, jsonFailFilePath, true);
                                 }
 
                                 success = true;
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                lastMoveError = ex;
+                                System.Threading.Thread.Sleep(10);
+                            }
+
+                        if (!success)
+                            throw new IOException($"Couldn't publish processing snapshots within 10 seconds.", lastMoveError);
                     }));
 
                     timer.Stop();
@@ -379,6 +390,7 @@ namespace WarpTools.Commands
                     // Atomic rename with retry (concurrent writes from previous items may race).
                     var watch = Stopwatch.StartNew();
                     bool done = false;
+                    Exception lastMoveError = null;
                     while (!done && watch.ElapsedMilliseconds < 10_000)
                         try
                         {
@@ -390,7 +402,14 @@ namespace WarpTools.Commands
                             }
                             done = true;
                         }
-                        catch { System.Threading.Thread.Sleep(10); }
+                        catch (Exception ex)
+                        {
+                            lastMoveError = ex;
+                            System.Threading.Thread.Sleep(10);
+                        }
+
+                    if (!done)
+                        throw new IOException("Couldn't publish processing snapshots within 10 seconds.", lastMoveError);
                 }));
             }
 

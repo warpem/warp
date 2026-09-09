@@ -393,10 +393,7 @@ namespace WarpTools.Commands
             HttpResponseMessage Response = await HttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
 
             if (!Response.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Failed to download file: {Response.StatusCode}");
-                return null;
-            }
+                throw new HttpRequestException($"Failed to download {url}: HTTP {(int)Response.StatusCode} ({Response.StatusCode}).");
 
             Console.Write($"Downloading map from EMDB: 0%");
             using (MemoryStream memoryStream = new MemoryStream())

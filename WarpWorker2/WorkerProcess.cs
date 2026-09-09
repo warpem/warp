@@ -26,6 +26,7 @@ namespace WarpWorker2
         // Set by the SIGTERM handler; checked between tasks so the current
         // MarkDone/MarkFailed always completes before we honour the signal.
         static volatile bool _sigTermReceived = false;
+        static volatile string _heartbeatError = null;
 
         // The task currently being executed, or null between tasks. Read by the SIGABRT
         // handler so it can call MarkFailed before the process dies.
@@ -101,8 +102,12 @@ namespace WarpWorker2
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
             OptionsCLI opts = null;
-            CommandLine.Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(o => opts = o);
-            if (opts == null) Environment.Exit(2);
+            var parseResult = CommandLine.Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(o => opts = o);
+            if (opts == null)
+            {
+                CommandLineParserHelper.SetExitCode(parseResult);
+                return;
+            }
 
             if (opts.DebugAttach && !System.Diagnostics.Debugger.IsAttached)
                 System.Diagnostics.Debugger.Launch();
@@ -195,7 +200,11 @@ namespace WarpWorker2
                 while (!hbCts.IsCancellationRequested)
                 {
                     try { myHeartbeat.WriteTick(); }
-                    catch { break; }   // dir swept away or transient FS error: stop ticking
+                    catch (Exception ex)
+                    {
+                        _heartbeatError = ex.ToString();
+                        break;
+                    }
                     for (int slept = 0; slept < HeartbeatIntervalMs && !hbCts.IsCancellationRequested; slept += 100)
                         System.Threading.Thread.Sleep(100);
                 }
@@ -206,6 +215,13 @@ namespace WarpWorker2
             {
             while (true)
             {
+                if (_heartbeatError != null)
+                {
+                    WriteExit(layout, workerId, "worker heartbeat failed: " + _heartbeatError);
+                    CommandLineParserHelper.SetErrorExitCode();
+                    return;
+                }
+
                 // Check SIGTERM first — after any prior task completed, before claiming.
                 if (_sigTermReceived)
                 {
@@ -273,6 +289,7 @@ namespace WarpWorker2
                         {
                             _currentTask = null;
                             MarkSick(layout, wdir, workerId, "GPU fault during init: " + Flatten(ex));
+                            CommandLineParserHelper.SetErrorExitCode(3);
                             return; // leave task in running/ for the sweep
                         }
                         // Healthy hardware, but init half-ran: reset state, clear fp, fail task, continue.
@@ -297,6 +314,7 @@ namespace WarpWorker2
                     {
                         _currentTask = null;
                         MarkSick(layout, wdir, workerId, "GPU fault during main: " + Flatten(ex));
+                        CommandLineParserHelper.SetErrorExitCode(3);
                         return; // leave task in running/ for the sweep
                     }
                     // Healthy hardware: init state intact, do NOT reset. Fail task, continue.

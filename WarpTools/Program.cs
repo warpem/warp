@@ -30,7 +30,7 @@ namespace WarpTools
                 await RunnerInstance.Run(options);
             }
             else
-                Console.WriteLine($"Unknown command of type {options.GetType()}, exiting");
+                throw new InvalidOperationException($"No command runner is registered for {options.GetType()}.");
         }
     }
 }

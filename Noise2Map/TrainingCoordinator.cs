@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Warp.Tools;
 using Warp.Tools.Async;
 
 namespace Noise2Map
@@ -115,7 +116,8 @@ namespace Noise2Map
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Preparation thread {threadId} error: {ex.Message}");
+                        CommandLineParserHelper.SetErrorExitCode();
+                        Console.Error.WriteLine($"Preparation thread {threadId} error: {ex.Message}");
                         cancellationSource.Cancel();
                         throw;
                     }

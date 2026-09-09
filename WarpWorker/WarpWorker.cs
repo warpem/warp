@@ -49,10 +49,13 @@ namespace WarpWorker
         static async Task Main(string[] args)
         {
             OptionsCLI OptionsCLI = null;
-            Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(opts => OptionsCLI = opts);
+            var ParseResult = Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed(opts => OptionsCLI = opts);
 
             if (OptionsCLI == null)
+            {
+                CommandLineParserHelper.SetExitCode(ParseResult);
                 return;
+            }
 
             if (OptionsCLI.DebugAttach && !Debugger.IsAttached)
                 Debugger.Launch();
@@ -153,7 +156,7 @@ namespace WarpWorker
                 }
                 else
                 {
-                    Console.WriteLine("Failed to connect to the master process within the timeout period.");
+                    throw new TimeoutException("Failed to connect to the master process within the timeout period.");
                 }
             }
         }
@@ -455,6 +458,9 @@ namespace WarpWorker
                         Tardis.BeginErrorReadLine();
                         Tardis.WaitForExit();
                     }
+
+                    if (Tardis.ExitCode != 0)
+                        throw new Exception($"tardis_mem2d exited with code {Tardis.ExitCode}");
                     
                     // copy files to correct directory
                     string[] membraneImageFiles = downsampledImagePaths.Select(
@@ -478,6 +484,7 @@ namespace WarpWorker
                         catch (IOException ex)
                         {
                             Console.WriteLine($"Error occurred copying file {membraneImageFile}: {ex.Message}");
+                            throw;
                         }
                     }
                     
@@ -540,6 +547,9 @@ namespace WarpWorker
 
                     AreTomo.WaitForExit();
 
+                    if (AreTomo.ExitCode != 0)
+                        throw new Exception($"{Options.Executable} exited with code {AreTomo.ExitCode}");
+
                     Console.WriteLine($"Executed AreTomo for {SeriesPath}");
                 }
                 else if (Command.Name == "TomoAretomo3")
@@ -592,6 +602,9 @@ namespace WarpWorker
                     AreTomo3.BeginErrorReadLine();
 
                     AreTomo3.WaitForExit();
+
+                    if (AreTomo3.ExitCode != 0)
+                        throw new Exception($"{Options.Executable} exited with code {AreTomo3.ExitCode}");
 
                     Console.WriteLine($"Executed AreTomo3 for {SeriesPath}");
                 }
@@ -665,6 +678,9 @@ namespace WarpWorker
                     BatchRunTomo.BeginErrorReadLine();
 
                     BatchRunTomo.WaitForExit();
+
+                    if (BatchRunTomo.ExitCode != 0)
+                        throw new Exception($"{BatchRunTomoExecutable} exited with code {BatchRunTomo.ExitCode}");
                     
                     // Run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
@@ -694,6 +710,9 @@ namespace WarpWorker
                         TiltAlign.BeginErrorReadLine();
 
                         TiltAlign.WaitForExit();
+
+                        if (TiltAlign.ExitCode != 0)
+                            throw new Exception($"{SubMfgExecutable} exited with code {TiltAlign.ExitCode}");
                     }
 
                     if (Options.DoPatchTracking)
@@ -766,6 +785,9 @@ namespace WarpWorker
 
                     BatchRunTomo.WaitForExit();
 
+                    if (BatchRunTomo.ExitCode != 0)
+                        throw new Exception($"{BatchRunTomoExecutable} exited with code {BatchRunTomo.ExitCode}");
+
                     // run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
                     {
@@ -794,6 +816,9 @@ namespace WarpWorker
                         TiltAlign.BeginErrorReadLine();
 
                         TiltAlign.WaitForExit();
+
+                        if (TiltAlign.ExitCode != 0)
+                            throw new Exception($"{SubMfgExecutable} exited with code {TiltAlign.ExitCode}");
                     }
 
                     if (Options.DoFiducialTracking)

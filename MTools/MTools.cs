@@ -18,7 +18,15 @@ namespace MTools
             //foreach (var verb in VerbNames)
             //    Console.WriteLine(verb);
 
-            Parser.Default.ParseArguments(args, Verbs).WithParsed(Run);
+            var Result = Parser.Default.ParseArguments(args, Verbs);
+            Result.WithParsed(Run);
+            CommandLineParserHelper.SetExitCode(Result);
+
+            // MTools commands report handled validation/domain failures on stderr.
+            // Preserve their concise messages while making the failure visible to the OS.
+            if (Result.Tag == ParserResultType.Parsed &&
+                VirtualConsole.GetAllLines().Any(line => line.Type == LogEntryType.Error))
+                CommandLineParserHelper.SetErrorExitCode();
         }
 
         //Load all verb types using reflection
@@ -34,7 +42,7 @@ namespace MTools
                 RunnerInstance.Run(options);
             }
             else
-                Console.WriteLine($"Unknown command of type {options.GetType()}, exiting");
+                throw new InvalidOperationException($"No command runner is registered for {options.GetType()}.");
         }
     }
 }

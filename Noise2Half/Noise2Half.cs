@@ -65,6 +65,9 @@ namespace Noise2Half
                 ExternalReconstructor.Start();
                 ExternalReconstructor.WaitForExit();
 
+                if (ExternalReconstructor.ExitCode != 0)
+                    throw new Exception($"relion_external_reconstruct exited with code {ExternalReconstructor.ExitCode}");
+
                 File.Delete(TableGeneral.GetRowValue(0, "rlnExtReconsDataReal"));
                 File.Delete(TableGeneral.GetRowValue(0, "rlnExtReconsDataImag"));
                 File.Delete(TableGeneral.GetRowValue(0, "rlnExtReconsWeight"));

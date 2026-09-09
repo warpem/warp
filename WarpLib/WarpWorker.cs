@@ -274,6 +274,9 @@ namespace Warp
                         Tardis.WaitForExit();
                     }
 
+                    if (Tardis.ExitCode != 0)
+                        throw new Exception($"tardis_mem2d exited with code {Tardis.ExitCode}");
+
                     // copy files to correct directory
                     string[] membraneImageFiles = downsampledImagePaths.Select(
                         p =>
@@ -296,6 +299,7 @@ namespace Warp
                         catch (IOException ex)
                         {
                             Console.WriteLine($"Error occurred copying file {membraneImageFile}: {ex.Message}");
+                            throw;
                         }
                     }
 
@@ -356,6 +360,9 @@ namespace Warp
                     AreTomo.BeginErrorReadLine();
 
                     AreTomo.WaitForExit();
+
+                    if (AreTomo.ExitCode != 0)
+                        throw new Exception($"{Options.Executable} exited with code {AreTomo.ExitCode}");
 
                     Console.WriteLine($"Executed AreTomo for {SeriesPath}");
                 }

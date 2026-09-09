@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using CommandLine;
+using Warp.Tools;
 
 namespace Noise2Map
 {
@@ -26,6 +27,12 @@ namespace Noise2Map
                 result.Errors.Any(e => e.Tag == ErrorType.HelpVerbRequestedError ||
                                        e.Tag == ErrorType.HelpRequestedError))
             {
+                int exitCode = args.Length == 0
+                    ? CommandLineParserHelper.InvalidArgumentsExitCode
+                    : CommandLineParserHelper.GetExitCode(result);
+                if (exitCode != 0)
+                    CommandLineParserHelper.SetErrorExitCode(exitCode);
+
                 options = parsedOptions;
                 return false;
             }

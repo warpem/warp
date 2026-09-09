@@ -145,7 +145,8 @@ namespace Noise2Map
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing new map {mapName}: {ex.Message}");
+                CommandLineParserHelper.SetErrorExitCode();
+                Console.Error.WriteLine($"Error processing new map {mapName}: {ex.Message}");
                 return false;
             }
         }

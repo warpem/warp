@@ -52,10 +52,11 @@ namespace MCore
 
             var Result = Parser.Default.ParseArguments<OptionsCLI>(args).WithParsed<OptionsCLI>(opts => OptionsCLI = opts);
 
-            if (Result.Tag == ParserResultType.NotParsed ||
-                Result.Errors.Any(e => e.Tag == ErrorType.HelpVerbRequestedError ||
-                                       e.Tag == ErrorType.HelpRequestedError))
+            if (Result.Tag == ParserResultType.NotParsed)
+            {
+                CommandLineParserHelper.SetExitCode(Result);
                 return;
+            }
 
             WorkingDirectory = Environment.CurrentDirectory;
 
@@ -118,9 +119,9 @@ namespace MCore
                     Options.ImageWarpHeight = int.Parse(Parts[1]);
                     Options.DoImageWarp = true;
                 }
-                catch
+                catch (Exception exc)
                 {
-                    Console.WriteLine("Couldn't parse --refine_imagewarp, ignoring");
+                    throw new ArgumentException("Couldn't parse --refine_imagewarp; expected WIDTHxHEIGHT.", exc);
                 }
             }
             else
@@ -139,9 +140,9 @@ namespace MCore
                     Options.VolumeWarpLength = int.Parse(Parts[3]);
                     Options.DoVolumeWarp = true;
                 }
-                catch
+                catch (Exception exc)
                 {
-                    Console.WriteLine("Couldn't parse --refine_volumewarp, ignoring");
+                    throw new ArgumentException("Couldn't parse --refine_volumewarp; expected WIDTHxHEIGHTxDEPTHxLENGTH.", exc);
                 }
             }
             else
@@ -250,6 +251,7 @@ namespace MCore
                             nDone++;
                             if (!succeeded)
                             {
+                                CommandLineParserHelper.SetErrorExitCode();
                                 nFailed++;
                                 VirtualConsole.ClearLastLine();
                                 Console.Error.WriteLine($"Task {result.TaskId} failed.");
@@ -258,7 +260,15 @@ namespace MCore
                                     Console.Error.WriteLine("Exception details:\n" + result.Error);
                             }
 
-                            try { onItemDone?.Invoke(task, succeeded); } catch { }
+                            try
+                            {
+                                onItemDone?.Invoke(task, succeeded);
+                            }
+                            catch (Exception exc)
+                            {
+                                CommandLineParserHelper.SetErrorExitCode();
+                                Console.Error.WriteLine($"Post-processing for task {result.TaskId} failed:\n{exc}");
+                            }
 
                             VirtualConsole.ClearLastLine();
                             string failedString = nFailed > 0 ? $", {nFailed} failed" : "";

@@ -30,10 +30,11 @@ namespace MrcConverter
             {
                 var Result = Parser.Default.ParseArguments<Options>(args).WithParsed<Options>(opts => Options = opts);
 
-                if (Result.Tag == ParserResultType.NotParsed ||
-                    Result.Errors.Any(e => e.Tag == ErrorType.HelpVerbRequestedError ||
-                                           e.Tag == ErrorType.HelpRequestedError))
+                if (Result.Tag == ParserResultType.NotParsed)
+                {
+                    CommandLineParserHelper.SetExitCode(Result);
                     return;
+                }
 
                 WorkingDirectory = Environment.CurrentDirectory + "/";
             }
@@ -213,6 +214,7 @@ namespace MrcConverter
                             }
                             catch (Exception ex)
                             {
+                                CommandLineParserHelper.SetErrorExitCode();
                                 lock (SyncConsole)
                                     Console.Error.WriteLine($"\nCouldn't convert {path}: {ex.Message}");
 
@@ -221,7 +223,12 @@ namespace MrcConverter
                                         CurrentMemory -= MemRequired;
                             }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        CommandLineParserHelper.SetErrorExitCode();
+                        lock (SyncConsole)
+                            Console.Error.WriteLine($"\nCouldn't inspect {path}: {ex.Message}");
+                    }
 
                     lock (SyncConsole)
                     {
@@ -265,8 +272,8 @@ namespace MrcConverter
             {
                 SubDirs = Directory.EnumerateDirectories(path).ToList();
             }
-            catch (UnauthorizedAccessException) { }
-            catch (PathTooLongException) { }
+            catch (UnauthorizedAccessException ex) { ReportEnumerationFailure(path, ex); }
+            catch (PathTooLongException ex) { ReportEnumerationFailure(path, ex); }
 
             ImmediateDirs.AddRange(SubDirs);
 
@@ -287,10 +294,10 @@ namespace MrcConverter
 
                 try
                 {
-                    SubDirs = Directory.EnumerateDirectories(path);
+                    SubDirs = Directory.EnumerateDirectories(path).ToList();
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (PathTooLongException) { }
+                catch (UnauthorizedAccessException ex) { ReportEnumerationFailure(path, ex); }
+                catch (PathTooLongException ex) { ReportEnumerationFailure(path, ex); }
 
                 foreach (var subDir in SubDirs)
                     ImmediateFiles.AddRange(EnumerateFilesSafely(subDir, searchPattern, searchOption, skipCondition));
@@ -318,10 +325,16 @@ namespace MrcConverter
                     }
                 }
             }
-            catch (UnauthorizedAccessException) { }
-            catch (PathTooLongException) { }
+            catch (UnauthorizedAccessException ex) { ReportEnumerationFailure(path, ex); }
+            catch (PathTooLongException ex) { ReportEnumerationFailure(path, ex); }
 
             return ImmediateFiles;
+        }
+
+        private static void ReportEnumerationFailure(string path, Exception exception)
+        {
+            CommandLineParserHelper.SetErrorExitCode();
+            Console.Error.WriteLine($"Couldn't enumerate '{path}': {exception.Message}");
         }
     }
 }
