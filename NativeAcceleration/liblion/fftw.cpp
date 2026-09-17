@@ -85,6 +85,8 @@ namespace relion
 		fPlanBackward    = NULL;
 		dataPtr          = NULL;
 		complexDataPtr   = NULL;
+		fourierDataPtr   = NULL;
+		planX = planY = planZ = 0;
 		threadsSetOn=false;
 		nthreads = 1;
 	}
@@ -139,9 +141,9 @@ namespace relion
 			if (fPlanBackward != NULL)
 				fftw_destroy_plan(fPlanBackward);
 
+#endif
 			fPlanForward = NULL;
 			fPlanBackward = NULL;
-#endif
 		}
 	}
 
@@ -180,15 +182,17 @@ namespace relion
 
 	void FourierTransformer::setReal(MultidimArray<DOUBLE> &input)
 	{
-		bool recomputePlan=false;
-		if (fReal==NULL)
-			recomputePlan=true;
-		else if (dataPtr!=MULTIDIM_ARRAY(input))
-			recomputePlan=true;
-		else
-			recomputePlan=!(fReal->sameShape(input));
-		fFourier.resize(ZSIZE(input),YSIZE(input),XSIZE(input)/2+1);
-		fReal=&input;
+		// fReal can refer to input itself, whose shape may have changed since planning.
+		// A freed real buffer can also be reallocated at the same address at a new size.
+		bool recomputePlan = fPlanForward == NULL || fPlanBackward == NULL ||
+			fReal == NULL || dataPtr != MULTIDIM_ARRAY(input) ||
+			planX != XSIZE(input) || planY != YSIZE(input) || planZ != ZSIZE(input);
+		fFourier.resize(ZSIZE(input), YSIZE(input), XSIZE(input) / 2 + 1);
+		// resize can retain the old shape when the element count is unchanged.
+		fFourier.setDimensions(XSIZE(input) / 2 + 1, YSIZE(input), ZSIZE(input), 1);
+		recomputePlan = recomputePlan || fourierDataPtr != MULTIDIM_ARRAY(fFourier);
+		fReal = &input;
+		fComplex = NULL;
 
 		if (recomputePlan)
 		{
@@ -247,19 +251,22 @@ namespace relion
 			delete [] N;
 			dataPtr=MULTIDIM_ARRAY(*fReal);
 		}
+		planX = XSIZE(input);
+		planY = YSIZE(input);
+		planZ = ZSIZE(input);
+		fourierDataPtr = MULTIDIM_ARRAY(fFourier);
 	}
 
 	void FourierTransformer::setReal(MultidimArray<Complex > &input)
 	{
-		bool recomputePlan=false;
-		if (fComplex==NULL)
-			recomputePlan=true;
-		else if (complexDataPtr!=MULTIDIM_ARRAY(input))
-			recomputePlan=true;
-		else
-			recomputePlan=!(fComplex->sameShape(input));
+		bool recomputePlan = fPlanForward == NULL || fPlanBackward == NULL ||
+			fComplex == NULL || complexDataPtr != MULTIDIM_ARRAY(input) ||
+			planX != XSIZE(input) || planY != YSIZE(input) || planZ != ZSIZE(input);
 		fFourier.resize(input);
-		fComplex=&input;
+		fFourier.setDimensions(XSIZE(input), YSIZE(input), ZSIZE(input), NSIZE(input));
+		recomputePlan = recomputePlan || fourierDataPtr != MULTIDIM_ARRAY(fFourier);
+		fComplex = &input;
+		fReal = NULL;
 
 		if (recomputePlan)
 		{
@@ -322,6 +329,10 @@ namespace relion
 #endif
 			}
 		}
+		planX = XSIZE(input);
+		planY = YSIZE(input);
+		planZ = ZSIZE(input);
+		fourierDataPtr = MULTIDIM_ARRAY(fFourier);
 	}
 
 	void FourierTransformer::setFourier(MultidimArray<Complex > &inputFourier)

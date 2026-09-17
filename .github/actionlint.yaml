@@ -1,0 +1,5 @@
+# Organization-managed larger runners have custom labels.
+self-hosted-runner:
+  labels:
+    - linux-cpu-x64-8core
+    - linux-cpu-arm64-8core

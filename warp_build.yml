@@ -5,6 +5,7 @@ channels:
   - nodefaults
 dependencies:
   - libtiff
+  - fontconfig
   - python
   - pytorch=*=cuda129*
   - fftw

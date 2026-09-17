@@ -4,7 +4,9 @@
 #include <iostream>
 #include <vector>
 #include <stdexcept>
-#include <immintrin.h> // Include for AVX2 intrinsics
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
 
 using namespace gtom;
 
@@ -23,9 +25,10 @@ const uint16_t TIFF_COMPRESSION_EER7bit = 65001;
 
 void render16K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
-	// Process 8 elements at a time using AVX2
-	const int vec_width = 8;
 	int i = 0;
+#if defined(__AVX2__)
+	// Process 8 elements at a time using AVX2.
+	const int vec_width = 8;
 	const __m256i x_pos_mask = _mm256_set1_epi32(4095);  // Mask for positions[i] & 4095
 	const __m256i x_sym_mask = _mm256_set1_epi32(3);     // Mask for symbols[i] & 3
 	const __m256i y_sym_mask = _mm256_set1_epi32(12);    // Mask for symbols[i] & 12
@@ -82,7 +85,8 @@ void render16K(float* image, std::vector<unsigned int>& positions, std::vector<u
 			image[indices[j]]++;
 	}
 
-	// Handle remaining elements (less than 8) with the original scalar code
+#endif
+	// Also handles the entire frame when AVX2 is unavailable.
 	for (; i < n_electrons; ++i)
 	{
 		int x = ((positions[i] & 4095) << 2) | (symbols[i] & 3); // 4095 = 111111111111b, 3 = 00000011b
@@ -93,9 +97,10 @@ void render16K(float* image, std::vector<unsigned int>& positions, std::vector<u
 
 void render8K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
-	// Process 8 elements at a time using AVX2
-	const int vec_width = 8;
 	int i = 0;
+#if defined(__AVX2__)
+	// Process 8 elements at a time using AVX2.
+	const int vec_width = 8;
 	const __m256i x_pos_mask = _mm256_set1_epi32(4095);  // Mask for positions[i] & 4095
 	const __m256i x_sym_mask = _mm256_set1_epi32(2);     // Mask for symbols[i] & 2
 	const __m256i y_sym_mask = _mm256_set1_epi32(8);     // Mask for symbols[i] & 8
@@ -155,7 +160,8 @@ void render8K(float* image, std::vector<unsigned int>& positions, std::vector<un
 			image[indices[j]]++;
 	}
 
-	// Handle remaining elements (less than 8) with the original scalar code
+#endif
+	// Also handles the entire frame when AVX2 is unavailable.
 	for (; i < n_electrons; ++i)
 	{
 		int x = ((positions[i] & 4095) << 1) | ((symbols[i] & 2) >> 1); // 4095 = 111111111111b, 2 = 00000010b
@@ -166,9 +172,10 @@ void render8K(float* image, std::vector<unsigned int>& positions, std::vector<un
 
 void render4K(float* image, std::vector<unsigned int>& positions, std::vector<unsigned char>& symbols, int n_electrons)
 {
-	// Process 8 elements at a time using AVX2
-	const int vec_width = 8;
 	int i = 0;
+#if defined(__AVX2__)
+	// Process 8 elements at a time using AVX2.
+	const int vec_width = 8;
 	const __m256i x_mask = _mm256_set1_epi32(4095); // Mask for x: 0xFFF
 	const int y_shift = 12;
 	const int index_shift = 12;
@@ -216,7 +223,8 @@ void render4K(float* image, std::vector<unsigned int>& positions, std::vector<un
 		}
 	}
 
-	// Handle remaining elements (less than 8) with the original scalar code
+#endif
+	// Also handles the entire frame when AVX2 is unavailable.
 	for (; i < n_electrons; ++i)
 	{
 		int x = positions[i] & 4095; // 4095 = 111111111111b
@@ -402,7 +410,10 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 
 					long long byte_offset = bit_pos >> 3;
 					const unsigned int bit_offset_in_first_byte = bit_pos & 7; // 7 = 00000111 (same as % 8)
-					const unsigned int chunk = (*(unsigned int*)(current_frame_data + byte_offset)) >> bit_offset_in_first_byte;
+					// EER chunks need not be aligned to a 32-bit boundary.
+					unsigned int packed_chunk;
+					memcpy(&packed_chunk, current_frame_data + byte_offset, sizeof(packed_chunk));
+					const unsigned int chunk = packed_chunk >> bit_offset_in_first_byte;
 
 					p = (unsigned char)(chunk & 127); // 127 = 01111111
 					bit_pos += 7; // TODO: we can remove this for further speed.

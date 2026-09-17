@@ -1,80 +1,89 @@
 #include "include/Functions.h"
+#if defined(__AVX2__)
 #include <immintrin.h>
+#endif
 
-// Scalar conversion methods slightly adapted from RELION's float16.h, which is GPL2
-
-uint16_t FloatToHalfScalar(float f) 
+// Scalar conversions originally adapted from RELION's float16.h (GPL2).
+// IEEE binary16 conversion with the same round-to-nearest, ties-to-even
+// behavior as F16C. This also keeps scalar tails and non-x86 CPUs consistent.
+// NaNs retain their sign and representable payload and are quieted like F16C.
+uint16_t FloatToHalfScalar(float f)
 {
-    uint32_t src = *reinterpret_cast<uint32_t*>(&f);
+    uint32_t src;
+    memcpy(&src, &f, sizeof(src));
+    const uint16_t sign = (src >> 16) & 0x8000u;
+    const uint32_t exponent = (src >> 23) & 0xffu;
+    const uint32_t mantissa = src & 0x007fffffu;
 
-    uint32_t sign = (src & 0x80000000u) >> 31; // 1 bit
-    uint32_t exponent = (src & 0x7f800000u) >> 23; // 10 bits
-    uint32_t mantissa = (src & 0x007fffffu); // 23 bits
+    if (exponent == 255)
+        return sign | 0x7c00u | (mantissa ? (mantissa >> 13) | 0x0200u : 0);
 
-    uint16_t res = sign << 15; // first make a signed zero
+    if (exponent >= 143)
+        return sign | 0x7c00u; // Overflow rounds to infinity.
 
-    if (exponent == 0)
+    if (exponent < 102)
+        return sign; // Smaller than half of the minimum binary16 subnormal.
+
+    if (exponent <= 112)
     {
-        // Do nothing. Subnormal numbers will be signed zero.
-        return res;
-    }
-    else if (exponent == 255) // Inf, -Inf, NaN 
-    {
-        res |= 31 << 10; // exponent is 31
-        res |= mantissa >> 13; // fractional is truncated from 23 bits to 10 bits
-        return res;
+        // Restore the implicit leading bit before rounding to a subnormal.
+        const uint32_t significand = mantissa | 0x00800000u;
+        const uint32_t shift = 126 - exponent; // 14..24
+        uint32_t result = significand >> shift;
+        const uint32_t remainder = significand & ((1u << shift) - 1);
+        const uint32_t halfway = 1u << (shift - 1);
+        if (remainder > halfway || (remainder == halfway && (result & 1)))
+            ++result;
+        // A carry to 0x0400 is the smallest normal binary16 value.
+        return sign | result;
     }
 
-    mantissa += 1 << 12; // add 1 to 13th bit to round.
-    if (mantissa & (1 << 23)) // carry up
-        exponent++;
-
-    if (exponent > 127 + 15) // Overflow: don't create INF but truncate to MAX.
-    {
-        res |= 30 << 10; // maximum exponent 30 (= +15)
-        res |= 0x03ffu; // 10 bits of 1s
-        return res;
-    }
-    else if (exponent < 127 - 14) // Underflow
-    {
-        return res; // TODO: generate subnormali numbers instead of returning a signed zero
-    }
-    else
-    {
-        res |= ((exponent + 15 - 127) & 0x1f) << 10;
-        res |= mantissa >> 13; // fractional is truncated from 23 bits to 10 bits
-        return res;
-    }
+    uint32_t result = ((exponent - 112) << 10) | (mantissa >> 13);
+    const uint32_t remainder = mantissa & 0x1fffu;
+    if (remainder > 0x1000u || (remainder == 0x1000u && (result & 1)))
+        ++result; // Carry can advance the exponent, including to infinity.
+    return sign | result;
 }
 
-float HalfToFloatScalar(uint16_t h) 
+float HalfToFloatScalar(uint16_t h)
 {
-    uint32_t sign = (h & 0x8000u) >> 15; // 1 bit
-    uint32_t exponent = (h & 0x7c00u) >> 10; // 5 bits
-    uint32_t mantissa = h & 0x03ffu; // 10 bits
-
-    uint32_t res = sign << 31;
+    const uint32_t sign = (uint32_t(h) & 0x8000u) << 16;
+    uint32_t exponent = (h >> 10) & 0x1fu;
+    uint32_t mantissa = h & 0x03ffu;
+    uint32_t result = sign;
 
     if (exponent == 0)
     {
+        if (mantissa != 0)
+        {
+            exponent = 113;
+            while ((mantissa & 0x0400u) == 0)
+            {
+                mantissa <<= 1;
+                --exponent;
+            }
+            result |= (exponent << 23) | ((mantissa & 0x03ffu) << 13);
+        }
     }
-    else if (exponent == 31) // Inf, -Inf, NaN
+    else if (exponent == 31)
     {
-        res |= 255 << 23; // exponent is 255
-        res |= mantissa << 13; // keep fractional by expanding from 10 bits to 23 bits
+        result |= 0x7f800000u | (mantissa << 13);
+        if (mantissa != 0)
+            result |= 0x00400000u; // Quiet a signaling NaN.
     }
-    else // normal numbers
-    {
-        res |= (exponent + 127 - 15) << 23; // shift the offset
-        res |= mantissa << 13; // keep fractional by expanding from 10 bits to 23 bits
-    }
-    return *reinterpret_cast<float*>(&res);
+    else
+        result |= ((exponent + 112) << 23) | (mantissa << 13);
+
+    float value;
+    memcpy(&value, &result, sizeof(value));
+    return value;
 }
 
 __declspec(dllexport) void __stdcall FloatToHalfAVX2(const float* src, uint16_t* dst, size_t count)
 {
     size_t i = 0;
 
+#if defined(__AVX2__)
     if (count >= 8)
         for (i = 0; i <= count - 8; i += 8) 
         {
@@ -83,6 +92,7 @@ __declspec(dllexport) void __stdcall FloatToHalfAVX2(const float* src, uint16_t*
             _mm_storeu_si128((__m128i*)(dst + i), dst_vec);
         }
 
+#endif
     for (; i < count; i++)
         dst[i] = FloatToHalfScalar(src[i]);
 
@@ -92,6 +102,7 @@ __declspec(dllexport) void __stdcall HalfToFloatAVX2(const uint16_t* src, float*
 {
     size_t i = 0;
 
+#if defined(__AVX2__)
     if (count >= 8)
         for (i = 0; i <= count - 8; i += 8)
         {
@@ -100,6 +111,7 @@ __declspec(dllexport) void __stdcall HalfToFloatAVX2(const uint16_t* src, float*
             _mm256_storeu_ps(dst + i, dst_vec);
         }
 
+#endif
     for (; i < count; i++)
         dst[i] = HalfToFloatScalar(src[i]);
 }

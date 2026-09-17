@@ -567,9 +567,6 @@
     <ClInclude Include="gtom\include\Transformation.cuh">
       <Filter>GTOM\include</Filter>
     </ClInclude>
-    <ClInclude Include="liblion\avx_helper.h">
-      <Filter>LibLION\include</Filter>
-    </ClInclude>
     <ClInclude Include="liblion\complex.h">
       <Filter>LibLION\include</Filter>
     </ClInclude>

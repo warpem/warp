@@ -19,6 +19,8 @@ If you want to use Warp on Windows, tutorials and binaries (currently only for v
 
 ## Linux
 
+Conda packages are available for x86-64 (`linux-64`) and ARM64 (`linux-aarch64`, including NVIDIA GH200). Both use CUDA 12.9; Conda selects the package for your machine automatically. ARM64 packages are available starting with v2.0.0dev41.
+
 If you're installing from scratch and don't have an environment yet, here is the easiest way to get everything inside a new environment called `warp`:
 ```
 conda create -n warp warp -c warpem -c nvidia/label/cuda-12.9.0 -c conda-forge --channel-priority flexible
@@ -211,9 +213,9 @@ If you're building on a machine without an NVIDIA GPU, set `CONDA_OVERRIDE_CUDA=
 ```
 CONDA_OVERRIDE_CUDA=12.9 conda env create -f warp_build.yml --channel-priority flexible
 ```
-All binaries will be in `Release/linux-x64/publish`.
+The scripts detect the native architecture. Binaries will be in `Release/linux-x64/publish` on x86-64 or `Release/linux-arm64/publish` on ARM64. Use `./scripts/build-native-unix.sh -j 4` to limit concurrent compilation when memory is constrained.
 
-Here is some inspiration for an lmod module file:
+Here is some inspiration for an lmod module file (use `linux-arm64` in the path on ARM64):
 ```
 local root = "/path/to/warp/Release/linux-x64/publish"
 

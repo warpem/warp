@@ -22,7 +22,11 @@ INCLUDE_DIRECTORIES("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 FILE(GLOB_RECURSE SOURCES src/*.cu src/*.cpp gtom/src/*.cu gtom/src/*.cpp liblion/*.cpp liblion/*.cc)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -w -fPIC -mavx2 -mf16c")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -w -fPIC")
+# AVX2/F16C are x86 instructions; other architectures use the scalar CPU paths.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -mf16c")
+endif()
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
 
 add_compile_definitions("FLOAT_PRECISION")

@@ -2,65 +2,145 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
     tags:
-      # push a tagged commit to trigger a release...
-      # e.g. git tag -am v0.0.1 "v0.0.1"; git push --follow-tags
+      # An annotated v* tag builds and publishes both Linux architectures.
       - "v*"
+  # Manual runs build and test packages without publishing them.
+  workflow_dispatch:
 
-# cancel in-progress runs that use the same workflow and branch
+permissions:
+  contents: read
+
+# Do not interrupt a release while its packages are being published.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy
-    if: success() && startsWith(github.ref, 'refs/tags/') && github.event_name != 'schedule'
-    runs-on: linux-cpu-x64-8core
+  build:
+    name: Build (${{ matrix.subdir }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - subdir: linux-64
+            machine: x86_64
+            runner: linux-cpu-x64-8core
+          - subdir: linux-aarch64
+            machine: aarch64
+            runner: linux-cpu-arm64-8core
+    runs-on:
+      group: warp
+      labels: ${{ matrix.runner }}
     timeout-minutes: 120
-
-    permissions:
-      # This permission allows writing releases
-      contents: write
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: "4"
+      CONDA_OVERRIDE_CUDA: "12.9"
+      CONDA_SOLVER: libmamba
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: "false"
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Verify native architecture and set package version
+        env:
+          EXPECTED_MACHINE: ${{ matrix.machine }}
+        run: |
+          test "$(uname -m)" = "$EXPECTED_MACHINE"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="$GITHUB_REF_NAME"
+            build_number=0
+          else
+            version="$(git describe --tags --abbrev=0)"
+            build_number="$(git rev-list --count "$version"..HEAD)"
+          fi
+          echo "GIT_DESCRIBE_TAG=$version" >> "$GITHUB_ENV"
+          echo "GIT_DESCRIBE_NUMBER=$build_number" >> "$GITHUB_ENV"
+          df -h /
+          free -h
+
       - name: Setup Micromamba
         uses: mamba-org/setup-micromamba@v2
         with:
           environment-name: package-build
           create-args: >-
-            python=3.10
+            python=3.11
             conda-build
-            anaconda-client
+            conda-libmamba-solver
+            -c conda-forge
           init-shell: bash
           cache-environment: true
+          cache-environment-key: package-build-${{ matrix.subdir }}
           post-cleanup: 'all'
-          
-      - name: Build conda package
-        shell: micromamba-shell {0}
-        env:
-          CONDA_OVERRIDE_CUDA: "12.9"
-        run: |
-          # Work around dotnet deactivate.d/dotnet-root.sh referencing unbound $2.
-          # BASH_ENV is sourced by every non-interactive bash subprocess, including
-          # the ones conda-build spawns for activation/deactivation scripts.
-          echo 'set +u' > /tmp/no-strict-unset.sh
-          export BASH_ENV=/tmp/no-strict-unset.sh
-          conda-build conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge
 
-      - name: Upload conda package
+      - name: Build and test conda package
+        shell: micromamba-shell {0}
+        run: |
+          #!/usr/bin/env bash
+          set -eo pipefail
+          # dotnet's deactivate.d/dotnet-root.sh references an unbound $2.
+          # BASH_ENV also applies to conda-build's activation subprocesses.
+          echo 'set +u' > "$RUNNER_TEMP/no-strict-unset.sh"
+          export BASH_ENV="$RUNNER_TEMP/no-strict-unset.sh"
+          conda build conda-recipe \
+            --no-anaconda-upload --package-format 2 --zstd-compression-level 10 \
+            --croot "$RUNNER_TEMP/conda-bld" \
+            --output-folder "$RUNNER_TEMP/conda-output" \
+            -c nvidia/label/cuda-12.9.0 -c conda-forge
+
+      - name: Save tested package
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-${{ matrix.subdir }}
+          path: ${{ runner.temp }}/conda-output/${{ matrix.subdir }}/*.conda
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish both architectures
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download tested packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: conda-*
+          path: artifacts
+
+      - name: Setup upload client
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: package-upload
+          create-args: >-
+            python=3.11
+            anaconda-client
+            -c conda-forge
+          init-shell: bash
+          post-cleanup: 'all'
+
+      - name: Publish conda packages
         shell: micromamba-shell {0}
         env:
           ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_KEY }}
-          CONDA_OVERRIDE_CUDA: "12.9"
         run: |
-          anaconda upload --user warpem $(conda build --output conda-recipe -c nvidia/label/cuda-12.9.0 -c conda-forge)
+          #!/usr/bin/env bash
+          set -eo pipefail
+          shopt -s nullglob
+          x64_packages=(artifacts/conda-linux-64/*.conda)
+          arm64_packages=(artifacts/conda-linux-aarch64/*.conda)
+          test "${#x64_packages[@]}" -eq 1
+          test "${#arm64_packages[@]}" -eq 1
+          anaconda upload --user warpem --skip-existing \
+            "${x64_packages[@]}" "${arm64_packages[@]}"
 
       - name: Release the source on GitHub
         uses: softprops/action-gh-release@v2

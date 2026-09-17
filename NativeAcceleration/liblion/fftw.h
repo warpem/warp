@@ -338,6 +338,10 @@ namespace relion
 		/* Pointer to the array of complex<DOUBLE> with which the plan was computed */
 		Complex * complexDataPtr;
 
+		// Plan dimensions must be stored independently of the caller's mutable array.
+		long int planX, planY, planZ;
+		Complex * fourierDataPtr;
+
 		/* Initialise all pointers to NULL */
 		void init();
 

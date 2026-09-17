@@ -23,7 +23,6 @@
 #include "fftw.h"
 #include "multidim_array.h"
 #include "image.h"
-#include "avx_helper.h"
 
 
 namespace relion
@@ -200,51 +199,6 @@ namespace relion
 		 * Note these corrections are made on the not-oversampled, i.e. originally sized real-space map
 		 */
 		void griddingCorrect(MultidimArray<DOUBLE> &vol_in);
-
-		/*
-		 * Get a 2D Fourier Transform from the 2D or 3D data array
-		 * Depending on the dimension of the map, this will be a projection or a rotation operation
-		 */
-		void get2DFourierTransform(MultidimArray<Complex > &img_out, Matrix2D<DOUBLE> &A, bool inv)
-		{
-			// Rotation of a 3D Fourier Transform
-			if (data_dim == 3)
-			{
-				if (ref_dim != 3)
-					REPORT_ERROR("Projector::get3DFourierTransform%%ERROR: Dimension of the data array should be 3");
-				rotate3D(img_out, A, inv);
-			}
-			else
-			{
-				switch (ref_dim)
-				{
-				case 2:
-					rotate2D(img_out, A, inv);
-					break;
-				case 3:
-					project(img_out, A, inv);
-					break;
-				default:
-					REPORT_ERROR("Projector::get2DSlice%%ERROR: Dimension of the data array should be 2 or 3");
-				}
-			}
-		}
-
-		/*
-		* Get a 2D slice from the 3D map (forward projection)
-		*/
-		void project(MultidimArray<Complex > &img_out, Matrix2D<DOUBLE> &A, bool inv);
-
-		/*
-		* Get an in-plane rotated version of the 2D map (mere interpolation)
-		*/
-		void rotate2D(MultidimArray<Complex > &img_out, Matrix2D<DOUBLE> &A, bool inv);
-
-		/*
-		* Get a rotated version of the 3D map (mere interpolation)
-		*/
-		void rotate3D(MultidimArray<Complex > &img_out, Matrix2D<DOUBLE> &A, bool inv);
-
 
 	};
 }

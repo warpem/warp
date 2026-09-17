@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.0.0dev41
+
+### New Features
+
+- **Linux ARM64 Conda packages**: releases now include `linux-aarch64` alongside `linux-64`, built on native eight-core runners. ARM support uses CUDA 12.9 and has been validated on NVIDIA GH200, including EER decoding, CPU/GPU reconstruction, and Noise2Map training and inference. Conda selects the appropriate architecture automatically.
+
+### Bug Fixes
+
+- **CPU reconstruction heap corruption after resizing volumes**: FFTW plans could be reused for the wrong dimensions when a resized volume received the same allocation address. The plan cache now checks stored dimensions and both bound buffers, while retaining reuse for unchanged transforms.
+- **Scalar half-precision conversion**: corrected rounding, subnormals, overflow and NaN handling to match the x86 F16C path. A rounding carry could previously turn values just below 2.0 into 4.0. This fixes ARM conversions and scalar tails on x86.
+- **Skia rendering on ARM64 Linux**: updated SkiaSharp to 3.119.4 and explicitly included fontconfig to resolve missing native symbols.
+- **Command-line failure exit codes**: invalid arguments and processing failures now return nonzero exit codes instead of appearing successful to scripts and schedulers.
+
+### Build and Packaging
+
+- Shared Linux build scripts select the native runtime and managed platform for x64 or ARM64, with architecture-specific compiler flags and Conda sysroots.
+- Removed unused RELION CPU forward-projection/rotation code; retained projector initialization and reconstruction, with application projection continuing to use CUDA.
+- Both architecture builds must pass before either package is uploaded. CI retains the tested artifacts and creates the GitHub source release after both uploads; manual workflow runs build without publishing.
+
 ## v2.0.0dev40
 
 ### Upgrading from v2.0.0dev39
