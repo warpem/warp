@@ -46,8 +46,18 @@
 #ifndef __XmippFFTW_H
 #define __XmippFFTW_H
 
+#ifdef _WIN32
 #include <cufftw.h>
-//#include <cufftw.h>
+#else
+#include <fftw3.h>
+
+static_assert(FFTW_MEASURE == 0U,
+              "Unexpected FFTW_MEASURE value; CPU fftw3.h is required");
+static_assert(FFTW_DESTROY_INPUT == (1U << 0),
+              "Unexpected FFTW_DESTROY_INPUT value; CPU fftw3.h is required");
+static_assert(FFTW_ESTIMATE == (1U << 6),
+              "Unexpected FFTW_ESTIMATE value; CPU fftw3.h is required");
+#endif
 #include "multidim_array.h"
 #include "funcs.h"
 #include "tabfuncs.h"

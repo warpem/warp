@@ -5,7 +5,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 
 
 FIND_PACKAGE(Threads REQUIRED)
-FIND_PACKAGE(FFTW COMPONENTS FLOAT_THREADS_LIB REQUIRED)
+# liblion uses CPU FFTW's single-precision interface on Linux.
+FIND_PACKAGE(FFTW COMPONENTS FLOAT_LIB FLOAT_THREADS_LIB REQUIRED)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -17,7 +18,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 INCLUDE(FindTIFF)
 
-INCLUDE_DIRECTORIES(include ${PROJECT_SOURCE_DIR})
+INCLUDE_DIRECTORIES(include ${PROJECT_SOURCE_DIR} ${FFTW_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}") 
 
 FILE(GLOB_RECURSE SOURCES src/*.cu src/*.cpp gtom/src/*.cu gtom/src/*.cpp liblion/*.cpp liblion/*.cc)
@@ -54,4 +55,13 @@ set_target_properties(NativeAcceleration PROPERTIES CUDA_ARCHITECTURES "61;70;75
 # libcudart.so is intentionally listed explicitly so the linker records a direct SONAME
 # dependency rather than relying on libcufft.so's transitive pull, which guarantees the
 # dynamic linker loads exactly one libcudart.so instance regardless of link order.
-TARGET_LINK_LIBRARIES(NativeAcceleration ${FFTW_LIBRARIES} libtiff.so libcudart.so libcufft.so libcublas.so libcurand.so ${CMAKE_THREAD_LIBS_INIT})
+# liblion resolves fftwf_* through CPU FFTW; gtom GPU FFT paths remain on native cuFFT.
+TARGET_LINK_LIBRARIES(NativeAcceleration
+    ${FFTW_FLOAT_THREADS_LIB}
+    ${FFTW_FLOAT_LIB}
+    libtiff.so
+    libcudart.so
+    libcufft.so
+    libcublas.so
+    libcurand.so
+    ${CMAKE_THREAD_LIBS_INIT})
