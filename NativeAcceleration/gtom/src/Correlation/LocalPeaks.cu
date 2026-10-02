@@ -103,8 +103,9 @@ namespace gtom
 
 		int idy = blockIdx.y;
 
-		tfloat value = d_input[(idz * dims.y + idy) * dims.x + idx];
-		if (value < threshold)
+		const size_t centerid = ((size_t)idz * dims.y + idy) * dims.x + idx;
+		tfloat value = d_input[centerid];
+		if (!isfinite(value) || value < threshold)
 			return;
 
 		int limx = tmin(dims.x - 1, idx + localextent);
@@ -133,13 +134,19 @@ namespace gtom
 					if (sqdist > sqlocalextent + 1e-5f || sqdist == 0)
 						continue;
 
-					if (value < d_input[(z * dims.y + y) * dims.x + x])
+					const size_t neighborid = ((size_t)z * dims.y + y) * dims.x + x;
+					tfloat neighbor = d_input[neighborid];
+					// Invalid scores are excluded from both peak candidacy and
+					// suppression. Break finite plateaus deterministically so a
+					// flat background cannot emit one candidate per voxel.
+					if (isfinite(neighbor) &&
+						(value < neighbor || (value == neighbor && neighborid < centerid)))
 						return;
 				}
 			}
 		}
 
-		d_output[(idz * dims.y + idy) * dims.x + idx] = 1.0f;
+		d_output[centerid] = 1.0f;
 	}
 
 	template<int ndims, int rad> __global__ void SubpixelMaxKernel(tfloat* d_input, tfloat* d_output, int3 dims, float3 s)

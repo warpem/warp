@@ -228,6 +228,24 @@ namespace Warp
             return GetInterpolated(new[] { coords })[0];
         }
 
+        /// <summary>
+        /// Evaluates the spline and its analytic spatial derivative in normalized
+        /// XYZ coordinates, including the existing end-cell extrapolation.
+        /// Dimensions with only one sample have zero derivative.
+        /// </summary>
+        public float GetInterpolatedWithGradient(float3 coords, out float3 gradient)
+        {
+            gradient = new float3(0);
+            if (DimensionSet == DimensionSets.None)
+                return Values[0];
+            if (Einspline == IntPtr.Zero)
+                throw new InvalidOperationException("Analytic cubic-grid gradients require an initialized native einspline.");
+
+            CPU.EvalEinsplineGradient(Einspline, DimensionSet, ref coords, 1,
+                                      out float result, out gradient);
+            return result;
+        }
+
         public float[] GetInterpolated(int3 valueGrid, float3 border)
         {
             float StepX = (1f - border.X * 2) / Math.Max(1, valueGrid.X - 1);

@@ -1,4 +1,9 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+# Keep release builds portable, while allowing a validation build to target just
+# its GPU with -DCMAKE_CUDA_ARCHITECTURES=89 (for example, an L40S).
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES "61;70;75;80;86;89;90;100;120" CACHE STRING "CUDA architectures to build")
+endif()
 PROJECT(NativeAcceleration LANGUAGES CUDA CXX)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
@@ -21,6 +26,8 @@ INCLUDE_DIRECTORIES(include ${PROJECT_SOURCE_DIR})
 INCLUDE_DIRECTORIES("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}") 
 
 FILE(GLOB_RECURSE SOURCES src/*.cu src/*.cpp gtom/src/*.cu gtom/src/*.cpp liblion/*.cpp liblion/*.cc)
+# TemplateMatchRefine.cu and TemplateMatchRefineBatch.cu are included by the source glob.
+# Their shared interpolation/optimizer math has CUDA-free executables in tests/.
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1y -w -fPIC")
 # AVX2/F16C are x86 instructions; other architectures use the scalar CPU paths.
@@ -49,7 +56,7 @@ SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-Wno-deprecated-gpu-targets")
 
 ADD_LIBRARY(NativeAcceleration SHARED ${SOURCES})
 
-set_target_properties(NativeAcceleration PROPERTIES CUDA_ARCHITECTURES "61;70;75;80;86;89;90;100;120")
+set_target_properties(NativeAcceleration PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
 
 # libcudart.so is intentionally listed explicitly so the linker records a direct SONAME
 # dependency rather than relying on libcufft.so's transitive pull, which guarantees the

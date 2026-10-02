@@ -69,6 +69,9 @@
     <ClInclude Include="liblion\tabfuncs.h" />
     <ClInclude Include="liblion\transformations.h" />
     <ClInclude Include="include/Functions.h" />
+    <ClInclude Include="include/TemplateMatchRefineBatch.h" />
+    <ClInclude Include="include/TemplateMatchBfgs.h" />
+    <ClInclude Include="src/TemplateMatchBfgs.cuh" />
     <ClInclude Include="src\einspline\aligned_alloc.h" />
     <ClInclude Include="src\einspline\bspline.h" />
     <ClInclude Include="src\einspline\bspline_base.h" />
@@ -240,6 +243,8 @@
     <CudaCompile Include="src/ParticleSoftBody.cu" />
     <CudaCompile Include="src/PCA.cu" />
     <CudaCompile Include="src/RealspaceProjection.cu" />
+    <CudaCompile Include="src/TemplateMatchRefine.cu" />
+    <CudaCompile Include="src/TemplateMatchRefineBatch.cu" />
     <CudaCompile Include="src/Raycast.cu" />
     <CudaCompile Include="src\DFT.cu" />
     <CudaCompile Include="src\Helical.cu" />

@@ -65,9 +65,40 @@ __declspec(dllexport) void __stdcall CorrelateLargeVolume(unsigned long long t_p
                         h_progressfraction);
 }
 
+__declspec(dllexport) void __stdcall CorrelateLargeVolumeTopK(unsigned long long t_projectordataRe,
+                                                            unsigned long long t_projectordataIm,
+                                                            float projectoroversample,
+                                                            int3 dimsprojector,
+                                                            float2* d_experimentalft,
+                                                            float* d_ctf,
+                                                            int3 dimsvolume,
+                                                            float3* h_angles,
+                                                            uint nangles,
+                                                            uint batchangles,
+                                                            float maskradius,
+                                                            uint topk,
+                                                            float* d_topcorrelations,
+                                                            float* d_topangles,
+                                                            float* h_progressfraction)
+{
+    d_PickLargeVolumeTopK(t_projectordataRe, t_projectordataIm, projectoroversample,
+                         dimsprojector, d_experimentalft, d_ctf, dimsvolume,
+                         (tfloat3*)h_angles, nangles, batchangles, maskradius, topk,
+                         d_topcorrelations, d_topangles, h_progressfraction);
+}
+
 __declspec(dllexport) void __stdcall TophatTransform(float* d_input, float* d_output, int3 dims, int connectivity)
 {
     d_TopHatTransform(d_input, d_output, dims, connectivity);
+}
+
+__declspec(dllexport) int __stdcall GatherTemplateMatchTopK(float* d_scores, float* d_angles,
+                                                          int3 dims, int3* h_positions,
+                                                          int npositions, int topk,
+                                                          float* h_scores, float* h_angles)
+{
+    return (int)d_GatherTemplateMatchTopK(d_scores, d_angles, dims,
+                                         h_positions, npositions, topk, h_scores, h_angles);
 }
 
 __declspec(dllexport) int* __stdcall LocalPeaks(float* d_input, int* h_peaksnum, int3 dims, int localextent, float threshold)

@@ -59,6 +59,52 @@ namespace Warp
             return CPU.EvalLinear4(Dimensions, Values, coords);
         }
 
+        /// <summary>Value and exact spatial gradient of the same multilinear
+        /// interpolant used by EvalLinear4. Gradient is with respect to normalized
+        /// X/Y/Z coordinates; time is held fixed.</summary>
+        public float GetInterpolatedWithGradient(float4 coords, out float3 gradient)
+        {
+            Span<int> dims = stackalloc int[] { Dimensions.X, Dimensions.Y, Dimensions.Z, Dimensions.W };
+            Span<float> position = stackalloc float[] { coords.X, coords.Y, coords.Z, coords.W };
+            Span<int> lo = stackalloc int[4];
+            Span<int> hi = stackalloc int[4];
+            Span<float> fraction = stackalloc float[4];
+            for (int d = 0; d < 4; d++)
+            {
+                float p = position[d] * (dims[d] - 1);
+                lo[d] = Math.Clamp((int)p, 0, dims[d] - 1);
+                hi[d] = Math.Min(lo[d] + 1, dims[d] - 1);
+                fraction[d] = p - lo[d];
+            }
+            double value = 0;
+            Span<double> derivatives = stackalloc double[3];
+            derivatives.Clear();
+            for (int corner = 0; corner < 16; corner++)
+            {
+                int index = 0;
+                double weight = 1;
+                for (int d = 3; d >= 0; d--)
+                {
+                    bool upper = (corner & (1 << d)) != 0;
+                    index = index * dims[d] + (upper ? hi[d] : lo[d]);
+                    weight *= upper ? fraction[d] : 1 - fraction[d];
+                }
+                value += Values[index] * weight;
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    double dw = dims[axis] - 1;
+                    for (int d = 0; d < 4; d++)
+                    {
+                        bool upper = (corner & (1 << d)) != 0;
+                        dw *= d == axis ? (upper ? 1 : -1) : (upper ? fraction[d] : 1 - fraction[d]);
+                    }
+                    derivatives[axis] += Values[index] * dw;
+                }
+            }
+            gradient = new float3((float)derivatives[0], (float)derivatives[1], (float)derivatives[2]);
+            return (float)value;
+        }
+
         public float GetInterpolatedOld(float4 coords)
         {
             coords *= DimensionsFloat - 1;

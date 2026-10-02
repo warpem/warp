@@ -18,6 +18,62 @@ namespace Warp
             //MemoryChanged?.Invoke();
         }
 
+        // TemplateMatchRefine.cu: caller owns device arrays/textures for the context lifetime.
+        // Status 0 succeeds; negatives are validation/allocation errors; positives are CUDA errors.
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineCreate", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchRefineCreate(ulong textureRe, ulong textureIm,
+            int dimProjector, int box, int views, IntPtr data, IntPtr ctfBase,
+            IntPtr ctfQuadrature, IntPtr inverseNoise, IntPtr phaseRadiusSquared, out IntPtr context);
+
+        // Per-view matrix[9] is column-major and includes oversampling; derivatives
+        // are [view,6,9], [view,6,2], [view,6]. Shifts are pixels. Phase multiplies
+        // the caller's physical CTF radius squared. Output is [view,C,P,dC0..5,dP0..5].
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineEvaluate", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchRefineEvaluate(IntPtr context,
+            [In] float[] matrices, [In] float[] matrixDerivatives,
+            [In] float[] shifts, [In] float[] shiftDerivatives,
+            [In] float[] phaseCoefficients, [In] float[] phaseDerivatives,
+            float cutoffRadius, [Out] double[] output);
+
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineDestroy", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchRefineDestroy(IntPtr context);
+
+        // One upload/call per particle batch and resolution stage; optimizer state stays on device.
+        // Array layouts and termination codes: NativeAcceleration/include/TemplateMatchRefineBatch.h.
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineBatch", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchRefineBatch(ulong textureRe, ulong textureIm,
+            int dim, int box, int views, int particles, int hypotheses,
+            IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
+            [In] float[] geometry, [In] float[] bounds, [In] float[] symmetry, int symmetryCount,
+            [In, Out] float[] poses, [In, Out] int[] seedIds,
+            float pixel, float cutoff, float diameter, int maxIterations, float mergeDistance, float mergeAngle,
+            [Out] double[] summary, [Out] int[] diagnostics, [Out] double[] tiltStatistics);
+
+        // FP32 BFGS alternative; same buffer layouts as Gauss-Newton, with summary[3] = 0
+        // because line search does not maintain a trust radius.
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineBatchBfgs", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchRefineBatchBfgs(ulong textureRe, ulong textureIm,
+            int dim, int box, int views, int particles, int hypotheses,
+            IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
+            [In] float[] geometry, [In] float[] bounds, [In] float[] symmetry, int symmetryCount,
+            [In, Out] float[] poses, [In, Out] int[] seedIds,
+            float pixel, float cutoff, float diameter, int maxIterations, float mergeDistance, float mergeAngle,
+            [Out] double[] summary, [Out] int[] diagnostics, [Out] double[] tiltStatistics);
+
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchEnvelopeSpectra", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchEnvelopeSpectra(ulong textureRe, ulong textureIm,
+            int dim, int box, int views, int particles,
+            IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
+            [In] float[] geometry, [In] float[] poses, [In] int[] active,
+            float cutoff, int bins, float minimumQ2, float maximumQ2, [Out] float[] spectra);
+
+        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchEnvelopeSpectraByTilt", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int TemplateMatchEnvelopeSpectraByTilt(ulong textureRe, ulong textureIm,
+            int dim, int box, int views, int particles,
+            IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
+            [In] float[] geometry, [In] float[] poses, [In] int[] active,
+            float cutoff, int bins, float minimumQ2, float maximumQ2, [Out] float[] spectra);
+
         // Memory.cpp:
 
         [DllImport("NativeAcceleration", EntryPoint = "GetDeviceCount")]
@@ -205,6 +261,45 @@ namespace Warp
                                                        IntPtr d_bestcorrelation,
                                                        IntPtr d_bestangle,
                                                        float[] h_progressfraction);
+
+        /// <summary>
+        /// Retains exact top-K orientation scores for every voxel. Both output
+        /// buffers hold K rank-major volumes of floats (including angle IDs),
+        /// sorted by descending score then ascending angle ID. Empty entries
+        /// are (-infinity, -1). Require topK and batchangles >= 1 and nangles
+        /// &lt;= 16777216 so all angle IDs are represented exactly.
+        /// </summary>
+        [DllImport("NativeAcceleration", EntryPoint = "CorrelateLargeVolumeTopK")]
+        public static extern void CorrelateLargeVolumeTopK(ulong t_projectordataRe,
+                                                          ulong t_projectordataIm,
+                                                          float projectoroversample,
+                                                          int3 dimsprojector,
+                                                          IntPtr d_experimentalft,
+                                                          IntPtr d_ctf,
+                                                          int3 dimsvolume,
+                                                          float[] h_angles,
+                                                          uint nangles,
+                                                          uint batchangles,
+                                                          float maskradius,
+                                                          uint topK,
+                                                          IntPtr d_topcorrelations,
+                                                          IntPtr d_topangles,
+                                                          float[] h_progressfraction);
+
+        /// <summary>
+        /// Gathers sparse leaderboards into position-major host arrays,
+        /// offset = position * topK + rank. Invalid positions yield (-inf, -1).
+        /// Returns a CUDA error code (zero on success).
+        /// </summary>
+        [DllImport("NativeAcceleration", EntryPoint = "GatherTemplateMatchTopK")]
+        public static extern int GatherTemplateMatchTopK(IntPtr d_scores,
+                                                         IntPtr d_angles,
+                                                         int3 dims,
+                                                         int3[] h_positions,
+                                                         int npositions,
+                                                         int topK,
+                                                         [Out] float[] h_scores,
+                                                         [Out] float[] h_angles);
 
         [DllImport("NativeAcceleration", EntryPoint = "TophatTransform")]
         public static extern void TophatTransform(IntPtr d_input, IntPtr d_output, int3 dims, int connectivity);

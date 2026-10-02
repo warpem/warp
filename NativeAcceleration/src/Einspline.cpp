@@ -1,5 +1,6 @@
 #include "include/Functions.h"
 #include "einspline/bspline.h"
+#include "include/EinsplineGradient.h"
 
 using namespace gtom;
 
@@ -118,6 +119,19 @@ __declspec(dllexport) void __stdcall EvalEinspline1Z(void* spline, float3* h_pos
 	#pragma loop(ivdep)
 	for (int i = 0; i < npos; i++)
 		eval_UBspline_1d_s((UBspline_1d_s*)spline, h_pos[i].z, h_output + i);
+}
+
+__declspec(dllexport) void __stdcall EvalEinsplineGradient(void* spline, int dimensions,
+                                                         float3* h_pos, int npos,
+                                                         float* h_values, float3* h_gradients)
+{
+    for (int i = 0; i < npos; ++i)
+    {
+        const float position[3] = {h_pos[i].x, h_pos[i].y, h_pos[i].z};
+        float gradient[3];
+        warp_einspline::Evaluate(spline, dimensions, position, h_values[i], gradient);
+        h_gradients[i] = make_float3(gradient[0], gradient[1], gradient[2]);
+    }
 }
 
 __declspec(dllexport) void __stdcall DestroyEinspline(void* spline)

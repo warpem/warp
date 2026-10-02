@@ -10,11 +10,13 @@
 #include "gtom/include/Reconstruction.cuh"
 #include "gtom/include/Relion.cuh"
 #include "gtom/include/Transformation.cuh"
+#include "gtom/include/TopKCorrelation.h"
 
 namespace gtom
 {
 	__global__ void BatchComplexConjMultiplyKernel(tcomplex* d_input1, tcomplex* d_input2, tcomplex* d_output, uint vectorlength, uint batch);
 	__global__ void UpdateCorrelationKernel(tfloat* d_correlation, uint vectorlength, uint batch, int batchoffset, tfloat* d_bestcorrelation, float* d_bestangle);
+	__global__ void UpdateCorrelationTopKKernel(const tfloat* d_correlation, size_t vectorlength, uint batch, uint batchoffset, uint topk, tfloat* d_topcorrelations, float* d_topangles);
 
 	// Forward declarations for morphological kernels
 	template<int connectivity> __global__ void GreyscaleErode3DKernel(tfloat* d_input, tfloat* d_output, int3 dims);
@@ -156,11 +158,43 @@ namespace gtom
 		float* d_bestangle,
 		float* h_progressfraction)
 	{
-		uint batchsize = batchangles;
-		int3 dimsvolumecube = make_int3(dimsvolume.z, dimsvolume.z, dimsvolume.z);
+		d_PickLargeVolumeTopK(t_projectordataRe, t_projectordataIm, projectoroversample,
+			dimsprojector, d_experimentalft, d_ctf, dimsvolume, h_angles, nangles,
+			batchangles, maskradius, 1, d_bestcorrelation, d_bestangle, h_progressfraction);
+	}
 
-		d_ValueFill(d_bestcorrelation, Elements(dimsvolume), (tfloat)-1e30);
-		d_ValueFill(d_bestangle, Elements(dimsvolume), (float)0);
+	void d_PickLargeVolumeTopK(
+		cudaTex t_projectordataRe,
+		cudaTex t_projectordataIm,
+		tfloat projectoroversample,
+		int3 dimsprojector,
+		tcomplex* d_experimentalft,
+		tfloat* d_ctf,
+		int3 dimsvolume,
+		tfloat3* h_angles,
+		uint nangles,
+		uint batchangles,
+		tfloat maskradius,
+		uint topk,
+		tfloat* d_topcorrelations,
+		float* d_topangles,
+		float* h_progressfraction)
+	{
+		// Native callers must validate these as well as their output allocation.
+		// Float angle IDs represent all integers in this range exactly.
+		if (topk == 0 || batchangles == 0 || nangles > 16777216U)
+			return;
+
+		const size_t elements = Elements(dimsvolume);
+		d_ValueFill(d_topcorrelations, elements * topk, (tfloat)-INFINITY);
+		d_ValueFill(d_topangles, elements * topk, (float)-1);
+		if (h_progressfraction)
+			*h_progressfraction = nangles == 0 ? 1.0f : 0.0f;
+		if (nangles == 0)
+			return;
+
+		uint batchsize = tmin(batchangles, nangles);
+		int3 dimsvolumecube = make_int3(dimsvolume.z, dimsvolume.z, dimsvolume.z);
 
 		tcomplex* d_projectedftconv;
 		cudaMalloc((void**)&d_projectedftconv, ElementsFFT(dimsvolumecube) * batchsize * sizeof(tcomplex));
@@ -182,6 +216,17 @@ namespace gtom
 		for (uint b = 0; b < nangles; b += batchsize)
 		{
 			uint curbatch = tmin(batchsize, nangles - b);
+			if (curbatch != batchsize)
+			{
+				// Resize the plans for the final partial batch. This avoids reading
+				// uninitialized scratch entries without retaining extra FFT workspaces.
+				cufftDestroy(planbackcube);
+				cufftDestroy(planforw);
+				cufftDestroy(planback);
+				planbackcube = d_IFFTC2RGetPlan(3, dimsvolumecube, curbatch);
+				planforw = d_FFTR2CGetPlan(3, dimsvolume, curbatch);
+				planback = d_IFFTC2RGetPlan(3, dimsvolume, curbatch);
+			}
 
 			// d_projectedftconv will contain rotated reference volume multiplied by CTF
 			d_rlnProjectCTFMult(t_projectordataRe, t_projectordataIm, d_ctf, dimsprojector, d_projectedftconv, dimsvolumecube, h_angles + b, projectoroversample, curbatch);
@@ -213,19 +258,18 @@ namespace gtom
 				if (debug && b == 0)
 					d_WriteMRC(d_projectedpadded, toInt3(dimsvolume.x, dimsvolume.y, dimsvolume.z * curbatch), "d_corr.mrc");
 
-				// Update correlation and angles with best values
+				// Update each voxel's sorted orientation leaderboard.
 				{
 					int TpB = 128;
 					dim3 grid = dim3(tmin((Elements(dimsvolume) + TpB - 1) / TpB, 2048), 1, 1);
-					UpdateCorrelationKernel << <grid, TpB >> > (d_projectedpadded,
-						Elements(dimsvolume),
+					UpdateCorrelationTopKKernel << <grid, TpB >> > (d_projectedpadded,
+						elements,
 						curbatch,
 						b,
-						d_bestcorrelation,
-						d_bestangle);
+						topk,
+						d_topcorrelations,
+						d_topangles);
 				}
-
-				//d_WriteMRC(d_bestcorrelation + Elements(dimsvolume) * v, dimsvolume, "d_correlation_best.mrc");
 			}
 
 			if (h_progressfraction)
@@ -242,6 +286,86 @@ namespace gtom
 		cudaFree(d_projectedftctfcorr);
 		cudaFree(d_projectedftconv);
 	}
+
+	__global__ void UpdateCorrelationTopKKernel(const tfloat* d_correlation,
+		size_t vectorlength, uint batch, uint batchoffset, uint topk,
+		tfloat* d_topcorrelations, float* d_topangles)
+	{
+		for (size_t id = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+			id < vectorlength; id += (size_t)gridDim.x * blockDim.x)
+		{
+			for (uint b = 0; b < batch; ++b)
+				InsertCorrelationTopK(d_correlation[(size_t)b * vectorlength + id],
+					(float)(batchoffset + b), d_topcorrelations, d_topangles,
+					id, vectorlength, topk);
+		}
+	}
+
+    __global__ void GatherTemplateMatchTopKKernel(const tfloat* d_scores,
+        const float* d_angles, int3 dims, const int3* d_positions,
+        size_t nentries, int topk, float2* d_output)
+    {
+        const size_t elements = (size_t)dims.x * dims.y * dims.z;
+        for (size_t id = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+             id < nentries; id += (size_t)gridDim.x * blockDim.x)
+        {
+            const int3 p = d_positions[id / topk];
+            float2 value = make_float2(-INFINITY, -1);
+            if (p.x >= 0 && p.x < dims.x && p.y >= 0 && p.y < dims.y && p.z >= 0 && p.z < dims.z)
+            {
+                const size_t voxel = ((size_t)p.z * dims.y + p.y) * dims.x + p.x;
+                const size_t offset = (id % topk) * elements + voxel;
+                value = make_float2((float)d_scores[offset], d_angles[offset]);
+            }
+            d_output[id] = value;
+        }
+    }
+
+    cudaError_t d_GatherTemplateMatchTopK(const tfloat* d_topcorrelations,
+        const float* d_topangles, int3 dims, const int3* h_positions,
+        int npositions, int topk, float* h_scores, float* h_angles)
+    {
+        if (npositions < 0 || topk < 1 || dims.x < 1 || dims.y < 1 || dims.z < 1)
+            return cudaErrorInvalidValue;
+        if (npositions == 0)
+            return cudaSuccess;
+        if (!d_topcorrelations || !d_topangles || !h_positions || !h_scores || !h_angles)
+            return cudaErrorInvalidValue;
+
+        const size_t nentries = (size_t)npositions * topk;
+        if (nentries > SIZE_MAX / sizeof(float2))
+            return cudaErrorInvalidValue;
+        int3* d_positions = NULL;
+        float2* d_output = NULL;
+        std::vector<float2> output(nentries);
+        cudaError_t error = cudaMalloc((void**)&d_positions, (size_t)npositions * sizeof(int3));
+        if (error == cudaSuccess)
+            error = cudaMalloc((void**)&d_output, nentries * sizeof(float2));
+        if (error == cudaSuccess)
+            error = cudaMemcpy(d_positions, h_positions, (size_t)npositions * sizeof(int3), cudaMemcpyHostToDevice);
+        if (error == cudaSuccess)
+        {
+            const int threads = 128;
+            dim3 grid(tmin((nentries + threads - 1) / threads, 2048), 1, 1);
+            GatherTemplateMatchTopKKernel<<<grid, threads>>>(d_topcorrelations,
+                d_topangles, dims, d_positions, nentries, topk, d_output);
+            error = cudaGetLastError();
+        }
+        if (error == cudaSuccess)
+            error = cudaMemcpy(output.data(), d_output, nentries * sizeof(float2), cudaMemcpyDeviceToHost);
+        if (d_output)
+            cudaFree(d_output);
+        if (d_positions)
+            cudaFree(d_positions);
+        if (error != cudaSuccess)
+            return error;
+        for (size_t id = 0; id < nentries; ++id)
+        {
+            h_scores[id] = output[id].x;
+            h_angles[id] = output[id].y;
+        }
+        return cudaSuccess;
+    }
 
 	////////////////////
 	// Top-Hat Transform

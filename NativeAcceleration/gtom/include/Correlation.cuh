@@ -125,6 +125,34 @@ namespace gtom
 						   float* d_bestangle,
 						   float* h_progressfraction = NULL);
 
+    // Outputs contain topk complete volumes in rank-major order. Each voxel's
+    // finite scores are sorted descending, with ascending angle IDs for ties.
+    // Empty slots are initialized to score -infinity and angle ID -1.
+    void d_PickLargeVolumeTopK(cudaTex t_projectordataRe,
+                              cudaTex t_projectordataIm,
+                              tfloat projectoroversample,
+                              int3 dimsprojector,
+                              tcomplex* d_experimentalft,
+                              tfloat* d_ctf,
+                              int3 dimsvolume,
+                              tfloat3* h_angles,
+                              uint nangles,
+                              uint batchangles,
+                              tfloat maskradius,
+                              uint topk,
+                              tfloat* d_topcorrelations,
+                              float* d_topangles,
+                              float* h_progressfraction = NULL);
+
+    cudaError_t d_GatherTemplateMatchTopK(const tfloat* d_topcorrelations,
+                                        const float* d_topangles,
+                                        int3 dims,
+                                        const int3* h_positions,
+                                        int npositions,
+                                        int topk,
+                                        float* h_scores,
+                                        float* h_angles);
+
 	/**
 	* \brief Performs 3D grayscale erosion (local minimum filter) on a volume
 	* \param[in] d_input	Array with input volume data

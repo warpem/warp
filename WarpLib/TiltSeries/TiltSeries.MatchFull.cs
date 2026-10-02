@@ -1312,6 +1312,17 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
     [WarpSerializable] public bool ReuseCorrVolumes { get; set; }
     [WarpSerializable] public string OverrideSuffix { get; set; }
     [WarpSerializable] public bool OptimizePoses { get; set; }
+    [WarpSerializable] public int MatchTopK { get; set; } = 8;
+    [WarpSerializable] public int RefineStarts { get; set; } = 32;
+    [WarpSerializable] public string RefineOptimizer { get; set; } = "bfgs";
+    [WarpSerializable] public int RefineIterations { get; set; } = 90;
+    [WarpSerializable] public decimal RefineMergeFraction { get; set; } = 0.005M;
+    // Angstrom; zero selects three coarse tomogram pixels.
+    [WarpSerializable] public decimal RefineMaxShift { get; set; } = 0;
+    [WarpSerializable] public int RefineNoisePatches { get; set; } = 32;
+    [WarpSerializable] public bool RefineFitBfactor { get; set; }
+    [WarpSerializable] public decimal RefineFitHighpass { get; set; } = 30;
+    [WarpSerializable] public bool RefineExportTiltSpectra { get; set; }
     [WarpSerializable] public decimal? OptimizePosesAngPix { get; set; }
     [WarpSerializable] public int OptimizePosesSteps { get; set; }
     [WarpSerializable] public bool DontInvert { get; set; }
@@ -1325,6 +1336,8 @@ struct ParticlePeak
     public float3 PositionF;
     public float3 Angles;
     public float Score;
+    public float ProjectionZ;
+    public float FittedAmplitude;
     
     public ParticlePeak(int3 position, float3 positionf, float3 angles, float score)
     {

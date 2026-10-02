@@ -140,6 +140,11 @@ namespace Warp
         [DllImport("NativeAcceleration", EntryPoint = "EvalEinspline1Z")]
         public static extern void EvalEinspline1Z(IntPtr spline, ref float3 h_pos, int npos, ref float h_output);
 
+        [DllImport("NativeAcceleration", EntryPoint = "EvalEinsplineGradient")]
+        public static extern void EvalEinsplineGradient(IntPtr spline, DimensionSets dimensions,
+                                                        ref float3 h_pos, int npos,
+                                                        out float h_values, out float3 h_gradients);
+
         [DllImport("NativeAcceleration", EntryPoint = "DestroyEinspline")]
         public static extern void DestroyEinspline(IntPtr spline);
 

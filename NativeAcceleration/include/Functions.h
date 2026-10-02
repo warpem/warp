@@ -28,6 +28,66 @@ extern "C" __declspec(dllexport) float __stdcall KaiserBesselProj(float r, float
 
 // Correlation.cpp:
 
+// TemplateMatchRefine.cu: persistent fixed-patch Fourier sufficient statistics.
+// Status: 0 success, -1 invalid argument/device, -2 host allocation failure,
+// -3 non-finite result, otherwise a positive cudaError_t. All input GPU memory
+// and projector textures remain caller-owned and must outlive the context.
+extern "C" __declspec(dllexport) int TemplateMatchRefineCreate(
+    unsigned long long textureRe, unsigned long long textureIm,
+    int dimProjector, int box, int views, const float2* data,
+    const float* ctfBase, const float* ctfQuadrature, const float* inverseNoise,
+    const float* phaseRadiusSquared, void** result);
+// Per-view layouts: matrix[9] column-major, dMatrix[6,9], shift[2] pixels,
+// dShift[6,2], phase[1], dPhase[6]. Matrices include oversampling. CTF phase is
+// phase*phaseRadiusSquared[view,frequency]; supply physical CTF radius squared
+// (including pixel/magnification anisotropy). Output[view,14] contains
+// C, P, dC[6], dP[6]; score at amplitude a is a*C - a*a*P/2.
+extern "C" __declspec(dllexport) int TemplateMatchRefineEvaluate(
+    void* context, const float* matrices, const float* matrixDerivatives,
+    const float* shifts, const float* shiftDerivatives, const float* phaseCoefficients,
+    const float* phaseDerivatives, float cutoffRadius, double* output);
+extern "C" __declspec(dllexport) int TemplateMatchRefineDestroy(void* context);
+
+// GPU-resident multi-hypothesis trust-region refinement; see TemplateMatchRefineBatch.h for layouts.
+extern "C" __declspec(dllexport) int TemplateMatchRefineBatch(
+    unsigned long long textureRe, unsigned long long textureIm,
+    int dim, int box, int views, int particles, int hypotheses,
+    const float2* data, const float* ctf, const float* quadrature,
+    const float* inverseNoise, const float* phaseRadii,
+    const float* geometry, const float* bounds, const float* symmetry, int symmetryCount,
+    float* poses, int* seedIds, float pixel, float cutoff, float diameter, int maxIterations,
+    float mergeDistance, float mergeAngle, double* summary, int* diagnostics, double* tiltStatistics);
+
+// FP32 BFGS variant with identical buffer layouts; the summary trust-radius slot is zero.
+extern "C" __declspec(dllexport) int TemplateMatchRefineBatchBfgs(
+    unsigned long long textureRe, unsigned long long textureIm,
+    int dim, int box, int views, int particles, int hypotheses,
+    const float2* data, const float* ctf, const float* quadrature,
+    const float* inverseNoise, const float* phaseRadii,
+    const float* geometry, const float* bounds, const float* symmetry, int symmetryCount,
+    float* poses, int* seedIds, float pixel, float cutoff, float diameter, int maxIterations,
+    float mergeDistance, float mergeAngle, double* summary, int* diagnostics, double* tiltStatistics);
+
+// Fixed-pose C/P spectra: h_poses[P,12], h_active[P] (<0 excludes),
+// output[P,2,bins] (cross then power); bin i is q²=i*maximumQ2/(bins-1).
+// Only physical samples with q² > minimumQ2 are deposited; 0 disables high-pass.
+extern "C" __declspec(dllexport) int TemplateMatchEnvelopeSpectra(
+    unsigned long long textureRe, unsigned long long textureIm,
+    int dim, int box, int views, int particles,
+    const float2* data, const float* ctf, const float* quadrature,
+    const float* inverseNoise, const float* phaseRadii,
+    const float* geometry, const float* poses, const int* active,
+    float cutoff, int bins, float minimumQ2, float maximumQ2, float* spectra);
+
+// Same samples and model, retaining tilt identity: output[P,views,2,bins].
+extern "C" __declspec(dllexport) int TemplateMatchEnvelopeSpectraByTilt(
+    unsigned long long textureRe, unsigned long long textureIm,
+    int dim, int box, int views, int particles,
+    const float2* data, const float* ctf, const float* quadrature,
+    const float* inverseNoise, const float* phaseRadii,
+    const float* geometry, const float* poses, const int* active,
+    float cutoff, int bins, float minimumQ2, float maximumQ2, float* spectra);
+
 extern "C" __declspec(dllexport) void CorrelateSubTomos(unsigned long long t_projectordataRe,
                                                         unsigned long long t_projectordataIm,
                                                         float projectoroversample,
@@ -57,6 +117,29 @@ extern "C" __declspec(dllexport) void CorrelateLargeVolume(unsigned long long t_
                                                             float* d_bestcorrelation,
                                                             int* d_bestangle,
                                                             float* h_progressfraction);
+
+// Both output buffers contain topk rank-major volumes of floats, including angle IDs.
+extern "C" __declspec(dllexport) void CorrelateLargeVolumeTopK(unsigned long long t_projectordataRe,
+                                                             unsigned long long t_projectordataIm,
+                                                             float projectoroversample,
+                                                             int3 dimsprojector,
+                                                             float2* d_experimentalft,
+                                                             float* d_ctf,
+                                                             int3 dimsvolume,
+                                                             float3* h_angles,
+                                                             uint nangles,
+                                                             uint batchangles,
+                                                             float maskradius,
+                                                             uint topk,
+                                                             float* d_topcorrelations,
+                                                             float* d_topangles,
+                                                             float* h_progressfraction);
+
+// Compact position-major outputs, [position * topk + rank]. Returns cudaError_t.
+extern "C" __declspec(dllexport) int __stdcall GatherTemplateMatchTopK(float* d_scores, float* d_angles,
+                                                                     int3 dims, int3* h_positions,
+                                                                     int npositions, int topk,
+                                                                     float* h_scores, float* h_angles);
 
 extern "C" __declspec(dllexport) void TophatTransform(float* d_input, float* d_output, int3 dims, int connectivity);
 
@@ -119,6 +202,10 @@ extern "C" __declspec(dllexport) void __stdcall EvalEinspline1(void* spline, flo
 extern "C" __declspec(dllexport) void __stdcall EvalEinspline1X(void* spline, float3* h_pos, int npos, float* h_output);
 extern "C" __declspec(dllexport) void __stdcall EvalEinspline1Y(void* spline, float3* h_pos, int npos, float* h_output);
 extern "C" __declspec(dllexport) void __stdcall EvalEinspline1Z(void* spline, float3* h_pos, int npos, float* h_output);
+// dimensions uses Warp.DimensionSets; gradients use normalized Warp XYZ coordinates.
+extern "C" __declspec(dllexport) void __stdcall EvalEinsplineGradient(void* spline, int dimensions,
+                                                                    float3* h_pos, int npos,
+                                                                    float* h_values, float3* h_gradients);
 extern "C" __declspec(dllexport) void __stdcall DestroyEinspline(void* spline);
 extern "C" __declspec(dllexport) void __stdcall EvalLinear4Batch(const int4 dims, const float* values, const float4 * h_pos, const int npos, float* h_output);
 extern "C" __declspec(dllexport) float __stdcall EvalLinear4(const int4 dims, const float* values, float4 coords);

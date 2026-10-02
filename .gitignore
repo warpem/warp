@@ -226,3 +226,10 @@ ModelManifest.xml
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+
+# Private research artifacts
+/research/
