@@ -124,39 +124,6 @@ extern "C" __declspec(dllexport) void PeakOne2D(float* d_input, float3* d_positi
 
 extern "C" __declspec(dllexport) void CorrelateRealspace(float* d_image1, float* d_image2, int3 dims, float* d_mask, float* d_corr, uint batch);
 
-// CTF.cu:
-extern "C" __declspec(dllexport) void CreateSpectra(float* d_frame,
-													int2 dimsframe,
-													int nframes,
-													int3* h_origins,
-													int norigins,
-													int2 dimsregion,
-													int3 ctfgrid,
-                                                    int2 dimsregionscaled,
-													float* d_outputall,
-													float* d_outputmean,
-                                                    cufftHandle planforw,
-                                                    cufftHandle planback);
-
-extern "C" __declspec(dllexport) void CTFMakeAverage(float* d_ps, 
-													 float2* d_pscoords, 
-													 uint length, 
-													 uint sidelength, 
-													 gtom::CTFParams* h_sourceparams, 
-													 gtom::CTFParams targetparams, 
-													 uint minbin, 
-													 uint maxbin, 
-													 uint batch, 
-													 float* d_output);
-
-extern "C" __declspec(dllexport) void CTFCompareToSim(float* d_ps, 
-                                                      float2* d_pscoords, 
-                                                      float* d_scale, 
-                                                      uint length, 
-                                                      gtom::CTFParams* h_sourceparams, 
-                                                      float* h_scores, 
-                                                      uint batch);
-
 // CubicGPU.cu:
 extern "C" __declspec(dllexport) void __stdcall CubicGPUInterpIrregular(unsigned long long t_input, 
                                                                         int3 dimsgrid,
@@ -1002,5 +969,18 @@ extern "C" __declspec(dllexport) void OptimizeWeights(int nrecs,
                                                         float* h_recsum2, 
                                                         float* h_weightsum1, 
                                                         float* h_weightsum2);
+
+// CUDA CTF fitting and power-spectrum preparation (owned contexts).
+extern "C" __declspec(dllexport) int CtfPowerCreate(int width, int height, int window, int fft, int batch, int patches, int bins, const int3* origins, const float* hann, const int* starts, const int* indices, const int* displayIndices, void** result);
+extern "C" __declspec(dllexport) int CtfPowerBegin(void* context, int resetDisplay);
+extern "C" __declspec(dllexport) int CtfPowerAdd(void* context, const float* frame);
+extern "C" __declspec(dllexport) int CtfPowerRead(void* context, double* power, float* display);
+extern "C" __declspec(dllexport) void CtfPowerDestroy(void* context);
+extern "C" __declspec(dllexport) int CtfFitCreate(int records, int samples, int knots, const double* moments, const double* basis, const double* data, const double* counts, const double* currentWeights, void** result);
+extern "C" __declspec(dllexport) int CtfFitSearch(void* context, const double* trials, const double* offsets, int trialCount, double* scores);
+extern "C" __declspec(dllexport) int CtfFitEvaluate(void* context, const double* poses, int reweight, double* output);
+extern "C" __declspec(dllexport) int CtfFitReadWeights(void* context, double* weights);
+extern "C" __declspec(dllexport) int CtfFitReadCoefficients(void* context, float* coefficients);
+extern "C" __declspec(dllexport) void CtfFitDestroy(void* context);
 
 #endif

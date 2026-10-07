@@ -409,14 +409,12 @@ namespace Warp.Controls
                 {
                     Plot1DSeriesExperimental.Values = null;
                     Plot1DSeriesSimulated.Values = null;
-                    Plot1DSeriesQuality.Values = null;
 
                     return;
                 }
 
                 //ProgressCTF1D.Visibility = Visibility.Visible;
                 Movie movie = Movie;
-                decimal fittingRangeMin = movie.CTF.PixelSize * 2 / FittingRangeMin;
 
                 //await Task.Delay(1000);
                 await Task.Run(() =>
@@ -424,21 +422,16 @@ namespace Warp.Controls
 
                     float2[] ExperimentalData = (Series == null || _ShowSeriesAverage) ? movie.PS1D : Series.TiltPS1D[TiltID];
                     float2[] SimulatedData = (Series == null || _ShowSeriesAverage) ? movie.Simulated1D : Series.GetTiltSimulated1D(TiltID);
-                    Cubic1D ScaleData = (Series == null || _ShowSeriesAverage) ? movie.SimulatedScale : Series.TiltSimulatedScale[TiltID];
 
                     int N = ExperimentalData.Length * 2;
 
                     ChartValues<ObservablePoint> ExperimentalValues = new ChartValues<ObservablePoint>(ExperimentalData.Select(p => new ObservablePoint(p.X * N, p.Y)));
                     ChartValues<ObservablePoint> SimulatedValues = new ChartValues<ObservablePoint>(SimulatedData.Select(p => new ObservablePoint(p.X * N, p.Y)));
 
-                    CTF CTF = (Series == null || _ShowSeriesAverage) ? movie.CTF : Series.GetTiltCTF(TiltID);
-                    float[] Quality = CTF.EstimateQuality(ExperimentalData.Select(p => p.Y).ToArray(), ScaleData.Interp(ExperimentalData.Select(p => p.X).ToArray()), (float)fittingRangeMin, 16);
-
                     Dispatcher.Invoke(() =>
                     {
                         Plot1DSeriesExperimental.Values = ExperimentalValues;
                         Plot1DSeriesSimulated.Values = SimulatedValues;
-                        Plot1DSeriesQuality.Values = new ChartValues<double>(Quality.Select(v => (double)Math.Max(0, v)));
 
                     });
                 });

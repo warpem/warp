@@ -397,25 +397,6 @@ namespace Warp
             return argument;
         }
 
-        public double GetFrequencyAtPhase(double phase)
-        {
-            double voltage = (double)Voltage * 1e3;
-            double lambda = 12.2643247 / Math.Sqrt(voltage * (1.0 + voltage * 0.978466e-6));
-            double z = -(double)Defocus * 1e4;
-            double cs = (double)Cs * 1e7;
-            double amplitude = (double)Amplitude;
-            double scale = (double)Scale;
-            double phaseshift = (double)PhaseShift * Math.PI;
-            double a = Math.PI * lambda;
-            double b = Math.PI * 0.5f * cs * lambda * lambda * lambda;
-
-            double Root1 = Math.Sqrt(a * a * z * z + 4 * b * (phase + phaseshift));
-            double Frac1 = -(Root1 + a * z) / b;
-            double Frac2 = Math.Sqrt(Frac1) / Math.Sqrt(2.0);
-
-            return Frac2;
-        }
-
         public double[] Get1DDouble(int width, bool ampsquared, bool ignorebfactor = false, bool ignorescale = false)
         {
             double[] Output = new double[width];
@@ -721,34 +702,6 @@ namespace Warp
             });
 
             return Output;
-        }
-
-        public float[] GetPeaks()
-        {
-            List<float> Result = new List<float>();
-
-            float[] Values = Get1D(1 << 12, true);
-            float[] dValues = MathHelper.Diff(Values);
-
-            for (int i = 0; i < dValues.Length - 1; i++)
-                if (Math.Sign(dValues[i]) > 0 && Math.Sign(dValues[i + 1]) < 0)
-                    Result.Add(0.5f * i / Values.Length);
-
-            return Result.ToArray();
-        }
-
-        public float[] GetZeros()
-        {
-            List<float> Result = new List<float>();
-
-            float[] Values = Get1D(1 << 12, true);
-            float[] dValues = MathHelper.Diff(Values);
-
-            for (int i = 0; i < dValues.Length - 1; i++)
-                if (Math.Sign(dValues[i]) < 0 && Math.Sign(dValues[i + 1]) > 0)
-                    Result.Add(0.5f * i / Values.Length);
-
-            return Result.ToArray();
         }
 
         public float GetEwaldRadius(int size, float pixelSize)
@@ -1673,67 +1626,7 @@ namespace Warp
             };
         }
 
-        public float[] EstimateQuality(float[] experimental, float[] experimentalScale, float minFreq, int minSamples)
-        {
-            try
-            {
-                int N = experimental.Length;
-                int MinN = (int)(minFreq * N);
 
-                float[] Quality = Helper.ArrayOfConstant(float.NaN, N);
-                float[] Zeros = GetZeros().Select(v => v * 2 * N).ToArray();
-                if (Zeros.Length < 2)
-                    return Quality;
-
-                // Calculate indices and widths of all peaks
-                int[] Peaks = new int[Zeros.Length - 1];
-                int[] PeakWidths = new int[Peaks.Length];
-                for (int i = 0; i < Zeros.Length - 1; i++)
-                {
-                    Peaks[i] = (int)((Zeros[i] + Zeros[i + 1]) * 0.5f);
-                    PeakWidths[i] = (int)(Zeros[i + 1] - Zeros[i]);
-                }
-
-                // For each index, find the closest peak
-                int[] ClosestPeak = new int[N];
-                int[] WindowLength = new int[N];
-                for (int i = 0, peak = 0; i < N; i++)
-                {
-                    int ClosestDist = Math.Abs(i - Peaks[peak]);
-                    if (Math.Abs(i - Peaks[peak + 1]) < ClosestDist)
-                        peak = Math.Min(Peaks.Length - 2, peak + 1);
-
-                    ClosestPeak[i] = peak;
-                    WindowLength[i] = Math.Max(minSamples, PeakWidths[peak]);
-                }
-
-                // Calculate simulated CTF and multiply it by the scale curve if needed
-                float[] Simulated = Get1D(N, true);
-                if (experimentalScale != null)
-                {
-                    if (experimental.Length != experimentalScale.Length)
-                        throw new Exception("Experimental values and scale arrays should have equal length.");
-                    for (int i = 0; i < Simulated.Length; i++)
-                        Simulated[i] *= experimentalScale[i];
-                }
-
-                for (int i = MinN; i < N - minSamples / 2; i++)
-                {
-                    int WindowStart = Math.Max(0, i - WindowLength[i] / 2);
-                    int WindowEnd = Math.Min(N, i + WindowLength[i] / 2);
-                    float[] WindowExperimental = Helper.Subset(experimental, WindowStart, WindowEnd);
-                    float[] WindowSimulated = Helper.Subset(Simulated, WindowStart, WindowEnd);
-
-                    Quality[i] = MathHelper.Mult(MathHelper.Normalize(WindowExperimental), MathHelper.Normalize(WindowSimulated)).Sum() / WindowExperimental.Length;
-                }
-
-                return Quality;
-            }
-            catch
-            {
-                return Helper.ArrayOfConstant(1f, experimental.Length);
-            }
-        }
     }
 
     /// <summary>
@@ -1756,30 +1649,6 @@ namespace Warp
         public float BfactorAngle;
         public float Scale;
         public float PhaseShift;
-    }
-
-    /// <summary>
-    /// Everything is in SI units
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    public struct CTFFitStruct
-    {
-        public float3 Pixelsize;
-        public float3 Pixeldelta;
-        public float3 Pixelangle;
-        public float3 Cs;
-        public float3 Voltage;
-        public float3 Defocus;
-        public float3 Astigmatismangle;
-        public float3 Defocusdelta;
-        public float3 Amplitude;
-        public float3 Bfactor;
-        public float3 Scale;
-        public float3 Phaseshift;
-
-        public int2 DimsPeriodogram;
-        public int MaskInnerRadius;
-        public int MaskOuterRadius;
     }
 
     class ZernikeCacheEntry

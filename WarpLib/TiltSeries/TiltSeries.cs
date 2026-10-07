@@ -221,7 +221,7 @@ namespace Warp
 
             float2[] Result = new float2[SimulatedCTF.Length];
             for (int i = 0; i < Result.Length; i++)
-                Result[i] = new float2(TiltPS1D[tiltID][i].X, SimulatedCTF[i] *
+                Result[i] = new float2(TiltPS1D[tiltID][i].X, SimulatedCTF[i] * SimulatedCTF[i] *
                                                               TiltSimulatedScale[tiltID].Interp(TiltPS1D[tiltID][i].X));
 
             return Result;

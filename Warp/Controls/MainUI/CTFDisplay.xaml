@@ -35,12 +35,10 @@
                     </lvc:CartesianChart.AxisX>
                     <lvc:CartesianChart.AxisY>
                         <lvc:Axis Name="Plot1DAxisY" ShowLabels="False" />
-                        <lvc:Axis Name="Plot1DAxisYQuality" ShowLabels="False" MinValue="0" MaxValue="1.0" />
                     </lvc:CartesianChart.AxisY>
                     <lvc:CartesianChart.Series>
                         <lvc:LineSeries Name="Plot1DSeriesSimulated" Title="Fitted" Fill="Transparent" LineSmoothness="1" PointGeometrySize="0" Stroke="DeepPink" StrokeThickness="1" />
                         <lvc:LineSeries Name="Plot1DSeriesExperimental" Title="Experimental" Fill="Transparent" LineSmoothness="1" PointGeometrySize="0" Stroke="DeepSkyBlue" StrokeThickness="1" />
-                        <lvc:LineSeries Name="Plot1DSeriesQuality" Title="Quality" Fill="Transparent" LineSmoothness="0" PointGeometrySize="0" Stroke="LightGray" ScalesYAt="1" StrokeThickness="1" />
                     </lvc:CartesianChart.Series>
                 </lvc:CartesianChart>
             </Grid>

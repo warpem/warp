@@ -14,6 +14,7 @@
     <ClInclude Include="gtom\include\Angles.cuh" />
     <ClInclude Include="gtom\include\Binary.cuh" />
     <ClInclude Include="gtom\include\Correlation.cuh" />
+    <ClInclude Include="include/CtfGpuCommon.h" />
     <ClInclude Include="gtom\include\CTF.cuh" />
     <ClInclude Include="gtom\include\CubicInterp.cuh" />
     <ClInclude Include="gtom\include\helper_math.cuh" />
@@ -144,8 +145,6 @@
     <CudaCompile Include="gtom\src\Correlation\TomoPicker.cu" />
     <CudaCompile Include="gtom\src\CTF\CommonPSF.cu" />
     <CudaCompile Include="gtom\src\CTF\Correct.cu" />
-    <CudaCompile Include="gtom\src\CTF\Periodogram.cu" />
-    <CudaCompile Include="gtom\src\CTF\RotationalAverage.cu" />
     <CudaCompile Include="gtom\src\CTF\Simulate.cu" />
     <CudaCompile Include="gtom\src\CTF\Wiener.cu" />
     <CudaCompile Include="gtom\src\CubicSplines\cubicPrefilter2D.cu" />
@@ -182,7 +181,6 @@
     <CudaCompile Include="gtom\src\Helpers\Euler.cu" />
     <CudaCompile Include="gtom\src\Helpers\GridSpacing.cu" />
     <CudaCompile Include="gtom\src\Helpers\HermitianSymmetry.cu" />
-    <CudaCompile Include="gtom\src\Helpers\InterpolateIrregular.cu" />
     <CudaCompile Include="gtom\src\Helpers\Memory.cu" />
     <CudaCompile Include="gtom\src\Helpers\TextureObject.cu" />
     <CudaCompile Include="gtom\src\Helpers\TypeConversion.cu" />
@@ -233,7 +231,6 @@
     <CudaCompile Include="src/Backprojection.cu" />
     <CudaCompile Include="src/BoxNet2.cu" />
     <CudaCompile Include="src/C2DNet.cu" />
-    <CudaCompile Include="src/CTF.cu" />
     <CudaCompile Include="src/CubeNet.cu" />
     <CudaCompile Include="src/CubicGPU.cu" />
     <CudaCompile Include="src/Deconv.cu" />
@@ -243,6 +240,8 @@
     <CudaCompile Include="src/ParticleSoftBody.cu" />
     <CudaCompile Include="src/PCA.cu" />
     <CudaCompile Include="src/RealspaceProjection.cu" />
+    <CudaCompile Include="src/CtfFit.cu" />
+    <CudaCompile Include="src/CtfPowerSpectrum.cu" />
     <CudaCompile Include="src/TemplateMatchRefine.cu" />
     <CudaCompile Include="src/TemplateMatchRefineBatch.cu" />
     <CudaCompile Include="src/TemplateMatchPreparation.cu" />

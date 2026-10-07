@@ -41,60 +41,6 @@ namespace gtom
 			phaseshift(0) {}
 	};
 
-	struct CTFFitParams
-	{
-		tfloat3 pixelsize;
-		tfloat3 pixeldelta;
-		tfloat3 pixelangle;
-		tfloat3 Cs;
-		tfloat3 voltage;
-		tfloat3 defocus;
-		tfloat3 astigmatismangle;
-		tfloat3 defocusdelta;
-		tfloat3 amplitude;
-		tfloat3 Bfactor;
-		tfloat3 scale;
-		tfloat3 phaseshift;
-
-		int2 dimsperiodogram;
-		int maskinnerradius;
-		int maskouterradius;
-
-		CTFFitParams() :
-			pixelsize(0),
-			pixeldelta(0),
-			pixelangle(0),
-			Cs(0),
-			voltage(0),
-			defocus(0),
-			astigmatismangle(0),
-			defocusdelta(0),
-			amplitude(0),
-			Bfactor(0),
-			scale(0),
-			phaseshift(0),
-			dimsperiodogram(toInt2(512, 512)),
-			maskinnerradius(1),
-			maskouterradius(128) {}
-
-		CTFFitParams(CTFParams p) :
-			pixelsize(p.pixelsize),
-			pixeldelta(p.pixeldelta),
-			pixelangle(p.pixelangle),
-			Cs(p.Cs),
-			voltage(p.voltage),
-			defocus(p.defocus),
-			astigmatismangle(p.astigmatismangle),
-			defocusdelta(p.defocusdelta),
-			amplitude(p.amplitude),
-			Bfactor(p.Bfactor),
-			scale(p.scale),
-			phaseshift(p.phaseshift),
-			dimsperiodogram(toInt2(512, 512)),
-			maskinnerradius(1),
-			maskouterradius(128) {}
-	};
-
 	// All lengths in Angstrom
 	struct CTFParamsLean
 	{
@@ -187,62 +133,11 @@ namespace gtom
 		return retval;
 	}
 
-	//AliasingCutoff.cu:
-	uint CTFGetAliasingCutoff(CTFParams params, uint sidelength);
-
 	//CommonPSF.cu:
 	void d_ForceCommonPSF(tcomplex* d_inft1, tcomplex* d_inft2, tcomplex* d_outft1, tcomplex* d_outft2, tfloat* d_psf1, tfloat* d_psf2, tfloat* d_commonpsf, uint n, bool same2, int batch);
 
 	//Correct.cu:
 	void d_CTFCorrect(tcomplex* d_input, int3 dimsinput, CTFParams params, tcomplex* d_output);
-
-	//Decay.cu:
-	void d_CTFDecay(tfloat* d_input, tfloat* d_output, int2 dims, int degree, int stripwidth);
-
-	//InterpolateIrregular.cu:
-	void Interpolate1DOntoGrid(std::vector<tfloat2> sortedpoints, tfloat* h_output, uint gridstart, uint gridend);
-
-	//Periodogram.cu:
-	void d_CTFPeriodogram(tfloat* d_image, int2 dimsimage, float overlapfraction, int2 dimsregion, int2 dimspadded, tfloat* d_output2d, bool dopost = true);
-	void d_CTFPeriodogram(tfloat* d_image, int2 dimsimage, int3* d_origins, int norigins, int2 dimsregion, int2 dimspadded, tfloat* d_output2d, bool dopost = true, cufftHandle planforw = 0, tfloat* d_extracted = NULL, tcomplex* d_extractedft = NULL);
-
-	//RotationalAverage.cu:
-	void d_CTFRotationalAverage(tfloat* d_re, 
-								int2 dimsinput, 
-								CTFParams* h_params, 
-								tfloat* d_average, 
-								ushort freqlow, 
-								ushort freqhigh, 
-								int batch = 1);
-	void d_CTFRotationalAverage(tfloat* d_input, 
-								float2* d_inputcoords, 
-								uint inputlength, 
-								uint sidelength, 
-								CTFParams* h_params, 
-								tfloat* d_average, 
-								ushort freqlow, 
-								ushort freqhigh, 
-								int batch = 1);
-	template<class T> void d_CTFRotationalAverageToTarget(T* d_input, 
-														float2* d_inputcoords, 
-														uint inputlength, 
-														uint sidelength, 
-														CTFParams* h_params, 
-														CTFParams targetparams, 
-														tfloat* d_average, 
-														ushort freqlow, 
-														ushort freqhigh, 
-														int batch = 1);
-	void d_CTFRotationalAverageToTargetDeterministic(tfloat* d_input,
-													float2* d_inputcoords,
-													uint inputlength,
-													uint sidelength,
-													CTFParams* h_params,
-													CTFParams targetparams,
-													tfloat* d_average,
-													ushort freqlow,
-													ushort freqhigh,
-													int batch);
 
 	//Simulate.cu:
 	void d_CTFSimulate(CTFParams* h_params, float2* d_addresses, float* d_gammacorrection, tfloat* d_output, uint n, bool amplitudesquared = false, bool ignorefirstpeak = false, int batch = 1);

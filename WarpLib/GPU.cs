@@ -289,43 +289,6 @@ namespace Warp
         [DllImport("NativeAcceleration", EntryPoint = "CorrelateRealspace")]
         public static extern void CorrelateRealspace(IntPtr d_image1, IntPtr d_image2, int3 dims, IntPtr d_mask, IntPtr d_corr, uint batch);
 
-        // CTF.cu:
-
-        [DllImport("NativeAcceleration", EntryPoint = "CreateSpectra")]
-        public static extern void CreateSpectra(IntPtr d_frame,
-                                                int2 dimsframe,
-                                                int nframes,
-                                                int3[] h_origins,
-                                                int norigins,
-                                                int2 dimsregion,
-                                                int3 ctfgrid,
-                                                int2 dimsregionscaled,
-                                                IntPtr d_outputall,
-                                                IntPtr d_outputmean,
-                                                int planforw,
-                                                int planback);
-
-        [DllImport("NativeAcceleration", EntryPoint = "CTFMakeAverage")]
-        public static extern void CTFMakeAverage(IntPtr d_ps,
-                                                 IntPtr d_pscoords,
-                                                 uint length,
-                                                 uint sidelength,
-                                                 CTFStruct[] h_sourceparams,
-                                                 CTFStruct targetparams,
-                                                 uint minbin,
-                                                 uint maxbin,
-                                                 uint batch,
-                                                 IntPtr d_output);
-
-        [DllImport("NativeAcceleration", EntryPoint = "CTFCompareToSim")]
-        public static extern void CTFCompareToSim(IntPtr d_ps,
-                                                  IntPtr d_pscoords,
-                                                  IntPtr d_scale,
-                                                  uint length,
-                                                  CTFStruct[] h_sourceparams,
-                                                  float[] h_scores,
-                                                  uint batch);
-
         // Deconv.cu:
         [DllImport("NativeAcceleration", EntryPoint = "DeconvolveCTF")]
         public static extern void DeconvolveCTF(IntPtr d_inputft, IntPtr d_outputft, int3 dims, CTFStruct ctfparams, float strength, float falloff, float highpassnyquist);

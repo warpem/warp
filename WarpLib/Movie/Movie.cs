@@ -280,7 +280,7 @@ namespace Warp
 
             float2[] Result = new float2[PS1D.Length];
             for (int i = 0; i < Result.Length; i++)
-                Result[i] = new float2(PS1D[i].X, SimulatedCTF[i] * SimulatedScale.Interp(PS1D[i].X));
+                Result[i] = new float2(PS1D[i].X, SimulatedCTF[i] * SimulatedCTF[i] * SimulatedScale.Interp(PS1D[i].X));
 
             return Result;
         }

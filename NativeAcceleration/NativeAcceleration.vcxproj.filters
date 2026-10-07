@@ -1,6 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <CudaCompile Include="src/CtfFit.cu"><Filter>GPU</Filter></CudaCompile>
+    <CudaCompile Include="src/CtfPowerSpectrum.cu"><Filter>GPU</Filter></CudaCompile>
+    <ClInclude Include="include/CtfGpuCommon.h"><Filter>GPU</Filter></ClInclude>
     <CudaCompile Include="src/Backprojection.cu">
       <Filter>GPU</Filter>
     </CudaCompile>
@@ -8,9 +11,6 @@
       <Filter>GPU</Filter>
     </CudaCompile>
     <CudaCompile Include="src/C2DNet.cu">
-      <Filter>GPU</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src/CTF.cu">
       <Filter>GPU</Filter>
     </CudaCompile>
     <CudaCompile Include="src/CubeNet.cu">
@@ -92,12 +92,6 @@
       <Filter>GTOM\src\CTF</Filter>
     </CudaCompile>
     <CudaCompile Include="gtom\src\CTF\Correct.cu">
-      <Filter>GTOM\src\CTF</Filter>
-    </CudaCompile>
-    <CudaCompile Include="gtom\src\CTF\Periodogram.cu">
-      <Filter>GTOM\src\CTF</Filter>
-    </CudaCompile>
-    <CudaCompile Include="gtom\src\CTF\RotationalAverage.cu">
       <Filter>GTOM\src\CTF</Filter>
     </CudaCompile>
     <CudaCompile Include="gtom\src\CTF\Simulate.cu">
@@ -206,9 +200,6 @@
       <Filter>GTOM\src\Helpers</Filter>
     </CudaCompile>
     <CudaCompile Include="gtom\src\Helpers\HermitianSymmetry.cu">
-      <Filter>GTOM\src\Helpers</Filter>
-    </CudaCompile>
-    <CudaCompile Include="gtom\src\Helpers\InterpolateIrregular.cu">
       <Filter>GTOM\src\Helpers</Filter>
     </CudaCompile>
     <CudaCompile Include="gtom\src\Helpers\Memory.cu">
