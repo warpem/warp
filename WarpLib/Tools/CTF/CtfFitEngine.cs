@@ -8,7 +8,7 @@ namespace Warp.Tools;
 
 public static class CtfFitEngine
 {
-    public sealed record Fit(double[] Parameters, double Loss, int Evaluations, float[] Coefficients = null);
+    public sealed record Fit(double[] Parameters, double Loss, int Evaluations, float[] Coefficients = null, double PlaneInitializationSeconds = 0, bool PlaneAtBoundary = false);
     // A radial, geometry-aware search locates several defocus basins before the full angular fit.
     public static (double Defocus, double Phase) Initialize(CtfPowerSpectrum.Observation[] records, double[] offsets, ProcessingOptionsMovieCTF options)
         => InitializeMany(new[] { records }, new[] { offsets }, options)[0];
@@ -105,11 +105,19 @@ public static class CtfFitEngine
     public static Fit Refine(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options)
     {
         if (initial.Length != geometry[0].ThicknessIndex+1) throw new ArgumentException("CTF parameters must include squared specimen thickness.");
-        using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
         initial = (double[])initial.Clone();
+        int planeEvaluations=0;double planeSeconds=0;
+        if(geometry[0].Rotation.HasValue)
+        {
+            var timer=System.Diagnostics.Stopwatch.StartNew();
+            var plane=CtfPlaneInitialization.Initialize(records,geometry,initial,options);
+            initial=plane.Parameters;planeEvaluations=plane.Evaluations;planeSeconds=timer.Elapsed.TotalSeconds;
+        }
+        using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
         int searchEvaluations = SeedThickness(records, geometry, initial, batch);
         var result = RefineCore(records, geometry, initial, options, batch);
-        result = result with { Evaluations = result.Evaluations + searchEvaluations };
+        result = result with { Evaluations = result.Evaluations + searchEvaluations + planeEvaluations, PlaneInitializationSeconds = planeSeconds,
+            PlaneAtBoundary = geometry.Any(g => !g.IsValidPlane(result.Parameters,CtfFitGeometry.MinimumBeamCosine*1.01)) };
         var poses = new double[records.Length * 7];
         for (int i = 0; i < records.Length; i++)
         {
@@ -144,15 +152,23 @@ public static class CtfFitEngine
         return steps+2;
     }
 
+    internal static (double[] Scale,double[] Lower,double[] Upper) ParameterBounds(CtfFitGeometry geometry,ProcessingOptionsMovieCTF options)
+    {
+        int nd=geometry.DefocusWeights.Length,np=geometry.PhaseWeights.Length,n=geometry.ThicknessIndex+1;
+        var scale=new double[n];var lo=new double[n];var hi=new double[n];
+        for(int j=0;j<nd;j++){scale[j]=.02;lo[j]=(double)options.ZMin;hi[j]=(double)options.ZMax;}
+        for(int j=nd;j<nd+2;j++){scale[j]=.02;lo[j]=-.5;hi[j]=.5;}
+        for(int j=nd+2;j<nd+2+np;j++){scale[j]=.1;lo[j]=0;hi[j]=options.DoPhase?Math.PI:0;}
+        // IsValidPlane enforces the circular/geometric domain inside these enclosing bounds.
+        for(int j=nd+2+np;j<n-1;j++){scale[j]=.01;lo[j]=-CtfFitGeometry.MaximumSlope;hi[j]=CtfFitGeometry.MaximumSlope;}
+        scale[n-1]=.0025;lo[n-1]=0;hi[n-1]=1;
+        return (scale,lo,hi);
+    }
+
     static Fit RefineCore(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options, CtfGpuFitBatch batch)
     {
-        int nd = geometry[0].DefocusWeights.Length, np = geometry[0].PhaseWeights.Length, n = initial.Length;
-        double[] scale = new double[n], lo = new double[n], hi = new double[n];
-        for (int j = 0; j < nd; j++) { scale[j] = .02; lo[j] = (double)options.ZMin; hi[j] = (double)options.ZMax; }
-        for (int j = nd; j < nd + 2; j++) { scale[j] = .02; lo[j] = -.5; hi[j] = .5; }
-        for (int j = nd + 2; j < nd + 2 + np; j++) { scale[j] = .1; lo[j] = 0; hi[j] = options.DoPhase ? Math.PI : 0; }
-        for (int j = nd + 2 + np; j < n-1; j++) { scale[j] = .01; lo[j] = -.3; hi[j] = .3; }
-        scale[n-1] = .0025; lo[n-1] = 0; hi[n-1] = 1;
+        int n=initial.Length;
+        var (scale,lo,hi)=ParameterBounds(geometry[0],options);
         var poses = new double[records.Length * 7];
         bool UpdatePoses(double[] p)
         {

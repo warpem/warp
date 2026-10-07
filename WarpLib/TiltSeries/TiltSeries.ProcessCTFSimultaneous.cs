@@ -31,8 +31,7 @@ public partial class TiltSeries
                 maxDose > minDose ? (Dose[t] - minDose) / (maxDose - minDose) : .5f)).ToArray();
             double[][] phaseWeights = CtfFitGeometry.GridWeights(phaseDims, tiltPositions);
             double[] initial = new double[nd + 2 + np + 3];
-            var searchGroups = new CtfPowerSpectrum.Observation[NTilts][];
-            var searchOffsets = new double[NTilts][];
+            Array.Fill(initial,(double)(options.ZMin+options.ZMax)*.5,0,nd);
             CtfSpectrumFit basisSource = null;
             int spectrumSize = 0;
             double extractionSeconds = 0, searchSeconds = 0;
@@ -51,28 +50,22 @@ public partial class TiltSeries
                 Matrix3 rotation = Matrix3.Euler(0, 0, -TiltAxisAngles[t] * Helper.ToRad) *
                     Matrix3.Euler(0, Angles[t] * (AreAnglesInverted ? -1 : 1) * Helper.ToRad, 0);
                 var local = extraction.Observations.ToArray();
-                var offsets = new double[local.Length];
                 for (int i = 0; i < local.Length; i++)
                 {
                     double[] dw = new double[NTilts]; dw[t] = 1;
                     var g = new CtfFitGeometry(dw, phaseWeights[t],
                         (local[i].Position.X - .5) * images[t].Dims.X * (double)options.BinnedPixelSizeMean * 1e-4,
                         (local[i].Position.Y - .5) * images[t].Dims.Y * (double)options.BinnedPixelSizeMean * 1e-4, rotation, options.Window * (double)options.BinnedPixelSizeMean * 1e-4);
-                    offsets[i] = g.Evaluate(new double[initial.Length]).Defocus;
                     geometry.Add(g);
                 }
-                searchGroups[t] = local; searchOffsets[t] = offsets;
                 records.AddRange(local);
             }
-            timer.Restart();
-            var seeds = CtfFitEngine.InitializeMany(searchGroups, searchOffsets, options);
-            searchSeconds = timer.Elapsed.TotalSeconds;
-            for (int t = 0; t < NTilts; t++) initial[t] = seeds[t].Defocus;
-            Array.Fill(initial, seeds.Average(s => s.Phase), nd + 2, np);
             var allRecords = records.ToArray(); var allGeometry = geometry.ToArray();
             timer.Restart();
             var fit = CtfFitEngine.Refine(allRecords, allGeometry, initial, options);
-            double refinementSeconds = timer.Elapsed.TotalSeconds;
+            searchSeconds=fit.PlaneInitializationSeconds;
+            double refinementSeconds = timer.Elapsed.TotalSeconds-searchSeconds;
+            if(fit.PlaneAtBoundary) Console.WriteLine("CTF specimen inclination reached the grazing-incidence model boundary; interpret the fitted plane with caution.");
             timer.Restart();
             var p = fit.Parameters;
             CTFSpecimenThicknessAngstrom = (decimal)(Math.Sqrt(p[^1])*1e4);

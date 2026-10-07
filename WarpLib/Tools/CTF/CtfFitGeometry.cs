@@ -10,6 +10,19 @@ namespace Warp.Tools;
 /// Positions X/Y and patch width are in µm.</summary>
 public sealed class CtfFitGeometry
 {
+    // A plane within ~4.6 degrees of edge-on is outside the reliable infinite-slab model.
+    // Apply this to unit normals, giving an orientation-independent geometric domain.
+    public const double MinimumBeamCosine = .08;
+    public static readonly double MaximumInclination = Math.Acos(MinimumBeamCosine);
+    public static readonly double MaximumSlope = Math.Sqrt(1/(MinimumBeamCosine*MinimumBeamCosine)-1);
+    public bool IsValidPlane(double[] p, double cosine = MinimumBeamCosine)
+    {
+        if (!Rotation.HasValue) return true;
+        int j=ThicknessIndex-2;double sx=p[j],sy=p[j+1];
+        double norm=Math.Sqrt(1+sx*sx+sy*sy);var r=Rotation.Value;
+        return double.IsFinite(norm) && 1/norm>=cosine &&
+            Math.Abs(r.M31*sx+r.M32*sy+r.M33)/norm>=cosine;
+    }
     public readonly double[] DefocusWeights, PhaseWeights;
     public readonly double X, Y;
     public readonly Matrix3? Rotation;
@@ -28,7 +41,7 @@ public sealed class CtfFitGeometry
             Matrix3 r = Rotation.Value;
             double sx = p[nd + 2 + np], sy = p[nd + 3 + np];
             double nx = r.M11 * sx + r.M12 * sy + r.M13, ny = r.M21 * sx + r.M22 * sy + r.M23, nz = r.M31 * sx + r.M32 * sy + r.M33;
-            if (Math.Abs(nz) < .08) return (double.NaN, phase, 0, 0);
+            if (!IsValidPlane(p)) return (double.NaN, phase, 0, 0);
             double numerator = nx * X + ny * Y;
             df -= numerator / nz;
             dx = -((r.M11 * X + r.M21 * Y) * nz - numerator * r.M31) / (nz * nz);

@@ -118,12 +118,12 @@ public class CtfThicknessTests
                 var options=new ProcessingOptionsMovieCTF{Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=4,DoPhase=true};
                 double[] truth=tilted ? new[] {2.3,.025,-.015,.2,.035,-.025,.01} : new[] {2.3,.025,-.015,.2,.01};
                 var records=new List<CtfPowerSpectrum.Observation>();var geometry=new List<CtfFitGeometry>();
-                for(int i=0;i<5;i++)
+                for(int i=0;i<5;i++)for(int patch=0;patch<3;patch++)
                 {
                     Matrix3? rotation=tilted ? Matrix3.Euler(0,(float)((i-2)*.24),.17f) : null;
-                    var g=new CtfFitGeometry(new[] {1.0},new[] {1.0},(i-2)*.07,.04,rotation,tilted?.13:0);
+                    var g=new CtfFitGeometry(new[] {1.0},new[] {1.0},(i-2)*.07+(patch-1)*.06,.04+(patch==1?.06:0),rotation,tilted?.13:0);
                     var pose=new double[7];g.WritePose(truth,pose,0);
-                    records.Add(new(new CtfSpectrumFit(Samples(pose,i+1),300,2.7,.07),new float3(.5f),i));geometry.Add(g);
+                    records.Add(new(new CtfSpectrumFit(Samples(pose,i*3+patch+1),300,2.7,.07),new float3(.5f),i));geometry.Add(g);
                 }
                 var initial=(double[])truth.Clone();initial[0]+=.008;initial[1]=initial[2]=0;initial[3]+=.015;initial[^1]=0;
                 var fit=CtfFitEngine.Refine(records.ToArray(),geometry.ToArray(),initial,options);
