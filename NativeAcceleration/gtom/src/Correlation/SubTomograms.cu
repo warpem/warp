@@ -142,27 +142,6 @@ namespace gtom
 		}
 	}
 
-	void d_PickLargeVolume(
-		cudaTex t_projectordataRe,
-		cudaTex t_projectordataIm,
-		tfloat projectoroversample,
-		int3 dimsprojector,
-		tcomplex* d_experimentalft,
-		tfloat* d_ctf,
-		int3 dimsvolume,
-		tfloat3* h_angles,
-		uint nangles,
-		uint batchangles,
-		tfloat maskradius,
-		tfloat* d_bestcorrelation,
-		float* d_bestangle,
-		float* h_progressfraction)
-	{
-		d_PickLargeVolumeTopK(t_projectordataRe, t_projectordataIm, projectoroversample,
-			dimsprojector, d_experimentalft, d_ctf, dimsvolume, h_angles, nangles,
-			batchangles, maskradius, 1, d_bestcorrelation, d_bestangle, h_progressfraction);
-	}
-
 	void d_PickLargeVolumeTopK(
 		cudaTex t_projectordataRe,
 		cudaTex t_projectordataIm,

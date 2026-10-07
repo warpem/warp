@@ -6,8 +6,6 @@
 //   -Xlinker -rpath-link -Xlinker "$CONDA_PREFIX/lib" --cudart shared -o /tmp/tm_batch_benchmark
 // Defaults: box128,41tilts,32particles,32hypotheses,30 accepted-step budget.
 // Smoke: --box 96 --particles 4 --iterations 5; --score-only skips optimization.
-// --bfgs selects FP32 BFGS; default is the retained Gauss-Newton optimizer.
-// --compare-scores separately compares FP32/FP64 accumulation at identical seeds.
 #include <cuda_runtime.h>
 #include "TemplateMatchRefineBatch.h"
 #include "TemplateMatchRefineMath.h"
@@ -130,15 +128,13 @@ int main(int argc, char** argv)
         const int particles = IntegerArgument(argc, argv, "--particles", 32);
         const int hypotheses = IntegerArgument(argc, argv, "--hypotheses", 32);
         const int iterations = IntegerArgument(argc, argv, "--iterations", 30);
-        bool scoreOnly = false, useBfgs = false, compareScores = false;
+        bool scoreOnly = false;
         for (int i = 1; i < argc; ++i)
         {
             if (std::strcmp(argv[i], "--score-only") == 0) scoreOnly = true;
-            if (std::strcmp(argv[i], "--bfgs") == 0) useBfgs = true;
-            if (std::strcmp(argv[i], "--compare-scores") == 0) compareScores = true;
         }
-        const char* optimizerName = useBfgs ? "bfgs" : "gauss-newton";
-        const auto refine = useBfgs ? TemplateMatchRefineBatchBfgs : TemplateMatchRefineBatch;
+        const char* optimizerName = "bfgs";
+        const auto refine = TemplateMatchRefineBatchBfgs;
         if (box % 2 || box < 8) throw std::runtime_error("Box must be even and >=8");
         const int dim = 2 * box + 3, width = dim / 2 + 1;
         const size_t frequencies = size_t(box) * (box / 2 + 1);
@@ -260,7 +256,7 @@ int main(int argc, char** argv)
                 const double z0 = summary[mode * 4 + 2];
                 // BFGS stores initial Z rounded to float, while diagnostics are
                 // reconstructed from promoted C/P here; allow that last rounding.
-                const double scoreTolerance = useBfgs ? 8.0 * FLT_EPSILON : 1e-7;
+                const double scoreTolerance = 8.0 * FLT_EPSILON;
                 if (z < z0 - scoreTolerance * std::max(1.0, std::fabs(z0))) ++worse;
                 initial += z0; final += z; improvement += z - z0; ++valid;
             }
@@ -271,58 +267,7 @@ int main(int argc, char** argv)
             if (invalid || worse) throw std::runtime_error("Invalid or worsened hypotheses");
         }
         Check(cudaEventDestroy(start)); Check(cudaEventDestroy(end));
-        if (compareScores)
-        {
-            // Keep this independent of timed optimization: both methods receive
-            // exactly the original poses and zero accepted-step/merge budgets.
-            std::vector<double> referenceSummary;
-            for (int method = 0; method < 2; ++method)
-            {
-                poses = initialPoses; seeds = initialSeeds;
-                const auto evaluate = method == 0 ? TemplateMatchRefineBatch : TemplateMatchRefineBatchBfgs;
-                const int status = evaluate(textureRe.texture, textureIm.texture,
-                    dim, box, views, particles, hypotheses, static_cast<const float2*>(dData.pointer),
-                    static_cast<const float*>(dCtf.pointer), static_cast<const float*>(dQuad.pointer),
-                    static_cast<const float*>(dNoise.pointer), static_cast<const float*>(dRadii.pointer),
-                    geometry.data(), bounds.data(), identity, 1, poses.data(), seeds.data(),
-                    pixel, cutoff, diameter, 0, 0, 0,
-                    summary.data(), diagnostics.data(), tiltStats.data());
-                if (status) throw std::runtime_error("Score comparison returned " + std::to_string(status));
-                if (poses != initialPoses || seeds != initialSeeds)
-                    throw std::runtime_error("Score-only comparison changed or rejected an input pose");
-                for (size_t mode = 0; mode < modes; ++mode)
-                    if (diagnostics[mode * 4] != 0 || !std::isfinite(summary[mode * 4]) ||
-                        !std::isfinite(summary[mode * 4 + 1]) || !(summary[mode * 4 + 1] > 0))
-                        throw std::runtime_error("Invalid score-only comparison statistics");
-                if (method == 0) referenceSummary = summary;
-            }
-            double maximumRelativeCross = 0, maximumRelativePower = 0;
-            double maximumAbsoluteZ = 0, maximumRelativeZ = 0, maximumScaledZ = 0;
-            for (size_t mode = 0; mode < modes; ++mode)
-            {
-                const double referenceCross = referenceSummary[mode * 4];
-                const double referencePower = referenceSummary[mode * 4 + 1];
-                const double referenceZ = referenceCross / std::sqrt(referencePower);
-                const double z = summary[mode * 4] / std::sqrt(summary[mode * 4 + 1]);
-                const double absoluteZ = std::fabs(z - referenceZ);
-                maximumRelativeCross = std::max(maximumRelativeCross,
-                    std::fabs(summary[mode * 4] - referenceCross) / std::max(1e-30, std::fabs(referenceCross)));
-                maximumRelativePower = std::max(maximumRelativePower,
-                    std::fabs(summary[mode * 4 + 1] - referencePower) / referencePower);
-                maximumAbsoluteZ = std::max(maximumAbsoluteZ, absoluteZ);
-                maximumRelativeZ = std::max(maximumRelativeZ, absoluteZ / std::max(1e-30, std::fabs(referenceZ)));
-                maximumScaledZ = std::max(maximumScaledZ, absoluteZ / std::max(1.0, std::fabs(referenceZ)));
-            }
-            // Z grows with signal and sample count; use relative tolerance away
-            // from zero and absolute tolerance near zero, and print both errors.
-            constexpr double tolerance = 3e-5;
-            std::printf("mode=compare_scores reference=gauss-newton tested=bfgs poses=%zu samples_per_pose=%zu max_relative_C=%.9g max_relative_P=%.9g max_absolute_Z=%.9g max_relative_Z=%.9g max_scaled_Z=%.9g tolerance=%.9g\n",
-                modes, size_t(views) * frequencies, maximumRelativeCross, maximumRelativePower,
-                maximumAbsoluteZ, maximumRelativeZ, maximumScaledZ, tolerance);
-            std::fflush(stdout);
-            if (maximumRelativeCross > tolerance || maximumRelativePower > tolerance || maximumScaledZ > tolerance)
-                throw std::runtime_error("FP32 accumulation differs from retained FP64 scoring beyond tolerance");
-        }
+
         return 0;
     }
     catch (const std::exception& error)

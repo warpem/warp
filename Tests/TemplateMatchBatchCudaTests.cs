@@ -21,15 +21,6 @@ public sealed class TemplateMatchCudaTheoryAttribute : TheoryAttribute
 /// <summary>Opt-in tests of the native batch ABI, independent of managed batch orchestration.</summary>
 public class TemplateMatchBatchCudaTests
 {
-    [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineBatch", CallingConvention = CallingConvention.Cdecl)]
-    private static extern int RefineBatch(ulong textureRe, ulong textureIm,
-        int dim, int box, int views, int particles, int hypotheses,
-        IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
-        [In] float[] geometry, [In] float[] bounds, [In] float[] symmetry, int symmetryCount,
-        [In, Out] float[] poses, [In, Out] int[] seedIds,
-        float pixel, float cutoff, float diameter, int maxIterations, float mergeDistance, float mergeAngle,
-        [Out] double[] summary, [Out] int[] diagnostics, [Out] double[] tiltStats);
-
     [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineBatchBfgs", CallingConvention = CallingConvention.Cdecl)]
     private static extern int RefineBatchBfgs(ulong textureRe, ulong textureIm,
         int dim, int box, int views, int particles, int hypotheses,
@@ -47,15 +38,13 @@ public class TemplateMatchBatchCudaTests
         int maxIterations, float mergeDistance, float mergeAngle,
         double[] summary, int[] diagnostics, double[] tiltStats);
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ThirtyTwoStartsMatchScalarFrozenGeometryAcrossParticlesAndViews(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void ThirtyTwoStartsMatchScalarFrozenGeometryAcrossParticlesAndViews()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(particles: 2, bfgs: bfgs);
+            using var fixture = new Fixture(particles: 2);
             const int hypotheses = 32;
             float[] poses = Starts(2, hypotheses);
             Result result = fixture.Run(poses, Seeds(2 * hypotheses), 0);
@@ -90,15 +79,13 @@ public class TemplateMatchBatchCudaTests
         }
     }
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OptimizerLanesAreIndependentOfBatchOrderInactiveAndInvalidSlots(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void OptimizerLanesAreIndependentOfBatchOrderInactiveAndInvalidSlots()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(particles: 2, bfgs: bfgs);
+            using var fixture = new Fixture(particles: 2);
             const int hypotheses = 32, iterations = 12;
             float[] poses = Starts(2, hypotheses);
             int[] seeds = Seeds(2 * hypotheses);
@@ -166,17 +153,15 @@ public class TemplateMatchBatchCudaTests
         }
     }
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void NegativeSignedZStartsCanAscendInsteadOfClampingTheirGradientToZero(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void NegativeSignedZStartsCanAscendInsteadOfClampingTheirGradientToZero()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
             // A constant Fourier template makes rotation irrelevant and leaves an exact,
             // smooth translation objective. Negative data gives a negative initial Z.
-            using var fixture = new Fixture(1, constantTemplate: true, amplitude: -1, bfgs: bfgs);
+            using var fixture = new Fixture(1, constantTemplate: true, amplitude: -1);
             float[] poses = new float[32 * 12];
             for (int h = 0; h < 32; h++) WritePose(poses, h, new float3(.3f + .012f * h, -.1f, .08f), new Matrix3());
             Result result = fixture.Run(poses, Seeds(32), 24);
@@ -190,15 +175,13 @@ public class TemplateMatchBatchCudaTests
         }
     }
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void SymmetryMergeUsesRightObjectActionAndPreservesDistinctTranslations(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void SymmetryMergeUsesRightObjectActionAndPreservesDistinctTranslations()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(1, constantTemplate: true, bfgs: bfgs);
+            using var fixture = new Fixture(1, constantTemplate: true);
             Matrix3 basis = Matrix3.Euler(.31f, .72f, -.23f);
             float[] poses = new float[32 * 12];
             int[] seeds = Enumerable.Repeat(-1, 32).ToArray();
@@ -222,15 +205,13 @@ public class TemplateMatchBatchCudaTests
         }
     }
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TranslationBoundsAreTotalBoundsIncludingFixedCoordinates(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void TranslationBoundsAreTotalBoundsIncludingFixedCoordinates()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(1, constantTemplate: true, truePosition: new float3(1.1f, 0, 0), bfgs: bfgs);
+            using var fixture = new Fixture(1, constantTemplate: true, truePosition: new float3(1.1f, 0, 0));
             float[] poses = new float[32 * 12];
             for (int h = 0; h < 32; h++) WritePose(poses, h, new float3(-.3f + .01f * h, 0, 0), new Matrix3());
             Result result = fixture.Run(poses, Seeds(32), 30, bounds: new[] { -.4f, 0, 0, .4f, 0, 0 });
@@ -246,15 +227,13 @@ public class TemplateMatchBatchCudaTests
         }
     }
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void NonzeroAngularRefinementImprovesThirtyTwoStartsAndReportsFinalPoseScore(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void NonzeroAngularRefinementImprovesThirtyTwoStartsAndReportsFinalPoseScore()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(1, bfgs: bfgs);
+            using var fixture = new Fixture(1);
             float3 position = new(.25f, -.18f, .12f);
             Matrix3 rotation = Matrix3.Euler(.21f, .54f, -.16f);
             float[] poses = new float[32 * 12], truth = new float[12];
@@ -296,15 +275,13 @@ public class TemplateMatchBatchCudaTests
         }
     }
 
-    [TemplateMatchCudaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ZeroModelPowerRejectsOtherwiseValidStarts(bool bfgs)
+    [TemplateMatchCudaFact]
+    public void ZeroModelPowerRejectsOtherwiseValidStarts()
     {
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(1, bfgs: bfgs, zeroModel: true);
+            using var fixture = new Fixture(1, zeroModel: true);
             Result result = fixture.Run(Starts(1, 32), Seeds(32), 20);
             for (int h = 0; h < 32; h++)
             {
@@ -324,7 +301,7 @@ public class TemplateMatchBatchCudaTests
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(1, constantTemplate: true, bfgs: true);
+            using var fixture = new Fixture(1, constantTemplate: true);
             const float threshold = .0004f; // Approximately 0.023 degrees.
             Matrix3 basis = Matrix3.Euler(.31f, .72f, -.23f);
             float[] poses = new float[3 * 12];
@@ -346,7 +323,7 @@ public class TemplateMatchBatchCudaTests
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(2, bfgs: true, envelopeB: b);
+            using var fixture = new Fixture(2, envelopeB: b);
             float[] poses = new float[24];
             for (int p = 0; p < 2; p++)
                 WritePose(poses, p, new float3(.25f, -.18f, .12f), Matrix3.Euler(.21f + p * .04f, .54f, -.16f));
@@ -387,7 +364,7 @@ public class TemplateMatchBatchCudaTests
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(2, bfgs: true, envelopeB: .2);
+            using var fixture = new Fixture(2, envelopeB: .2);
             float[] poses = new float[24];
             for (int p = 0; p < 2; p++)
                 WritePose(poses, p, new float3(.25f, -.18f, .12f), Matrix3.Euler(.21f + p * .04f, .54f, -.16f));
@@ -417,7 +394,7 @@ public class TemplateMatchBatchCudaTests
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            using var fixture = new Fixture(2, bfgs: true, envelopeB: .2);
+            using var fixture = new Fixture(2, envelopeB: .2);
             float[] poses = new float[24];
             for (int p = 0; p < 2; p++)
                 WritePose(poses, p, new float3(.25f, -.18f, .12f), Matrix3.Euler(.21f + p * .04f, .54f, -.16f));
@@ -470,11 +447,11 @@ public class TemplateMatchBatchCudaTests
         private readonly IntPtr data, ctf, quad, weights, radii;
         private readonly float[] hostCtf, hostQuad, hostRadii, hostWeights;
 
-        public Fixture(int particles, bool constantTemplate = false, float amplitude = 1.3f, float3? truePosition = null, bool bfgs = false, bool zeroModel = false, double envelopeB = 0)
+        public Fixture(int particles, bool constantTemplate = false, float amplitude = 1.3f, float3? truePosition = null, bool zeroModel = false, double envelopeB = 0)
         {
             this.particles = particles;
-            refine = bfgs ? RefineBatchBfgs : RefineBatch;
-            // Preserve the existing GN tolerance. BFGS reduces its sufficient statistics
+            refine = RefineBatchBfgs;
+            // BFGS reduces its sufficient statistics
             // in FP32; the scalar score oracle continues to use FP64 reductions.
             ScoreTolerance = 3e-5;
             geometry = new float[particles * Views * 18];

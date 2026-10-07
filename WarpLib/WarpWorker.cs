@@ -633,14 +633,14 @@ namespace Warp
 
                     string LastMessage = "";
                     TiltSeries T = new TiltSeries(Path);
-                    T.MatchFull(Options, Template, (grid, gridElements, message) =>
+                    T.MatchLargeVolume(Options, Template, (fraction, message) =>
                     {
                         if (message != LastMessage)
                         {
                             LastMessage = message;
                             Console.WriteLine(message);
                         }
-                        Console.WriteLine($"{(float)gridElements / grid.Elements() * 100}%");
+                        Console.WriteLine($"{fraction * 100}%");
                         return false;
                     });
 

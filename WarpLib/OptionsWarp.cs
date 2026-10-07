@@ -620,7 +620,6 @@ namespace Warp
                 PeakDistance = Tasks.TomoMatchPeakDistance,
                 TemplateFraction = Tasks.TomoMatchTemplateFraction,
                 
-                SubVolumeSize = 192,
                 Symmetry = Tasks.TomoMatchSymmetry,
                 HealpixOrder = (int)Tasks.TomoMatchHealpixOrder,
                 TiltRange = -1,
@@ -631,9 +630,6 @@ namespace Warp
                 MaxMissingTilts = 2,
                 NResults = (int)Tasks.TomoMatchNResults,
 
-                ReuseCorrVolumes = Tasks.ReuseCorrVolumes,
-
-                WhitenSpectrum = Tasks.TomoMatchWhitenSpectrum,
                 Lowpass = 1.0M,
                 LowpassSigma = 0M
             });
@@ -2203,14 +2199,6 @@ namespace Warp
         {
             get { return _TomoMatchNResults; }
             set { if (value != _TomoMatchNResults) { _TomoMatchNResults = value; OnPropertyChanged(); } }
-        }
-
-        private bool _ReuseCorrVolumes = false;
-        [WarpSerializable]
-        public bool ReuseCorrVolumes
-        {
-            get { return _ReuseCorrVolumes; }
-            set { if (value != _ReuseCorrVolumes) { _ReuseCorrVolumes = value; OnPropertyChanged(); } }
         }
 
         #endregion

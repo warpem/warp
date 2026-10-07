@@ -46,8 +46,13 @@
 #ifndef __XmippFFTW_H
 #define __XmippFFTW_H
 
+// FFTW and cuFFTW export the same function names but use different planner flag values.
+// Including cuFFTW while linking FFTW turns ESTIMATE into DESTROY_INPUT/MEASURE.
+#ifdef WARP_USE_CPU_FFTW
+#include <fftw3.h>
+#else
 #include <cufftw.h>
-//#include <cufftw.h>
+#endif
 #include "multidim_array.h"
 #include "funcs.h"
 #include "tabfuncs.h"

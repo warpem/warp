@@ -37,6 +37,7 @@ endif()
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
 
 add_compile_definitions("FLOAT_PRECISION")
+add_compile_definitions("WARP_USE_CPU_FFTW")
 
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-w")
 SET(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS};-restrict")

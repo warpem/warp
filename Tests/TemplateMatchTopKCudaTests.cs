@@ -135,21 +135,30 @@ public class TemplateMatchTopKCudaTests
                     deviceData, ctf, dims, angles, count, 2, 3, topK, topScores, topAngles, progress);
                 float[] scores = Read(topScores, elements * topK), ids = Read(topAngles, elements * topK);
                 Assert.Equal(1f, progress[0]);
-                GPU.CorrelateLargeVolume(textures[0], textures[1], 2, projectorDims,
-                    deviceData, ctf, dims, angles, count, 2, 3, oneScores, oneAngles, progress);
-                float[] legacyScores = Read(oneScores, elements), legacyAngles = Read(oneAngles, elements);
+                GPU.CorrelateLargeVolumeTopK(textures[0], textures[1], 2, projectorDims,
+                    deviceData, ctf, dims, angles, count, 2, 3, 1, oneScores, oneAngles, progress);
+                float[] singleBestScores = Read(oneScores, elements), singleBestAngles = Read(oneAngles, elements);
                 for (int voxel = 0; voxel < elements; voxel++)
                 {
-                    Near(scores[voxel], legacyScores[voxel]);
-                    Assert.Equal(ids[voxel], legacyAngles[voxel]);
+                    Near(scores[voxel], singleBestScores[voxel]);
+                    Assert.Equal(ids[voxel], singleBestAngles[voxel]);
                 }
+
+                // Template normalization must be invariant to a common transfer scale, including
+                // whitened transfers far below the historical absolute 0.01 CTF cutoff.
+                GPU.CopyHostToDevice(Enumerable.Repeat(1e-5f, fourierElements).ToArray(), ctf, fourierElements);
+                GPU.CorrelateLargeVolumeTopK(textures[0], textures[1], 2, projectorDims,
+                    deviceData, ctf, dims, angles, count, 2, 3, 1, oneScores, oneAngles, progress);
+                float[] scaledScores = Read(oneScores, elements);
+                for (int voxel = 0; voxel < elements; voxel++) Near(singleBestScores[voxel], scaledScores[voxel]);
+                GPU.CopyHostToDevice(Enumerable.Repeat(1f, fourierElements).ToArray(), ctf, fourierElements);
 
                 float[][] exhaustive = new float[count][];
                 for (int angle = 0; angle < count; angle++)
                 {
                     float[] singleAngle = angles.Skip(angle * 3).Take(3).ToArray();
-                    GPU.CorrelateLargeVolume(textures[0], textures[1], 2, projectorDims,
-                        deviceData, ctf, dims, singleAngle, 1, 1, 3, oneScores, oneAngles, progress);
+                    GPU.CorrelateLargeVolumeTopK(textures[0], textures[1], 2, projectorDims,
+                        deviceData, ctf, dims, singleAngle, 1, 1, 3, 1, oneScores, oneAngles, progress);
                     exhaustive[angle] = Read(oneScores, elements);
                 }
                 for (int voxel = 0; voxel < elements; voxel++)

@@ -15,6 +15,25 @@ public partial class TiltSeries
         template.MaskSpherically(diameterAngstrom / pixelSize, Math.Max(coarse ? 5 : 3, 20 / pixelSize), true);
     }
 
+    private static void SubtractMatchTemplateBackground(Image template, float diameter, float pixel)
+    {
+        // Potential maps can carry a nonzero solvent baseline. Masking that baseline creates a false sphere.
+        var background = new List<double>();
+        float[][] data = template.GetHost(Intent.ReadWrite);
+        float radius2 = MathF.Pow(.6f * diameter / pixel, 2);
+        int stride = Math.Max(1, (int)(template.ElementsReal / 8192));
+        long index = 0;
+        for(int z=0;z<template.Dims.Z;z++) for(int y=0;y<template.Dims.Y;y++) for(int x=0;x<template.Dims.X;x++,index++)
+        {
+            if(index % stride != 0) continue;
+            float dx=x-template.Dims.X/2,dy=y-template.Dims.Y/2,dz=z-template.Dims.Z/2;
+            if(dx*dx+dy*dy+dz*dz > radius2) background.Add(data[z][y*template.Dims.X+x]);
+        }
+        if(background.Count == 0) return;
+        float level=(float)TemplateMatchStatistics.Quantile(background,.5);
+        foreach(float[] slice in data) for(int i=0;i<slice.Length;i++) slice[i]-=level;
+    }
+
     private delegate int MatchBatchRefiner(ulong textureRe, ulong textureIm,
         int dim, int box, int views, int particles, int hypotheses,
         IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
@@ -22,13 +41,6 @@ public partial class TiltSeries
         float[] poses, int[] seedIds, float pixel, float cutoff, float diameter,
         int maxIterations, float mergeDistance, float mergeAngle,
         double[] summary, int[] diagnostics, double[] tiltStatistics);
-
-    private static bool MatchUsesBfgs(string optimizer) => optimizer switch
-    {
-        "bfgs" => true,
-        "gauss-newton" => false,
-        _ => throw new ArgumentException("Pose refinement optimizer must be bfgs or gauss-newton.", nameof(optimizer))
-    };
 
     private sealed class MatchGeometry
     {
@@ -137,7 +149,7 @@ public partial class TiltSeries
         public Matrix3 Rotation;
         public double Z, Gain, Amplitude;
         public int StartIndex, Iterations, Evaluations, MergedIntoStart = -1;
-        public double InitialZ, TrustRadius;
+        public double InitialZ;
         public bool Converged;
         public TemplateMatchTerminationReason TerminationReason;
         public double[] TiltStatistics;
@@ -148,17 +160,22 @@ public partial class TiltSeries
     private ParticlePeak[] RefineTemplateMatches(ProcessingOptionsTomoFullMatch options, Image template,
         ParticlePeak[] peaks, TemplateMatchStart[][] starts, Func<float, string, bool> progress)
     {
-        bool useBfgs = MatchUsesBfgs(options.RefineOptimizer);
         decimal originalBinTimes = options.BinTimes;
+        decimal originalLowpass = options.Lowpass;
         if (options.RefineExportTiltSpectra && !options.RefineFitBfactor)
             throw new ArgumentException("Per-tilt spectrum export requires amplitude/B fitting.");
-        float coarsePixel = (float)options.BinnedPixelSizeMean;
+        decimal coarseSampling = options.BinnedPixelSizeMean;
+        float coarsePixel = (float)coarseSampling;
         float maxShift = options.RefineMaxShift > 0 ? (float)options.RefineMaxShift : 3 * coarsePixel;
         decimal finalPixel = options.OptimizePosesAngPix ?? options.BinnedPixelSizeMean;
-        int stages = options.OptimizePosesSteps;
-        if (stages < 1 || finalPixel <= 0 || finalPixel > options.BinnedPixelSizeMean || options.Lowpass <= 0
+        if (finalPixel <= 0 || finalPixel > options.BinnedPixelSizeMean || originalLowpass <= 0 || originalLowpass > 1
             || options.RefineMergeFraction < 0 || options.RefineMergeFraction > 0.5M)
-            throw new ArgumentException("Invalid refinement resolution, stage count or low-pass cutoff.");
+            throw new ArgumentException("Invalid refinement resolution, merge threshold or low-pass cutoff.");
+        float[] resolutions = TemplateMatchStatistics.ResolutionSchedule(
+            2 * coarsePixel / (float)originalLowpass, 2 * (float)finalPixel / (float)originalLowpass);
+        // Even a single requested band needs a pass after estimating the shared envelope.
+        if (resolutions.Length == 1) resolutions = [resolutions[0], resolutions[0]];
+        int stages = resolutions.Length;
         if (options.RefineFitHighpass < 0 || (options.RefineFitBfactor && options.RefineFitHighpass > 0 &&
             options.RefineFitHighpass <= 2 * finalPixel / Math.Min(1M, options.Lowpass)))
             throw new ArgumentException("The amplitude/B high-pass must be nonnegative and coarser than the final refinement resolution.");
@@ -184,16 +201,17 @@ public partial class TiltSeries
                 }
         }
         using StreamWriter diagnostics = new(diagnosticsPath);
-        // Keep the established TSV schema; trust_radius_A is zero for BFGS.
-        diagnostics.WriteLine("stage\tpeak\tstart\tx_A\ty_A\tz_A\trot_deg\ttilt_deg\tpsi_deg\tprojection_z\tprofile_gain\tamplitude\titerations\tconverged\tusable_tilts\ttermination_reason\tevaluations\tinitial_z\ttrust_radius_A\tmerged_into_start");
+        diagnostics.WriteLine("stage\tpeak\tstart\tx_A\ty_A\tz_A\trot_deg\ttilt_deg\tpsi_deg\tprojection_z\tprofile_gain\tamplitude\titerations\tconverged\tusable_tilts\ttermination_reason\tevaluations\tinitial_z\tmerged_into_start");
         try
         {
             for (int stage = 0; stage < stages; stage++)
             {
-                decimal stagePixel = stages == 1 ? finalPixel : MathHelper.Lerp((decimal)coarsePixel, finalPixel, (decimal)stage / (stages - 1));
+                decimal stagePixel = Math.Min(coarseSampling, (decimal)resolutions[stage] * originalLowpass / 2);
+                if (stage == stages - 1) stagePixel = finalPixel;
                 options.BinTimes = (decimal)Math.Log2((double)(stagePixel / options.PixelSizeMean));
                 float pixel = (float)options.BinnedPixelSizeMean;
-                MatchProgress(progress, 0, $"Preparing batched GPU {(useBfgs ? "BFGS" : "Gauss-Newton")} pose refinement at {pixel:F3} A/px...");
+                options.Lowpass = (decimal)(2 * pixel / resolutions[stage]);
+                MatchProgress(progress, 0, $"Preparing batched GPU BFGS pose refinement at {pixel:F3} A/px...");
                 LoadMovieData(options, out _, out Image[] tilts, false, out _, out _);
                 LoadMovieMasks(options, out Image[] masks);
                 // Both loaders return shared caches. Borrow these buffers; do not Dispose them.
@@ -215,6 +233,7 @@ public partial class TiltSeries
                     float[][] noiseWeights = EstimateMatchNoise(tilts, masks, box, options.RefineNoisePatches);
                     int scaledSize = Math.Max(2, (int)Math.Round(template.Dims.X * (float)options.TemplatePixel / pixel / 2) * 2);
                     using Image scaled = template.AsScaled(new int3(scaledSize));
+                    SubtractMatchTemplateBackground(scaled, (float)options.TemplateDiameter, pixel);
                     MaskMatchTemplate(scaled, (float)options.TemplateDiameter, pixel, false);
                     using Image padded = scaled.AsPadded(new int3(box));
                     using Projector projector = new(padded, 2, true);
@@ -243,12 +262,15 @@ public partial class TiltSeries
                             {
                                 float3 angles = Matrix3.EulerFromMatrix(solution.Rotation) * Helper.ToDeg;
                                 diagnostics.WriteLine(FormattableString.Invariant(
-                                    $"{stage}\t{p}\t{solution.StartIndex}\t{solution.Position.X:R}\t{solution.Position.Y:R}\t{solution.Position.Z:R}\t{angles.X:R}\t{angles.Y:R}\t{angles.Z:R}\t{solution.Z:R}\t{solution.Gain:R}\t{solution.Amplitude:R}\t{solution.Iterations}\t{solution.Converged}\t{usableTilts[local]}\t{solution.TerminationReason}\t{solution.Evaluations}\t{solution.InitialZ:R}\t{solution.TrustRadius:R}\t{solution.MergedIntoStart}"));
+                                    $"{stage}\t{p}\t{solution.StartIndex}\t{solution.Position.X:R}\t{solution.Position.Y:R}\t{solution.Position.Z:R}\t{angles.X:R}\t{angles.Y:R}\t{angles.Z:R}\t{solution.Z:R}\t{solution.Gain:R}\t{solution.Amplitude:R}\t{solution.Iterations}\t{solution.Converged}\t{usableTilts[local]}\t{solution.TerminationReason}\t{solution.Evaluations}\t{solution.InitialZ:R}\t{solution.MergedIntoStart}"));
                             }
                             solutions[p] = refined[local].Where(s => s.MergedIntoStart == -1).ToList();
                         }
                     }
                     diagnostics.Flush();
+                    if (stage == Math.Max(0, stages - 2))
+                        CalibrateMatchSeries(options, peaks, solutions, tilts, masks, noiseWeights, projector,
+                            ctfCoordinates, box, pixel, maxShift, System.IO.Path.Combine(MatchingDir, name + suffix), progress);
                 }
                 finally
                 {
@@ -260,6 +282,7 @@ public partial class TiltSeries
         finally
         {
             options.BinTimes = originalBinTimes;
+            options.Lowpass = originalLowpass;
         }
         List<(ParticlePeak Peak, int OriginalPeak, MatchSolution Solution)> output = new();
         string perTiltPath = System.IO.Path.Combine(MatchingDir, name + suffix + "_tilt_scores.tsv");
@@ -283,6 +306,29 @@ public partial class TiltSeries
             output.Add((peak, p, best));
             for (int t = 0; t < NTilts; t++)
                 perTilt.WriteLine(FormattableString.Invariant($"{p}\t{t}\t{best.TiltStatistics[t * 14]:R}\t{best.TiltStatistics[t * 14 + 1]:R}"));
+        }
+        // Estimate the amplitude interval from distinct strong detections; no labels or expected particle count.
+        List<MatchSolution> calibration = new();
+        foreach (var item in output.OrderByDescending(p => p.Solution.Z))
+        {
+            if (calibration.Any(other => (other.Position-item.Solution.Position).LengthSq() < (float)(options.PeakDistance*options.PeakDistance))) continue;
+            calibration.Add(item.Solution);
+            if (calibration.Count == 300) break;
+        }
+        if (calibration.Count >= 8)
+        {
+            double lower = Math.Max(0, TemplateMatchStatistics.Quantile(calibration.Select(s=>s.Amplitude).ToArray(),.02));
+            double upper = TemplateMatchStatistics.Quantile(calibration.Select(s=>s.Amplitude).ToArray(),.98);
+            for (int i=0;i<output.Count;i++)
+            {
+                var item = output[i];
+                double cross = 0, power = 0;
+                for(int t=0;t<NTilts;t++) { cross += item.Solution.TiltStatistics[t*14]; power += item.Solution.TiltStatistics[t*14+1]; }
+                item.Peak.Score = (float)TemplateMatchStatistics.BoundedGain(cross,power,lower,upper);
+                output[i] = item;
+            }
+            File.WriteAllText(System.IO.Path.Combine(MatchingDir,name+suffix+"_amplitude_bounds.tsv"),
+                FormattableString.Invariant($"lower\tupper\tcalibration_particles\n{lower:R}\t{upper:R}\t{calibration.Count}\n"));
         }
         List<ParticlePeak> kept = new();
         float separation2 = (float)(options.PeakDistance * options.PeakDistance);
@@ -309,14 +355,17 @@ public partial class TiltSeries
         if (callback?.Invoke(fraction, message) == true) throw new OperationCanceledException();
     }
 
-    private static bool MatchPatchIsUsable(Image image, Image mask, int x, int y, int box)
+    private static bool MatchPatchIsUsable(Image image, Image mask, int x, int y, int box, bool allowPadding = false)
     {
-        if (x < 0 || y < 0 || x + box > image.Dims.X || y + box > image.Dims.Y) return false;
+        if (!allowPadding && (x < 0 || y < 0 || x + box > image.Dims.X || y + box > image.Dims.Y)) return false;
+        int left = Math.Max(0, x), top = Math.Max(0, y);
+        int right = Math.Min(image.Dims.X, x + box), bottom = Math.Min(image.Dims.Y, y + box);
+        if (left >= right || top >= bottom) return false;
         if (mask == null) return true;
         float[] values = mask.GetHost(Intent.Read)[0];
-        for (int row = 0; row < box; row++)
-            for (int col = 0; col < box; col++)
-                if (values[(y + row) * mask.Dims.X + x + col] > 0.5f) return false;
+        for (int row = top; row < bottom; row++)
+            for (int col = left; col < right; col++)
+                if (values[row * mask.Dims.X + col] > 0.5f) return false;
         return true;
     }
 
@@ -324,74 +373,58 @@ public partial class TiltSeries
     {
         int elements = box * (box / 2 + 1);
         float[][] weights = Helper.ArrayOfFunction(_ => new float[elements], NTilts);
-        int shells = box / 2 + 1;
         for (int t = 0; t < NTilts; t++)
         {
             if (!UseTilt[t]) continue;
             List<int2> origins = new();
-            HashSet<(int X, int Y)> usedOrigins = new();
-            // Deterministic, unselected space-filling sample; identical for real/decoy runs.
+            HashSet<(int X, int Y)> used = new();
             for (int attempt = 0; origins.Count < samples && attempt < samples * 16; attempt++)
             {
                 int x = (int)(((attempt + 0.5) * 0.6180339887498949 % 1) * (tilts[t].Dims.X - box + 1));
                 int y = (int)(((attempt + 0.5) * 0.4142135623730951 % 1) * (tilts[t].Dims.Y - box + 1));
-                if (MatchPatchIsUsable(tilts[t], masks[t], x, y, box) && usedOrigins.Add((x, y)))
-                    origins.Add(new int2(x, y));
+                if (MatchPatchIsUsable(tilts[t], masks[t], x, y, box) && used.Add((x,y))) origins.Add(new int2(x,y));
             }
             if (origins.Count < 2) continue;
-            using Image patches = new(new int3(box, box, origins.Count));
-            float[][] patchData = patches.GetHost(Intent.Write);
-            float[] source = tilts[t].GetHost(Intent.Read)[0];
-            for (int p = 0; p < origins.Count; p++)
-                for (int y = 0; y < box; y++)
-                    Array.Copy(source, (origins[p].Y + y) * tilts[t].Dims.X + origins[p].X, patchData[p], y * box, box);
-            using Image ft = patches.AsFFT();
-            ft.Multiply(1f / (box * box));
-            float[][] fft = ft.GetHost(Intent.Read);
-            double[] sum = new double[shells];
-            long[] count = new long[shells];
-            for (int y = 0; y < box; y++)
+            double[] power = new double[elements];
+            // Accumulate in bounded batches: CTF padding must not multiply temporary storage by 256.
+            for (int first = 0; first < origins.Count; first += 8)
             {
-                int ky = y <= box / 2 ? y : y - box;
-                for (int x = 0; x < box / 2; x++)
+                int count = Math.Min(8, origins.Count - first);
+                using Image patches = new(new int3(box, box, count));
+                float[][] data = patches.GetHost(Intent.Write);
+                float[] source = tilts[t].GetHost(Intent.Read)[0];
+                for (int p = 0; p < count; p++)
                 {
-                    double radius = Math.Sqrt(x * x + ky * ky);
-                    if (radius <= 0 || radius >= box / 2 || (x == 0 && ky <= 0)) continue;
-                    int shell = Math.Min(shells - 1, (int)Math.Round(radius));
-                    int index = y * (box / 2 + 1) + x;
-                    foreach (float[] patch in fft)
+                    for (int y = 0; y < box; y++)
+                        Array.Copy(source, (origins[first+p].Y+y)*tilts[t].Dims.X+origins[first+p].X, data[p], y*box, box);
+                    float mean = (float)data[p].Average(v => (double)v);
+                    for (int i = 0; i < data[p].Length; i++) data[p][i] -= mean;
+                }
+                using Image ft = patches.AsFFT();
+                ft.Multiply(1f / (box * box));
+                foreach (float[] patch in ft.GetHost(Intent.Read))
+                    for (int f = 0; f < elements; f++)
                     {
-                        double re = patch[2 * index], im = patch[2 * index + 1];
-                        if (!double.IsFinite(re) || !double.IsFinite(im))
-                            throw new InvalidDataException($"Nonfinite Fourier data in noise patch at tilt {t}.");
-                        sum[shell] += re * re + im * im;
-                        count[shell]++;
+                        double re = patch[2*f], im = patch[2*f+1];
+                        if (!double.IsFinite(re) || !double.IsFinite(im)) throw new InvalidDataException("Nonfinite background patch.");
+                        power[f] += (re*re + im*im) / origins.Count;
                     }
-                }
             }
-            double[] power = new double[shells];
-            for (int s = 1; s < shells; s++)
-            {
-                double total = 0;
-                long n = 0;
-                for (int neighbor = Math.Max(1, s - 2); neighbor <= Math.Min(shells - 1, s + 2); neighbor++)
-                { total += sum[neighbor]; n += count[neighbor]; }
-                power[s] = n > 0 ? total / n : 0;
-            }
-            double[] positive = power.Where(v => v > 0 && double.IsFinite(v)).OrderBy(v => v).ToArray();
-            if (positive.Length == 0) continue;
-            double floor = Math.Max(1e-30, positive[positive.Length / 2] * 1e-4);
+            double floor = Math.Max(1e-30, TemplateMatchStatistics.Quantile(power, .5) * 1e-4);
             for (int y = 0; y < box; y++)
-            {
-                int ky = y <= box / 2 ? y : y - box;
-                for (int x = 0; x <= box / 2; x++)
+                for (int x = 0; x <= box/2; x++)
                 {
-                    int shell = (int)Math.Round(Math.Sqrt(x * x + ky * ky));
-                    if (shell > 0 && shell < shells)
-                        // Complex power / 2 is variance of one real/imaginary component.
-                        weights[t][y * (box / 2 + 1) + x] = (float)(2 / Math.Max(floor, power[shell]));
+                    double smoothed = 0;
+                    for (int dy = -1; dy <= 1; dy++)
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int xx = x + dx, yy = y + dy;
+                            if (xx < 0) { xx = -xx; yy = -yy; }
+                            xx = Math.Min(xx, box/2); yy = (yy % box + box) % box;
+                            smoothed += power[yy*(box/2+1)+xx] / 9;
+                        }
+                    weights[t][y*(box/2+1)+x] = x == 0 && y == 0 ? 0 : (float)(2/Math.Max(floor, smoothed));
                 }
-            }
         }
         if (weights.Count(w => w.Any(v => v > 0)) < 3)
             throw new InvalidOperationException("Fewer than three tilts have usable unmasked background patches for refinement.");
@@ -414,7 +447,6 @@ public partial class TiltSeries
         List<MatchSolution>[] starts, Image[] tilts, Image[] masks, float[][] noiseWeights, Projector projector,
         Image ctfCoordinates, int box, float pixel, float maxShift, bool merge, out int[] usableTilts, bool fitEnvelope = false)
     {
-        bool useBfgs = MatchUsesBfgs(options.RefineOptimizer);
         int particles = anchors.Length;
         int hypotheses = Math.Max(1, starts.Max(s => s.Count));
         int views = particles * NTilts;
@@ -428,6 +460,7 @@ public partial class TiltSeries
         float[][] phaseRadii = radiusSquared.GetHost(Intent.Write);
         float3[] centerShifts = new float3[views];
         CTFStruct[] ctfParams = new CTFStruct[views], quadParams = new CTFStruct[views];
+        float[] weightRotations = new float[views * 9];
         float[] geometry = new float[views * 18], bounds = new float[particles * 6];
         float[] poses = new float[particles * hypotheses * 12];
         int[] seedIds = Enumerable.Repeat(-1, particles * hypotheses).ToArray();
@@ -464,20 +497,27 @@ public partial class TiltSeries
                 Array.Clear(weights[view]);
                 float3 center = local.ImagePosition / pixel;
                 int x = (int)Math.Floor(center.X - box / 2f), y = (int)Math.Floor(center.Y - box / 2f);
-                if (UseTilt[t] && hasNoise[t] && MatchPatchIsUsable(tilts[t], masks[t], x, y, box))
+                // Missing padding is not a missing particle. Keep the target core in view, but permit
+                // CTF/motion padding outside the detector as in the research implementation.
+                float coreMargin = (float)options.TemplateDiameter / (2 * pixel) + MathF.Sqrt(3) * maxShift / pixel;
+                bool coreVisible = center.X >= coreMargin && center.Y >= coreMargin &&
+                    center.X < tilts[t].Dims.X - coreMargin && center.Y < tilts[t].Dims.Y - coreMargin;
+                if (UseTilt[t] && hasNoise[t] && coreVisible && MatchPatchIsUsable(tilts[t], masks[t], x, y, box, true))
                 {
                     usableTilts[p]++;
                     float[] source = tilts[t].GetHost(Intent.Read)[0];
-                    for (int row = 0; row < box; row++)
-                        Array.Copy(source, (y + row) * tilts[t].Dims.X + x, data[view], row * box, box);
+                    TemplateMatchStatistics.CopyCenteredPatch(source, tilts[t].Dims.X, tilts[t].Dims.Y, x, y, box, data[view]);
                     if (data[view].Any(v => !float.IsFinite(v)))
                         throw new InvalidDataException($"Nonfinite data in candidate {p}, tilt {t}.");
                     Array.Copy(noiseWeights[t], weights[view], elements);
+                    PackMatchMatrix(local.Rotation.Transposed(), weightRotations, view * 9);
                     centerShifts[view] = new float3(-(center.X - box / 2f - x) + box / 2f,
                         -(center.Y - box / 2f - y) + box / 2f, 0);
                 }
                 CTF parameters = GetCTFParamsForOneTilt(pixel, [local.ImagePosition.Z], [anchor], t,
                     weighted: true, weightsonly: false)[0];
+                if (matchDoseSlope.HasValue) parameters.Bfactor = (decimal)(-matchDoseSlope.Value * Dose[t]);
+                if (matchTiltScales != null) parameters.Scale *= (decimal)matchTiltScales[t];
                 if (!UseTilt[t]) parameters.Scale = 0;
                 ctfParams[view] = parameters.ToStruct();
                 parameters.PhaseShift -= 0.5M; // -sin(gamma) -> -cos(gamma)
@@ -536,14 +576,20 @@ public partial class TiltSeries
         double[] summary = new double[particles * hypotheses * 4];
         int[] diagnostic = new int[particles * hypotheses * 4];
         double[] statistics = new double[particles * hypotheses * NTilts * 2];
-        MatchBatchRefiner refine = useBfgs ? GPU.TemplateMatchRefineBatchBfgs : GPU.TemplateMatchRefineBatch;
+        if (matchDetectorVariance != null)
+        {
+            float[] detector = matchDetectorVariance.Select(v => (float)(v * Math.Pow((double)options.PixelSizeMean / pixel, 2) / (box * box))).ToArray();
+            GPU.MatchHybridWeights(inverseNoise.GetDevice(Intent.ReadWrite), box, particles, NTilts,
+                weightRotations, detector, pixel, Math.Max(400, 3 * diameter));
+        }
+        MatchBatchRefiner refine = GPU.TemplateMatchRefineBatchBfgs;
         int status = refine(projector.t_DataRe, projector.t_DataIm, projector.Data.Dims.X,
             box, NTilts, particles, hypotheses, observed.GetDevice(Intent.Read), ctf.GetDevice(Intent.Read),
             quadrature.GetDevice(Intent.Read), inverseNoise.GetDevice(Intent.Read), radiusSquared.GetDevice(Intent.Read),
             geometry, bounds, symmetry, symmetries.Length, poses, seedIds, pixel, cutoff, diameter,
             options.RefineIterations, mergeDistance,
             MathF.Asin(Math.Min(1, 2 * mergeDistance / diameter)), summary, diagnostic, statistics);
-        if (status != 0) throw new InvalidOperationException($"Batched GPU {options.RefineOptimizer} pose refinement failed with status {status}.");
+        if (status != 0) throw new InvalidOperationException($"Batched GPU BFGS pose refinement failed with status {status}.");
         for (int p = 0; p < particles; p++)
             for (int h = 0; h < starts[p].Count; h++)
             {
@@ -576,10 +622,9 @@ public partial class TiltSeries
                     StartIndex = starts[p][h].StartIndex, Iterations = diagnostic[d], Evaluations = diagnostic[d + 1],
                     Converged = diagnostic[d + 2] == 1,
                     TerminationReason = diagnostic[d + 2] == 1 ? TemplateMatchTerminationReason.StepTolerance
-                        : diagnostic[d + 2] == 2 ? (useBfgs ? TemplateMatchTerminationReason.LineSearchStalled
-                            : TemplateMatchTerminationReason.TrustRegionStalled) : TemplateMatchTerminationReason.IterationLimit,
+                        : diagnostic[d + 2] == 2 ? TemplateMatchTerminationReason.LineSearchStalled : TemplateMatchTerminationReason.IterationLimit,
                     MergedIntoStart = mergedSlot >= 0 ? starts[p][mergedSlot].StartIndex : -1,
-                    InitialZ = summary[d + 2], TrustRadius = summary[d + 3], TiltStatistics = tiltStatistics
+                    InitialZ = summary[d + 2], TiltStatistics = tiltStatistics
                 });
             }
         if (fitEnvelope)

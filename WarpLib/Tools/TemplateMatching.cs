@@ -30,7 +30,6 @@ namespace Warp.Tools
         IterationLimit,
         LineSearchStalled,
         StepTolerance,
-        TrustRegionStalled,
         InsufficientTilts,
         InvalidPose
     }

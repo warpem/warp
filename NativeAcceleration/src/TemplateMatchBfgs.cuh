@@ -1,5 +1,5 @@
 // Included inside TemplateMatchRefineBatch.cu's anonymous namespace, sharing the
-// exact frozen-geometry forward model with Gauss-Newton. All BFGS arithmetic is
+// frozen-geometry forward model. All BFGS arithmetic is
 // FP32; conversion to double occurs only at the existing diagnostic ABI.
 namespace bfgs = warp_template_match_bfgs;
 constexpr int BfgsStatistics = 14;

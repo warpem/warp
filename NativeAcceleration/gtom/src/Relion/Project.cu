@@ -332,7 +332,8 @@ namespace gtom
 		{
 			tfloat ctf = d_ctf[id];
 
-			if (abs(ctf) < 1e-2f)
+			// Whitening changes transfer units; an absolute CTF cutoff can erase the entire template.
+			if (ctf == 0)
 			{
 				d_proj[id] = make_cuComplex(0, 0);
 				continue;

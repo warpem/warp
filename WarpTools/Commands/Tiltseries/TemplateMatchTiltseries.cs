@@ -19,11 +19,11 @@ using Warp.Workers.Queue;
 namespace WarpTools.Commands
 {
     [VerbGroup("Tilt series")]
-    [Verb("ts_template_match", HelpText = "Match previously reconstructed tomograms against a 3D template, producing a list of the highest-scoring matches")]
+    [Verb("ts_template_match", HelpText = "Match a 3D template against tilt images using matched-filter proposals and calibrated multistart refinement")]
     [CommandRunner(typeof(TemplateMatchTiltseries))]
     class TemplateMatchTiltseriesOptions : DistributedOptions
     {
-        [Option("tomo_angpix", Required = true, HelpText = "Pixel size of the reconstructed tomograms in Angstrom")]
+        [Option("tomo_angpix", Required = true, HelpText = "Pixel size of the coarse matched-filter volume in Angstrom")]
         public double TomoAngPix { get; set; }
 
         [Option("template_path", HelpText = "Path to the template file")]
@@ -48,17 +48,11 @@ namespace WarpTools.Commands
         [Option("subdivisions", Default = 3, HelpText = "Number of subdivisions defining the angular search step: 2 = 15° step, 3 = 7.5°, 4 = 3.75° and so on")]
         public int HealpixOrder { get; set; }
 
-        [Option("optimize_poses", HelpText = "Additionally optimize poses for each detected position using a local GPU gradient-based search")]
-        public bool OptimizePoses { get; set; }
-
-        [Option("match_topk", Default = 8, HelpText = "With --optimize_poses, retain this many orientation scores per voxel; leaderboard GPU memory is 8*K bytes per padded voxel")]
+        [Option("match_topk", Default = 8, HelpText = "Retain this many orientation scores per voxel; leaderboard GPU memory is 8*K bytes per padded voxel")]
         public int MatchTopK { get; set; }
 
         [Option("refine_starts", Default = 32, HelpText = "Maximum GPU pose hypotheses per peak, pooled from that voxel and its six neighbors")]
         public int RefineStarts { get; set; }
-
-        [Option("refine_optimizer", Default = "bfgs", HelpText = "GPU pose optimizer: bfgs (FP32) or gauss-newton (original trust-region implementation)")]
-        public string RefineOptimizer { get; set; } = "bfgs";
 
         [Option("refine_iterations", Default = 90, HelpText = "Maximum accepted GPU optimization steps per hypothesis and resolution stage")]
         public int RefineIterations { get; set; }
@@ -69,7 +63,7 @@ namespace WarpTools.Commands
         [Option("refine_max_shift", Default = 0.0, HelpText = "Maximum displacement per coordinate from the proposal center, in Angstrom; 0 uses three tomogram pixels")]
         public double RefineMaxShift { get; set; }
 
-        [Option("refine_noise_patches", Default = 32, HelpText = "Unselected patches per tilt for the fixed radial background power estimate")]
+        [Option("refine_noise_patches", Default = 256, HelpText = "Unselected patches per tilt for the anisotropic background power estimate")]
         public int RefineNoisePatches { get; set; }
 
         [Option("refine_fit_bfactor", HelpText = "Jointly fit amplitude and B at each final pose; write envelope diagnostics without changing particle scores or selection")]
@@ -84,11 +78,8 @@ namespace WarpTools.Commands
         [Option("decoy_templates", Separator = ',', HelpText = "Optional comma-separated decoy map paths. Each runs the complete search and writes empirical false-count diagnostics. Maps must match the target dimensions and pixel size; --template_angpix overrides all map headers")]
         public IEnumerable<string> DecoyTemplates { get; set; } = Array.Empty<string>();
 
-        [Option("optimize_poses_angpix", HelpText = "Minimum pixel size to use for pose optimization. Leave empty to set it to --tomo_angpix")]
+        [Option("optimize_poses_angpix", HelpText = "Minimum pixel size to use for pose optimization. Leave empty to use the coarse-search pixel size (--tomo_angpix)")]
         public double? OptimizePosesAngPix { get; set; }
-
-        [Option("optimize_poses_steps", Default = 1, HelpText = "Number of steps in which to decrease the pixel size from --tomo_angpix to --optimize_poses_angpix")]
-        public int OptimizePosesSteps { get; set; }
 
         [Option("tilt_range", HelpText = "Limit the range of angles between the reference's Z axis and the tomogram's XY plane to plus/minus this value, in °; " +
                                          "useful for matching filaments lying flat in the XY plane")]
@@ -98,21 +89,14 @@ namespace WarpTools.Commands
                                                          "higher than 32 probably won't lead to speed-ups")]
         public int BatchAngles { get; set; }
 
-        [Option("peak_distance", HelpText = "Minimum distance (in Angstrom) between peaks; leave empty to use template diameter")]
+        [Option("peak_distance", HelpText = "Minimum distance (in Angstrom) between peaks; leave empty to use half the template diameter")]
         public int? PeakDistance { get; set; }
 
-        [Option("npeaks", Default = 2000, HelpText = "Maximum number of peak positions to save")]
+        [Option("npeaks", Default = 8000, HelpText = "Maximum coarse candidate positions; all are refined before final spatial suppression")]
         public int PeakNumber { get; set; }
 
         [Option("tophat", HelpText = "Filter peaks by applying tophat transform with this connectivity level. Valid values: 1, 2, 3")]
         public int? Tophat { get; set; }
-
-        [Option("dont_normalize", HelpText = "Don't set score distribution to median = 0, stddev = 1")]
-        public bool DontNormalizeScores { get; set; }
-
-        [Option("whiten", HelpText = "Perform spectral whitening to give higher-resolution information more weight; " +
-                                     "this can help when the alignments are already good and you need more selective matching")]
-        public bool Whiten { get; set; }
 
         [Option("lowpass", Default = 1.0, HelpText = "Gaussian low-pass filter to be applied to template and tomogram, in fractions of Nyquist; " +
                                                      "1.0 = no low-pass, <1.0 = low-pass")]
@@ -122,27 +106,21 @@ namespace WarpTools.Commands
                                                            "larger value = slower fall-off")]
         public double LowpassSigma { get; set; }
 
-        [Option("max_missing_tilts", Default = 2, HelpText = "Dismiss positions not covered by at least this many tilts; " +
-                                                             "set to -1 to disable position culling")]
+        [Option("max_missing_tilts", Default = -1, HelpText = "Optional coarse coverage restriction: maximum missing tilts; " +
+                                                              "-1 leaves visibility handling to per-candidate refinement")]
         public int MaxMissingTilts { get; set; }
-
-        [Option("reuse_results", HelpText = "Reuse correlation volumes from a previous run if available, only extract peak positions")]
-        public bool ReuseResults { get; set; }
 
         [Option("check_hand", Default = 0, HelpText = "Also try a flipped version of the template on this many tomograms to see what geometric hand they have")]
         public int CheckHandN { get; set; }
-
-        [Option("subvolume_size", Default = 192, HelpText = "Matching is performed locally using sub-volumes of this size in pixel")]
-        public int SubVolumeSize { get; set; }
 
         [Option("override_suffix", HelpText = "Override the default STAR file suffix derived from the template name; " +
                                               "must include the leading underscore if you want to have it")]
         public string OverrideSuffix { get; set; } = "";
 
-        [Option("dont_save_corr", HelpText = "Don't save volume with correlation scores. Makes --reuse_results impossible later.")]
+        [Option("dont_save_corr", HelpText = "Don't save volume with correlation scores.")]
         public bool DontSaveCorr { get; set; }
 
-        [Option("dont_save_angles", HelpText = "Don't save volume with angle information. Makes --reuse_results impossible later.")]
+        [Option("dont_save_angles", HelpText = "Don't save volume with angle information.")]
         public bool DontSaveAngles { get; set; }
     }
 
@@ -197,22 +175,16 @@ namespace WarpTools.Commands
             if (CLI.BatchAngles < 1)
                 throw new Exception("--batch_angles must be positive");
 
-            CLI.RefineOptimizer = CLI.RefineOptimizer?.ToLowerInvariant();
-            if (CLI.RefineOptimizer != "bfgs" && CLI.RefineOptimizer != "gauss-newton")
-                throw new Exception("--refine_optimizer must be bfgs or gauss-newton");
             if (!double.IsFinite(CLI.RefineMergeFraction) || CLI.RefineMergeFraction < 0 || CLI.RefineMergeFraction > 0.5)
                 throw new Exception("--refine_merge_fraction must lie between 0 (disabled) and 0.5");
             if (CLI.MatchTopK < 1 || CLI.RefineStarts < 1 || CLI.RefineIterations < 1 || CLI.RefineNoisePatches < 2)
                 throw new Exception("--match_topk, --refine_starts and --refine_iterations must be positive; --refine_noise_patches must be at least 2");
             if (!double.IsFinite(CLI.RefineMaxShift) || CLI.RefineMaxShift < 0)
                 throw new Exception("--refine_max_shift must be finite and nonnegative");
-            if (CLI.OptimizePosesSteps < 1 || (CLI.OptimizePosesAngPix.HasValue && (!double.IsFinite(CLI.OptimizePosesAngPix.Value) || CLI.OptimizePosesAngPix.Value <= 0 || CLI.OptimizePosesAngPix.Value > CLI.TomoAngPix)))
-                throw new Exception("Pose optimization requires positive steps and a pixel size no larger than --tomo_angpix");
-            if (CLI.OptimizePoses && CLI.ReuseResults)
-                throw new Exception("--optimize_poses cannot reuse legacy single-orientation volumes; omit --reuse_results to build top-K lists");
+            if (CLI.OptimizePosesAngPix.HasValue && (!double.IsFinite(CLI.OptimizePosesAngPix.Value) || CLI.OptimizePosesAngPix.Value <= 0 || CLI.OptimizePosesAngPix.Value > CLI.TomoAngPix))
+                throw new Exception("Pose optimization requires a positive pixel size no larger than --tomo_angpix");
 
-            if (CLI.RefineFitBfactor && !CLI.OptimizePoses)
-                throw new Exception("--refine_fit_bfactor requires --optimize_poses");
+
             if (CLI.RefineExportTiltSpectra && !CLI.RefineFitBfactor)
                 throw new Exception("--refine_export_tilt_spectra requires --refine_fit_bfactor");
 
@@ -223,8 +195,6 @@ namespace WarpTools.Commands
                 throw new Exception("--refine_fit_highpass must be coarser than the final refinement resolution; otherwise the fitting band is empty");
 
             string[] DecoyPaths = (CLI.DecoyTemplates ?? Array.Empty<string>()).Select(Path.GetFullPath).ToArray();
-            if (DecoyPaths.Length > 0 && !CLI.OptimizePoses)
-                throw new Exception("--decoy_templates requires --optimize_poses");
             foreach (string decoy in DecoyPaths)
                 if (!File.Exists(decoy))
                     throw new FileNotFoundException("Decoy template not found", decoy);
@@ -244,10 +214,7 @@ namespace WarpTools.Commands
             if (CLI.TemplateFlip && CLI.CheckHandN > 0)
                 throw new Exception("--template_flip and --check_hand can't be used together");
 
-            if (CLI.SubVolumeSize < 64)
-                throw new Exception("--subvolume_size can't be lower than 64");
-
-            if (!double.IsFinite(CLI.Lowpass) || CLI.Lowpass < 0 || CLI.Lowpass > 1 || CLI.OptimizePoses && CLI.Lowpass == 0)
+            if (!double.IsFinite(CLI.Lowpass) || CLI.Lowpass <= 0 || CLI.Lowpass > 1)
                 throw new Exception("--lowpass must be between 0 and 1");
 
             if (CLI.LowpassSigma < 0)
@@ -263,7 +230,7 @@ namespace WarpTools.Commands
             if (CLI.TemplateAngPix.HasValue)
                 Options.Tasks.TomoMatchTemplatePixel = (decimal)CLI.TemplateAngPix;
             Options.Tasks.TomoMatchTemplateDiameter = CLI.TemplateDiameter;
-            Options.Tasks.TomoMatchPeakDistance = CLI.PeakDistance.HasValue ? CLI.PeakDistance.Value : CLI.TemplateDiameter;
+            Options.Tasks.TomoMatchPeakDistance = CLI.PeakDistance.HasValue ? CLI.PeakDistance.Value : CLI.TemplateDiameter / 2M;
             Options.Tasks.TomoMatchTemplateFraction = 1;
 
             Options.Tasks.TomoMatchHealpixOrder = CLI.HealpixOrder;
@@ -271,16 +238,12 @@ namespace WarpTools.Commands
             Options.Tasks.TomoMatchSymmetry = CLI.TemplateSymmetry;
             Options.Tasks.TomoMatchNResults = CLI.PeakNumber;
 
-            Options.Tasks.ReuseCorrVolumes = CLI.ReuseResults;
-            Options.Tasks.TomoMatchWhitenSpectrum = CLI.Whiten;
 
             var OptionsMatch = Options.GetProcessingTomoFullMatch();
 
             OptionsMatch.UseTophat = CLI.Tophat ?? 0;
-            OptionsMatch.OptimizePoses = CLI.OptimizePoses;
             OptionsMatch.MatchTopK = CLI.MatchTopK;
             OptionsMatch.RefineStarts = CLI.RefineStarts;
-            OptionsMatch.RefineOptimizer = CLI.RefineOptimizer;
             OptionsMatch.RefineIterations = CLI.RefineIterations;
             OptionsMatch.RefineMergeFraction = (decimal)CLI.RefineMergeFraction;
             OptionsMatch.RefineMaxShift = (decimal)CLI.RefineMaxShift;
@@ -289,12 +252,9 @@ namespace WarpTools.Commands
             OptionsMatch.RefineFitHighpass = (decimal)CLI.RefineFitHighpass;
             OptionsMatch.RefineExportTiltSpectra = CLI.RefineExportTiltSpectra;
             OptionsMatch.OptimizePosesAngPix = (decimal?)CLI.OptimizePosesAngPix;
-            OptionsMatch.OptimizePosesSteps = CLI.OptimizePosesSteps;
             OptionsMatch.TiltRange = CLI.TiltRange != null ? (decimal)CLI.TiltRange.Value : -1;
-            OptionsMatch.SubVolumeSize = CLI.SubVolumeSize;
             OptionsMatch.Supersample = 1;
             OptionsMatch.MaxMissingTilts = CLI.MaxMissingTilts;
-            OptionsMatch.NormalizeScores = !CLI.DontNormalizeScores;
             OptionsMatch.Lowpass = (decimal)CLI.Lowpass;
             OptionsMatch.LowpassSigma = (decimal)CLI.LowpassSigma;
             

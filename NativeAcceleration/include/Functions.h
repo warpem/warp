@@ -48,17 +48,7 @@ extern "C" __declspec(dllexport) int TemplateMatchRefineEvaluate(
     const float* phaseDerivatives, float cutoffRadius, double* output);
 extern "C" __declspec(dllexport) int TemplateMatchRefineDestroy(void* context);
 
-// GPU-resident multi-hypothesis trust-region refinement; see TemplateMatchRefineBatch.h for layouts.
-extern "C" __declspec(dllexport) int TemplateMatchRefineBatch(
-    unsigned long long textureRe, unsigned long long textureIm,
-    int dim, int box, int views, int particles, int hypotheses,
-    const float2* data, const float* ctf, const float* quadrature,
-    const float* inverseNoise, const float* phaseRadii,
-    const float* geometry, const float* bounds, const float* symmetry, int symmetryCount,
-    float* poses, int* seedIds, float pixel, float cutoff, float diameter, int maxIterations,
-    float mergeDistance, float mergeAngle, double* summary, int* diagnostics, double* tiltStatistics);
-
-// FP32 BFGS variant with identical buffer layouts; the summary trust-radius slot is zero.
+// GPU-resident multi-hypothesis FP32 BFGS refinement; see TemplateMatchRefineBatch.h for layouts.
 extern "C" __declspec(dllexport) int TemplateMatchRefineBatchBfgs(
     unsigned long long textureRe, unsigned long long textureIm,
     int dim, int box, int views, int particles, int hypotheses,
@@ -103,22 +93,6 @@ extern "C" __declspec(dllexport) void CorrelateSubTomos(unsigned long long t_pro
                                                         float* d_bestcorrelation,
                                                         int* d_bestangle,
                                                         float* h_progressfraction);
-extern "C" __declspec(dllexport) void CorrelateLargeVolume(unsigned long long t_projectordataRe,
-                                                            unsigned long long t_projectordataIm,
-                                                            float projectoroversample,
-                                                            int3 dimsprojector,
-                                                            float2* d_experimentalft,
-                                                            float* d_ctf,
-                                                            int3 dimsvolume,
-                                                            float3* h_angles,
-                                                            uint nangles,
-                                                            uint batchangles,
-                                                            float maskradius,
-                                                            float* d_bestcorrelation,
-                                                            int* d_bestangle,
-                                                            float* h_progressfraction);
-
-// Both output buffers contain topk rank-major volumes of floats, including angle IDs.
 extern "C" __declspec(dllexport) void CorrelateLargeVolumeTopK(unsigned long long t_projectordataRe,
                                                              unsigned long long t_projectordataIm,
                                                              float projectoroversample,

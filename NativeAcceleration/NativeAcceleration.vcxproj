@@ -245,6 +245,7 @@
     <CudaCompile Include="src/RealspaceProjection.cu" />
     <CudaCompile Include="src/TemplateMatchRefine.cu" />
     <CudaCompile Include="src/TemplateMatchRefineBatch.cu" />
+    <CudaCompile Include="src/TemplateMatchPreparation.cu" />
     <CudaCompile Include="src/Raycast.cu" />
     <CudaCompile Include="src\DFT.cu" />
     <CudaCompile Include="src\Helical.cu" />

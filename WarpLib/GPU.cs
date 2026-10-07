@@ -7,7 +7,7 @@ using Warp.Tools;
 namespace Warp
 {
     [SuppressUnmanagedCodeSecurity]
-    public static class GPU
+    public static partial class GPU
     {
         public static readonly object Sync = new object();
 
@@ -40,17 +40,6 @@ namespace Warp
 
         // One upload/call per particle batch and resolution stage; optimizer state stays on device.
         // Array layouts and termination codes: NativeAcceleration/include/TemplateMatchRefineBatch.h.
-        [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineBatch", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int TemplateMatchRefineBatch(ulong textureRe, ulong textureIm,
-            int dim, int box, int views, int particles, int hypotheses,
-            IntPtr data, IntPtr ctf, IntPtr quadrature, IntPtr inverseNoise, IntPtr phaseRadii,
-            [In] float[] geometry, [In] float[] bounds, [In] float[] symmetry, int symmetryCount,
-            [In, Out] float[] poses, [In, Out] int[] seedIds,
-            float pixel, float cutoff, float diameter, int maxIterations, float mergeDistance, float mergeAngle,
-            [Out] double[] summary, [Out] int[] diagnostics, [Out] double[] tiltStatistics);
-
-        // FP32 BFGS alternative; same buffer layouts as Gauss-Newton, with summary[3] = 0
-        // because line search does not maintain a trust radius.
         [DllImport("NativeAcceleration", EntryPoint = "TemplateMatchRefineBatchBfgs", CallingConvention = CallingConvention.Cdecl)]
         public static extern int TemplateMatchRefineBatchBfgs(ulong textureRe, ulong textureIm,
             int dim, int box, int views, int particles, int hypotheses,
@@ -245,22 +234,6 @@ namespace Warp
                                                     IntPtr d_bestcorrelation,
                                                     IntPtr d_bestangle,
                                                     float[] h_progressfraction);
-
-        [DllImport("NativeAcceleration", EntryPoint = "CorrelateLargeVolume")]
-        public static extern void CorrelateLargeVolume(ulong t_projectordataRe,
-                                                       ulong t_projectordataIm,
-                                                       float projectoroversample,
-                                                       int3 dimsprojector,
-                                                       IntPtr d_experimentalft,
-                                                       IntPtr d_ctf,
-                                                       int3 dimsvolume,
-                                                       float[] h_angles,
-                                                       uint nangles,
-                                                       uint batchangles,
-                                                       float maskradius,
-                                                       IntPtr d_bestcorrelation,
-                                                       IntPtr d_bestangle,
-                                                       float[] h_progressfraction);
 
         /// <summary>
         /// Retains exact top-K orientation scores for every voxel. Both output
