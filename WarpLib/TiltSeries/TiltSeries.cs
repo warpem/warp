@@ -1914,6 +1914,7 @@ namespace Warp
                         _UnselectManual = bool.Parse(UnselectManualString);
                     else
                         _UnselectManual = null;
+                    CTFSpecimenThicknessAngstrom = XMLHelper.LoadAttribute(Reader, "CTFSpecimenThicknessAngstrom", 0M);
                     CTFResolutionEstimate = XMLHelper.LoadAttribute(Reader, "CTFResolutionEstimate", CTFResolutionEstimate);
 
                     #endregion
@@ -2167,6 +2168,7 @@ namespace Warp
 
                 Writer.WriteAttributeString("UnselectFilter", UnselectFilter.ToString());
                 Writer.WriteAttributeString("UnselectManual", UnselectManual.ToString());
+                Writer.WriteAttributeString("CTFSpecimenThicknessAngstrom", CTFSpecimenThicknessAngstrom.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("CTFResolutionEstimate", CTFResolutionEstimate.ToString(CultureInfo.InvariantCulture));
 
                 #endregion

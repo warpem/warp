@@ -55,6 +55,21 @@ public static class CtfFitDiagnostics
         // Bin boundaries use the original frequency moments once, avoiding FP32
         // rounding moving a sample that lies exactly on a display-pixel boundary.
         int[] displayBin = records[0].Spectrum.Samples.Select(s => (int)(Math.Sqrt(s.Q2) * (double)globalReference.PixelSize * window)).ToArray();
+        // All patches with the same plane/window share their depth/aperture modulation.
+        // Cache it once instead of evaluating trigonometry in every diagnostic sample loop.
+        var modulationKeys = geometry.Select(g =>
+        {
+            var slab = g.SlabGeometry(fit.Parameters);
+            return (Squared:fit.Parameters[g.ThicknessIndex]*slab.Factor, slab.WidthX, slab.WidthY);
+        }).ToArray();
+        var modulationCache = new Dictionary<(double Squared,double WidthX,double WidthY),float[]>();
+        foreach (var key in modulationKeys.Distinct())
+        {
+            var values = new float[records[0].Spectrum.Samples.Length];
+            for (int j = 0; j < values.Length; j++)
+                values[j] = (float)CtfSlabModel.Modulation(kd*records[0].Spectrum.Samples[j].Q2,key.Squared,key.WidthX,key.WidthY).Value;
+            modulationCache.Add(key,values);
+        }
         var diagnostics = new Diagnostic[references.Length];
         Parallel.For(0, chunks.Count, chunk =>
         {
@@ -67,6 +82,7 @@ public static class CtfFitDiagnostics
             {
                 var spectrum = records[i].Spectrum;
                 var local = geometry[i].Evaluate(fit.Parameters);
+                var modulations = modulationCache[modulationKeys[i]];
                 float df = (float)local.Defocus, phase = (float)local.Phase, powerScale = (float)spectrum.PowerScale;
                 float envelopeMaximum = 0;
                 for (int k = stride / 2; k < stride; k++) envelopeMaximum = MathF.Max(envelopeMaximum, fit.Coefficients[i * stride + k]);
@@ -77,6 +93,12 @@ public static class CtfFitDiagnostics
                 {
                     var s = spectrum.Samples[j];
                     var (background, envelope) = spectrum.EvaluateNuisance(j, fit.Coefficients, i * stride);
+                    // Express the depth/patch-averaged model as effective background + signed
+                    // envelope * sin²(gamma). This aligns curves without treating sinc reversals
+                    // as anticorrelated CTFs; near-zero transfer carries negligible diagnostic weight.
+                    float modulation = modulations[j];
+                    background += .5f*envelope*(1-modulation);
+                    envelope *= modulation;
                     float q2 = (float)s.Q2, count = (float)s.Count;
                     int b = displayBin[j];
                     if (b < displayBins)
@@ -84,7 +106,7 @@ public static class CtfFitDiagnostics
                         a.Background[b] += background * powerScale * count;
                         a.Envelope[b] += envelope * powerScale * count; a.Count[b] += count;
                     }
-                    if (envelope <= envelopeFloor) continue;
+                    if (MathF.Abs(envelope) <= envelopeFloor) continue;
                     float target = kd * (q2 * df + (float)s.AstigX * ax + (float)s.AstigY * ay) + kc * (float)s.Q4 + phase;
                     float weight = count * envelope * envelope;
                     float value = ((float)(s.Power / spectrum.PowerScale) - background) / envelope;
@@ -149,11 +171,11 @@ public static class CtfFitDiagnostics
     {
         int bins = a.Count.Length;
         for (int b = 0; b < bins; b++) if (a.Count[b] > 0) { a.Background[b] /= a.Count[b]; a.Envelope[b] /= a.Count[b]; }
-        float floor = a.Envelope.Max() * EnvelopeFractionFloor;
+        float floor = a.Envelope.Max(v => MathF.Abs(v)) * EnvelopeFractionFloor;
         for (int y = 0; y < window / 2; y++) for (int x = 0; x < window; x++)
         {
             int xx = x - window / 2, yy = window / 2 - 1 - y, b = (int)MathF.Sqrt(xx * xx + yy * yy), i = y * window + x;
-            display[i] = b < bins && a.Count[b] > 0 && a.Envelope[b] > floor ? (display[i] - a.Background[b]) / a.Envelope[b] : 0;
+            display[i] = b < bins && a.Count[b] > 0 && MathF.Abs(a.Envelope[b]) > floor ? (display[i] - a.Background[b]) / a.Envelope[b] : 0;
         }
     }
 

@@ -163,11 +163,12 @@ public sealed class CtfCpuSpectrum
         return c / Math.Sqrt(Math.Max(1e-30, p));
     }
 
-    public Evaluation Evaluate(double defocus, double astigX, double astigY, double phase, bool details = false)
+    public Evaluation Evaluate(double defocus, double astigX, double astigY, double phase, bool details = false, double thicknessSquared = 0, double widthX = 0, double widthY = 0)
     {
         EnsureBackgroundProjection();
         int n = Samples.Length, size = 2 * knots;
         double[] model = new double[n], derivative = new double[n];
+        var volumeDerivative = new double[n,3];
         var gram = new double[size, size]; var rhs = new double[size];
         for (int j = 0; j < knots; j++)
         {
@@ -178,7 +179,11 @@ public sealed class CtfCpuSpectrum
         {
             Sample s = Samples[i];
             double gamma = kDefocus * (s.Q2 * defocus + s.AstigX * astigX + s.AstigY * astigY) + kCs * s.Q4 + amplitudePhase + phase;
-            model[i] = .5 - .5 * Math.Cos(2 * gamma); derivative[i] = Math.Sin(2 * gamma);
+            var modulation = CtfSlabModel.Modulation(kDefocus*s.Q2,thicknessSquared,widthX,widthY);
+            model[i] = .5-.5*Math.Cos(2*gamma)*modulation.Value; derivative[i] = Math.Sin(2*gamma)*modulation.Value;
+            volumeDerivative[i,0] = -.5*Math.Cos(2*gamma)*modulation.ThicknessSquared;
+            volumeDerivative[i,1] = -.5*Math.Cos(2*gamma)*modulation.WidthX;
+            volumeDerivative[i,2] = -.5*Math.Cos(2*gamma)*modulation.WidthY;
             for (int j = firstBasis[i]; j < lastBasis[i]; j++)
             {
                 if (basis[i, j] == 0) continue;
@@ -190,7 +195,7 @@ public sealed class CtfCpuSpectrum
         }
         CompleteGram(gram);
         double[] coefficients = NonnegativeEnvelope(gram, rhs, knots);
-        double loss = 0; double[] gradient = new double[4];
+        double loss = 0; double[] gradient = new double[7];
         double[] bg = details ? new double[n] : null, env = details ? new double[n] : null;
         for (int i = 0; i < n; i++)
         {
@@ -205,6 +210,7 @@ public sealed class CtfCpuSpectrum
             gradient[1] += d * kDefocus * s.AstigX;
             gradient[2] += d * kDefocus * s.AstigY;
             gradient[3] += d;
+            for(int j=0;j<3;j++)gradient[4+j] += weight[i]*residual*e*volumeDerivative[i,j];
             if (details) { bg[i] = a; env[i] = e; }
         }
         loss += .5 * Ridge * coefficients.Sum(c => c * c);

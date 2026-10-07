@@ -30,7 +30,7 @@ public partial class TiltSeries
             float3[] tiltPositions = Enumerable.Range(0, NTilts).Select(t => new float3(.5f, .5f,
                 maxDose > minDose ? (Dose[t] - minDose) / (maxDose - minDose) : .5f)).ToArray();
             double[][] phaseWeights = CtfFitGeometry.GridWeights(phaseDims, tiltPositions);
-            double[] initial = new double[nd + 2 + np + 2];
+            double[] initial = new double[nd + 2 + np + 3];
             var searchGroups = new CtfPowerSpectrum.Observation[NTilts][];
             var searchOffsets = new double[NTilts][];
             CtfSpectrumFit basisSource = null;
@@ -57,7 +57,7 @@ public partial class TiltSeries
                     double[] dw = new double[NTilts]; dw[t] = 1;
                     var g = new CtfFitGeometry(dw, phaseWeights[t],
                         (local[i].Position.X - .5) * images[t].Dims.X * (double)options.BinnedPixelSizeMean * 1e-4,
-                        (local[i].Position.Y - .5) * images[t].Dims.Y * (double)options.BinnedPixelSizeMean * 1e-4, rotation);
+                        (local[i].Position.Y - .5) * images[t].Dims.Y * (double)options.BinnedPixelSizeMean * 1e-4, rotation, options.Window * (double)options.BinnedPixelSizeMean * 1e-4);
                     offsets[i] = g.Evaluate(new double[initial.Length]).Defocus;
                     geometry.Add(g);
                 }
@@ -75,6 +75,7 @@ public partial class TiltSeries
             double refinementSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             var p = fit.Parameters;
+            CTFSpecimenThicknessAngstrom = (decimal)(Math.Sqrt(p[^1])*1e4);
             GridCTFDefocus = new CubicGrid(new int3(1, 1, NTilts), p.Take(nd).Select(v => (float)v).ToArray());
             float delta = (float)(2 * Math.Sqrt(p[nd] * p[nd] + p[nd + 1] * p[nd + 1]));
             float angle = (float)(.5 * Math.Atan2(p[nd + 1], p[nd]) * 180 / Math.PI);

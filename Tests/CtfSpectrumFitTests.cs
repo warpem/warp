@@ -133,7 +133,7 @@ public class CtfSpectrumFitTests
         if (gpu) Assert.InRange(Math.Abs(seed.Defocus - cpuSeed.Defocus), 0, .002);
         var geometry = new[] { new CtfFitGeometry(new[] { 1.0 }, new[] { 1.0 }) };
         var initial = new[] { seed.Defocus, 0.0, 0.0, seed.Phase };
-        var fit = gpu ? CtfFitEngine.Refine(records, geometry, initial, options) : CtfCpuReference.Refine(records, geometry, initial, options);
+        var fit = gpu ? CtfThinReference.Refine(records, geometry, initial, options) : CtfCpuReference.Refine(records, geometry, initial, options);
         Assert.InRange(Math.Abs(fit.Parameters[0] - df), 0, .005);
         Assert.InRange(Math.Abs(fit.Parameters[1] - astigX), 0, .003);
         Assert.InRange(Math.Abs(fit.Parameters[2] + .025), 0, .003);

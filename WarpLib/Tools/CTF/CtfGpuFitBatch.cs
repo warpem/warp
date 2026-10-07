@@ -8,7 +8,7 @@ namespace Warp.Tools;
 /// <summary>Resident GPU spectra, constrained nuisance solves, and analytic local CTF derivatives.
 /// Frequency-sized GPU storage and bulk arithmetic are FP32; only small spline solves
 /// and selectively retried ill-conditioned matrices use FP64.
-/// The CPU optimizer transfers four local parameters and receives six scalars per patch.</summary>
+/// The CPU optimizer transfers seven local parameters and receives nine scalars per patch.</summary>
 public sealed class CtfGpuFitBatch : IDisposable
 {
     IntPtr context;
@@ -25,7 +25,7 @@ public sealed class CtfGpuFitBatch : IDisposable
         var data = new double[count]; var counts = new double[count]; var currentWeights = new double[count];
         for (int i = 0; i < spectra.Length; i++) spectra[i].CopyGpuData(data, counts, currentWeights, i * samples);
         CtfNative.Check(CtfNative.FitCreate(spectra.Length, samples, first.KnotCount, first.GpuMoments(), first.GpuBasis(), data, counts, currentWeights, out context), "create fitting batch");
-        output = new double[spectra.Length * 6];
+        output = new double[spectra.Length * 9];
     }
     // Trial rows contain defocus and phase; output rows contain one score per patch.
     public double[] Search(double[] trials, double[] offsets)
@@ -37,12 +37,12 @@ public sealed class CtfGpuFitBatch : IDisposable
         CtfNative.Check(CtfNative.FitSearch(context, trials, offsets, trials.Length / 2, scores), "search defocus and phase");
         return scores;
     }
-    /// <summary>Poses are interleaved defocus, astigmatism X/Y (µm), phase (radians).
-    /// Returns one row of loss, four derivatives, and weight change per patch; reused on the next call.</summary>
+    /// <summary>Poses are interleaved defocus, astigmatism X/Y (µm), phase (radians), beam thickness squared (µm²), and two signed patch defocus widths (µm).
+    /// Returns one row of loss, seven derivatives, and weight change per patch; reused on the next call.</summary>
     public double[] Evaluate(double[] poses, bool reweight = false)
     {
         ObjectDisposedException.ThrowIf(context == IntPtr.Zero, this);
-        if (poses.Length != spectra.Length * 4) throw new ArgumentException("Invalid local CTF pose count.");
+        if (poses.Length != spectra.Length * 7) throw new ArgumentException("Invalid local CTF pose count.");
         CtfNative.Check(CtfNative.FitEvaluate(context, poses, reweight ? 1 : 0, output), "evaluate fitting batch");
         return output;
     }

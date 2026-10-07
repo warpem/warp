@@ -48,18 +48,20 @@ public partial class Movie
             double searchSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             int nd = (int)defocusDims.Elements(), np = (int)phaseDims.Elements();
-            double[] initial = new double[nd + 2 + np];
+            double[] initial = new double[nd + 3 + np];
             Array.Fill(initial, seed.Defocus, 0, nd);
             Array.Fill(initial, seed.Phase, nd + 2, np);
             // First fit a shared CTF; only then release the spatial/temporal grid.
             var sharedGeometry = records.Select(_ => new CtfFitGeometry(new[] { 1.0 }, new[] { 1.0 })).ToArray();
-            var shared = CtfFitEngine.Refine(records, sharedGeometry, new[] { seed.Defocus, 0.0, 0.0, seed.Phase }, options).Parameters;
+            var shared = CtfFitEngine.Refine(records, sharedGeometry, new[] { seed.Defocus, 0.0, 0.0, seed.Phase, 0.0 }, options).Parameters;
             Array.Fill(initial, shared[0], 0, nd); initial[nd] = shared[1]; initial[nd + 1] = shared[2];
             Array.Fill(initial, shared[3], nd + 2, np);
+            initial[^1] = shared[^1];
             var fit = CtfFitEngine.Refine(records, geometry, initial, options);
             double refinementSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             var p = fit.Parameters;
+            CTFSpecimenThicknessAngstrom = (decimal)(Math.Sqrt(p[^1])*1e4);
             GridCTFDefocus = new CubicGrid(defocusDims, p.Take(nd).Select(v => (float)v).ToArray());
             GridCTFPhase = new CubicGrid(phaseDims, p.Skip(nd + 2).Take(np).Select(v => (float)(v / Math.PI)).ToArray());
             CTF = CtfFitEngine.MakeCtf(options, p.Take(nd).Average(), p[nd], p[nd + 1], p.Skip(nd + 2).Take(np).Average());

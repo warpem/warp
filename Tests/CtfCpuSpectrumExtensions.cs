@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using System.Linq;
 using Warp.Tools;
 
 namespace Tests;
@@ -27,7 +28,7 @@ internal static class CtfCpuSpectrumExtensions
         }
         return entry.Cpu;
     }
-    public static CtfCpuSpectrum.Evaluation Evaluate(this CtfSpectrumFit s, double df, double ax, double ay, double phase, bool details = false) => Reference(s).Evaluate(df, ax, ay, phase, details);
+    public static CtfCpuSpectrum.Evaluation Evaluate(this CtfSpectrumFit s, double df, double ax, double ay, double phase, bool details = false) { var e = Reference(s).Evaluate(df, ax, ay, phase, details); return e with { Gradient = e.Gradient.Take(4).ToArray() }; }
     public static double QuickScore(this CtfSpectrumFit s, double df, double phase = 0) => Reference(s).QuickScore(df, phase);
     public static double Reweight(this CtfSpectrumFit s, double df, double ax, double ay, double phase) => Reference(s).Reweight(df, ax, ay, phase);
 }

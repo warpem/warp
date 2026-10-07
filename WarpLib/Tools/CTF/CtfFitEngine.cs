@@ -77,19 +77,19 @@ public static class CtfFitEngine
         }
         seedStarts[^1] = spectra.Count;
         using var batch = new CtfGpuFitBatch(spectra.ToArray());
-        var poses = new double[spectra.Count*4];
+        var poses = new double[spectra.Count*7];
         var fits = CtfFitOptimizer.MinimizeMany(parameters =>
         {
             for (int seed = 0; seed < seeds.Count; seed++)
                 for (int k = seedStarts[seed]; k < seedStarts[seed+1]; k++)
-                { poses[4*k] = parameters[seed][0] + localOffsets[k]; poses[4*k+3] = parameters[seed][1]; }
+                { poses[7*k] = parameters[seed][0] + localOffsets[k]; poses[7*k+3] = parameters[seed][1]; }
             var output = batch.Evaluate(poses);
             var results = new (double Loss, double[] Gradient)[seeds.Count];
             for (int seed = 0; seed < seeds.Count; seed++)
             {
                 double loss = 0; var gradient = new double[2];
                 for (int k = seedStarts[seed]; k < seedStarts[seed+1]; k++)
-                { loss += output[6*k]; gradient[0] += output[6*k+1]; gradient[1] += output[6*k+4]; }
+                { loss += output[9*k]; gradient[0] += output[9*k+1]; gradient[1] += output[9*k+4]; }
                 results[seed] = (loss, gradient);
             }
             return results;
@@ -104,20 +104,44 @@ public static class CtfFitEngine
 
     public static Fit Refine(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options)
     {
+        if (initial.Length != geometry[0].ThicknessIndex+1) throw new ArgumentException("CTF parameters must include squared specimen thickness.");
         using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
+        initial = (double[])initial.Clone();
+        int searchEvaluations = SeedThickness(records, geometry, initial, batch);
         var result = RefineCore(records, geometry, initial, options, batch);
-        int nd = geometry[0].DefocusWeights.Length;
-        var poses = new double[records.Length * 4];
+        result = result with { Evaluations = result.Evaluations + searchEvaluations };
+        var poses = new double[records.Length * 7];
         for (int i = 0; i < records.Length; i++)
         {
-            var local = geometry[i].Evaluate(result.Parameters);
-            poses[4 * i] = local.Defocus; poses[4 * i + 1] = result.Parameters[nd];
-            poses[4 * i + 2] = result.Parameters[nd + 1]; poses[4 * i + 3] = local.Phase;
+            geometry[i].WritePose(result.Parameters, poses, 7*i);
         }
         batch.Evaluate(poses);
         var coefficients = batch.ReadCoefficients();
         batch.SynchronizeWeights();
         return result with { Coefficients = coefficients };
+    }
+
+    // Search thickness before IRLS can mistake a sinc reversal for contaminated bins.
+    // The quarter-period grid covers 0–1 µm; the optimizer then refines continuously.
+    static int SeedThickness(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, CtfGpuFitBatch batch)
+    {
+        int t = geometry[0].ThicknessIndex;
+        double k = Math.PI*CtfSpectrumFit.Wavelength(records[0].Spectrum.VoltageKV)*1e4;
+        double q2 = records[0].Spectrum.Samples.Max(s => s.Q2);
+        double factor = geometry.Max(g => Math.Sqrt(g.SlabGeometry(initial).Factor));
+        int steps = Math.Max(16, (int)Math.Ceiling(4*k*q2*factor/Math.PI));
+        var poses = new double[records.Length*7];
+        double best = double.PositiveInfinity, bestSquared = initial[t];
+        for (int step = -1; step <= steps; step++)
+        {
+            initial[t] = step < 0 ? bestSquared : Math.Pow((double)step/steps,2);
+            for (int i = 0; i < records.Length; i++) geometry[i].WritePose(initial,poses,7*i);
+            var output = batch.Evaluate(poses); double loss = 0;
+            for (int i = 0; i < records.Length; i++) loss += output[9*i];
+            if (loss < best) { best = loss; bestSquared = initial[t]; }
+        }
+        initial[t] = bestSquared;
+        return steps+2;
     }
 
     static Fit RefineCore(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options, CtfGpuFitBatch batch)
@@ -127,16 +151,15 @@ public static class CtfFitEngine
         for (int j = 0; j < nd; j++) { scale[j] = .02; lo[j] = (double)options.ZMin; hi[j] = (double)options.ZMax; }
         for (int j = nd; j < nd + 2; j++) { scale[j] = .02; lo[j] = -.5; hi[j] = .5; }
         for (int j = nd + 2; j < nd + 2 + np; j++) { scale[j] = .1; lo[j] = 0; hi[j] = options.DoPhase ? Math.PI : 0; }
-        for (int j = nd + 2 + np; j < n; j++) { scale[j] = .01; lo[j] = -.3; hi[j] = .3; }
-        var local = new (double Defocus, double Phase, double SlopeX, double SlopeY)[records.Length];
-        var poses = new double[records.Length * 4];
+        for (int j = nd + 2 + np; j < n-1; j++) { scale[j] = .01; lo[j] = -.3; hi[j] = .3; }
+        scale[n-1] = .0025; lo[n-1] = 0; hi[n-1] = 1;
+        var poses = new double[records.Length * 7];
         bool UpdatePoses(double[] p)
         {
             for (int i = 0; i < records.Length; i++)
             {
-                local[i] = geometry[i].Evaluate(p);
-                if (!double.IsFinite(local[i].Defocus)) return false;
-                poses[4 * i] = local[i].Defocus; poses[4 * i + 1] = p[nd]; poses[4 * i + 2] = p[nd + 1]; poses[4 * i + 3] = local[i].Phase;
+                geometry[i].WritePose(p,poses,7*i);
+                if (!double.IsFinite(poses[7*i])) return false;
             }
             return true;
         }
@@ -144,27 +167,30 @@ public static class CtfFitEngine
         int evaluations = 0;
         double weightChange = double.PositiveInfinity;
         var changes = new double[records.Length];
-        for (int pass = 0; pass < 6; pass++)
+        for (int pass = 0; pass < 7; pass++)
         {
             result = CtfFitOptimizer.Minimize(p =>
             {
                 if (!UpdatePoses(p)) return (double.PositiveInfinity, new double[n]);
                 double loss = 0; var gradient = new double[n];
                 double[] output = batch.Evaluate(poses);
-                var g = new double[4];
+                var g = new double[7];
                 for (int i = 0; i < records.Length; i++)
                 {
-                    loss += output[6 * i]; Array.Copy(output, 6 * i + 1, g, 0, 4);
-                    geometry[i].Accumulate(gradient, g, local[i].SlopeX, local[i].SlopeY);
+                    loss += output[9 * i]; Array.Copy(output, 9 * i + 1, g, 0, 7);
+                    geometry[i].AccumulateVolume(gradient, g, p);
                 }
                 return (loss / records.Length, gradient.Select(v => v / records.Length).ToArray());
             }, initial, scale, lo, hi, 100);
             evaluations += result.Evaluations;
             initial = result.Parameters;
-            if (pass == 5 || weightChange < .01) break;
+            // Reprofile once after astigmatism/phase/defocus have settled. Their initial
+            // errors can otherwise make the thickness grid select the wrong sinc lobe.
+            if (pass == 0) { evaluations += SeedThickness(records,geometry,initial,batch); continue; }
+            if (pass == 6 || weightChange < .01) break;
             UpdatePoses(initial);
             double[] output = batch.Evaluate(poses, true);
-            for (int i = 0; i < records.Length; i++) changes[i] = output[6 * i + 5];
+            for (int i = 0; i < records.Length; i++) changes[i] = output[9 * i + 8];
             weightChange = changes.Max();
         }
         return new(result.Parameters, result.Loss, evaluations);

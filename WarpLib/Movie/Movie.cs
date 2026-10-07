@@ -313,6 +313,10 @@ namespace Warp
             }
         }
 
+        /// <summary>Fitted uniform-slab thickness in Å, normal to the specimen plane.
+        /// Movies assume the plane is perpendicular to the beam; tilt series fit its normal.</summary>
+        public decimal CTFSpecimenThicknessAngstrom { get; set; }
+
         private decimal _CTFResolutionEstimate = 0;
         public decimal CTFResolutionEstimate
         {
@@ -880,6 +884,7 @@ namespace Warp
                         _UnselectManual = bool.Parse(UnselectManualString);
                     else
                         _UnselectManual = null;
+                    CTFSpecimenThicknessAngstrom = XMLHelper.LoadAttribute(Reader, "CTFSpecimenThicknessAngstrom", 0M);
                     CTFResolutionEstimate = XMLHelper.LoadAttribute(Reader, "CTFResolutionEstimate", CTFResolutionEstimate);
                     MeanFrameMovement = XMLHelper.LoadAttribute(Reader, "MeanFrameMovement", MeanFrameMovement);
                     MaskPercentage = XMLHelper.LoadAttribute(Reader, "MaskPercentage", MaskPercentage);
@@ -1078,6 +1083,7 @@ namespace Warp
                 Writer.WriteAttributeString("UnselectFilter", UnselectFilter.ToString());
                 Writer.WriteAttributeString("UnselectManual", UnselectManual != null ? UnselectManual.ToString() : "null");
 
+                Writer.WriteAttributeString("CTFSpecimenThicknessAngstrom", CTFSpecimenThicknessAngstrom.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("CTFResolutionEstimate", CTFResolutionEstimate.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("MeanFrameMovement", MeanFrameMovement.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("MaskPercentage", MaskPercentage.ToString(CultureInfo.InvariantCulture));

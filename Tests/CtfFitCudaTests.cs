@@ -62,7 +62,7 @@ public class CtfFitCudaTests
         {
             GPU.SetDevice(0);
             var spectra = new[] { Spectrum(0), Spectrum(1), Spectrum(2) };
-            using var batch = new CtfGpuFitBatch(spectra);
+            using var batch = new CtfThinGpuBatch(spectra);
             double[] offsets = { -.17, 0, .23 };
             var trials = new List<double>();
             for (double df = .1; df < 15; df += .071)
@@ -74,7 +74,7 @@ public class CtfFitCudaTests
             double[] poses = { 2.3, .04, -.025, .2, 2.313, .04, -.025, .2, 2.326, .04, -.025, .2 };
             batch.Evaluate(poses, true);
             batch.SynchronizeWeights();
-            using var resumed = new CtfGpuFitBatch(spectra);
+            using var resumed = new CtfThinGpuBatch(spectra);
             var expected = (double[])batch.Evaluate(poses).Clone();
             var restored = resumed.Evaluate(poses);
             for (int i = 0; i < expected.Length; i++) Close(expected[i], restored[i], 1e-6);
@@ -99,7 +99,7 @@ public class CtfFitCudaTests
         {
             GPU.SetDevice(0);
             var spectra = new[] { Spectrum(0), Spectrum(1), Spectrum(2) };
-            using var batch = new CtfGpuFitBatch(spectra);
+            using var batch = new CtfThinGpuBatch(spectra);
             double[] poses = { 2.307, .037, -.021, .22, 2.318, .04, -.023, .21, 2.326, .04, -.025, .2 + Math.PI / 2 };
             for (int pass = 0; pass < 3; pass++)
             {
@@ -141,7 +141,7 @@ public class CtfFitCudaTests
             var initial = new[] { 2.31, .035, -.02, .23 };
             CtfPowerSpectrum.Observation[] Records() => new[] { new CtfPowerSpectrum.Observation(Spectrum(0), new float3(.5f), 0) };
             var cpu = CtfCpuReference.Refine(Records(), geometry, initial, options);
-            var gpu = CtfFitEngine.Refine(Records(), geometry, initial, options);
+            var gpu = CtfThinReference.Refine(Records(), geometry, initial, options);
             for (int i = 0; i < 3; i++) Assert.InRange(Math.Abs(cpu.Parameters[i] - gpu.Parameters[i]) * 1e4, 0, .5);
             Assert.InRange(Math.Abs(cpu.Parameters[3] - gpu.Parameters[3]), 0, 1e-3);
             Close(cpu.Loss, gpu.Loss, 1e-4);
@@ -162,7 +162,7 @@ public class CtfFitCudaTests
                     Power = 5 + 2 * Math.Sqrt(s.Q2) + .01 * Math.Sin(2 * Math.PI * CtfSpectrumFit.Wavelength(300) * 1e4 * s.Q2 * df)
                 }).ToArray();
                 var spectrum = new CtfSpectrumFit(samples, 300, 2.7, .07);
-                using var batch = new CtfGpuFitBatch(new[] { spectrum });
+                using var batch = new CtfThinGpuBatch(new[] { spectrum });
                 var cpu = spectrum.Evaluate(df, 0, 0, 0);
                 var gpu = batch.Evaluate(new[] { df, 0.0, 0.0, 0.0 });
                 Assert.All(gpu, v => Assert.True(double.IsFinite(v), $"Nonfinite objective at {df} µm"));
@@ -180,7 +180,7 @@ public class CtfFitCudaTests
             var options = new ProcessingOptionsMovieCTF { PixelSize = 1.5M, Voltage = 300, Cs = 2.7M, Amplitude = .07M, ZMin = 1, ZMax = 4, DoPhase = true };
             var records = new[] { new CtfPowerSpectrum.Observation(Spectrum(0), new float3(.5f), 0), new CtfPowerSpectrum.Observation(Spectrum(1), new float3(.5f), 1) };
             var geometry = new[] { new CtfFitGeometry(new[] { 1.0, 0.0 }, new[] { 1.0 }), new CtfFitGeometry(new[] { 0.0, 1.0 }, new[] { 1.0 }) };
-            var fit = CtfFitEngine.Refine(records, geometry, new[] { 2.31, 2.32, .035, -.02, .23 }, options);
+            var fit = CtfThinReference.Refine(records, geometry, new[] { 2.31, 2.32, .035, -.02, .23 }, options);
             var p = fit.Parameters;
             var references = Enumerable.Range(0, 2).Select(i => CtfFitEngine.MakeCtf(options, p[i], p[2], p[3], p[4])).ToArray();
             var global = CtfFitEngine.MakeCtf(options, (p[0] + p[1]) * .5, p[2], p[3], p[4]);
