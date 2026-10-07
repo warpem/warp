@@ -187,6 +187,9 @@ public class CtfFitCudaTests
             const int window = 256, fft = 512;
             var display = new[] { Enumerable.Repeat(100f, window * window / 2).ToArray(), Enumerable.Repeat(100f, window * window / 2).ToArray() };
             var result = CtfFitDiagnostics.Create(records, geometry, fit, new[] { 0, 1 }, references, global, fft, window, display);
+            Assert.Equal(fft/2,result.Global.Quality.Length);
+            foreach(var diagnostic in result.Groups.Append(result.Global))
+                Assert.Equal(CtfFitDiagnostics.EstimateResolution(diagnostic.Quality, diagnostic == result.Global ? global : references[Array.IndexOf(result.Groups,diagnostic)]),diagnostic.Resolution);
             var expectedGlobalSum = new double[fft / 2]; var expectedGlobalWeight = new double[fft / 2];
             double kd = Math.PI * CtfSpectrumFit.Wavelength(300) * 1e4, kc = -.5 * Math.PI * 2.7 * 1e7 * Math.Pow(CtfSpectrumFit.Wavelength(300), 3);
             void Accumulate(double[] sum, double[] weights, CtfSpectrumFit.Sample sample, double bg, double env, double scale, double df, CTF reference)

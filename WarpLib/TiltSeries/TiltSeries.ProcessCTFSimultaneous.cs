@@ -81,6 +81,7 @@ public partial class TiltSeries
             PlaneNormal /= PlaneNormal.Length();
             CTF = CtfFitEngine.MakeCtf(options, p.Take(nd).Average(), p[nd], p[nd + 1], tiltPhase.Average() * Math.PI);
             TiltPS1D = new ObservableCollection<float2[]>();
+            TiltCTFQuality = new ObservableCollection<float2[]>();
             TiltSimulatedBackground = new ObservableCollection<Cubic1D>();
             TiltSimulatedScale = new ObservableCollection<Cubic1D>();
             var references = Enumerable.Range(0, NTilts).Select(t =>
@@ -92,11 +93,13 @@ public partial class TiltSeries
                 allRecords.Select(r => r.Group).ToArray(), references, CTF, spectrumSize, options.Window, display);
             foreach (var diagnostic in diagnostics.Groups)
             {
+                TiltCTFQuality.Add(diagnostic.Quality);
                 TiltPS1D.Add(diagnostic.Spectrum); TiltSimulatedBackground.Add(diagnostic.Background); TiltSimulatedScale.Add(diagnostic.Envelope);
             }
             var global = diagnostics.Global;
             PS1D = global.Spectrum; SimulatedBackground = global.Background; SimulatedScale = global.Envelope;
             CTFResolutionEstimate = global.Resolution;
+            CTFQuality = global.Quality;
             double diagnosticSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             using (var image = new Image(display, new int3(options.Window, options.Window / 2, NTilts))) image.WriteMRC(PowerSpectrumPath, true);

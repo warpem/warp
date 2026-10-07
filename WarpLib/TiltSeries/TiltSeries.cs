@@ -147,6 +147,13 @@ namespace Warp
 
         #region Per-tilt CTF data
 
+        private ObservableCollection<float2[]> _TiltCTFQuality = new ObservableCollection<float2[]>();
+        public ObservableCollection<float2[]> TiltCTFQuality
+        {
+            get => _TiltCTFQuality;
+            set { if (value != _TiltCTFQuality) { _TiltCTFQuality = value; OnPropertyChanged(); } }
+        }
+
         private ObservableCollection<float2[]> _TiltPS1D = new ObservableCollection<float2[]>();
         public ObservableCollection<float2[]> TiltPS1D
         {
@@ -1988,6 +1995,14 @@ namespace Warp
                     #region CTF fitting-related
 
                     {
+                        TiltCTFQuality.Clear();
+                        foreach (XPathNavigator node in Reader.Select("//TiltCTFQuality"))
+                        {
+                            int id = int.Parse(node.GetAttribute("ID", ""), CultureInfo.InvariantCulture);
+                            while (TiltCTFQuality.Count <= id) TiltCTFQuality.Add(null);
+                            TiltCTFQuality[id] = ReadQualityCurve(node);
+                        }
+                        CTFQuality = ReadQualityCurve(Reader.SelectSingleNode("//CTFQuality"));
                         TiltPS1D.Clear();
                         List<Tuple<int, float2[]>> TempPS1D = (from XPathNavigator NavPS1D in Reader.Select("//TiltPS1D")
                                                                let ID = int.Parse(NavPS1D.GetAttribute("ID", ""))
@@ -2210,6 +2225,10 @@ namespace Warp
                 #endregion
 
                 #region CTF fitting-related
+
+                WriteQualityCurve(Writer, "CTFQuality", CTFQuality);
+                for (int i = 0; i < TiltCTFQuality.Count; i++)
+                    WriteQualityCurve(Writer, "TiltCTFQuality", TiltCTFQuality[i], i);
 
                 foreach (float2[] ps1d in TiltPS1D)
                 {

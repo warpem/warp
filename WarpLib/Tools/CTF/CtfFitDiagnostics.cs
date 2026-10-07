@@ -9,7 +9,7 @@ namespace Warp.Tools;
 public static class CtfFitDiagnostics
 {
     const float EnvelopeFractionFloor = 1e-3f;
-    public sealed record Diagnostic(float2[] Spectrum, Cubic1D Background, Cubic1D Envelope, decimal Resolution);
+    public sealed record Diagnostic(float2[] Spectrum, Cubic1D Background, Cubic1D Envelope, decimal Resolution, float2[] Quality);
     public sealed record Result(Diagnostic[] Groups, Diagnostic Global);
 
     sealed class Accumulator
@@ -127,13 +127,13 @@ public static class CtfFitDiagnostics
         {
             var a = accumulators[group];
             NormalizeDisplay(displays[group], a, window);
-            diagnostics[group] = Finish(a.Sum, a.Weight, references[group], fourierSize);
+            diagnostics[group] = Finish(a.Sum, a.Weight, references[group], fourierSize, window);
         });
         if (references.Length == 1 && ReferenceEquals(references[0], globalReference)) return new(diagnostics, diagnostics[0]);
         // Fixed reduction order makes diagnostic output independent of worker scheduling.
         var sum = new float[bins]; var weights = new float[bins];
         foreach (var a in accumulators) for (int b = 0; b < bins; b++) { sum[b] += a.GlobalSum[b]; weights[b] += a.GlobalWeight[b]; }
-        return new(diagnostics, Finish(sum, weights, globalReference, fourierSize));
+        return new(diagnostics, Finish(sum, weights, globalReference, fourierSize, window));
     }
 
     static void Add(float[] target, float[] source)
@@ -179,34 +179,96 @@ public static class CtfFitDiagnostics
         }
     }
 
-    static Diagnostic Finish(float[] sum, float[] weight, CTF reference, int window)
+    // X is frequency in cycles/pixel, matching PS1D. NaN marks unsupported frequencies.
+    // A two-oscillation window follows CTF phase, with a minimum width set by the
+    // real-space aperture rather than FFT padding. Correlation is descriptive, not a p-value.
+    public static float2[] CalculateQuality(float2[] spectrum, float[] support, CTF reference, int spatialWindow)
     {
-        int bins = sum.Length;
-        float2[] ps = new float2[bins];
-        for (int b = 0; b < bins; b++) ps[b] = new float2((float)b / window, weight[b] > 0 ? sum[b] / weight[b] : 0);
-        double pixel = (double)reference.PixelSize;
-        double[] model = Enumerable.Range(0, bins).Select(b => Math.Pow(reference.Get1DDouble((double)b / window / pixel, false, true, true), 2)).ToArray();
-        int last = 0, good = 0, bad = 0;
-        // These small scalar correlation sums use FP64 to avoid cancellation in variance.
-        for (int b = 8; b < bins - 8; b++)
+        int n = spectrum.Length;
+        if (n < 2 || support.Length != n || spatialWindow <= 0)
+            throw new ArgumentException("Invalid CTF quality inputs.");
+        var arc = PhaseArc(spectrum, reference);
+        var model = spectrum.Select(p => Math.Pow(reference.Get1DDouble(p.X / (double)reference.PixelSize, false, true, true), 2)).ToArray();
+        var result = spectrum.Select(p => new float2(p.X, float.NaN)).ToArray();
+        // Prefix moments make the adaptive windows linear-time. FP64 only for these
+        // small scalar sums, where subtraction of nearly equal moments loses precision.
+        var moments = new double[6][];
+        for (int j = 0; j < moments.Length; j++) moments[j] = new double[n + 1];
+        for (int i = 0; i < n; i++)
         {
-            double n = 0, x = 0, y = 0, xx = 0, yy = 0, xy = 0;
-            for (int k = b - 8; k <= b + 8; k++) if (weight[k] > 0) { double a = ps[k].Y, c = model[k]; n++; x += a; y += c; xx += a * a; yy += c * c; xy += a * c; }
-            double corr = n >= 12 ? (xy - x * y / n) / Math.Sqrt(Math.Max(1e-30, (xx - x * x / n) * (yy - y * y / n))) : 0;
-            if (corr > .3)
+            for (int j = 0; j < moments.Length; j++) moments[j][i + 1] = moments[j][i];
+            if (!(support[i] > 0) || !float.IsFinite(spectrum[i].Y)) continue;
+            double x = spectrum[i].Y, y = model[i];
+            double[] values = { 1, x, y, x*x, y*y, x*y };
+            for (int j = 0; j < moments.Length; j++) moments[j][i + 1] += values[j];
+        }
+        int left = 0, right = 0;
+        double halfWidth = 2.0 / spatialWindow;
+        for (int i = 0; i < n; i++)
+        {
+            while (left < i && arc[i] - arc[left + 1] >= Math.PI && spectrum[i].X - spectrum[left + 1].X >= halfWidth) left++;
+            right = Math.Max(right, i);
+            while (right < n - 1 && (arc[right] - arc[i] < Math.PI || spectrum[right].X - spectrum[i].X < halfWidth)) right++;
+            if (!(support[i] > 0) || arc[i] - arc[left] < Math.PI || arc[right] - arc[i] < Math.PI ||
+                spectrum[i].X - spectrum[left].X < halfWidth || spectrum[right].X - spectrum[i].X < halfWidth) continue;
+            double count = moments[0][right + 1] - moments[0][left];
+            if (count < 6 || count < .8 * (right - left + 1)) continue;
+            double x = moments[1][right + 1] - moments[1][left], y = moments[2][right + 1] - moments[2][left];
+            double xx = moments[3][right + 1] - moments[3][left] - x*x/count;
+            double yy = moments[4][right + 1] - moments[4][left] - y*y/count;
+            double xy = moments[5][right + 1] - moments[5][left] - x*y/count;
+            if (xx <= 1e-12 * count || yy <= 1e-6 * count) continue;
+            result[i].Y = (float)Math.Clamp(xy / Math.Sqrt(xx*yy), -1, 1);
+        }
+        return result;
+    }
+
+    static double[] PhaseArc(float2[] spectrum, CTF reference)
+    {
+        double lambda = CtfSpectrumFit.Wavelength((double)reference.Voltage);
+        double kd = Math.PI * lambda * 1e4 * (double)reference.Defocus;
+        double kc = -.5 * Math.PI * (double)reference.Cs * 1e7 * lambda*lambda*lambda;
+        var arc = new double[spectrum.Length]; double previous = 0;
+        for (int i = 0; i < arc.Length; i++)
+        {
+            double q = spectrum[i].X / (double)reference.PixelSize, phase = kd*q*q + kc*q*q*q*q;
+            if (i > 0) arc[i] = arc[i-1] + Math.Abs(phase-previous);
+            previous = phase;
+        }
+        return arc;
+    }
+
+    public static decimal EstimateResolution(float2[] quality, CTF reference)
+    {
+        var arc = PhaseArc(quality, reference);
+        int goodStart = -1, badStart = -1, last = -1;
+        for (int i = 0; i < quality.Length; i++)
+        {
+            if (float.IsFinite(quality[i].Y) && quality[i].Y > .3f)
             {
-                good++; bad = 0;
-                if (good >= 16) last = b;
+                badStart = -1;
+                if (goodStart < 0) goodStart = i;
+                // Require support over a full CTF-power oscillation, independent of padding.
+                if (arc[i] - arc[goodStart] >= Math.PI) last = i;
             }
             else
             {
-                bad++;
-                if (bad >= 16 && last > 0) break;
-                good = 0;
+                goodStart = -1;
+                if (badStart < 0) badStart = i;
+                if (last >= 0 && arc[i] - arc[badStart] >= Math.PI) break;
             }
         }
+        return last >= 0 && quality[last].X > 0 ?
+            (decimal)Math.Round((double)reference.PixelSize / quality[last].X, 1) : 0;
+    }
+
+    static Diagnostic Finish(float[] sum, float[] weight, CTF reference, int fourierSize, int spatialWindow)
+    {
+        var ps = new float2[sum.Length];
+        for (int b = 0; b < ps.Length; b++) ps[b] = new float2((float)b / fourierSize, weight[b] > 0 ? sum[b] / weight[b] : 0);
+        var quality = CalculateQuality(ps, weight, reference, spatialWindow);
         var zero = new Cubic1D(new[] { new float2(0, 0), new float2(.5f, 0) });
         var one = new Cubic1D(new[] { new float2(0, 1), new float2(.5f, 1) });
-        return new(ps, zero, one, last > 0 ? (decimal)Math.Round(pixel * window / last, 1) : 0);
+        return new(ps, zero, one, EstimateResolution(quality, reference), quality);
     }
 }

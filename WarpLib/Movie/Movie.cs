@@ -257,6 +257,30 @@ namespace Warp
             }
         }
 
+        private float2[] _CTFQuality;
+        /// <summary>Fit correlation versus cycles/pixel; NaN denotes unsupported frequencies.</summary>
+        public float2[] CTFQuality
+        {
+            get => _CTFQuality;
+            set { if (value != _CTFQuality) { _CTFQuality = value; OnPropertyChanged(); } }
+        }
+
+        protected static float2[] ReadQualityCurve(XPathNavigator node) => node == null ? null :
+            node.Value.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(v =>
+            {
+                string[] pair = v.Split('|');
+                return new float2(float.Parse(pair[0], CultureInfo.InvariantCulture), float.Parse(pair[1], CultureInfo.InvariantCulture));
+            }).ToArray();
+
+        protected static void WriteQualityCurve(XmlWriter writer, string name, float2[] curve, int? id = null)
+        {
+            if (curve == null) return;
+            writer.WriteStartElement(name);
+            if (id.HasValue) writer.WriteAttributeString("ID", id.Value.ToString(CultureInfo.InvariantCulture));
+            writer.WriteString(string.Join(";", curve.Select(v => v.X.ToString("R", CultureInfo.InvariantCulture) + "|" + v.Y.ToString("R", CultureInfo.InvariantCulture)).ToArray()));
+            writer.WriteEndElement();
+        }
+
         private float2[] _Simulated1D;
         public float2[] Simulated1D
         {
@@ -894,6 +918,8 @@ namespace Warp
 
                     MagnificationCorrection = XMLHelper.LoadAttribute(Reader, "MagnificationCorrection", MagnificationCorrection);
 
+                    CTFQuality = ReadQualityCurve(Reader.SelectSingleNode("//CTFQuality"));
+
                     XPathNavigator NavPS1D = Reader.SelectSingleNode("//PS1D");
                     if (NavPS1D != null)
                         PS1D = NavPS1D.InnerXml.Split(';').Select(v =>
@@ -1099,6 +1125,8 @@ namespace Warp
                     OptionsCTF.WriteToXML(Writer);
                     Writer.WriteEndElement();
                 }
+
+                WriteQualityCurve(Writer, "CTFQuality", CTFQuality);
 
                 if (PS1D != null)
                 {

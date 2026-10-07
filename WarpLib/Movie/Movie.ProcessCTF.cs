@@ -69,6 +69,7 @@ public partial class Movie
                 new[] { CTF }, CTF, extraction.FourierSize, window, new[] { extraction.Display }).Global;
             PS1D = diagnostic.Spectrum; SimulatedBackground = diagnostic.Background; SimulatedScale = diagnostic.Envelope;
             CTFResolutionEstimate = diagnostic.Resolution;
+            CTFQuality = diagnostic.Quality;
             double diagnosticSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             using (var display = new Image(new[] { extraction.Display }, new int3(window, window / 2, 1))) display.WriteMRC(PowerSpectrumPath, true);
