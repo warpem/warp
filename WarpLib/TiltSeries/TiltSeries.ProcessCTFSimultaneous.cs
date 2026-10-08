@@ -33,7 +33,6 @@ public partial class TiltSeries
             double[] initial = new double[nd + 2 + np + 3];
             Array.Fill(initial,(double)(options.ZMin+options.ZMax)*.5,0,nd);
             CtfSpectrumFit basisSource = null;
-            int spectrumSize = 0;
             double extractionSeconds = 0, searchSeconds = 0;
             var timer = System.Diagnostics.Stopwatch.StartNew();
             using var extractor = new CtfPowerSpectrum.Extractor(new int2(images[0].Dims), options);
@@ -43,7 +42,6 @@ public partial class TiltSeries
                 timer.Restart();
                 var extraction = extractor.Extract(images[t], 1, t, basisSource);
                 basisSource ??= extraction.Observations[0].Spectrum;
-                spectrumSize = extraction.FourierSize;
                 extractionSeconds += timer.Elapsed.TotalSeconds;
                 images[t].FreeDevice();
                 display[t] = extraction.Display;
@@ -89,8 +87,11 @@ public partial class TiltSeries
                 double phase = 0; for (int j = 0; j < np; j++) phase += p[nd + 2 + j] * phaseWeights[t][j];
                 return CtfFitEngine.MakeCtf(options, p[t], p[nd], p[nd + 1], phase);
             }).ToArray();
-            var diagnostics = CtfFitDiagnostics.Create(allRecords, allGeometry, fit,
-                allRecords.Select(r => r.Group).ToArray(), references, CTF, spectrumSize, options.Window, display);
+            using var diagnosticExtractor = new CtfPowerSpectrum.Extractor(new int2(images[0].Dims), options, fullSpectrum: true);
+            var diagnosticInputs = Enumerable.Range(0, NTilts).Select(t =>
+                new CtfFitDiagnostics.Input(images[t], allGeometry.Where((_, i) => allRecords[i].Group == t).ToArray(), t));
+            var diagnostics = CtfFitDiagnostics.CreateFullSpectrum(diagnosticExtractor, diagnosticInputs.ToArray(), fit,
+                references, CTF, options.Window, display);
             foreach (var diagnostic in diagnostics.Groups)
             {
                 TiltCTFQuality.Add(diagnostic.Quality);

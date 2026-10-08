@@ -74,6 +74,21 @@ public class CtfDiagnosticTests
         Assert.All(gap.Where(p=>p.X>.2f&&p.X<.25f),p=>Assert.True(float.IsNaN(p.Y)));
     }
 
+    [Fact]
+    public void QualityIsInvariantToPhysicalPowerUnits()
+    {
+        var ctf=Reference();var (s,w)=Curve(ctf,2048,cutoff:true);
+        var baseline=CtfFitDiagnostics.CalculateQuality(s,w,ctf,512);
+        foreach(float scale in new[]{1e-8f,1e8f})
+        {
+            var scaled=s.Select(p=>new float2(p.X,p.Y*scale)).ToArray();
+            var result=CtfFitDiagnostics.CalculateQuality(scaled,w,ctf,512,Enumerable.Repeat(scale,s.Length).ToArray());
+            for(int i=0;i<result.Length;i++)
+                if(float.IsFinite(baseline[i].Y))Assert.InRange(Math.Abs(result[i].Y-baseline[i].Y),0,1e-5);
+                else Assert.True(float.IsNaN(result[i].Y));
+        }
+    }
+
     static void SameCurve(float2[] expected,float2[] actual)
     {
         Assert.Equal(expected.Length,actual.Length);

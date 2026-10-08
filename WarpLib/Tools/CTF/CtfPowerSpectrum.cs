@@ -30,7 +30,7 @@ public static class CtfPowerSpectrum
         readonly double[] count, q2, q4, ax, ay;
         CtfSpectrumFit sharedBasis;
 
-        public Extractor(int2 dimensions, ProcessingOptionsMovieCTF options)
+        public Extractor(int2 dimensions, ProcessingOptionsMovieCTF options, bool fullSpectrum = false)
         {
             this.options = options; this.dimensions = dimensions; window = options.Window;
             double pixel = (double)options.BinnedPixelSizeMean;
@@ -39,7 +39,7 @@ public static class CtfPowerSpectrum
             if (!(pixel > 0) || !(options.RangeMin > 0 && options.RangeMax > options.RangeMin && options.RangeMax <= 1))
                 throw new ArgumentException("Invalid CTF pixel size or frequency range.");
             if (!(options.ZMin >= 0 && options.ZMax > options.ZMin)) throw new ArgumentException("The CTF defocus search range must be nonnegative and nonempty.");
-            double qmax = (double)options.RangeMax / (2 * pixel);
+            double qmax = (fullSpectrum ? 1 : (double)options.RangeMax) / (2 * pixel);
             fftSize = 1;
             double minimum = Math.Max(window * 2, 6 * CtfSpectrumFit.Wavelength((double)options.Voltage) * (double)options.ZMax * 1e4 * qmax / pixel);
             while (fftSize < minimum) fftSize *= 2;
@@ -53,7 +53,7 @@ public static class CtfPowerSpectrum
                 int yy = y <= fftSize / 2 ? y : y - fftSize;
                 if (x == 0 && yy < 0) continue;
                 double r = Math.Sqrt(x*x+yy*yy), q = r/(fftSize*pixel);
-                if (q < (double)options.RangeMin/(2*pixel) || q >= qmax || r >= radialBins) continue;
+                if (r == 0 || (!fullSpectrum && q < (double)options.RangeMin/(2*pixel)) || q >= qmax || r >= radialBins) continue;
                 double angle = Math.Atan2(yy,x); if (angle < 0) angle += Math.PI;
                 int b = Math.Min(sectors-1,(int)(angle*sectors/Math.PI))*radialBins+(int)r;
                 pixels[b].Add(y*(fftSize/2+1)+x);
@@ -85,13 +85,18 @@ public static class CtfPowerSpectrum
             CtfNative.Check(CtfNative.PowerCreate(dimensions.X,dimensions.Y,window,fftSize,batch,origins.Length,bins,origins,hann,starts,indices,displayIndices,out context),"create spectrum extractor");
         }
 
-        public Extraction Extract(Image image, int groups = 1, int groupOffset = 0, CtfSpectrumFit basisSource = null)
+        public Extraction Extract(Image image, int groups = 1, int groupOffset = 0, CtfSpectrumFit basisSource = null, int firstFrame = 0, int frameCount = -1)
         {
             ObjectDisposedException.ThrowIf(context == IntPtr.Zero,this);
             if (image.Dims.X != dimensions.X || image.Dims.Y != dimensions.Y) throw new ArgumentException("CTF extractor/image dimensions differ.");
             groups = Math.Clamp(groups,1,image.Dims.Z);
             sharedBasis ??= basisSource;
-            float[][] frames = image.GetHost(Intent.Read);
+            float[][] allFrames = image.GetHost(Intent.Read);
+            if (frameCount < 0) frameCount = allFrames.Length - firstFrame;
+            if (firstFrame < 0 || frameCount < 1 || firstFrame + frameCount > allFrames.Length)
+                throw new ArgumentOutOfRangeException(nameof(firstFrame));
+            float[][] frames = allFrames.Skip(firstFrame).Take(frameCount).ToArray();
+            groups = Math.Min(groups, frames.Length);
             var records = new List<Observation>(); var display = new float[window*window/2];
             var power = new double[checked(origins.Length*bins)];
             for (int group = 0; group < groups; group++)

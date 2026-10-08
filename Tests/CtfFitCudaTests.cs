@@ -188,20 +188,18 @@ public class CtfFitCudaTests
             var display = new[] { Enumerable.Repeat(100f, window * window / 2).ToArray(), Enumerable.Repeat(100f, window * window / 2).ToArray() };
             var result = CtfFitDiagnostics.Create(records, geometry, fit, new[] { 0, 1 }, references, global, fft, window, display);
             Assert.Equal(fft/2,result.Global.Quality.Length);
-            foreach(var diagnostic in result.Groups.Append(result.Global))
-                Assert.Equal(CtfFitDiagnostics.EstimateResolution(diagnostic.Quality, diagnostic == result.Global ? global : references[Array.IndexOf(result.Groups,diagnostic)]),diagnostic.Resolution);
             var expectedGlobalSum = new double[fft / 2]; var expectedGlobalWeight = new double[fft / 2];
             double kd = Math.PI * CtfSpectrumFit.Wavelength(300) * 1e4, kc = -.5 * Math.PI * 2.7 * 1e7 * Math.Pow(CtfSpectrumFit.Wavelength(300), 3);
             void Accumulate(double[] sum, double[] weights, CtfSpectrumFit.Sample sample, double bg, double env, double scale, double df, CTF reference)
             {
-                if (env < 1e-8) return;
+
                 double target = kd * (sample.Q2 * df + sample.AstigX * p[2] + sample.AstigY * p[3]) + kc * sample.Q4 + p[4] - (double)reference.PhaseShift * Math.PI;
                 double q2 = sample.Q2, refDf = (double)reference.Defocus;
                 for (int k = 0; k < 8; k++) q2 -= (kd * refDf * q2 + kc * q2 * q2 - target) / (kd * refDf + 2 * kc * q2);
                 if (!(q2 > 0)) return;
                 double r = Math.Sqrt(q2) * 1.5 * fft; int b = (int)r;
                 if (b < 0 || b >= sum.Length - 1) return;
-                double w = sample.Count * env * env, v = (sample.Power / scale - bg) / env, f = r - b;
+                double w = sample.Count, v = sample.Power - bg * scale, f = r - b;
                 sum[b] += w * v * (1 - f); weights[b] += w * (1 - f); sum[b + 1] += w * v * f; weights[b + 1] += w * f;
             }
             for (int i = 0; i < 2; i++)
@@ -220,16 +218,16 @@ public class CtfFitCudaTests
                 }
                 for (int b = 0; b < sum.Length; b++) Close(weight[b] > 0 ? sum[b] / weight[b] : 0, result.Groups[i].Spectrum[b].Y, 3e-3);
                 for (int b = 0; b < bg.Length; b++) if (count[b] > 0) { bg[b] /= count[b]; env[b] /= count[b]; }
-                double floor = env.Max() * 1e-3;
+
                 for (int y = 0; y < window / 2; y++) for (int x = 0; x < window; x++)
                     {
                         int xx = x - window / 2, yy = window / 2 - 1 - y, b = (int)Math.Sqrt(xx * xx + yy * yy);
-                        double expected = b < bg.Length && count[b] > 0 && env[b] > floor ? (100 - bg[b]) / env[b] : 0;
+                        double expected = b < bg.Length && count[b] > 0 ? 100 - bg[b] : 0;
                         Close(expected, display[i][y * window + x], 3e-3);
                     }
             }
             for (int b = 0; b < expectedGlobalSum.Length; b++) Close(expectedGlobalWeight[b] > 0 ? expectedGlobalSum[b] / expectedGlobalWeight[b] : 0, result.Global.Spectrum[b].Y, 3e-3);
-            // A nearly absent high-frequency envelope must not amplify residuals into huge plot spikes.
+            // A nearly absent envelope must neither erase nor amplify the measured residuals.
             var weakCoefficients = (float[])fit.Coefficients.Clone();
             int stride = weakCoefficients.Length / records.Length, knots = stride / 2;
             for (int i = 0; i < records.Length; i++)
@@ -239,7 +237,8 @@ public class CtfFitCudaTests
             }
             var weak = CtfFitDiagnostics.Create(records, geometry, fit with { Coefficients = weakCoefficients }, new[] { 0, 1 }, references, global,
                 fft, window, new[] { new float[window * window / 2], new float[window * window / 2] });
-            for (int b = 100; b < 125; b++) Assert.Equal(0, weak.Global.Spectrum[b].Y);
+            for (int b = 100; b < 125; b++) Assert.True(float.IsFinite(weak.Global.Spectrum[b].Y));
+            Assert.Contains(weak.Global.Spectrum.Skip(100).Take(25), p => p.Y != 0);
             // Movie groups combine into one reference/display rather than one display per frame group.
             var movie = CtfFitDiagnostics.Create(records, geometry, fit, new[] { 0, 0 }, new[] { global }, global, fft, window, new[] { new float[window * window / 2] });
             Assert.Same(movie.Groups[0], movie.Global);

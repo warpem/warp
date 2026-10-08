@@ -65,8 +65,14 @@ public partial class Movie
             GridCTFDefocus = new CubicGrid(defocusDims, p.Take(nd).Select(v => (float)v).ToArray());
             GridCTFPhase = new CubicGrid(phaseDims, p.Skip(nd + 2).Take(np).Select(v => (float)(v / Math.PI)).ToArray());
             CTF = CtfFitEngine.MakeCtf(options, p.Take(nd).Average(), p[nd], p[nd + 1], p.Skip(nd + 2).Take(np).Average());
-            var diagnostic = CtfFitDiagnostics.Create(records, geometry, fit, new int[records.Length],
-                new[] { CTF }, CTF, extraction.FourierSize, window, new[] { extraction.Display }).Global;
+            using var diagnosticExtractor = new CtfPowerSpectrum.Extractor(dims, options, fullSpectrum: true);
+            var diagnosticInputs = Enumerable.Range(0, groups).Select(g =>
+            {
+                int first = g * input.Dims.Z / groups, end = (g + 1) * input.Dims.Z / groups;
+                return new CtfFitDiagnostics.Input(input, geometry.Where((_, i) => records[i].Group == g).ToArray(), 0, first, end - first);
+            });
+            var diagnostic = CtfFitDiagnostics.CreateFullSpectrum(diagnosticExtractor, diagnosticInputs.ToArray(), fit,
+                new[] { CTF }, CTF, window, new[] { extraction.Display }).Global;
             PS1D = diagnostic.Spectrum; SimulatedBackground = diagnostic.Background; SimulatedScale = diagnostic.Envelope;
             CTFResolutionEstimate = diagnostic.Resolution;
             CTFQuality = diagnostic.Quality;
