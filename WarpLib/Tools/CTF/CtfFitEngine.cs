@@ -106,16 +106,16 @@ public static class CtfFitEngine
     {
         if (initial.Length != geometry[0].ThicknessIndex+1) throw new ArgumentException("CTF parameters must include squared specimen thickness.");
         initial = (double[])initial.Clone();
-        int planeEvaluations=0;double planeSeconds=0;
+        int planeEvaluations=0;double planeSeconds=0;CtfDefocusPrior prior=null;
         if(geometry[0].Rotation.HasValue)
         {
             var timer=System.Diagnostics.Stopwatch.StartNew();
             var plane=CtfPlaneInitialization.Initialize(records,geometry,initial,options);
-            initial=plane.Parameters;planeEvaluations=plane.Evaluations;planeSeconds=timer.Elapsed.TotalSeconds;
+            initial=plane.Parameters;prior=plane.Prior;planeEvaluations=plane.Evaluations;planeSeconds=timer.Elapsed.TotalSeconds;
         }
         using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
         int searchEvaluations = SeedThickness(records, geometry, initial, batch);
-        var result = RefineCore(records, geometry, initial, options, batch);
+        var result = RefineCore(records, geometry, initial, options, batch, prior);
         result = result with { Evaluations = result.Evaluations + searchEvaluations + planeEvaluations, PlaneInitializationSeconds = planeSeconds,
             PlaneAtBoundary = geometry.Any(g => !g.IsValidPlane(result.Parameters,CtfFitGeometry.MinimumBeamCosine*1.01)) };
         var poses = new double[records.Length * 7];
@@ -165,7 +165,7 @@ public static class CtfFitEngine
         return (scale,lo,hi);
     }
 
-    static Fit RefineCore(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options, CtfGpuFitBatch batch)
+    static Fit RefineCore(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options, CtfGpuFitBatch batch, CtfDefocusPrior prior)
     {
         int n=initial.Length;
         var (scale,lo,hi)=ParameterBounds(geometry[0],options);
@@ -196,13 +196,14 @@ public static class CtfFitEngine
                     loss += output[9 * i]; Array.Copy(output, 9 * i + 1, g, 0, 7);
                     geometry[i].AccumulateVolume(gradient, g, p);
                 }
+                if(prior!=null)loss+=prior.Evaluate(p,gradient);
                 return (loss / records.Length, gradient.Select(v => v / records.Length).ToArray());
             }, initial, scale, lo, hi, 100);
             evaluations += result.Evaluations;
             initial = result.Parameters;
             // Reprofile once after astigmatism/phase/defocus have settled. Their initial
             // errors can otherwise make the thickness grid select the wrong sinc lobe.
-            if (pass == 0) { evaluations += SeedThickness(records,geometry,initial,batch); continue; }
+            if (pass == 0) { prior?.Update(initial); evaluations += SeedThickness(records,geometry,initial,batch); continue; }
             if (pass == 6 || weightChange < .01) break;
             UpdatePoses(initial);
             double[] output = batch.Evaluate(poses, true);

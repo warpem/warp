@@ -27,7 +27,7 @@ public class CtfInclinationTests
         double[] grazing={2,.02,0,0,-Math.Tan(27*Math.PI/180),0,.01};
         Assert.False(tilted.IsValidPlane(grazing));
     }
-    static CtfSpectrumFit Spectrum(double[] pose,int seed,double noise,bool wrongPatch)
+    static CtfSpectrumFit Spectrum(double[] pose,int seed,double noise,bool wrongPatch,double contrast=1)
     {
         var rng=new Random(seed);var samples=new List<CtfSpectrumFit.Sample>();
         double lambda=CtfSpectrumFit.Wavelength(300),kd=Math.PI*lambda*1e4,kc=-.5*Math.PI*2.7e7*Math.Pow(lambda,3);
@@ -37,7 +37,7 @@ public class CtfInclinationTests
             double df=pose[0]+(wrongPatch?.31:0),phase=pose[3]+(wrongPatch?.8:0);
             double gamma=kd*(q2*df+ax*pose[1]+ay*pose[2])+kc*q2*q2+Math.Asin(.07)+phase;
             double model=CtfSlabModel.Power(gamma,kd*q2,pose[4],pose[5],pose[6]);
-            double power=3+4*q+(1+q)*model;
+            double power=3+4*q+contrast*(1+q)*model;
             power*=1+noise*Math.Sqrt(-2*Math.Log(Math.Max(1e-12,rng.NextDouble())))*Math.Cos(2*Math.PI*rng.NextDouble());
             samples.Add(new(q2,q2*q2,ax,ay,Math.Max(.01,power),300));
         }
@@ -87,4 +87,37 @@ public class CtfInclinationTests
             }
         }
     }
+    [CtfCudaFact]
+    public void WeakHighTiltBorrowsSupportWithoutSuppressingARealFocusJump()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            double[] angles = { -60, -25, -15, 0, 15, 25, 60 };
+            int tilts = angles.Length, plane = tilts + 3;
+            var truth = new double[tilts + 6];
+            for (int t = 0; t < tilts; t++) truth[t] = 1.8 + .08 * Math.Sin(angles[t] * Math.PI / 180);
+            truth[tilts - 1] = 3.0; // A genuine jump with clear rings must remain possible.
+            truth[tilts] = .02; truth[tilts + 1] = -.01;
+            truth[plane] = .1; truth[plane + 1] = -.06; truth[^1] = .01;
+            var records = new List<CtfPowerSpectrum.Observation>();
+            var geometry = new List<CtfFitGeometry>();
+            for (int t = 0; t < tilts; t++) for (int j = 0; j < 9; j++)
+            {
+                var weights = new double[tilts]; weights[t] = 1;
+                var g = new CtfFitGeometry(weights, new[] { 1.0 }, (j%3-1)*.15, (j/3-1)*.13,
+                    Matrix3.Euler(0, (float)(angles[t]*Math.PI/180), 0), .09);
+                var pose = new double[7]; g.WritePose(truth, pose, 0);
+                records.Add(new(Spectrum(pose, 300*t+j, .015, false, t == 0 ? 0 : 1), new float3(.5f), t));
+                geometry.Add(g);
+            }
+            var initial = new double[truth.Length]; Array.Fill(initial, 4.2, 0, tilts);
+            var options = new ProcessingOptionsMovieCTF { Voltage=300, Cs=2.7M, Amplitude=.07M, ZMin=.5M, ZMax=5, DoPhase=false };
+            var fit = CtfFitEngine.Refine(records.ToArray(), geometry.ToArray(), initial, options);
+            output.WriteLine($"Weak tilt: {fit.Parameters[0]:F5} um; real jump: {fit.Parameters[tilts-1]:F5} um");
+            Assert.InRange(Math.Abs(fit.Parameters[0]-truth[0]), 0, .15);
+            for (int t = 1; t < tilts; t++) Assert.InRange(Math.Abs(fit.Parameters[t]-truth[t]), 0, .01);
+        }
+    }
+
 }

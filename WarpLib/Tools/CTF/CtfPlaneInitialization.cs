@@ -12,8 +12,8 @@ namespace Warp.Tools;
 internal static class CtfPlaneInitialization
 {
     sealed record Patch(CtfSpectrumFit Spectrum, CtfFitGeometry Geometry);
-    sealed record Candidate(double X, double Y, double Score, double[] Defocus, double[] Phase);
-    public sealed record Result(double[] Parameters, int Evaluations);
+    sealed record Candidate(double X, double Y, double Score, double[] Defocus, double[] Phase, CtfDefocusPrior Prior = null);
+    public sealed record Result(double[] Parameters, int Evaluations, CtfDefocusPrior Prior);
 
     public static Result Initialize(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry,
         double[] initial, ProcessingOptionsMovieCTF options)
@@ -74,7 +74,7 @@ internal static class CtfPlaneInitialization
         }
         raw=null;
         int plane=geometry[0].ThicknessIndex-2;
-        Candidate Evaluate(double x,double y)
+        Candidate Evaluate(double x,double y,bool regularize=false)
         {
             double angle=Math.Sqrt(x*x+y*y);
             if(angle>CtfFitGeometry.MaximumInclination) return new(x,y,double.NegativeInfinity,null,null);
@@ -89,6 +89,8 @@ internal static class CtfPlaneInitialization
                 shifts[i]=(int)Math.Floor(shift);fractions[i]=(float)(shift-shifts[i]);
             }
             double total=0;var dfs=new double[groups.Length];var phaseValues=new double[groups.Length];
+            var profiles=regularize?groups.Select(_=>Enumerable.Repeat(double.NegativeInfinity,centralSteps+1).ToArray()).ToArray():null;
+            var phaseAt=regularize?groups.Select(_=>new int[centralSteps+1]).ToArray():null;
             for(int group=0;group<groups.Length;group++)
             {
                 double best=double.NegativeInfinity;int bestZ=0,bestPhase=0;
@@ -100,11 +102,24 @@ internal static class CtfPlaneInitialization
                         int j=(z+shifts[i])*phases+phase;float f=fractions[i];
                         sum+=tables[i][j]*(1-f)+tables[i][j+phases]*f;
                     }
+                    if(regularize && sum>profiles[group][z]){profiles[group][z]=sum;phaseAt[group][z]=phase;}
                     if(sum>best){best=sum;bestZ=z;bestPhase=phase;}
                 }
                 total+=best;dfs[group]=zmin+bestZ*step;phaseValues[group]=bestPhase*Math.PI/phases;
             }
-            return new(x,y,total,dfs,phaseValues);
+            CtfDefocusPrior prior=null;
+            if(regularize && geometry[0].DefocusWeights.Length==groups.Length)
+            {
+                var groupGeometry=groups.Select(g=>geometry[g[0]]).ToArray();
+                int[] nodes=groupGeometry.Select(g=>Array.IndexOf(g.DefocusWeights,1.0)).ToArray();
+                if(nodes.All(j=>j>=0))
+                {
+                    prior=CtfDefocusPrior.FromProfiles(profiles,groupGeometry.Select(g=>Math.Atan2(g.Rotation.Value.M31,g.Rotation.Value.M33)).ToArray(),nodes,zmin,step);
+                    if(prior!=null)for(int g=0;g<groups.Length;g++)
+                    {int z=prior.Select(g);dfs[g]=zmin+z*step;phaseValues[g]=phaseAt[g][z]*Math.PI/phases;}
+                }
+            }
+            return new(x,y,total,dfs,phaseValues,prior);
         }
         var coordinates=new List<(double X,double Y)>{(0,0)};
         const double coarseStep=Math.PI/18;
@@ -138,6 +153,7 @@ internal static class CtfPlaneInitialization
                 coordinates.Add((center.X+x*spacing,center.Y+y*spacing));
             bestPlanes=Select(Rank(coordinates),spacing*.8);
         }
+        bestPlanes=bestPlanes.Select(c=>Evaluate(c.X,c.Y,true)).ToList();
         var seeds=bestPlanes.Select(c=>
         {
             var p=(double[])initial.Clone();int nd=geometry[0].DefocusWeights.Length,np=geometry[0].PhaseWeights.Length;
@@ -179,11 +195,62 @@ internal static class CtfPlaneInitialization
                     int j=(s*patches.Count+i)*9;loss+=output[j];Array.Copy(output,j+1,local,0,7);
                     patches[i].Geometry.AccumulateVolume(gradient,local,parameters[s]);
                 }
+                if(valid[s] && bestPlanes[s].Prior!=null)loss+=bestPlanes[s].Prior.Evaluate(parameters[s],gradient);
                 result[s]=(valid[s]?loss/patches.Count:double.PositiveInfinity,gradient.Select(v=>v/patches.Count).ToArray());
             }
             return result;
         },seeds,scales,lower,upper,80);
         var bestFit=fits.OrderBy(f=>f.Loss).First();
-        return new(bestFit.Parameters,fits.Sum(f=>f.Evaluations));
+        var bestPlane=bestPlanes[Array.IndexOf(fits,bestFit)];
+        var bestPrior=bestPlane.Prior;
+        bestPrior?.Update(bestFit.Parameters);
+        int rescueEvaluations=0;
+        if(bestPrior!=null)
+        {
+            // Search-profile contrast is only a seed heuristic. Compare the independent
+            // maximum against the consensus basin using the actual spectral objective,
+            // separately for each tilt, so a real focus jump is not lost in initialization.
+            var independent=Evaluate(bestPlane.X,bestPlane.Y);
+            rescueEvaluations=CompareDefocusBasins(patches,starts,bestFit.Parameters,independent.Defocus,bestPrior,options);
+            bestPrior.Update(bestFit.Parameters);
+        }
+        return new(bestFit.Parameters,fits.Sum(f=>f.Evaluations)+rescueEvaluations,bestPrior);
     }
+    static int CompareDefocusBasins(List<Patch> patches,int[] starts,double[] parameters,double[] independent,
+        CtfDefocusPrior prior,ProcessingOptionsMovieCTF options)
+    {
+        int groups=starts.Length-1;
+        int[] nodes=Enumerable.Range(0,groups).Select(g=>Array.IndexOf(patches[starts[g]].Geometry.DefocusWeights,1.0)).ToArray();
+        var centers=prior.Centers;var sigma=prior.Scales;
+        var spectra=Enumerable.Range(0,2).SelectMany(_=>patches.Select(p=>p.Spectrum)).ToArray();
+        using var batch=new CtfGpuFitBatch(spectra);
+        var poses=new double[spectra.Length*7];
+        var seeds=Enumerable.Range(0,groups*2).Select(s=>new[]{s<groups?parameters[nodes[s]]:independent[s-groups]}).ToArray();
+        var fits=CtfFitOptimizer.MinimizeMany(values=>
+        {
+            for(int s=0;s<values.Length;s++)
+            {
+                int group=s%groups,offset=s/groups*patches.Count;
+                var p=(double[])parameters.Clone();p[nodes[group]]=values[s][0];
+                for(int i=starts[group];i<starts[group+1];i++)patches[i].Geometry.WritePose(p,poses,7*(offset+i));
+            }
+            var output=batch.Evaluate(poses);
+            return values.Select((v,s)=>
+            {
+                int group=s%groups,offset=s/groups*patches.Count;
+                double residual=v[0]-centers[group],precision=1/(sigma[group]*sigma[group]);
+                double loss=.5*residual*residual*precision,gradient=residual*precision;
+                for(int i=starts[group];i<starts[group+1];i++)
+                {loss+=output[9*(offset+i)];gradient+=output[9*(offset+i)+1];}
+                return (loss,new[]{gradient});
+            }).ToArray();
+        },seeds,new[]{.02},new[]{(double)options.ZMin},new[]{(double)options.ZMax},40);
+        for(int group=0;group<groups;group++)
+        {
+            var best=fits[group].Loss<=fits[group+groups].Loss?fits[group]:fits[group+groups];
+            parameters[nodes[group]]=best.Parameters[0];
+        }
+        return fits.Sum(f=>f.Evaluations);
+    }
+
 }
