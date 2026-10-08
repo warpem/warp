@@ -51,7 +51,6 @@ static partial class WorkerProcess
                 LastMessage = message;
                 Console.WriteLine(message);
             }
-            Console.WriteLine($"{fraction * 100}%");
             return false;
         });
 

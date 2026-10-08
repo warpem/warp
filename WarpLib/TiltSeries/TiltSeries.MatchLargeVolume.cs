@@ -152,7 +152,7 @@ public partial class TiltSeries
 
                 #region Match
 
-                progressCallback?.Invoke(0, "Matching...");
+                progressCallback?.Invoke(0, "Coarse 3D search: 0.0%");
 
                 float[] ProgressFraction = new float[1];
                 {
@@ -162,7 +162,7 @@ public partial class TiltSeries
                     TomoRec.FreeDevice();
 
                     Timer ProgressTimer = new Timer((a) =>
-                                                        progressCallback?.Invoke(ProgressFraction[0], "Matching..."), null, 1000, 1000);
+                                                        progressCallback?.Invoke(ProgressFraction[0], $"Coarse 3D search: {ProgressFraction[0] * 100:F1}%"), null, 1000, 1000);
 
                     try
                     {
@@ -184,7 +184,8 @@ public partial class TiltSeries
                     }
                     finally
                     {
-                        ProgressTimer.Dispose();
+                        // Drain pending callbacks before later phases start logging.
+                        ProgressTimer.DisposeAsync().AsTask().GetAwaiter().GetResult();
                     }
 
                     #endregion
@@ -194,7 +195,7 @@ public partial class TiltSeries
                     if (options.UseTophat > 0)
                         CorrVolume = CorrVolume.AsTophatFiltered(options.UseTophat).AndDisposeParent();
 
-                    if (progressCallback != null && progressCallback(1.0f, "Matching..."))
+                    if (progressCallback != null && progressCallback(1.0f, "Coarse 3D search: 100.0%"))
                         throw new OperationCanceledException();
                 }
 
@@ -387,7 +388,7 @@ public partial class TiltSeries
 
             if (Peaks.Length > 0)
             {
-                int3[] Offsets = [new(0, 0, 0), new(-1, 0, 0), new(1, 0, 0), new(0, -1, 0), new(0, 1, 0), new(0, 0, -1), new(0, 0, 1)];
+                int3[] Offsets = TemplateMatching.GetNeighborhoodOffsets();
                 int3 PadOffset = (DimsVolumePadded - DimsVolumeScaled) / 2;
                 int3[] GatherPositions = Peaks.SelectMany(p => Offsets.Select(o => p.Position + o + PadOffset)).ToArray();
                 float[] GatherScores = new float[checked(GatherPositions.Length * KeepPoses)];
@@ -400,8 +401,8 @@ public partial class TiltSeries
                 for (int p = 0; p < Peaks.Length; p++)
                 {
                     int3[] Voxels = Offsets.Select(o => Peaks[p].Position + o).ToArray();
-                    float[] Scores = GatherScores.Skip(p * 7 * KeepPoses).Take(7 * KeepPoses).ToArray();
-                    float[] Angles = GatherAngles.Skip(p * 7 * KeepPoses).Take(7 * KeepPoses).ToArray();
+                    float[] Scores = GatherScores.Skip(p * Offsets.Length * KeepPoses).Take(Offsets.Length * KeepPoses).ToArray();
+                    float[] Angles = GatherAngles.Skip(p * Offsets.Length * KeepPoses).Take(Offsets.Length * KeepPoses).ToArray();
                     for (int v = 0; v < Voxels.Length; v++)
                     {
                         int3 q = Voxels[v];
@@ -602,7 +603,7 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
     [WarpSerializable] public int MatchTopK { get; set; } = 8;
     [WarpSerializable] public int RefineStarts { get; set; } = 32;
     [WarpSerializable] public int RefineIterations { get; set; } = 90;
-    [WarpSerializable] public decimal RefineMergeFraction { get; set; } = 0.005M;
+    [WarpSerializable] public decimal RefineMergeFraction { get; set; } = 0.25M;
     // Angstrom; zero selects three coarse tomogram pixels.
     [WarpSerializable] public decimal RefineMaxShift { get; set; } = 0;
     [WarpSerializable] public int RefineNoisePatches { get; set; } = 256;

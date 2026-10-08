@@ -640,7 +640,6 @@ namespace Warp
                             LastMessage = message;
                             Console.WriteLine(message);
                         }
-                        Console.WriteLine($"{fraction * 100}%");
                         return false;
                     });
 

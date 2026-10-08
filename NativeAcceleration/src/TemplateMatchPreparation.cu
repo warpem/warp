@@ -22,6 +22,45 @@ __global__ void Transfer(const float* c,float* o,int n,int tilts,const float* r,
         o[i]=(x==0 && y==0 && z==0) ? 0 : sum;
     }
 }
+// One block per patch. Subtract the observed mean before zero-padding so a
+// detector boundary never introduces a sharp constant-background edge.
+__global__ void ExtractCentered(const float* input, int2 dims, const int3* origins, int box, float* output, int* invalid)
+{
+    __shared__ float sums[256];
+    int3 origin=origins[blockIdx.x];
+    int left=max(0,origin.x),top=max(0,origin.y),right=min(dims.x,origin.x+box),bottom=min(dims.y,origin.y+box);
+    float sum=0;
+    for(int i=threadIdx.x;i<box*box;i+=blockDim.x)
+    {
+        int x=origin.x+i%box,y=origin.y+i/box;
+        if(x>=left && x<right && y>=top && y<bottom)sum+=input[(size_t)y*dims.x+x];
+    }
+    sums[threadIdx.x]=sum;__syncthreads();
+    for(int stride=blockDim.x/2;stride;stride/=2)
+    {if(threadIdx.x<stride)sums[threadIdx.x]+=sums[threadIdx.x+stride];__syncthreads();}
+    float mean=sums[0]/max(1,max(0,right-left)*max(0,bottom-top));
+    if(threadIdx.x==0 && !isfinite(mean)) atomicExch(invalid,1);
+    for(int i=threadIdx.x;i<box*box;i+=blockDim.x)
+    {
+        int x=origin.x+i%box,y=origin.y+i/box;
+        output[(size_t)origin.z*box*box+i]=(x>=left && x<right && y>=top && y<bottom)?input[(size_t)y*dims.x+x]-mean:0;
+    }
+}
+// Accumulate background power on device; transfer one spectrum per tilt, not
+// every complex FFT of every sampled patch. Frequency-wise sums use FP32.
+__global__ void AccumulatePower(const float2* spectra, float* power, int elements, int count, float scale)
+{
+    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < elements; i += gridDim.x * blockDim.x)
+    {
+        float sum = 0;
+        for (int p = 0; p < count; p++)
+        {
+            float2 v = spectra[(size_t)p * elements + i];
+            sum += v.x*v.x + v.y*v.y;
+        }
+        power[i] += sum * scale;
+    }
+}
 __global__ void Hybrid(float* w, int box, int particles, int tilts, const float* r,
                        const float* noise, float pixel, float diameter)
 {
@@ -115,4 +154,26 @@ extern "C" __declspec(dllexport) void MatchSpectrumResample(const float* a,int3 
 extern "C" __declspec(dllexport) void MatchBackproject(const float* image,int2 im,float* volume,int3 d,
     const float3* geom,int3 grid,float spacing,float df,float step) {
     Backproject<<<512,128>>>(image,im,volume,d,geom,grid,spacing,df,step);
+}
+
+extern "C" __declspec(dllexport) void MatchAccumulatePower(const float2* spectra, float* power, int elements, int count, float scale)
+{
+    AccumulatePower<<<(elements+255)/256,256>>>(spectra,power,elements,count,scale);
+}
+
+extern "C" __declspec(dllexport) int MatchExtractCentered(const float* input,int2 dims,const int3* origins,int box,int count,float* output)
+{
+    if(count==0)return cudaSuccess;
+    if(count<0 || box<1 || dims.x<1 || dims.y<1)return cudaErrorInvalidValue;
+    int3* deviceOrigins=nullptr;
+    cudaError_t status=cudaMalloc(&deviceOrigins,(size_t)count*sizeof(int3)+sizeof(int));
+    int* invalid=reinterpret_cast<int*>(deviceOrigins ? deviceOrigins+count : nullptr);
+    int hostInvalid=0;
+    if(status==cudaSuccess)status=cudaMemcpy(deviceOrigins,origins,(size_t)count*sizeof(int3),cudaMemcpyHostToDevice);
+    if(status==cudaSuccess)status=cudaMemset(invalid,0,sizeof(int));
+    if(status==cudaSuccess){ExtractCentered<<<count,256>>>(input,dims,deviceOrigins,box,output,invalid);status=cudaGetLastError();}
+    if(status==cudaSuccess)status=cudaMemcpy(&hostInvalid,invalid,sizeof(int),cudaMemcpyDeviceToHost);
+    if(deviceOrigins){cudaError_t released=cudaFree(deviceOrigins);if(status==cudaSuccess)status=released;}
+    if(status==cudaSuccess && hostInvalid)status=cudaErrorInvalidValue;
+    return status;
 }

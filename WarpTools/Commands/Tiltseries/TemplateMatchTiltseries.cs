@@ -57,7 +57,7 @@ namespace WarpTools.Commands
         [Option("refine_iterations", Default = 90, HelpText = "Maximum accepted GPU optimization steps per hypothesis and resolution stage")]
         public int RefineIterations { get; set; }
 
-        [Option("refine_merge_fraction", Default = 0.005, HelpText = "Merge thresholds as a fraction of the current band pixel, for translation and rotation displacement at the template edge; 0 disables merging")]
+        [Option("refine_merge_fraction", Default = 0.25, HelpText = "Merge thresholds as a fraction of the current band pixel, for translation and rotation displacement at the template edge; 0 disables merging")]
         public double RefineMergeFraction { get; set; }
 
         [Option("refine_max_shift", Default = 0.0, HelpText = "Maximum displacement per coordinate from the proposal center, in Angstrom; 0 uses three tomogram pixels")]

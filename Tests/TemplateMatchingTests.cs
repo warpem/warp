@@ -52,7 +52,7 @@ public class TemplateMatchingTests
     }
 
     [Fact]
-    public void CornerPoolingOmitsOutOfBoundsAndDiagonalVoxels()
+    public void CornerPoolingIncludesDiagonalsAndOmitsOutOfBounds()
     {
         int3 dims = new int3(2);
         var scores = Volume(1, dims, 1);
@@ -60,9 +60,32 @@ public class TemplateMatchingTests
 
         var starts = TemplateMatching.GatherStarts(new int3(0), dims, 1, scores, ids, new float3[1], 20);
 
-        Assert.Equal(4, starts.Length);
-        Assert.All(starts, s => Assert.InRange(s.SourceVoxel.X + s.SourceVoxel.Y + s.SourceVoxel.Z, 0, 1));
+        Assert.Equal(8, starts.Length);
+        Assert.Contains(starts, s => s.SourceVoxel.Equals(new int3(1)));
+        Assert.All(starts, s =>
+        {
+            Assert.InRange(s.SourceVoxel.X, 0, 1);
+            Assert.InRange(s.SourceVoxel.Y, 0, 1);
+            Assert.InRange(s.SourceVoxel.Z, 0, 1);
+        });
         Assert.Equal(new int3(0), starts[0].SourceVoxel);
+    }
+
+    [Fact]
+    public void DiagonalHypothesesCompeteByScoreWithinStartLimit()
+    {
+        int3 dims = new(3);
+        var scores = Volume(1, dims, 1);
+        var ids = Volume(1, dims, 0);
+        Set(scores, ids, 0, new int3(0, 0, 1), dims, 8, 0); // Edge neighbour.
+        Set(scores, ids, 0, new int3(2, 2, 2), dims, 9, 0); // Corner neighbour.
+        Set(scores, ids, 0, new int3(1), dims, 7, 0);
+        var all = TemplateMatching.GatherStarts(new int3(1), dims, 1, scores, ids, new float3[1], 100);
+        Assert.Equal(27, all.Length);
+        var selected = TemplateMatching.GatherStarts(new int3(1), dims, 1, scores, ids, new float3[1], 2);
+        Assert.Equal(new[] { 9f, 8f }, selected.Select(s => s.ProposalScore));
+        Assert.Equal(new int3(2), selected[0].SourceVoxel);
+        Assert.Equal(new int3(0, 0, 1), selected[1].SourceVoxel);
     }
 
     [Fact]
@@ -87,12 +110,11 @@ public class TemplateMatchingTests
     public void SparsePoolingMatchesVolumePooling()
     {
         int3 dims = new int3(3);
-        int3[] voxels = { new int3(1), new int3(0, 1, 1), new int3(2, 1, 1),
-                          new int3(1, 0, 1), new int3(1, 2, 1), new int3(1, 1, 0), new int3(1, 1, 2) };
+        int3[] voxels = TemplateMatching.GetNeighborhoodOffsets().Select(o => new int3(1) + o).ToArray();
         var scores = Volume(2, dims, float.NegativeInfinity);
         var ids = Volume(2, dims, -1);
-        var sparseScores = new float[14];
-        var sparseIds = new float[14];
+        var sparseScores = new float[voxels.Length * 2];
+        var sparseIds = new float[voxels.Length * 2];
         for (int p = 0; p < voxels.Length; p++)
             for (int rank = 0; rank < 2; rank++)
             {
@@ -100,7 +122,8 @@ public class TemplateMatchingTests
                 sparseIds[p * 2 + rank] = (p + rank) % 3;
                 Set(scores, ids, rank, voxels[p], dims, sparseScores[p * 2 + rank], sparseIds[p * 2 + rank]);
             }
-        sparseIds[5] = ids[1][1][5] = float.NaN;
+        sparseIds[5] = float.NaN;
+        ids[1][voxels[2].Z][voxels[2].Y * dims.X + voxels[2].X] = float.NaN;
 
         var fromVolume = TemplateMatching.GatherStarts(new int3(1), dims, 2, scores, ids, new float3[3], 10);
         var fromSparse = TemplateMatching.GatherStarts(voxels, sparseScores, sparseIds, 2, 2, new float3[3], 10);

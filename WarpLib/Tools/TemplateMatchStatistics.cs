@@ -8,21 +8,6 @@ namespace Warp.Tools;
 /// <summary>Shared statistical conventions for native tilt-series template matching.</summary>
 public static class TemplateMatchStatistics
 {
-    /// <summary>Remove the observed background before zero-padding an image-boundary patch.</summary>
-    public static void CopyCenteredPatch(float[] source, int width, int height, int x, int y, int box, float[] destination)
-    {
-        Array.Clear(destination);
-        int left = Math.Max(0, x), top = Math.Max(0, y);
-        int right = Math.Min(width, x + box), bottom = Math.Min(height, y + box);
-        if (left >= right || top >= bottom) return;
-        double sum = 0;
-        for (int row = top; row < bottom; row++)
-            for (int col = left; col < right; col++) sum += source[row * width + col];
-        float mean = (float)(sum / ((right - left) * (bottom - top)));
-        for (int row = top; row < bottom; row++)
-            for (int col = left; col < right; col++)
-                destination[(row-y)*box+col-x] = source[row*width+col] - mean;
-    }
     public static double HybridWeight(double totalPower, double detectorPower, double multiplicity)
     {
         if (!(detectorPower > 0) || !double.IsFinite(detectorPower) || totalPower < 0 ||
@@ -53,6 +38,18 @@ public static class TemplateMatchStatistics
         return bands.ToArray();
     }
 
+    /// <summary>Carry a broad coarse search into finer bands without multiplying its
+    /// full hypothesis count by the growing Fourier area. Retain at least eight alternatives;
+    /// equal-band calibration passes keep the original budget.</summary>
+    public static int ContinuationHypotheses(int initial, float coarseResolution, float nextResolution)
+    {
+        if (initial < 1 || !(coarseResolution > 0) || !float.IsFinite(coarseResolution) ||
+            !(nextResolution > 0) || !float.IsFinite(nextResolution) || nextResolution > coarseResolution)
+            throw new ArgumentOutOfRangeException(nameof(initial));
+        double ratio = nextResolution / coarseResolution;
+        return Math.Min(initial, Math.Max(8, (int)Math.Ceiling(initial * ratio * ratio)));
+    }
+
     public static double Quantile(IEnumerable<double> values, double fraction)
     {
         double[] sorted = values.Where(double.IsFinite).OrderBy(v => v).ToArray();
@@ -65,12 +62,24 @@ public static class TemplateMatchStatistics
     // Reweight fixed-pose sufficient statistics; the reference alone receives exp(deltaB*q²/4).
     // Warp's B convention is negative for attenuation.
     public static (double Cross, double Power) Reweight(TemplateMatchEnvelopeSpectrum s, double deltaB)
+        => Reweight(s, EnvelopeFactors(s.MaximumFrequencySquared, s.Cross.Length, deltaB));
+
+    public static double[] EnvelopeFactors(float maximumQ2, int bins, double deltaB)
     {
+        if (bins < 2) throw new ArgumentOutOfRangeException(nameof(bins));
+        var factors = new double[bins];
+        for (int i = 0; i < bins; i++)
+            factors[i] = Math.Exp(Math.Clamp(deltaB * (i * (double)maximumQ2 / (bins - 1)) / 4, -80, 80));
+        return factors;
+    }
+
+    public static (double Cross, double Power) Reweight(TemplateMatchEnvelopeSpectrum s, ReadOnlySpan<double> factors)
+    {
+        if (factors.Length != s.Cross.Length) throw new ArgumentException("Envelope grid does not match the spectrum.", nameof(factors));
         double cross = 0, power = 0;
         for (int i = 0; i < s.Cross.Length; i++)
         {
-            double q2 = i * (double)s.MaximumFrequencySquared / (s.Cross.Length - 1);
-            double a = Math.Exp(Math.Clamp(deltaB * q2 / 4, -80, 80));
+            double a = factors[i];
             cross += s.Cross[i] * a;
             power += s.Power[i] * a * a;
         }

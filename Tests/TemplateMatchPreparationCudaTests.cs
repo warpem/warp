@@ -9,6 +9,61 @@ namespace Tests;
 public class TemplateMatchPreparationCudaTests
 {
     [TemplateMatchCudaFact]
+    public void CenteredExtractionMatchesObservedMeanAndZeroPadding()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            const int box = 17;
+            using Image input = new(new int3(31, 29, 1));
+            float[] source = input.GetHost(Intent.Write)[0];
+            for (int i = 0; i < source.Length; i++) source[i] = 100 + MathF.Sin(i * .3f) * 7;
+            int3[] origins = [new(3, 4, 3), new(-4, 5, 0), new(25, 23, 4), new(-40, 3, 1), new(2, -6, 2)];
+            using Image output = new(new int3(box, box, origins.Length));
+            Assert.Equal(0, GPU.MatchExtractCentered(input.GetDevice(Intent.Read), new int2(input.Dims),
+                origins, box, origins.Length, output.GetDevice(Intent.Write)));
+            float[][] actual = output.GetHost(Intent.Read);
+            foreach (int3 origin in origins)
+            {
+                float[] expected = new float[box * box];
+                TemplateMatchPreparationReference.CopyCenteredPatch(source, input.Dims.X, input.Dims.Y,
+                    origin.X, origin.Y, box, expected);
+                for (int i = 0; i < expected.Length; i++)
+                    Assert.InRange(Math.Abs(actual[origin.Z][i] - expected[i]), 0, 3e-5f);
+            }
+            input.GetHost(Intent.ReadWrite)[0][4 * input.Dims.X + 3] = float.NaN;
+            Assert.NotEqual(0, GPU.MatchExtractCentered(input.GetDevice(Intent.Read), new int2(input.Dims),
+                origins, box, origins.Length, output.GetDevice(Intent.Write)));
+        }
+    }
+
+    [TemplateMatchCudaFact]
+    public void BackgroundPowerAccumulatesBatchesWithCorrectNormalization()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            const int box=16, count=7, elements=box*(box/2+1);
+            using Image ft = new(new int3(box,box,count), true, true);
+            using Image power = new(new int3(box,box,1), true);
+            power.Fill(0);
+            var input=ft.GetHost(Intent.Write);
+            var expected=new double[elements];
+            var rng=new Random(301);
+            for(int p=0;p<count;p++) for(int f=0;f<elements;f++)
+            {
+                float re=(float)(rng.NextDouble()*20-10), im=(float)(rng.NextDouble()*20-10);
+                input[p][2*f]=re;input[p][2*f+1]=im;
+                expected[f]+=((double)re*re+(double)im*im)*.003;
+            }
+            GPU.MatchAccumulatePower(ft.GetDevice(Intent.Read),power.GetDevice(Intent.ReadWrite),elements,count,.001f);
+            GPU.MatchAccumulatePower(ft.GetDevice(Intent.Read),power.GetDevice(Intent.ReadWrite),elements,count,.002f);
+            var actual=power.GetHost(Intent.Read)[0];
+            for(int f=0;f<elements;f++) Assert.InRange(Math.Abs(actual[f]-expected[f]),0,2e-6*Math.Max(1,expected[f]));
+        }
+    }
+
+    [TemplateMatchCudaFact]
     public void RefinementProjectorsPreserveAnalyticFourierValuesAcrossBoxSizes()
     {
         lock (GPU.Sync)

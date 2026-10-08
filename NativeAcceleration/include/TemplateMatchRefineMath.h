@@ -63,19 +63,24 @@ TM_HD Sample<T> Interpolate(Fetch fetch, int dim, T x, T y, T z)
     if (!(x >= T(0) && x < T(dim / 2))) return result;
     const int ix = int(::floor(x)), iy = int(::floor(y)), iz = int(::floor(z));
     const T f[3] = {x - T(ix), y - T(iy), z - T(iz)};
-    for (int dz = 0; dz < 2; ++dz)
-        for (int dy = 0; dy < 2; ++dy)
-            for (int dx = 0; dx < 2; ++dx)
-            {
-                const T wx = dx ? f[0] : T(1) - f[0];
-                const T wy = dy ? f[1] : T(1) - f[1];
-                const T wz = dz ? f[2] : T(1) - f[2];
-                const Complex<T> v = fetch(ix + dx, Wrap(iy + dy, dim), Wrap(iz + dz, dim));
-                result.value = result.value + v * (wx * wy * wz);
-                result.gradient[0] = result.gradient[0] + v * ((dx ? T(1) : T(-1)) * wy * wz);
-                result.gradient[1] = result.gradient[1] + v * (wx * (dy ? T(1) : T(-1)) * wz);
-                result.gradient[2] = result.gradient[2] + v * (wx * wy * (dz ? T(1) : T(-1)));
-            }
+    // Wrap each axis once, then share the interpolation intermediates between
+    // the value and all three derivatives. This is the same trilinear model.
+    const int y0 = Wrap(iy, dim), z0 = Wrap(iz, dim);
+    const int y1 = y0 + 1 == dim ? 0 : y0 + 1, z1 = z0 + 1 == dim ? 0 : z0 + 1;
+    const Complex<T> v000 = fetch(ix, y0, z0), v100 = fetch(ix+1, y0, z0);
+    const Complex<T> v010 = fetch(ix, y1, z0), v110 = fetch(ix+1, y1, z0);
+    const Complex<T> v001 = fetch(ix, y0, z1), v101 = fetch(ix+1, y0, z1);
+    const Complex<T> v011 = fetch(ix, y1, z1), v111 = fetch(ix+1, y1, z1);
+    const Complex<T> dx00 = v100-v000, dx10 = v110-v010, dx01 = v101-v001, dx11 = v111-v011;
+    const Complex<T> x00 = v000 + dx00*f[0], x10 = v010 + dx10*f[0];
+    const Complex<T> x01 = v001 + dx01*f[0], x11 = v011 + dx11*f[0];
+    const Complex<T> dy0 = x10-x00, dy1 = x11-x01;
+    const Complex<T> xy0 = x00+dy0*f[1], xy1 = x01+dy1*f[1];
+    const Complex<T> dx0 = dx00+(dx10-dx00)*f[1], dx1 = dx01+(dx11-dx01)*f[1];
+    result.gradient[0] = dx0+(dx1-dx0)*f[2];
+    result.gradient[1] = dy0+(dy1-dy0)*f[2];
+    result.gradient[2] = xy1-xy0;
+    result.value = xy0+result.gradient[2]*f[2];
     // F(q)=conj(F(-q)) on the reflected half-plane. Both the conjugation and
     // the derivative of -q are essential for correct orientation gradients.
     result.value.im *= reflection;

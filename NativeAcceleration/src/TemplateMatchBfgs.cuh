@@ -20,7 +20,7 @@ struct BfgsWorkspace
     float q[6], trialQ[6], gradient[6], oldGradient[6];
     float direction[6], displacement[6], difference[6], omega[3];
     float inverse[36], updateWork[bfgs::UpdateWorkspace];
-    float stats[BfgsStatistics], trialStats[2], reduction[4][BfgsStatistics];
+    float stats[BfgsStatistics], trialStats[2], reduction[Threads / 32][BfgsStatistics];
     float z, initialZ, alpha, slope, rawTranslation, rawRotation;
     int active, terminate, termination, accepted, evaluations, acceptedTrial, capped;
 };
@@ -72,8 +72,12 @@ __device__ __noinline__ void EvaluateBfgs(const BatchContext& c, int particle,
     }
     __syncthreads();
     if (threadIdx.x < Count)
-        result[threadIdx.x] = (w.reduction[0][threadIdx.x] + w.reduction[1][threadIdx.x]) +
-                             (w.reduction[2][threadIdx.x] + w.reduction[3][threadIdx.x]);
+    {
+        float total = 0;
+        #pragma unroll
+        for (int warp = 0; warp < Threads / 32; ++warp) total += w.reduction[warp][threadIdx.x];
+        result[threadIdx.x] = total;
+    }
     __syncthreads();
 }
 

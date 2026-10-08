@@ -33,6 +33,9 @@ public partial class TiltSeries
         double[][] crosses = slopes.Select(_ => new double[NTilts]).ToArray();
         double[][] powers = slopes.Select(_ => new double[NTilts]).ToArray();
         int count = 0;
+        // Every candidate uses the same frequency grid and dose envelopes. Compute
+        // their exponentials once instead of repeating them for all 300 candidates.
+        var envelopeFactors = new Dictionary<(float MaximumQ2, int Bins, double DeltaB), double[]>();
         try
         {
             options.RefineIterations = 0; options.RefineExportTiltSpectra = true; options.RefineFitHighpass = 0;
@@ -50,7 +53,15 @@ public partial class TiltSeries
                     double cross = 0, power = 0;
                     for (int t = 0; t < NTilts; t++)
                     {
-                        var terms = TemplateMatchStatistics.Reweight(best.TiltEnvelopeSpectra[t], -slopes[k] * Dose[t] - baseB[t]);
+                        var spectrum = best.TiltEnvelopeSpectra[t];
+                        double deltaB = -slopes[k] * Dose[t] - baseB[t];
+                        var key = (spectrum.MaximumFrequencySquared, spectrum.Cross.Length, deltaB);
+                        if (!envelopeFactors.TryGetValue(key, out var factors))
+                        {
+                            factors = TemplateMatchStatistics.EnvelopeFactors(key.MaximumFrequencySquared, key.Length, deltaB);
+                            envelopeFactors.Add(key, factors);
+                        }
+                        var terms = TemplateMatchStatistics.Reweight(spectrum, factors);
                         cross += terms.Cross; power += terms.Power;
                         crosses[k][t] += terms.Cross; powers[k][t] += terms.Power;
                     }

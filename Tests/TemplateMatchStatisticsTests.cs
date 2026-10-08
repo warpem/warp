@@ -7,14 +7,24 @@ namespace Tests;
 
 public class TemplateMatchStatisticsTests
 {
+    [Theory]
+    [InlineData(56,20,20,56)]
+    [InlineData(56,20,10,14)]
+    [InlineData(56,20,6,8)]
+    [InlineData(32,20,10,8)]
+    [InlineData(8,12,6,8)]
+    [InlineData(4,12,6,4)]
+    public void ContinuationBudgetKeepsAlternativesAndPreservesEqualBandPasses(int initial,float coarse,float next,int expected)
+        => Assert.Equal(expected,TemplateMatchStatistics.ContinuationHypotheses(initial,coarse,next));
+
     [Fact]
     public void BoundaryPaddingDoesNotTurnAConstantBackgroundIntoAnEdge()
     {
         float[] destination = new float[16];
-        TemplateMatchStatistics.CopyCenteredPatch(Enumerable.Repeat(7f, 25).ToArray(), 5, 5, -2, -1, 4, destination);
+        TemplateMatchPreparationReference.CopyCenteredPatch(Enumerable.Repeat(7f, 25).ToArray(), 5, 5, -2, -1, 4, destination);
         Assert.All(destination, v => Assert.Equal(0, v));
         float[] source = Enumerable.Range(0, 25).Select(i => (float)i).ToArray();
-        TemplateMatchStatistics.CopyCenteredPatch(source, 5, 5, -2, -1, 4, destination);
+        TemplateMatchPreparationReference.CopyCenteredPatch(source, 5, 5, -2, -1, 4, destination);
         Assert.Equal(new[]{0f,0,0,0,0,0,-5.5f,-4.5f,0,0,-.5f,.5f,0,0,4.5f,5.5f}, destination);
     }
     [Fact]

@@ -37,8 +37,21 @@ namespace Warp.Tools
     /// <summary>Managed proposal pooling with deterministic ordering; no native or GPU calls.</summary>
     public static class TemplateMatching
     {
+        /// <summary>The full 3x3x3 neighbourhood, with the central voxel first.</summary>
+        public static int3[] GetNeighborhoodOffsets()
+        {
+            var offsets = new int3[27];
+            int index = 1;
+            for (int z = -1; z <= 1; z++)
+                for (int y = -1; y <= 1; y++)
+                    for (int x = -1; x <= 1; x++)
+                        if (x != 0 || y != 0 || z != 0)
+                            offsets[index++] = new int3(x, y, z);
+            return offsets;
+        }
+
         /// <summary>
-        /// Pool the peak voxel and its six face neighbours from rank-major [rank][z][y * X + x] arrays.
+        /// Pool the peak voxel and all 26 neighbours from rank-major [rank][z][y * X + x] arrays.
         /// Positions use the voxel origin convention, voxel * pixelSize. Invalid scores, angle IDs and angles
         /// are ignored. Ties prefer the peak, then lower rank, then z/y/x and angle ID.
         /// Deduplication deliberately only removes the same angle ID at the same voxel: adjacent translations
@@ -64,8 +77,7 @@ namespace Warp.Tools
             if (maxStarts < 0) throw new ArgumentOutOfRangeException(nameof(maxStarts));
             if (maxStarts == 0) return Array.Empty<TemplateMatchStart>();
 
-            int3[] offsets = { new int3(0), new int3(-1, 0, 0), new int3(1, 0, 0),
-                               new int3(0, -1, 0), new int3(0, 1, 0), new int3(0, 0, -1), new int3(0, 0, 1) };
+            int3[] offsets = GetNeighborhoodOffsets();
             var candidates = new List<TemplateMatchStart>();
             for (int rank = 0; rank < scores.Length; rank++)
             {
@@ -100,7 +112,7 @@ namespace Warp.Tools
 
         /// <summary>
         /// Pool sparsely gathered proposals in position-major, then rank order. sourceVoxels[0] is the
-        /// central peak for tie breaking; callers omit out-of-bounds neighbours before gathering.
+        /// central peak for tie breaking; callers omit or invalidate out-of-bounds neighbours.
         /// Uses the same conservative deduplication as the rank-major volume overload.
         /// </summary>
         public static TemplateMatchStart[] GatherStarts(int3[] sourceVoxels, float[] scores, float[] angleIds,

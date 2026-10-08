@@ -143,6 +143,8 @@ public partial class TiltSeries
         return result;
     }
 
+    private double matchPreparationSeconds, matchOptimizationSeconds, matchResultSeconds;
+
     private sealed class MatchSolution
     {
         public float3 Position;
@@ -206,6 +208,13 @@ public partial class TiltSeries
         {
             for (int stage = 0; stage < stages; stage++)
             {
+                matchPreparationSeconds = matchOptimizationSeconds = matchResultSeconds = 0;
+                var stageTimer = System.Diagnostics.Stopwatch.StartNew();
+                int stageBudget = TemplateMatchStatistics.ContinuationHypotheses(starts.Max(g => g.Length), resolutions[0], resolutions[stage]);
+                if (stage > 0)
+                    for (int p = 0; p < solutions.Length; p++)
+                        solutions[p] = solutions[p].OrderByDescending(s => s.Z).ThenBy(s => s.StartIndex).Take(stageBudget).ToList();
+                MatchProgress(progress, 0, $"Refinement stage {stage+1}/{stages}: {solutions.Sum(g => g.Count)} hypotheses, up to {stageBudget} per peak");
                 decimal stagePixel = Math.Min(coarseSampling, (decimal)resolutions[stage] * originalLowpass / 2);
                 if (stage == stages - 1) stagePixel = finalPixel;
                 options.BinTimes = (decimal)Math.Log2((double)(stagePixel / options.PixelSizeMean));
@@ -239,11 +248,11 @@ public partial class TiltSeries
                     using Projector projector = new(padded, 2, true);
                     using Image ctfCoordinates = CTF.GetCTFCoords(box, box, MagnificationCorrection);
                     // Keep observations shared by all hypotheses. Bound transient FFT/data storage to
-                    // a quarter of free device memory (at most 512 MiB), including FFT scratch headroom.
+                    // a quarter of free device memory (at most 2 GiB), including FFT scratch headroom.
                     long bytesPerParticle = (long)NTilts * (box * (box / 2 + 1) * 32L + box * box * 8L);
                     if (options.RefineExportTiltSpectra && stage == stages - 1)
                         bytesPerParticle += (long)NTilts * 2 * TemplateMatchEnvelope.SpectrumBins * sizeof(float);
-                    long budget = Math.Min(512L << 20, Math.Max(1, GPU.GetFreeMemory(GPU.GetDevice())) * (1L << 18));
+                    long budget = Math.Min(2L << 30, Math.Max(1, GPU.GetFreeMemory(GPU.GetDevice())) * (1L << 18));
                     int batchSize = (int)Math.Clamp(budget / bytesPerParticle, 1, 64);
                     for (int first = 0; first < peaks.Length; first += batchSize)
                     {
@@ -268,6 +277,7 @@ public partial class TiltSeries
                         }
                     }
                     diagnostics.Flush();
+                    MatchProgress(progress, 1, $"Stage {stage+1}: {stageTimer.Elapsed.TotalSeconds:F2}s; prepare {matchPreparationSeconds:F2}s, optimize {matchOptimizationSeconds:F2}s, results {matchResultSeconds:F2}s; {solutions.Sum(g=>g.Count)} surviving hypotheses");
                     if (stage == Math.Max(0, stages - 2))
                         CalibrateMatchSeries(options, peaks, solutions, tilts, masks, noiseWeights, projector,
                             ctfCoordinates, box, pixel, maxShift, System.IO.Path.Combine(MatchingDir, name + suffix), progress);
@@ -385,31 +395,22 @@ public partial class TiltSeries
                 if (MatchPatchIsUsable(tilts[t], masks[t], x, y, box) && used.Add((x,y))) origins.Add(new int2(x,y));
             }
             if (origins.Count < 2) continue;
-            double[] power = new double[elements];
-            // Accumulate in bounded batches: CTF padding must not multiply temporary storage by 256.
-            for (int first = 0; first < origins.Count; first += 8)
+            using Image accumulated = new(new int3(box,box,1), true);
+            accumulated.Fill(0);
+            const int noiseBatch = 32;
+            for (int first = 0; first < origins.Count; first += noiseBatch)
             {
-                int count = Math.Min(8, origins.Count - first);
+                int count = Math.Min(noiseBatch, origins.Count - first);
                 using Image patches = new(new int3(box, box, count));
-                float[][] data = patches.GetHost(Intent.Write);
-                float[] source = tilts[t].GetHost(Intent.Read)[0];
-                for (int p = 0; p < count; p++)
-                {
-                    for (int y = 0; y < box; y++)
-                        Array.Copy(source, (origins[first+p].Y+y)*tilts[t].Dims.X+origins[first+p].X, data[p], y*box, box);
-                    float mean = (float)data[p].Average(v => (double)v);
-                    for (int i = 0; i < data[p].Length; i++) data[p][i] -= mean;
-                }
+                int3[] patchOrigins = origins.Skip(first).Take(count).Select((o,i)=>new int3(o.X,o.Y,i)).ToArray();
+                int extractionStatus = GPU.MatchExtractCentered(tilts[t].GetDevice(Intent.Read),new int2(tilts[t].Dims),patchOrigins,box,count,patches.GetDevice(Intent.Write));
+                if (extractionStatus != 0) throw new InvalidOperationException($"Background extraction failed with CUDA status {extractionStatus}.");
                 using Image ft = patches.AsFFT();
-                ft.Multiply(1f / (box * box));
-                foreach (float[] patch in ft.GetHost(Intent.Read))
-                    for (int f = 0; f < elements; f++)
-                    {
-                        double re = patch[2*f], im = patch[2*f+1];
-                        if (!double.IsFinite(re) || !double.IsFinite(im)) throw new InvalidDataException("Nonfinite background patch.");
-                        power[f] += (re*re + im*im) / origins.Count;
-                    }
+                float normalization = (float)(1.0 / ((double)box * box * box * box * origins.Count));
+                GPU.MatchAccumulatePower(ft.GetDevice(Intent.Read), accumulated.GetDevice(Intent.ReadWrite), elements, count, normalization);
             }
+            double[] power = accumulated.GetHost(Intent.Read)[0].Select(v => (double)v).ToArray();
+            if (power.Any(v => !double.IsFinite(v))) throw new InvalidDataException("Nonfinite background patch.");
             double floor = Math.Max(1e-30, TemplateMatchStatistics.Quantile(power, .5) * 1e-4);
             for (int y = 0; y < box; y++)
                 for (int x = 0; x <= box/2; x++)
@@ -447,6 +448,7 @@ public partial class TiltSeries
         List<MatchSolution>[] starts, Image[] tilts, Image[] masks, float[][] noiseWeights, Projector projector,
         Image ctfCoordinates, int box, float pixel, float maxShift, bool merge, out int[] usableTilts, bool fitEnvelope = false)
     {
+        var batchTimer = System.Diagnostics.Stopwatch.StartNew();
         int particles = anchors.Length;
         int hypotheses = Math.Max(1, starts.Max(s => s.Count));
         int views = particles * NTilts;
@@ -456,7 +458,8 @@ public partial class TiltSeries
         using Image patches = new(new int3(box, box, views));
         using Image inverseNoise = new(new int3(box, box, views), true);
         using Image radiusSquared = new(new int3(box, box, views), true);
-        float[][] data = patches.GetHost(Intent.Write), weights = inverseNoise.GetHost(Intent.Write);
+        float[][] weights = inverseNoise.GetHost(Intent.Write);
+        var patchOrigins = Enumerable.Range(0, NTilts).Select(_ => new List<int3>()).ToArray();
         float[][] phaseRadii = radiusSquared.GetHost(Intent.Write);
         float3[] centerShifts = new float3[views];
         CTFStruct[] ctfParams = new CTFStruct[views], quadParams = new CTFStruct[views];
@@ -471,6 +474,7 @@ public partial class TiltSeries
         Matrix3 magnification = new(MagnificationCorrection.M11, MagnificationCorrection.M21, 0,
             MagnificationCorrection.M12, MagnificationCorrection.M22, 0, 0, 0, 1);
         bool[] hasNoise = noiseWeights.Select(w => w.Any(v => v > 0)).ToArray();
+        var radiusGrids = new Dictionary<(float Pixel, float Delta, float Angle), float[]>();
         for (int p = 0; p < particles; p++)
         {
             float3 anchor = anchors[p];
@@ -493,7 +497,6 @@ public partial class TiltSeries
                     geometry[view * 18 + 10 + axis * 2] = local.PositionDerivatives[axis].Y / pixel;
                     geometry[view * 18 + 15 + axis] = defocusPhaseScale * local.PositionDerivatives[axis].Z;
                 }
-                Array.Clear(data[view]);
                 Array.Clear(weights[view]);
                 float3 center = local.ImagePosition / pixel;
                 int x = (int)Math.Floor(center.X - box / 2f), y = (int)Math.Floor(center.Y - box / 2f);
@@ -505,10 +508,7 @@ public partial class TiltSeries
                 if (UseTilt[t] && hasNoise[t] && coreVisible && MatchPatchIsUsable(tilts[t], masks[t], x, y, box, true))
                 {
                     usableTilts[p]++;
-                    float[] source = tilts[t].GetHost(Intent.Read)[0];
-                    TemplateMatchStatistics.CopyCenteredPatch(source, tilts[t].Dims.X, tilts[t].Dims.Y, x, y, box, data[view]);
-                    if (data[view].Any(v => !float.IsFinite(v)))
-                        throw new InvalidDataException($"Nonfinite data in candidate {p}, tilt {t}.");
+                    patchOrigins[t].Add(new int3(x, y, view));
                     Array.Copy(noiseWeights[t], weights[view], elements);
                     PackMatchMatrix(local.Rotation.Transposed(), weightRotations, view * 9);
                     centerShifts[view] = new float3(-(center.X - box / 2f - x) + box / 2f,
@@ -522,13 +522,20 @@ public partial class TiltSeries
                 ctfParams[view] = parameters.ToStruct();
                 parameters.PhaseShift -= 0.5M; // -sin(gamma) -> -cos(gamma)
                 quadParams[view] = parameters.ToStruct();
-                for (int f = 0; f < elements; f++)
+                var radiusKey = (ctfParams[view].PixelSize, ctfParams[view].PixelSizeDelta, ctfParams[view].PixelSizeAngle);
+                if (!radiusGrids.TryGetValue(radiusKey, out var grid))
                 {
-                    double effectivePixel = ctfParams[view].PixelSize * 1e10
-                        + ctfParams[view].PixelSizeDelta * 0.5e10 * Math.Cos(2 * (coordinates[2 * f + 1] - ctfParams[view].PixelSizeAngle));
-                    double frequency = coordinates[2 * f] / effectivePixel;
-                    phaseRadii[view][f] = (float)(frequency * frequency);
+                    grid = phaseRadii[view];
+                    for (int f = 0; f < elements; f++)
+                    {
+                        double effectivePixel = radiusKey.PixelSize * 1e10
+                            + radiusKey.PixelSizeDelta * 0.5e10 * Math.Cos(2 * (coordinates[2 * f + 1] - radiusKey.PixelSizeAngle));
+                        double frequency = coordinates[2 * f] / effectivePixel;
+                        grid[f] = (float)(frequency * frequency);
+                    }
+                    radiusGrids.Add(radiusKey, grid);
                 }
+                else Array.Copy(grid, phaseRadii[view], elements);
             }
             if (usableTilts[p] < 3) continue;
             for (int h = 0; h < starts[p].Count; h++)
@@ -553,6 +560,14 @@ public partial class TiltSeries
             for (int p = 0; p < particles; p++)
                 result[p].AddRange(starts[p].Select(s => Rejected(s, TemplateMatchTerminationReason.InsufficientTilts)).ToArray());
             return result;
+        }
+        patches.Fill(0);
+        for (int t = 0; t < NTilts; t++)
+        {
+            if (patchOrigins[t].Count == 0) continue;
+            int extractionStatus = GPU.MatchExtractCentered(tilts[t].GetDevice(Intent.Read), new int2(tilts[t].Dims),
+                patchOrigins[t].ToArray(), box, patchOrigins[t].Count, patches.GetDevice(Intent.ReadWrite));
+            if (extractionStatus != 0) throw new InvalidDataException($"Candidate extraction failed at tilt {t} with CUDA status {extractionStatus} (check for nonfinite image data).");
         }
         using Image observed = patches.AsFFT();
         observed.Multiply(1f / (box * box));
@@ -582,6 +597,8 @@ public partial class TiltSeries
             GPU.MatchHybridWeights(inverseNoise.GetDevice(Intent.ReadWrite), box, particles, NTilts,
                 weightRotations, detector, pixel, Math.Max(400, 3 * diameter));
         }
+        GPU.CopyDeviceToHost(inverseNoise.GetDevice(Intent.Read), new float[1], 1);
+        matchPreparationSeconds += batchTimer.Elapsed.TotalSeconds; batchTimer.Restart();
         MatchBatchRefiner refine = GPU.TemplateMatchRefineBatchBfgs;
         int status = refine(projector.t_DataRe, projector.t_DataIm, projector.Data.Dims.X,
             box, NTilts, particles, hypotheses, observed.GetDevice(Intent.Read), ctf.GetDevice(Intent.Read),
@@ -589,6 +606,7 @@ public partial class TiltSeries
             geometry, bounds, symmetry, symmetries.Length, poses, seedIds, pixel, cutoff, diameter,
             options.RefineIterations, mergeDistance,
             MathF.Asin(Math.Min(1, 2 * mergeDistance / diameter)), summary, diagnostic, statistics);
+        matchOptimizationSeconds += batchTimer.Elapsed.TotalSeconds; batchTimer.Restart();
         if (status != 0) throw new InvalidOperationException($"Batched GPU BFGS pose refinement failed with status {status}.");
         for (int p = 0; p < particles; p++)
             for (int h = 0; h < starts[p].Count; h++)
@@ -674,6 +692,7 @@ public partial class TiltSeries
                 }
             }
         }
+        matchResultSeconds += batchTimer.Elapsed.TotalSeconds;
         return result;
     }
 

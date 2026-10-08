@@ -11,7 +11,7 @@ namespace
 using warp_template_match::Complex;
 using warp_template_match::Inner;
 using namespace warp_template_match_batch;
-constexpr int Threads = 128;
+constexpr int Threads = 256;
 
 struct BatchContext
 {
@@ -151,7 +151,7 @@ __global__ void FinalTiltStatistics(BatchContext c)
             cross += weight * Inner(data, predicted);
             power += weight * Inner(predicted, predicted);
         }
-    __shared__ float partial[2][4];
+    __shared__ float partial[2][Threads / 32];
     for (int offset = 16; offset > 0; offset /= 2)
     {
         cross += __shfl_down_sync(0xffffffffu, cross, offset);
@@ -162,7 +162,7 @@ __global__ void FinalTiltStatistics(BatchContext c)
     if (threadIdx.x == 0)
     {
         cross = power = 0;
-        for (int i = 0; i < 4; ++i) { cross += partial[0][i]; power += partial[1][i]; }
+        for (int i = 0; i < Threads / 32; ++i) { cross += partial[0][i]; power += partial[1][i]; }
         c.tiltStats[slotView * 2] = cross;
         c.tiltStats[slotView * 2 + 1] = power;
     }
