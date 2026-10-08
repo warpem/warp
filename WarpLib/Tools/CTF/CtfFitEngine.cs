@@ -8,7 +8,7 @@ namespace Warp.Tools;
 
 public static class CtfFitEngine
 {
-    public sealed record Fit(double[] Parameters, double Loss, int Evaluations, float[] Coefficients = null, double PlaneInitializationSeconds = 0, bool PlaneAtBoundary = false);
+    public sealed record Fit(double[] Parameters, double Loss, int Evaluations, float[] Coefficients = null, double PlaneInitializationSeconds = 0, bool PlaneAtBoundary = false, CtfFitReliability.Curve[] Reliability = null);
     // A radial, geometry-aware search locates several defocus basins before the full angular fit.
     public static (double Defocus, double Phase) Initialize(CtfPowerSpectrum.Observation[] records, double[] offsets, ProcessingOptionsMovieCTF options)
         => InitializeMany(new[] { records }, new[] { offsets }, options)[0];
@@ -114,8 +114,29 @@ public static class CtfFitEngine
             initial=plane.Parameters;prior=plane.Prior;planeEvaluations=plane.Evaluations;planeSeconds=timer.Elapsed.TotalSeconds;
         }
         using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
-        int searchEvaluations = SeedThickness(records, geometry, initial, batch);
+        int searchEvaluations = SeedThickness(records,geometry,initial,batch);
+        // Shared geometry, astigmatism and thickness use the joint, full-band fit.
+        // A narrow reliable band in a weak tilt cannot separately identify thickness
+        // and envelope, so the subsequent local correction must retain these estimates.
         var result = RefineCore(records, geometry, initial, options, batch, prior);
+        CtfFitReliability.Result reliability=null;
+        if(prior!=null && geometry.All(g=>g.PatchWidth>0))
+        {
+            searchEvaluations+=result.Evaluations;
+            using var training=new CtfGpuFitBatch(records.Select(r=>r.Spectrum.WithFitWeights(
+                r.Spectrum.Samples.Select(s=>CtfFitReliability.AngularFold(s)>0?1f:0f).ToArray())).ToArray());
+            var trainingFit=RefineCore(records,geometry,(double[])result.Parameters.Clone(),options,training,prior,true);
+            searchEvaluations+=trainingFit.Evaluations;
+            reliability=CtfFitReliability.Estimate(records,geometry,trainingFit.Parameters);
+        }
+        // SPA grids may have more defocus nodes than patches. They do not enter this
+        // tilt-specific correction and are not required to have spatial replication.
+        var supportedSpectra=reliability==null?null:records.Select((r,i)=>
+            r.Spectrum.WithFitWeights(reliability.FrequencyWeight[i].Select(w=>w*reliability.PatchWeight[i]).ToArray())).ToArray();
+        using var supported=supportedSpectra==null?null:new CtfGpuFitBatch(supportedSpectra);
+        var fittingBatch=supported??batch;
+        if(supported!=null)result=RefineCore(records,geometry,(double[])result.Parameters.Clone(),options,supported,prior,true);
+        result=result with { Reliability=reliability?.Groups };
         result = result with { Evaluations = result.Evaluations + searchEvaluations + planeEvaluations, PlaneInitializationSeconds = planeSeconds,
             PlaneAtBoundary = geometry.Any(g => !g.IsValidPlane(result.Parameters,CtfFitGeometry.MinimumBeamCosine*1.01)) };
         var poses = new double[records.Length * 7];
@@ -123,9 +144,15 @@ public static class CtfFitEngine
         {
             geometry[i].WritePose(result.Parameters, poses, 7*i);
         }
-        batch.Evaluate(poses);
-        var coefficients = batch.ReadCoefficients();
-        batch.SynchronizeWeights();
+        fittingBatch.Evaluate(poses);
+        var coefficients = fittingBatch.ReadCoefficients();
+        if(supportedSpectra!=null)
+        {
+            int stride=records[0].Spectrum.KnotCount*2;
+            for(int i=0;i<records.Length;i++)for(int j=0;j<stride;j++)
+                coefficients[i*stride+j]*=(float)(supportedSpectra[i].PowerScale/records[i].Spectrum.PowerScale);
+        }
+        fittingBatch.SynchronizeWeights();
         return result with { Coefficients = coefficients };
     }
 
@@ -165,10 +192,11 @@ public static class CtfFitEngine
         return (scale,lo,hi);
     }
 
-    static Fit RefineCore(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options, CtfGpuFitBatch batch, CtfDefocusPrior prior)
+    static Fit RefineCore(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry, double[] initial, ProcessingOptionsMovieCTF options, CtfGpuFitBatch batch, CtfDefocusPrior prior, bool defocusOnly=false)
     {
         int n=initial.Length;
         var (scale,lo,hi)=ParameterBounds(geometry[0],options);
+        if(defocusOnly)for(int j=geometry[0].DefocusWeights.Length;j<n;j++)lo[j]=hi[j]=initial[j];
         var poses = new double[records.Length * 7];
         bool UpdatePoses(double[] p)
         {
@@ -203,7 +231,7 @@ public static class CtfFitEngine
             initial = result.Parameters;
             // Reprofile once after astigmatism/phase/defocus have settled. Their initial
             // errors can otherwise make the thickness grid select the wrong sinc lobe.
-            if (pass == 0) { prior?.Update(initial); evaluations += SeedThickness(records,geometry,initial,batch); continue; }
+            if (pass == 0) { prior?.Update(initial); if(!defocusOnly)evaluations += SeedThickness(records,geometry,initial,batch); continue; }
             if (pass == 6 || weightChange < .01) break;
             UpdatePoses(initial);
             double[] output = batch.Evaluate(poses, true);

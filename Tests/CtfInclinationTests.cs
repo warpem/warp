@@ -120,4 +120,30 @@ public class CtfInclinationTests
         }
     }
 
+    [CtfCudaFact]
+    public void DenseMovieGridKeepsLocalDefocusWithFewerPatchesThanNodes()
+    {
+        lock(GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            var positions=Enumerable.Range(0,16).Select(i=>new float3((i%4+.5f)/4,(i/4+.5f)/4,.5f)).ToArray();
+            var dw=CtfFitGeometry.GridWeights(new int3(6,6,1),positions);
+            var geometry=dw.Select(w=>new CtfFitGeometry(w,new[]{1.0})).ToArray();
+            var truth=new double[40];
+            for(int i=0;i<36;i++)truth[i]=2+.04*(i%6)/5+.03*(i/6)/5;
+            truth[36]=.02;truth[37]=-.01;truth[^1]=.01;
+            var records=geometry.Select((g,i)=>
+            {
+                var pose=new double[7];g.WritePose(truth,pose,0);
+                return new CtfPowerSpectrum.Observation(Spectrum(pose,300+i,.005,false),positions[i],0);
+            }).ToArray();
+            var initial=(double[])truth.Clone();Array.Fill(initial,2.035,0,36);
+            var options=new ProcessingOptionsMovieCTF{Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=4};
+            var fit=CtfFitEngine.Refine(records,geometry,initial,options);
+            Assert.Null(fit.Reliability);
+            foreach(var g in geometry)Assert.InRange(Math.Abs(g.Evaluate(fit.Parameters).Defocus-g.Evaluate(truth).Defocus),0,.002);
+            Assert.True(geometry.Max(g=>g.Evaluate(fit.Parameters).Defocus)-geometry.Min(g=>g.Evaluate(fit.Parameters).Defocus)>.03);
+        }
+    }
+
 }

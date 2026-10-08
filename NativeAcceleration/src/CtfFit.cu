@@ -228,7 +228,9 @@ __global__ void Score(FitView c,bool reweight)
         for(int j=0;j<3;j++)sums[5+j]+=w*residual*e*c.slabDerivative[3*index+j];
         if(reweight)
         {
-            float base=c.baseWeights[index],factor=fminf(1.f,9.f/(8.f+residual*residual*base));
+            float base=c.baseWeights[index];
+            if(base<=0){c.weights[index]=0;continue;}
+            float factor=fminf(1.f,9.f/(8.f+residual*residual*base));
             sums[8]=fmaxf(sums[8],fabsf(factor-w/base));c.weights[index]=base*factor;
         }
     }

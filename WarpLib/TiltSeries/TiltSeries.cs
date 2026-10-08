@@ -154,6 +154,10 @@ namespace Warp
             set { if (value != _TiltCTFQuality) { _TiltCTFQuality = value; OnPropertyChanged(); } }
         }
 
+        // Frequencies are in inverse angstroms. Agreement is spatial replication;
+        // Weight is the actual reliability taper used in fitting, not display scaling.
+        public CtfFitReliability.Curve[] CTFFitReliability { get; set; } = Array.Empty<CtfFitReliability.Curve>();
+
         private ObservableCollection<float2[]> _TiltPS1D = new ObservableCollection<float2[]>();
         public ObservableCollection<float2[]> TiltPS1D
         {
@@ -1995,6 +1999,17 @@ namespace Warp
                     #region CTF fitting-related
 
                     {
+                        var reliability = new List<(int ID, CtfFitReliability.Curve Curve)>();
+                        foreach (XPathNavigator node in Reader.Select("//CTFFitReliability"))
+                        {
+                            var rows=node.Value.Split(';',StringSplitOptions.RemoveEmptyEntries).Select(v=>v.Split('|')).ToArray();
+                            reliability.Add((int.Parse(node.GetAttribute("ID",""),CultureInfo.InvariantCulture),
+                                new CtfFitReliability.Curve(rows.Select(v=>double.Parse(v[0],CultureInfo.InvariantCulture)).ToArray(),
+                                    rows.Select(v=>float.Parse(v[1],CultureInfo.InvariantCulture)).ToArray(),
+                                    rows.Select(v=>float.Parse(v[2],CultureInfo.InvariantCulture)).ToArray(),
+                                    int.Parse(node.GetAttribute("IndependentPatches",""),CultureInfo.InvariantCulture))));
+                        }
+                        CTFFitReliability=reliability.OrderBy(v=>v.ID).Select(v=>v.Curve).ToArray();
                         TiltCTFQuality.Clear();
                         foreach (XPathNavigator node in Reader.Select("//TiltCTFQuality"))
                         {
@@ -2226,6 +2241,18 @@ namespace Warp
 
                 #region CTF fitting-related
 
+                for(int i=0;i<CTFFitReliability.Length;i++)
+                {
+                    var curve=CTFFitReliability[i];
+                    Writer.WriteStartElement("CTFFitReliability");
+                    XMLHelper.WriteAttribute(Writer,"ID",i);
+                    XMLHelper.WriteAttribute(Writer,"IndependentPatches",curve.IndependentPatches);
+                    Writer.WriteAttributeString("HalfWeightResolutionAngstrom",curve.HalfWeightResolution.ToString("R",CultureInfo.InvariantCulture));
+                    Writer.WriteAttributeString("FrequencyUnit","1/Angstrom");
+                    Writer.WriteString(string.Join(";",curve.Frequency.Select((q,j)=>
+                        q.ToString("R",CultureInfo.InvariantCulture)+"|"+curve.Agreement[j].ToString("R",CultureInfo.InvariantCulture)+"|"+curve.Weight[j].ToString("R",CultureInfo.InvariantCulture)).ToArray()));
+                    Writer.WriteEndElement();
+                }
                 WriteQualityCurve(Writer, "CTFQuality", CTFQuality);
                 for (int i = 0; i < TiltCTFQuality.Count; i++)
                     WriteQualityCurve(Writer, "TiltCTFQuality", TiltCTFQuality[i], i);

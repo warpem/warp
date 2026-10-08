@@ -61,6 +61,9 @@ public partial class TiltSeries
             var allRecords = records.ToArray(); var allGeometry = geometry.ToArray();
             timer.Restart();
             var fit = CtfFitEngine.Refine(allRecords, allGeometry, initial, options);
+            CTFFitReliability=fit.Reliability??Array.Empty<CtfFitReliability.Curve>();
+            var limits=CTFFitReliability.Select(c=>c.HalfWeightResolution).Where(r=>r>0).ToArray();
+            if(limits.Length>0)Console.WriteLine($"CTF reliability: {limits.Length}/{NTilts} tilts with sustained spatial support; half-weight resolution {limits.Min():F1}–{limits.Max():F1} Å.");
             searchSeconds=fit.PlaneInitializationSeconds;
             double refinementSeconds = timer.Elapsed.TotalSeconds-searchSeconds;
             if(fit.PlaneAtBoundary) Console.WriteLine("CTF specimen inclination reached the grazing-incidence model boundary; interpret the fitted plane with caution.");

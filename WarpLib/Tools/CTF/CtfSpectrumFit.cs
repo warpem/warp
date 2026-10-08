@@ -15,6 +15,12 @@ public sealed class CtfSpectrumFit
     readonly double[,] basis;
     readonly int[] firstBasis, lastBasis;
     readonly double[] data;
+    readonly float[] fitWeights;
+    internal CtfSpectrumFit WithFitWeights(float[] weights)
+    {
+        if(weights.Length!=Samples.Length || weights.Any(w=>!float.IsFinite(w)||w<0||w>1)) throw new ArgumentException("Invalid CTF reliability weights.");
+        return new CtfSpectrumFit(Samples,VoltageKV,CsMM,Amplitude,this,(float[])weights.Clone());
+    }
     internal double[] CurrentWeights { get; private set; }
     internal int WeightVersion { get; private set; }
     internal readonly double VoltageKV, CsMM, Amplitude;
@@ -23,7 +29,11 @@ public sealed class CtfSpectrumFit
     public static double Wavelength(double voltageKV) => 12.2643247 / Math.Sqrt(voltageKV * 1000 * (1 + voltageKV * 1000 * .978466e-6));
 
     public CtfSpectrumFit(Sample[] samples, double voltageKV, double csMM, double amplitude, CtfSpectrumFit basisSource = null)
+        : this(samples,voltageKV,csMM,amplitude,basisSource,null) { }
+
+    CtfSpectrumFit(Sample[] samples, double voltageKV, double csMM, double amplitude, CtfSpectrumFit basisSource, float[] fittingWeights)
     {
+        fitWeights=fittingWeights;
         if (samples == null || samples.Length < 16 || !double.IsFinite(voltageKV) || !(voltageKV > 0) || !double.IsFinite(csMM) || csMM < 0 || !double.IsFinite(amplitude) || amplitude < 0 || amplitude >= 1)
             throw new ArgumentException("Insufficient spectrum samples or invalid microscope parameters.");
         if (samples.Any(s => !double.IsFinite(s.Power) || s.Power < 0 || !(s.Count > 0) || !double.IsFinite(s.Count) || !double.IsFinite(s.Q2) || !(s.Q2 > 0) || !double.IsFinite(s.Q4) || !double.IsFinite(s.AstigX) || !double.IsFinite(s.AstigY)))
@@ -68,7 +78,10 @@ public sealed class CtfSpectrumFit
                 firstBasis[i] = first; lastBasis[i] = Math.Min(knots, first + 4);
             }
         }
-        double scale = PowerScale = Math.Max(1e-30, samples.Sum(s => s.Power * s.Count) / samples.Sum(s => s.Count));
+        double total=0,power=0;
+        for(int i=0;i<samples.Length;i++)
+        {double w=samples[i].Count*(fitWeights==null?1:fitWeights[i]);total+=w;power+=w*samples[i].Power;}
+        double scale = PowerScale = Math.Max(1e-30,total>0?power/total:1);
         data = samples.Select(s => s.Power / scale).ToArray();
     }
 
@@ -119,7 +132,8 @@ public sealed class CtfSpectrumFit
         Array.Copy(data, 0, targetData, offset, data.Length);
         for (int i = 0; i < Samples.Length; i++)
         {
-            counts[offset+i] = Samples[i].Count;
+            counts[offset+i] = Samples[i].Count * (fitWeights == null ? 1 : fitWeights[i]);
+            if(counts[offset+i]==0)targetData[offset+i]=0;
             currentWeights[offset+i] = CurrentWeights == null ? -1 : CurrentWeights[i];
         }
     }

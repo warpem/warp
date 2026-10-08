@@ -106,8 +106,12 @@ public class CtfDiagnosticTests
             SameCurve(curve,new Movie(path).CTFQuality);
             string series=Path.Combine(dir,"series.tomostar");
             File.WriteAllText(series,"data_\n\nloop_\n_wrpMovieName #1\n_wrpAngleTilt #2\n_wrpDose #3\na.mrc -30 1\nb.mrc 30 2\n");
-            var ts=new TiltSeries(series){CTFQuality=curve};ts.TiltCTFQuality.Add(curve);ts.TiltCTFQuality.Add(new[]{new float2(.1f,.4f)});ts.SaveMeta();
+            var ts=new TiltSeries(series){CTFQuality=curve};ts.TiltCTFQuality.Add(curve);ts.TiltCTFQuality.Add(new[]{new float2(.1f,.4f)});ts.CTFFitReliability=new[]{new CtfFitReliability.Curve(new[]{.05,.1,.2},new[]{.8f,float.NaN,-.1f},new[]{1f,.4f,0f},7)};ts.SaveMeta();
             var loaded=new TiltSeries(series);SameCurve(curve,loaded.CTFQuality);SameCurve(curve,loaded.TiltCTFQuality[0]);Assert.Equal(.4f,loaded.TiltCTFQuality[1][0].Y);
+            Assert.Equal(ts.CTFFitReliability[0].Frequency,loaded.CTFFitReliability[0].Frequency);
+            Assert.Equal(ts.CTFFitReliability[0].Agreement,loaded.CTFFitReliability[0].Agreement);
+            Assert.Equal(ts.CTFFitReliability[0].Weight,loaded.CTFFitReliability[0].Weight);
+            Assert.Equal(7,loaded.CTFFitReliability[0].IndependentPatches);
         }
         finally{Directory.Delete(dir,true);}
     }
