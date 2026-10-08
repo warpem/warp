@@ -18,7 +18,7 @@ The example describes a small target; choose diameter, symmetry, minimum separat
 1. Estimate each tilt's independent white-noise level from unselected, unmasked patches at the original sampling, using the median high-frequency periodogram divided by `ln(2)`. Estimation precedes binning so the annulus is not moved into the protein signal band. This is an image-derived approximation pending propagated movie noise spectra.
 2. Reconstruct `V = sum BP[H* data / N]`, where `H` contains CTF and the existing dose/tilt envelope. Filter images at defocus intervals of at most 200 Å and interpolate between them during backprojection. The spatial mapping uses Warp's geometry, sampled every 16 coarse voxels and interpolated; it includes image shifts, specimen deformation, and defocus handedness. Original tilt images and metadata are not overwritten.
 3. Estimate the anisotropic 3D power spectrum of `V` by Gaussian tapering its autocorrelation with a 130 Å standard deviation. Whiten the data by `sqrt(P)`. Filter the rotated template by the center-of-volume slice transfer `sum |H|²/N` and the same whitening spectrum. This center transfer is a stationary approximation; local defocus is retained in the data reconstruction and particle refinement. Normalize templates and apply local volume-standard-deviation normalization to the correlations.
-4. Maintain the top eight orientation scores and IDs per voxel while streaming orientations. Detect immediate-neighbor maxima and greedily apply spherical spatial suppression. Gather the peak's and six adjacent voxels' pose lists; only sparse lists leave the GPU. Default: 8,000 proposals, up to 32 starts per proposal. A memory budget caps the concurrent orientation batch.
+4. Maintain the top eight orientation scores and IDs per voxel while streaming orientations. Detect immediate-neighbor maxima and greedily apply spherical spatial suppression. Select up to `--npeaks` spatial peaks per tomogram, then pool each peak's full 3×3×3 neighborhood and retain up to `--refine_starts` pose hypotheses per peak. Neighboring voxels and alternative orientations do not consume the spatial-peak limit; only sparse lists leave the GPU. Defaults: 8,000 spatial peaks, up to 32 initial pose hypotheses per peak. A memory budget caps the concurrent orientation batch.
 5. Refine poses using GPU-resident FP32 BFGS with analytic derivatives of Fourier interpolation, translation, and defocus. Particle rotations are exact rotations; local deformation and viewing geometry are frozen at each proposal. Physically pad the template and particle patches for its support, CTF delocalization, and allowed motion. Start at the coarse-search resolution limit and double spatial frequency at each transition (halve the resolution in Å), capped at the requested fine limit: for example, 20 → 10 → 6 Å. Identical coarse and fine limits give one band and zero resolution transitions. There is no stage-count parameter. Merge only nearly identical hypotheses between bands.
 6. Measure an anisotropic per-tilt patch PSD and use the hybrid metric
    `W = 1 / [N + c * max(P - N, 0)]`.
@@ -58,16 +58,18 @@ Optional amplitude/B diagnostics remain available through `--refine_fit_bfactor`
 | `--tomo_angpix` | required | Coarse reconstruction and search sampling in Å. |
 | `--subdivisions` | 3 | HEALPix angular sampling, approximately 7.5°. |
 | `--peak_distance` | half the diameter | Spherical minimum particle separation in Å. |
-| `--npeaks` | 8000 | Maximum coarse candidate positions. |
+| `--npeaks` | 8000 | Maximum spatial peaks per tomogram, before refinement; excludes neighboring pose hypotheses. |
 | `--match_topk` | 8 | Orientations retained per voxel. |
-| `--refine_starts` | 32 | Maximum hypotheses pooled from each peak and its neighbors. |
+| `--refine_starts` | 32 | Maximum initial pose hypotheses per peak, pooled from its 3×3×3 neighborhood. |
 | `--refine_iterations` | 90 | Maximum accepted BFGS steps per hypothesis per band. |
 | `--refine_noise_patches` | 256 | Unselected patches per tilt for the directional background PSD. |
 | `--optimize_poses_angpix` | `--tomo_angpix` | Finest refinement sampling in Å/px; defaults to the coarse-search pixel size. |
 | `--max_missing_tilts` | -1 | Optional coarse coverage culling; disabled by default. |
 | `--refine_max_shift` | 3 coarse pixels | Maximum displacement per coordinate from the proposal anchor. |
-| `--refine_merge_fraction` | 0.005 | Merge thresholds relative to the current band pixel. |
+| `--refine_merge_fraction` | 0.25 | Merge thresholds relative to the current band pixel. |
 | `--batch_angles` | 8 | Upper bound on simultaneous orientations; reduced to fit GPU memory. |
+
+`--npeaks 1000 --refine_starts 32` selects at most 1,000 spatial peaks and starts at most 32 pose optimizations for each: up to 32,000 initial hypotheses. Each peak contributes at most one final pick, and final spatial suppression can reduce the pick count further. Set the peak limit with room for false positives; it is a search limit, not a requested number of accepted particles.
 
 Leaderboards require `8*K` bytes per padded voxel. Large volumes may require more than 48 GB even with a single orientation batch. Background-patch FFTs and refinement particles are processed in bounded batches.
 

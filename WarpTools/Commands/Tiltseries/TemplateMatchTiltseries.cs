@@ -51,7 +51,7 @@ namespace WarpTools.Commands
         [Option("match_topk", Default = 8, HelpText = "Retain this many orientation scores per voxel; leaderboard GPU memory is 8*K bytes per padded voxel")]
         public int MatchTopK { get; set; }
 
-        [Option("refine_starts", Default = 32, HelpText = "Maximum GPU pose hypotheses per peak, pooled from that voxel and its six neighbors")]
+        [Option("refine_starts", Default = 32, HelpText = "Maximum initial pose hypotheses per spatial peak, pooled from its 3x3x3 neighborhood; separate from --npeaks")]
         public int RefineStarts { get; set; }
 
         [Option("refine_iterations", Default = 90, HelpText = "Maximum accepted GPU optimization steps per hypothesis and resolution stage")]
@@ -92,7 +92,7 @@ namespace WarpTools.Commands
         [Option("peak_distance", HelpText = "Minimum distance (in Angstrom) between peaks; leave empty to use half the template diameter")]
         public int? PeakDistance { get; set; }
 
-        [Option("npeaks", Default = 8000, HelpText = "Maximum coarse candidate positions; all are refined before final spatial suppression")]
+        [Option("npeaks", Default = 8000, HelpText = "Maximum spatial peaks per tomogram to refine; neighboring pose hypotheses do not count toward this limit (see --refine_starts)")]
         public int PeakNumber { get; set; }
 
         [Option("tophat", HelpText = "Filter peaks by applying tophat transform with this connectivity level. Valid values: 1, 2, 3")]

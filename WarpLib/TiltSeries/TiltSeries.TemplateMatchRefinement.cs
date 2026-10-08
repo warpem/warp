@@ -214,7 +214,7 @@ public partial class TiltSeries
                 if (stage > 0)
                     for (int p = 0; p < solutions.Length; p++)
                         solutions[p] = solutions[p].OrderByDescending(s => s.Z).ThenBy(s => s.StartIndex).Take(stageBudget).ToList();
-                MatchProgress(progress, 0, $"Refinement stage {stage+1}/{stages}: {solutions.Sum(g => g.Count)} hypotheses, up to {stageBudget} per peak");
+                MatchProgress(progress, 0, $"Refinement stage {stage+1}/{stages}: {solutions.Count(g => g.Count > 0)}/{peaks.Length} spatial peaks, {solutions.Sum(g => g.Count)} pose hypotheses total (up to {stageBudget} per peak)");
                 decimal stagePixel = Math.Min(coarseSampling, (decimal)resolutions[stage] * originalLowpass / 2);
                 if (stage == stages - 1) stagePixel = finalPixel;
                 options.BinTimes = (decimal)Math.Log2((double)(stagePixel / options.PixelSizeMean));

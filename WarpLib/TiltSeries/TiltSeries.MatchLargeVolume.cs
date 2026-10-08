@@ -386,6 +386,7 @@ public partial class TiltSeries
 
             #endregion
 
+            progressCallback?.Invoke(0, $"Selected {Peaks.Length} spatial peaks (limit {options.NResults} per tomogram); collecting up to {options.RefineStarts} pose hypotheses per peak");
             if (Peaks.Length > 0)
             {
                 int3[] Offsets = TemplateMatching.GetNeighborhoodOffsets();
