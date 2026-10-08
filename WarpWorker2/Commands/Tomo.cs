@@ -152,10 +152,18 @@ static partial class WorkerProcess
         float3[] Angles = Command.Content[3] != null ? (float3[])Command.Content[3] : null;
 
         TiltSeries T = new TiltSeries(Path);
-        T.ReconstructSubtomos(Options, Coordinates, Angles);
+
+        string[] visibleFrames = T.ReconstructSubtomos(
+            Options, Coordinates, Angles);
+
+        System.IO.File.WriteAllLines(
+            T.GetSubtomoVisibilityPath(Options),
+            visibleFrames);
+
         T.SaveMeta();
 
-        Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+        Console.WriteLine(
+            $"Exported {Coordinates.Length / T.NTilts} input particles for {Path}");
     }
 
     [Command(WorkerCommandNames.TomoExportParticleSeries)]
