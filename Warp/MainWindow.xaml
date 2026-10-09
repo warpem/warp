@@ -267,15 +267,13 @@
                                     <RowDefinition Height="110" />
                                     <RowDefinition />
                                 </Grid.RowDefinitions>
-                                <w:GridMiniature x:Name="GridCTF" Grid.Row="0" Grid.Column="0" PointsX="{Binding Grids.CTFX}" PointsY="{Binding Grids.CTFY}" PointsZ="{Binding Grids.CTFZ}" Margin="10,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}" />
+                                <w:GridMiniature x:Name="GridCTF" Grid.Row="0" Grid.Column="0" PointsX="{Binding Grids.CTFX}" PointsY="{Binding Grids.CTFY}" PointsZ="1" Margin="10,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}" />
                                 <w:GridMiniature x:Name="GridMovement" Grid.Row="0" Grid.Column="1" PointsX="{Binding Grids.MovementX}" PointsY="{Binding Grids.MovementY}" PointsZ="{Binding Grids.MovementZ}" Margin="10,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}" />
                                 <StackPanel Name="PanelGridCTFParams"  Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10,0,0,0">
                                     <TextBlock Text="Defocus: " />
                                     <s:ValueSlider Value="{Binding Grids.CTFX, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
                                     <TextBlock Text=" x " />
                                     <s:ValueSlider Value="{Binding Grids.CTFY, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
-                                    <TextBlock Text=" x " />
-                                    <s:ValueSlider Value="{Binding Grids.CTFZ, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="100" StepSize="1" />
                                 </StackPanel>
                                 <StackPanel Name="PanelGridMovementParams" Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10,0,0,0">
                                     <TextBlock Text="Motion: " />

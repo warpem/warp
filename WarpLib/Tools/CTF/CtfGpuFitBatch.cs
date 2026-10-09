@@ -14,7 +14,7 @@ public sealed class CtfGpuFitBatch : IDisposable
     IntPtr context;
     readonly CtfSpectrumFit[] spectra;
     readonly double[] output;
-    public CtfGpuFitBatch(CtfSpectrumFit[] spectra)
+    public CtfGpuFitBatch(CtfSpectrumFit[] spectra, int[] envelopeGroups = null, double[] tiltAngles = null)
     {
         if (spectra.Length == 0) throw new ArgumentException("No CTF spectra.");
         this.spectra = spectra;
@@ -25,6 +25,12 @@ public sealed class CtfGpuFitBatch : IDisposable
         var data = new double[count]; var counts = new double[count]; var currentWeights = new double[count];
         for (int i = 0; i < spectra.Length; i++) spectra[i].CopyGpuData(data, counts, currentWeights, i * samples);
         CtfNative.Check(CtfNative.FitCreate(spectra.Length, samples, first.KnotCount, first.GpuMoments(), first.GpuBasis(), data, counts, currentWeights, out context), "create fitting batch");
+        try
+        {
+            var layout = CtfEnvelopeLayout.Create(spectra.Length, envelopeGroups, tiltAngles);
+            CtfNative.Check(CtfNative.FitSetEnvelopeLayout(context, layout.Groups, layout.Anchors, layout.Ids, layout.Blends), "configure shared envelopes");
+        }
+        catch { Dispose(); throw; }
         output = new double[spectra.Length * 9];
     }
     // Trial rows contain defocus and phase; output rows contain one score per patch.

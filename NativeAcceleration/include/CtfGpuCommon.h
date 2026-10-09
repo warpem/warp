@@ -21,7 +21,7 @@ template<class T> struct Buffer
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
     ~Buffer() { if (p) cudaFree(p); }
-    void Allocate(size_t n) { Check(cudaMalloc((void**)&p, n * sizeof(T))); }
+    void Allocate(size_t n) { if(p) { Check(cudaFree(p)); p=nullptr; } Check(cudaMalloc((void**)&p, n * sizeof(T))); }
     void Upload(const T* source, size_t n) { Check(cudaMemcpy(p, source, n*sizeof(T), cudaMemcpyHostToDevice)); }
     void Download(T* target, size_t n) { Check(cudaMemcpy(target, p, n*sizeof(T), cudaMemcpyDeviceToHost)); }
     template<class U> void UploadConverted(const U* source, size_t n)

@@ -175,7 +175,9 @@ internal static class CtfPlaneInitialization
         }).ToArray();
         // Independently refine the retained planes, preserving their separate L-BFGS histories.
         var spectra=seeds.SelectMany(_=>patches.Select(p=>p.Spectrum)).ToArray();
-        using var batch=new CtfGpuFitBatch(spectra);var poses=new double[spectra.Length*7];
+        using var batch=new CtfGpuFitBatch(spectra,
+            Enumerable.Range(0,seeds.Length).SelectMany(s=>Enumerable.Repeat(s,patches.Count)).ToArray(),
+            seeds.SelectMany(_=>CtfEnvelopeLayout.Angles(patches.Select(p=>p.Geometry).ToArray())).ToArray());var poses=new double[spectra.Length*7];
         var (scales,lower,upper)=CtfFitEngine.ParameterBounds(geometry[0],options);
         upper[^1]=0;
         var fits=CtfFitOptimizer.MinimizeMany(parameters=>
@@ -223,7 +225,7 @@ internal static class CtfPlaneInitialization
         int[] nodes=Enumerable.Range(0,groups).Select(g=>Array.IndexOf(patches[starts[g]].Geometry.DefocusWeights,1.0)).ToArray();
         var centers=prior.Centers;var sigma=prior.Scales;
         var spectra=Enumerable.Range(0,2).SelectMany(_=>patches.Select(p=>p.Spectrum)).ToArray();
-        using var batch=new CtfGpuFitBatch(spectra);
+        using var batch=new CtfGpuFitBatch(spectra,Enumerable.Range(0,2*groups).SelectMany(s=>Enumerable.Repeat(s,starts[s%groups+1]-starts[s%groups])).ToArray());
         var poses=new double[spectra.Length*7];
         var seeds=Enumerable.Range(0,groups*2).Select(s=>new[]{s<groups?parameters[nodes[s]]:independent[s-groups]}).ToArray();
         var fits=CtfFitOptimizer.MinimizeMany(values=>

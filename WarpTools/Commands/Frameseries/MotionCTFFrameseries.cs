@@ -68,7 +68,7 @@ namespace WarpTools.Commands
         public bool CTFMovieSumEnable { get; set; }
 
 
-        [Option("c_grid", HelpText = "Resolution of the defocus model grid in X, Y, and temporal dimensions, separated by 'x': e.g. 5x5x40; empty = auto; Z > 1 is purely experimental")]
+        [Option("c_grid", HelpText = "Resolution of the spatial defocus grid in X and Y, separated by 'x': e.g. 6x6; empty = auto")]
         public string CTFGridDims { get; set; }
 
         #endregion
@@ -155,25 +155,22 @@ namespace WarpTools.Commands
                 try
                 {
                     var Dims = CLI.CTFGridDims.Split('x');
+                    if (Dims.Length != 2) throw new FormatException();
 
                     Options.Grids.CTFX = int.Parse(Dims[0]);
                     Options.Grids.CTFY = int.Parse(Dims[1]);
-                    Options.Grids.CTFZ = int.Parse(Dims[2]);
+                    if (Options.Grids.CTFX < 1 || Options.Grids.CTFY < 1) throw new FormatException();
                 }
                 catch
                 {
-                    throw new Exception("CTF grid dimensions must be specified as XxYxZ, e.g. 5x5x40, or left empty for auto");
+                    throw new Exception("CTF grid dimensions must be two positive integers specified as XxY, e.g. 6x6, or left empty for auto");
                 }
             }
             else
             {
                 Options.Grids.CTFX = 0;
                 Options.Grids.CTFY = 0;
-                Options.Grids.CTFZ = 0;
             }
-
-            if (Options.Grids.CTFZ > 1 && Options.CTF.UseMovieSum)
-                throw new Exception("CTF grid can't be larger than 1 in Z dimension when using movie sums because they have only 1 frame");
 
             #endregion
 

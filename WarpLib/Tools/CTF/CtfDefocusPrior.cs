@@ -29,7 +29,7 @@ public sealed class CtfDefocusPrior
         this.nodes = nodes;
         this.zmin = zmin;
         this.step = step;
-        // The search correlation has an arbitrary spectrum-dependent scale. Robust
+        // The coarse search improvement has a spectrum-dependent scale. Robust
         // profile contrast is a seed-selection heuristic, not a calibrated likelihood.
         // Continuous refinement uses the actual weighted spectral residual instead.
         evidence = profiles.Select(p =>

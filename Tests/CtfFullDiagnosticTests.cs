@@ -50,7 +50,7 @@ public class CtfFullDiagnosticTests
             var band=CtfPowerSpectrum.Extract(image,options);
             Assert.All(band.Observations[0].Spectrum.Samples,s=>Assert.InRange(Math.Sqrt(s.Q2),.2/6,.4/6));
             using var extractor=new CtfPowerSpectrum.Extractor(new int2(128),options,fullSpectrum:true);
-            var full=extractor.Extract(image,firstFrame:1,frameCount:2);
+            var full=extractor.Extract(image);
             Assert.True(full.Observations[0].Spectrum.Samples.Min(s=>s.Q2)<Math.Pow(.2/6,2));
             Assert.True(full.Observations[0].Spectrum.Samples.Max(s=>s.Q2)>Math.Pow(.95/6,2));
             double[] parameters={.7,0,0,0,0};var before=(double[])parameters.Clone();

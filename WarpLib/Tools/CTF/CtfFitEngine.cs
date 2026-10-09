@@ -76,7 +76,7 @@ public static class CtfFitEngine
             { spectra.Add(radial[k]); localOffsets.Add(delta[k]); }
         }
         seedStarts[^1] = spectra.Count;
-        using var batch = new CtfGpuFitBatch(spectra.ToArray());
+        using var batch = new CtfGpuFitBatch(spectra.ToArray(), Enumerable.Range(0,seeds.Count).SelectMany(i=>Enumerable.Repeat(i,seedStarts[i+1]-seedStarts[i])).ToArray());
         var poses = new double[spectra.Count*7];
         var fits = CtfFitOptimizer.MinimizeMany(parameters =>
         {
@@ -113,7 +113,8 @@ public static class CtfFitEngine
             var plane=CtfPlaneInitialization.Initialize(records,geometry,initial,options);
             initial=plane.Parameters;prior=plane.Prior;planeEvaluations=plane.Evaluations;planeSeconds=timer.Elapsed.TotalSeconds;
         }
-        using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
+        var envelopeAngles=CtfEnvelopeLayout.Angles(geometry);
+        using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray(),tiltAngles:envelopeAngles);
         int searchEvaluations = SeedThickness(records,geometry,initial,batch);
         // Shared geometry, astigmatism and thickness use the joint, full-band fit.
         // A narrow reliable band in a weak tilt cannot separately identify thickness
@@ -124,7 +125,7 @@ public static class CtfFitEngine
         {
             searchEvaluations+=result.Evaluations;
             using var training=new CtfGpuFitBatch(records.Select(r=>r.Spectrum.WithFitWeights(
-                r.Spectrum.Samples.Select(s=>CtfFitReliability.AngularFold(s)>0?1f:0f).ToArray())).ToArray());
+                r.Spectrum.Samples.Select(s=>CtfFitReliability.AngularFold(s)>0?1f:0f).ToArray())).ToArray(),tiltAngles:envelopeAngles);
             var trainingFit=RefineCore(records,geometry,(double[])result.Parameters.Clone(),options,training,prior,true);
             searchEvaluations+=trainingFit.Evaluations;
             reliability=CtfFitReliability.Estimate(records,geometry,trainingFit.Parameters);
@@ -133,7 +134,7 @@ public static class CtfFitEngine
         // tilt-specific correction and are not required to have spatial replication.
         var supportedSpectra=reliability==null?null:records.Select((r,i)=>
             r.Spectrum.WithFitWeights(reliability.FrequencyWeight[i].Select(w=>w*reliability.PatchWeight[i]).ToArray())).ToArray();
-        using var supported=supportedSpectra==null?null:new CtfGpuFitBatch(supportedSpectra);
+        using var supported=supportedSpectra==null?null:new CtfGpuFitBatch(supportedSpectra,tiltAngles:envelopeAngles);
         var fittingBatch=supported??batch;
         if(supported!=null)result=RefineCore(records,geometry,(double[])result.Parameters.Clone(),options,supported,prior,true);
         result=result with { Reliability=reliability?.Groups };
