@@ -12,10 +12,10 @@ public static class CtfPowerSpectrum
     public sealed record Observation(CtfSpectrumFit Spectrum, float3 Position, int Group);
     public sealed record Extraction(List<Observation> Observations, float[] Display, int2 PositionGrid, int FourierSize);
 
-    public static Extraction Extract(Image image, ProcessingOptionsMovieCTF options, int group = 0, CtfSpectrumFit basisSource = null)
+    public static Extraction Extract(Image image, ProcessingOptionsMovieCTF options, int groups = 1, int groupOffset = 0, CtfSpectrumFit basisSource = null)
     {
         using var extractor = new Extractor(new int2(image.Dims), options);
-        return extractor.Extract(image, group, basisSource);
+        return extractor.Extract(image, groups, groupOffset, basisSource);
     }
 
     /// <summary>Reuse one extractor across a tilt series. Window, Fourier-bin geometry,
@@ -85,30 +85,42 @@ public static class CtfPowerSpectrum
             CtfNative.Check(CtfNative.PowerCreate(dimensions.X,dimensions.Y,window,fftSize,batch,origins.Length,bins,origins,hann,starts,indices,displayIndices,out context),"create spectrum extractor");
         }
 
-        public Extraction Extract(Image image, int group = 0, CtfSpectrumFit basisSource = null)
+        public Extraction Extract(Image image, int groups = 1, int groupOffset = 0, CtfSpectrumFit basisSource = null, int firstFrame = 0, int frameCount = -1)
         {
             ObjectDisposedException.ThrowIf(context == IntPtr.Zero,this);
             if (image.Dims.X != dimensions.X || image.Dims.Y != dimensions.Y) throw new ArgumentException("CTF extractor/image dimensions differ.");
+            groups = Math.Clamp(groups,1,image.Dims.Z);
             sharedBasis ??= basisSource;
-            float[][] frames = image.GetHost(Intent.Read);
-            var display = new float[window*window/2];
+            float[][] allFrames = image.GetHost(Intent.Read);
+            if (frameCount < 0) frameCount = allFrames.Length - firstFrame;
+            if (firstFrame < 0 || frameCount < 1 || firstFrame + frameCount > allFrames.Length)
+                throw new ArgumentOutOfRangeException(nameof(firstFrame));
+            float[][] frames = allFrames.Skip(firstFrame).Take(frameCount).ToArray();
+            groups = Math.Min(groups, frames.Length);
+            var records = new List<Observation>(); var display = new float[window*window/2];
             var power = new double[checked(origins.Length*bins)];
-            CtfNative.Check(CtfNative.PowerBegin(context),"begin spectrum");
-            foreach(var frame in frames) CtfNative.Check(CtfNative.PowerAdd(context,frame),"prepare spectra");
-            CtfNative.Check(CtfNative.PowerRead(context,power,display),"read spectra (input pixels must be finite)");
-            var observations = new Observation[origins.Length];
-            Observation Make(int p)
+            for (int group = 0; group < groups; group++)
             {
-                var samples = new CtfSpectrumFit.Sample[bins];
-                for (int b = 0; b < bins; b++) samples[b] = new(q2[b],q4[b],ax[b],ay[b],power[p*bins+b]/(count[b]*frames.Length),count[b]*frames.Length*Math.Pow((double)window/fftSize,2));
-                var spectrum = new CtfSpectrumFit(samples,(double)options.Voltage,(double)options.Cs,(double)options.Amplitude,sharedBasis);
-                var origin = origins[p];
-                return new(spectrum,new float3((origin.X+window*.5f)/dimensions.X,(origin.Y+window*.5f)/dimensions.Y,.5f),group);
+                int first = group*frames.Length/groups, end = (group+1)*frames.Length/groups;
+                CtfNative.Check(CtfNative.PowerBegin(context,group == 0 ? 1 : 0),"begin spectrum group");
+                for (int frame = first; frame < end; frame++) CtfNative.Check(CtfNative.PowerAdd(context,frames[frame]),"prepare spectra");
+                CtfNative.Check(CtfNative.PowerRead(context,power,display),"read spectra (input pixels must be finite)");
+                var observations = new Observation[origins.Length];
+                Observation Make(int p)
+                {
+                    var samples = new CtfSpectrumFit.Sample[bins];
+                    for (int b = 0; b < bins; b++) samples[b] = new(q2[b],q4[b],ax[b],ay[b],power[p*bins+b]/(count[b]*(end-first)),count[b]*(end-first)*Math.Pow((double)window/fftSize,2));
+                    var spectrum = new CtfSpectrumFit(samples,(double)options.Voltage,(double)options.Cs,(double)options.Amplitude,sharedBasis);
+                    var origin = origins[p];
+                    return new(spectrum,new float3((origin.X+window*.5f)/dimensions.X,(origin.Y+window*.5f)/dimensions.Y,
+                        frames.Length>1 ? (first+end-1)*.5f/(frames.Length-1) : .5f),group+groupOffset);
+                }
+                observations[0] = Make(0); sharedBasis ??= observations[0].Spectrum;
+                Parallel.For(1,origins.Length,p => observations[p] = Make(p));
+                records.AddRange(observations);
             }
-            observations[0] = Make(0); sharedBasis ??= observations[0].Spectrum;
-            Parallel.For(1,origins.Length,p => observations[p] = Make(p));
             for (int i = 0; i < display.Length; i++) display[i] /= (float)((long)frames.Length*origins.Length);
-            return new(observations.ToList(),display,grid,fftSize);
+            return new(records,display,grid,fftSize);
         }
         public void Dispose()
         {

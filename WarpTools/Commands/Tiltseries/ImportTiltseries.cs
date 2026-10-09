@@ -394,7 +394,7 @@ namespace WarpTools.Commands
                         //     var movie = Movies[Path.GetFileNameWithoutExtension(SortedAngle[i].Name)];
                         //     if (movie.GridCTFDefocus.Values.Length < 2)
                         //         throw new Exception("One or more tilt movies don't have local defocus information. " +
-                        //                             "Please run fs_ctf on all individual tilt movies using a 2x2 grid.");
+                        //                             "Please run fs_ctf on all individual tilt movies using a 2x2x1 grid.");
                         //     var p0 = new float3(0.5f, 0.75f, 0.5f);
                         //     var p1 = new float3(0.25f, 0.25f, 0.5f);
                         //     var p2 = new float3(0.75f, 0.25f, 0.5f);

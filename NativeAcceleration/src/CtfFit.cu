@@ -13,12 +13,7 @@ constexpr int Threads=256;
 constexpr double Ridge=1e-7;
 struct FitView
 {
-    int records,samples,knots,size,features,stride,envelopeCount,anchors;
-    float maximumMoment;
-    const int *envelopeGroups,*groupStarts,*groupRecords;
-    const float* blends;
-    double *amplitude0,*amplitude1,*amplitude2,*reducedLoss,*objective,*previousObjective;
-    double *reduced,*backgroundSolutions,*sharedWork,*envelopeMatrix,*envelopes,*envelopeWork,*amplitudes,*convergence;
+    int records,samples,knots,size,features,stride;
     const float *moments,*basis,*data,*terms;
     const int *starts,*indices,*destinations,*powers,*firstBasis;
     float *baseWeights,*weights,*poses,*model,*derivative,*slabDerivative;
@@ -29,17 +24,6 @@ struct FitView
 struct FitContext
 {
     int device, sharedBytes;
-    cudaStream_t profileStream=nullptr;
-    cudaGraphExec_t profileGraph=nullptr;
-    ~FitContext()
-    {
-        if(profileGraph)cudaGraphExecDestroy(profileGraph);
-        if(profileStream)cudaStreamDestroy(profileStream);
-    }
-    Buffer<int> envelopeGroups,groupStarts,groupRecords;
-    Buffer<float> blends;
-    Buffer<double> amplitude0,amplitude1,amplitude2,reducedLoss,objective,previousObjective;
-    Buffer<double> reduced,backgroundSolutions,sharedWork,envelopeMatrix,envelopes,envelopeWork,amplitudes,convergence;
     FitView v;
     Buffer<float> moments,basis,data,baseWeights,terms,weights,poses,model,derivative,slabDerivative;
     Buffer<double> preciseTerms,matrix,coefficients,output,workspace;
@@ -139,9 +123,9 @@ __device__ bool SolveSubset(const double* a,const double* b,double* output,const
     for(int i=0;i<m;i++)output[(int)ids[i]]=work[i];
     return true;
 }
-// Background-only solve is used solely for the variance estimate, never to
-// subtract signal before the coarse search or to fit independent patch envelopes.
-template<bool Precise> __global__ void SolveBackground(FitView c,bool sharedWorkspace)
+// Each patch owns a small active-set solve. Double precision is retained here to
+// resolve nearly dependent background/envelope columns without changing the ridge.
+template<bool Precise, bool BackgroundOnly=false> __global__ void SolveNuisance(FitView c,bool sharedWorkspace)
 {
     if(threadIdx.x)return;
     extern __shared__ double storage[];
@@ -149,14 +133,39 @@ template<bool Precise> __global__ void SolveBackground(FitView c,bool sharedWork
     if(Precise && !c.precise[p])return;
     if(!Precise)c.precise[p]=0;
     double* l=sharedWorkspace?storage:c.workspace+(size_t)p*(n*n+4*n);
-    double *work=l+n*n,*ids=work+n,*active=ids+n;
+    double *work=l+n*n,*ids=work+n,*active=ids+n,*z=active+n;
     const double* a=c.matrix+(size_t)p*c.stride;const double* b=a+n*n;
     double* x=c.coefficients+(size_t)p*n;
-    for(int i=0;i<n;i++)active[i]=i<c.knots;
-    if(!SolveSubset(a,b,x,active,l,work,ids,n,!Precise))
-    {if(!Precise)c.precise[p]=1;else for(int i=0;i<n;i++)x[i]=CUDART_NAN;}
+    // Reassemble a rounded, ill-conditioned Gram matrix before attempting this patch again.
+#define SOLVE(target) if(!SolveSubset(a,b,target,active,l,work,ids,n,!Precise)) { \
+    if(!Precise)c.precise[p]=1; else for(int i=0;i<n;i++)x[i]=CUDART_NAN; return; }
+    for(int i=0;i<n;i++)active[i]=!BackgroundOnly || i<c.knots;
+    SOLVE(x)
+    if(BackgroundOnly)return;
+    bool feasible=true;for(int i=c.knots;i<n;i++)feasible&=x[i]>=0;
+    if(feasible)return;
+    for(int i=c.knots;i<n;i++)active[i]=0;
+    SOLVE(x)
+    for(int iteration=0;iteration<8*n*n;iteration++)
+    {
+        int enter=-1;double best=1e-9;
+        for(int i=c.knots;i<n;i++)if(!active[i])
+        {double w=b[i];for(int j=0;j<n;j++)w-=a[i*n+j]*x[j];if(w>best){best=w;enter=i;}}
+        if(enter<0)return;
+        active[enter]=1;
+        for(int inner=0;inner<=n;inner++)
+        {
+            SOLVE(z)
+            double alpha=1;
+            for(int i=c.knots;i<n;i++)if(active[i]&&z[i]<=0)alpha=fmin(alpha,x[i]/fmax(1e-30,x[i]-z[i]));
+            if(alpha==1){for(int i=0;i<n;i++)x[i]=z[i];break;}
+            for(int i=0;i<n;i++)x[i]+=alpha*(z[i]-x[i]);
+            for(int i=c.knots;i<n;i++)if(active[i]&&x[i]<=1e-12){active[i]=0;x[i]=0;}
+        }
+    }
+    if(!Precise)c.precise[p]=1; else for(int i=0;i<n;i++)x[i]=CUDART_NAN;
+#undef SOLVE
 }
-#include "CtfSharedEnvelope.cuh"
 // Fit smooth total power with count weights, then derive fixed inverse variances.
 __global__ void InitializeWeights(FitView c)
 {
@@ -175,77 +184,32 @@ void BackgroundFit(FitContext& c)
     auto v=c.v;
     Check(cudaMemset(c.model.p,0,(size_t)v.records*v.samples*sizeof(float)));
     NormalEquations<false><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
-    SolveBackground<false><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
+    SolveNuisance<false,true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
     NormalEquations<true><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
-    SolveBackground<true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
+    SolveNuisance<true,true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
 }
-// Profile a quadratic continuum and one nonnegative exponential signal envelope
-// together with each CTF. Never subtract a flexible background-only spline here:
-// it can absorb the first broad oscillations at low defocus.
+__global__ void BackgroundResidual(FitView c)
+{
+    int i=blockIdx.x*blockDim.x+threadIdx.x,p=blockIdx.y;if(i>=c.samples)return;
+    float bg=0;int first=c.firstBasis[i],last=min(c.knots,first+4);
+    for(int j=first;j<last;j++)bg+=c.basis[(size_t)i*c.knots+j]*(float)c.coefficients[(size_t)p*c.size+j];
+    size_t index=(size_t)p*c.samples+i;c.derivative[index]=c.data[index]-bg;
+}
 __global__ void RankTrials(FitView c,const float* trials,const float* offsets,double* scores)
 {
-    __shared__ float sums[30][Threads],background[3],projection[12];
-    int trial=blockIdx.x,p=blockIdx.y,lane=threadIdx.x;
-    float v[30]={0},maximum=c.maximumMoment;
+    __shared__ float cross[Threads],power[Threads];
+    int trial=blockIdx.x,p=blockIdx.y,lane=threadIdx.x;float sum=0,norm=0;
     float df=trials[2*trial]+offsets[p],phase=trials[2*trial+1];
     for(int i=lane;i<c.samples;i+=Threads)
     {
-        float t=c.moments[4*i]/maximum,u=2*t-1,b[3]={1,u,.5f*(3*u*u-1)};
-        float y=c.data[(size_t)p*c.samples+i],w=c.weights[(size_t)p*c.samples+i];
-        float model=.5f-.5f*cosf(2*(c.moments[4*i]*df+c.moments[4*i+3]+phase));
-        int j=0;for(int a=0;a<3;a++)for(int d=0;d<=a;d++)v[j++]+=w*b[a]*b[d];
-        for(int a=0;a<3;a++)v[6+a]+=w*b[a]*y;
-        for(int k=0;k<4;k++)
-        {
-            float decay=k==0?0:k==1?4:k==2?12:32,e=model*expf(-decay*t);
-            for(int a=0;a<3;a++)v[9+5*k+a]+=w*e*b[a];
-            v[12+5*k]+=w*e*e;v[13+5*k]+=w*e*y;
-        }
+        size_t index=(size_t)p*c.samples+i;
+        float model=-.5f*cosf(2*(c.moments[4*i]*df+c.moments[4*i+3]+phase)),w=c.weights[index];
+        sum+=w*c.derivative[index]*model;norm+=w*model*model;
     }
-    for(int j=0;j<29;j++)sums[j][lane]=v[j];__syncthreads();
+    cross[lane]=sum;power[lane]=norm;__syncthreads();
     for(int stride=Threads/2;stride;stride>>=1)
-    {if(lane<stride)for(int j=0;j<29;j++)sums[j][lane]+=sums[j][lane+stride];__syncthreads();}
-    if(!lane)
-    {
-        // Only this 3x3 system uses double; sample arithmetic stays FP32.
-        double a[9]={0},l[9]={0},rhs[3];int j=0;
-        for(int r=0;r<3;r++)for(int s=0;s<=r;s++)a[r*3+s]=a[s*3+r]=sums[j++][0];
-        for(int r=0;r<3;r++)for(int s=0;s<=r;s++)
-        {double x=a[r*3+s];for(int k=0;k<s;k++)x-=l[r*3+k]*l[s*3+k];l[r*3+s]=r==s?sqrt(fmax(1e-12,x)):x/l[s*3+s];}
-        for(int column=0;column<5;column++)
-        {
-            for(int r=0;r<3;r++){rhs[r]=sums[column?9+5*(column-1)+r:6+r][0];for(int s=0;s<r;s++)rhs[r]-=l[r*3+s]*rhs[s];rhs[r]/=l[r*3+r];}
-            for(int r=2;r>=0;r--){for(int s=r+1;s<3;s++)rhs[r]-=l[s*3+r]*rhs[s];rhs[r]/=l[r*3+r];}
-            for(int r=0;r<3;r++){if(column)projection[(column-1)*3+r]=rhs[r];else background[r]=rhs[r];}
-        }
-    }
-    __syncthreads();
-    // Accumulate projected residuals directly, avoiding cancellation between large
-    // continuum moments. This is still the joint linear fit, not spline subtraction.
-    float cross[4]={0},norm[4]={0};
-    for(int i=lane;i<c.samples;i+=Threads)
-    {
-        float t=c.moments[4*i]/maximum,u=2*t-1,b[3]={1,u,.5f*(3*u*u-1)};
-        float y=c.data[(size_t)p*c.samples+i],w=c.weights[(size_t)p*c.samples+i];
-        for(int j=0;j<3;j++)y-=background[j]*b[j];
-        float model=.5f-.5f*cosf(2*(c.moments[4*i]*df+c.moments[4*i+3]+phase));
-        for(int k=0;k<4;k++)
-        {
-            float decay=k==0?0:k==1?4:k==2?12:32,e=model*expf(-decay*t);
-            for(int j=0;j<3;j++)e-=projection[3*k+j]*b[j];
-            cross[k]+=w*y*e;norm[k]+=w*e*e;
-        }
-    }
-    __syncthreads();
-    for(int k=0;k<4;k++){sums[2*k][lane]=cross[k];sums[2*k+1][lane]=norm[k];}__syncthreads();
-    for(int stride=Threads/2;stride;stride>>=1)
-    {if(lane<stride)for(int j=0;j<8;j++)sums[j][lane]+=sums[j][lane+stride];__syncthreads();}
-    if(!lane)
-    {
-        double best=0;for(int k=0;k<4;k++)if(sums[2*k][0]>0 && sums[2*k+1][0]>1e-8f*fmaxf(1.f,sums[12+5*k][0]))
-            best=fmax(best,.5*(double)sums[2*k][0]*sums[2*k][0]/sums[2*k+1][0]);
-        scores[(size_t)trial*c.records+p]=best;
-    }
+    {if(lane<stride){cross[lane]+=cross[lane+stride];power[lane]+=power[lane+stride];}__syncthreads();}
+    if(!lane)scores[(size_t)trial*c.records+p]=cross[0]/sqrtf(fmaxf(1e-30f,power[0]));
 }
 __global__ void Score(FitView c,bool reweight)
 {
@@ -289,7 +253,6 @@ extern "C" __declspec(dllexport) int CtfFitCreate(int records,int samples,int kn
     {
         if(records<1||samples<16||knots<4)return cudaErrorInvalidValue;
         std::unique_ptr<FitContext> c(new FitContext());Check(cudaGetDevice(&c->device));auto& v=c->v;
-        v.maximumMoment=0;for(int i=0;i<samples;i++)v.maximumMoment=fmaxf(v.maximumMoment,(float)moments[4*i]);
         v.records=records;v.samples=samples;v.knots=knots;v.size=knots*2;v.stride=v.size*v.size+v.size;
         std::vector<int> starts(1,0),indices,destinations,powers,first(samples,0);std::vector<double> terms;
         auto Feature=[&](int j,int k,int destination,int power)
@@ -325,15 +288,8 @@ extern "C" __declspec(dllexport) int CtfFitCreate(int records,int samples,int kn
         BackgroundFit(*c);
         InitializeWeights<<<dim3((samples+Threads-1)/Threads,records),Threads>>>(v);
         Check(cudaGetLastError());
-        std::vector<int> groups(records,0);std::vector<double> blends(records,1);
-        ConfigureShared(*c,1,1,groups.data(),blends.data());
         *result=c.release();return cudaSuccess;
     }
-    catch(cudaError_t e){return e;}catch(...){return cudaErrorUnknown;}
-}
-extern "C" __declspec(dllexport) int CtfFitSetEnvelopeLayout(void* context,int groups,int anchors,const int* ids,const double* blends)
-{
-    try{if(!context)return cudaErrorInvalidValue;auto& c=*(FitContext*)context;DeviceScope scope(c.device);ConfigureShared(c,groups,anchors,ids,blends);return cudaSuccess;}
     catch(cudaError_t e){return e;}catch(...){return cudaErrorUnknown;}
 }
 extern "C" __declspec(dllexport) int CtfFitSearch(void* context,const double* trials,const double* offsets,int trialCount,double* scores)
@@ -346,6 +302,8 @@ extern "C" __declspec(dllexport) int CtfFitSearch(void* context,const double* tr
         deviceTrials.Allocate((size_t)trialCount*2);deviceTrials.UploadConverted(trials,(size_t)trialCount*2);
         deviceOffsets.Allocate(v.records);deviceOffsets.UploadConverted(offsets,v.records);
         deviceScores.Allocate((size_t)trialCount*v.records);
+        BackgroundFit(c);
+        BackgroundResidual<<<dim3((v.samples+Threads-1)/Threads,v.records),Threads>>>(v);
         RankTrials<<<dim3(trialCount,v.records),Threads>>>(v,deviceTrials.p,deviceOffsets.p,deviceScores.p);
         Check(cudaGetLastError());deviceScores.Download(scores,(size_t)trialCount*v.records);return cudaSuccess;
     }
@@ -357,7 +315,10 @@ extern "C" __declspec(dllexport) int CtfFitEvaluate(void* context,const double* 
     {
         auto& c=*(FitContext*)context;DeviceScope scope(c.device);auto v=c.v;c.poses.UploadConverted(poses,(size_t)v.records*7);
         Model<<<dim3((v.samples+Threads-1)/Threads,v.records),Threads>>>(v);
-        ProfileShared(c);
+        NormalEquations<false><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
+        SolveNuisance<false><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
+        NormalEquations<true><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
+        SolveNuisance<true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
         Score<<<v.records,Threads>>>(v,reweight!=0);Check(cudaGetLastError());
         c.output.Download(output,(size_t)v.records*9);return cudaSuccess;
     }

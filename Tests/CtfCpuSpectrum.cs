@@ -17,7 +17,7 @@ public sealed class CtfCpuSpectrum
     public readonly double PowerScale;
     readonly double[,] basis;
     readonly int[] firstBasis, lastBasis;
-    readonly double[] data, weight, baseWeight;
+    readonly double[] data, weight, baseWeight, backgroundResidual;
     readonly int knots;
     readonly double kDefocus, kCs, amplitudePhase;
     readonly double[,] backgroundGram;
@@ -86,7 +86,7 @@ public sealed class CtfCpuSpectrum
             }
         CompleteGram(gram);
         double[] smooth = Solve(gram, rhs);
-        weight = new double[samples.Length]; baseWeight = new double[samples.Length];
+        weight = new double[samples.Length]; baseWeight = new double[samples.Length]; backgroundResidual = new double[samples.Length];
         for (int i = 0; i < samples.Length; i++)
         {
             double p = 0; for (int j = firstBasis[i]; j < lastBasis[i]; j++) p += basis[i, j] * smooth[j];
@@ -102,19 +102,19 @@ public sealed class CtfCpuSpectrum
         backgroundDirty = true;
     }
 
-    // Cache background normal equations once per weight update.
-    void EnsureBackgroundNormalEquations()
+    // Cache the background-only projection once per weight update.
+    void EnsureBackgroundProjection()
     {
         if (!backgroundDirty) return;
         lock (backgroundSync)
         {
             if (!backgroundDirty) return;
-            UpdateBackgroundNormalEquations();
+            UpdateBackgroundProjection();
             backgroundDirty = false;
         }
     }
 
-    void UpdateBackgroundNormalEquations()
+    void UpdateBackgroundProjection()
     {
         Array.Clear(backgroundGram); Array.Clear(backgroundRhs);
         for (int i = 0; i < Samples.Length; i++)
@@ -124,6 +124,12 @@ public sealed class CtfCpuSpectrum
                 for (int k = firstBasis[i]; k <= j; k++) backgroundGram[j, k] += weight[i] * basis[i, j] * basis[i, k];
             }
         CompleteGram(backgroundGram);
+        double[] bg = Solve(backgroundGram, backgroundRhs);
+        for (int i = 0; i < Samples.Length; i++)
+        {
+            backgroundResidual[i] = data[i];
+            for (int j = firstBasis[i]; j < lastBasis[i]; j++) backgroundResidual[i] -= basis[i, j] * bg[j];
+        }
     }
 
     /// <summary>Student-t IRLS update (8 degrees of freedom) between optimization passes. Weights remain fixed within a pass,
@@ -145,29 +151,21 @@ public sealed class CtfCpuSpectrum
 
     public double QuickScore(double defocus, double phase = 0)
     {
-        double max=Samples.Max(s=>s.Q2),best=0;
-        foreach(double decay in new[]{0.0,4.0,12.0,32.0})
+        EnsureBackgroundProjection();
+        double c = 0, p = 0;
+        for (int i = 0; i < Samples.Length; i++)
         {
-            var gram=new double[3,3];var rhs=new double[3];var cross=new double[3];double norm=0,signal=0;
-            for(int i=0;i<Samples.Length;i++)
-            {
-                var s=Samples[i];double t=s.Q2/max,u=2*t-1;
-                double[] b={1,u,.5*(3*u*u-1)};
-                double e=Math.Pow(Math.Sin(kDefocus*s.Q2*defocus+kCs*s.Q4+amplitudePhase+phase),2)*Math.Exp(-decay*t);
-                for(int j=0;j<3;j++)
-                {rhs[j]+=weight[i]*b[j]*data[i];cross[j]+=weight[i]*b[j]*e;for(int k=0;k<3;k++)gram[j,k]+=weight[i]*b[j]*b[k];}
-                norm+=weight[i]*e*e;signal+=weight[i]*e*data[i];
-            }
-            var background=Solve(gram,rhs);var projected=Solve(gram,cross);double residual=signal,variance=norm;
-            for(int j=0;j<3;j++){residual-=cross[j]*background[j];variance-=cross[j]*projected[j];}
-            if(residual>0 && variance>1e-8*Math.Max(1,norm))best=Math.Max(best,.5*residual*residual/variance);
+            Sample s = Samples[i];
+            double m = -.5 * Math.Cos(2 * (kDefocus * s.Q2 * defocus + kCs * s.Q4 + amplitudePhase + phase));
+            c += weight[i] * backgroundResidual[i] * m;
+            p += weight[i] * m * m;
         }
-        return best;
+        return c / Math.Sqrt(Math.Max(1e-30, p));
     }
 
     public Evaluation Evaluate(double defocus, double astigX, double astigY, double phase, bool details = false, double thicknessSquared = 0, double widthX = 0, double widthY = 0)
     {
-        EnsureBackgroundNormalEquations();
+        EnsureBackgroundProjection();
         int n = Samples.Length, size = 2 * knots;
         double[] model = new double[n], derivative = new double[n];
         var volumeDerivative = new double[n,3];

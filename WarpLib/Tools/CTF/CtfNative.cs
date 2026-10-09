@@ -13,7 +13,7 @@ internal static class CtfNative
     public static extern int PowerCreate(int width, int height, int window, int fft, int batch, int patches, int bins,
         int3[] origins, float[] hann, int[] starts, int[] indices, int[] displayIndices, out IntPtr context);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerBegin")]
-    public static extern int PowerBegin(IntPtr context);
+    public static extern int PowerBegin(IntPtr context, int resetDisplay);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerAdd")]
     public static extern int PowerAdd(IntPtr context, float[] frame);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerRead")]
@@ -24,8 +24,6 @@ internal static class CtfNative
     [DllImport("NativeAcceleration", EntryPoint = "CtfFitCreate")]
     public static extern int FitCreate(int records, int samples, int knots, double[] moments, double[] basis,
         double[] data, double[] counts, double[] currentWeights, out IntPtr context);
-    [DllImport("NativeAcceleration", EntryPoint = "CtfFitSetEnvelopeLayout")]
-    public static extern int FitSetEnvelopeLayout(IntPtr context, int groups, int anchors, int[] ids, double[] blends);
     [DllImport("NativeAcceleration", EntryPoint = "CtfFitSearch")]
     public static extern int FitSearch(IntPtr context, double[] trials, double[] offsets, int trialCount, [Out] double[] scores);
     [DllImport("NativeAcceleration", EntryPoint = "CtfFitEvaluate")]

@@ -1,12 +1,11 @@
 using System;
-using System.Linq;
 using Warp.Tools;
 namespace Tests;
 // Adapt zero-depth fixtures to the seven-parameter GPU model. No production fallback.
 internal sealed class CtfThinGpuBatch : IDisposable
 {
     readonly CtfGpuFitBatch batch;
-    public CtfThinGpuBatch(CtfSpectrumFit[] spectra) { batch = new(spectra, Enumerable.Range(0,spectra.Length).ToArray()); }
+    public CtfThinGpuBatch(CtfSpectrumFit[] spectra) { batch = new(spectra); }
     public double[] Evaluate(double[] poses, bool reweight = false)
     {
         int n=poses.Length/4; var full=new double[n*7];

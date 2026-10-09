@@ -310,7 +310,7 @@ namespace Warp
                 UseMovieSum = CTF.UseMovieSum,
                 ZMin = CTF.ZMin,
                 ZMax = CTF.ZMax,
-                GridDims = new int2(Grids.CTFX, Grids.CTFY),
+                GridDims = new int3(Grids.CTFX, Grids.CTFY, Grids.CTFZ),
                 DosePerAngstromFrame = Import.DosePerAngstromFrame
             });
         }
@@ -341,6 +341,7 @@ namespace Warp
 
             Grids.CTFX = options.GridDims.X;
             Grids.CTFY = options.GridDims.Y;
+            Grids.CTFZ = options.GridDims.Z;
         }
 
         public ProcessingOptionsMovieMovement GetProcessingMovieMovement()
@@ -1364,6 +1365,15 @@ namespace Warp
         {
             get { return _CTFY; }
             set { if (value != _CTFY) { _CTFY = value; OnPropertyChanged(); } }
+        }
+
+        private int _CTFZ = 1;
+        [WarpSerializable]
+        [JsonProperty]
+        public int CTFZ
+        {
+            get { return _CTFZ; }
+            set { if (value != _CTFZ) { _CTFZ = value; OnPropertyChanged(); } }
         }
 
         private int _MovementX = 5;

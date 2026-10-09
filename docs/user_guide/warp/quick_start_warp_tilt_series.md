@@ -36,7 +36,7 @@ important differences to traditional 2D movie processing for this step:
   turned off. Warp will estimate the CTF and generate averages, which are an exact copy
   of the input images. This will feel very redundant, but the pipeline was written with
   movies in mind and doesn’t have a special case for single-frame images.
-- The CTF can usually be estimated well with a 2x2 defocus grid. You can use these
+- The CTF can usually be estimated well with a 2x2x1 defocus grid. You can use these
   estimates to monitor data collection. However, the values will be re-estimated later
   during tilt series pre-processing using a more robust model. Because of the low amount
   of signal per tilt movie, it might help to check **Use Movie Sum**.

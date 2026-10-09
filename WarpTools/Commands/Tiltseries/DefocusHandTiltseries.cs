@@ -69,7 +69,7 @@ namespace WarpTools.Commands.Tiltseries
 
                     if (TiltMovies.Any(m => m.GridCTFDefocus.Values.Length < 2))
                         throw new Exception("One or more tilt movies don't have local defocus information. " +
-                                            "Please run fs_ctf on all individual tilt movies using a 2x2 grid.");
+                                            "Please run fs_ctf on all individual tilt movies using a 2x2x1 grid.");
 
                     series.VolumeDimensionsPhysical = new float3((float)Options.Tomo.DimensionsX,
                                                                  (float)Options.Tomo.DimensionsY,

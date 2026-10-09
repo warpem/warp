@@ -40,7 +40,7 @@ public partial class TiltSeries
             for (int t = 0; t < NTilts; t++)
             {
                 timer.Restart();
-                var extraction = extractor.Extract(images[t], t, basisSource);
+                var extraction = extractor.Extract(images[t], 1, t, basisSource);
                 basisSource ??= extraction.Observations[0].Spectrum;
                 extractionSeconds += timer.Elapsed.TotalSeconds;
                 images[t].FreeDevice();

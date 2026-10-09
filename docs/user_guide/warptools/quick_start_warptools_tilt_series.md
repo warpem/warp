@@ -443,7 +443,7 @@ contrast transfer function.
 WarpTools fs_motion_and_ctf \
 --settings warp_frameseries.settings \
 --m_grid 1x1x3 \
---c_grid 2x2 \
+--c_grid 2x2x1 \
 --c_range_max 7 \
 --c_defocus_max 8 \
 --c_use_sum \
@@ -473,14 +473,11 @@ the `warp_frameseries` directory.
 
 #### Grids
 
-The `--m_grid 1x1x3` parameter defines the spatial and temporal resolution (`XxYxT`)
-of the motion model. `--c_grid 2x2` defines the spatial resolution (`XxY`) of the
-CTF defocus model, which has no temporal dimension. By default, fitting uses the
-average of the individual frames’ power spectra. `--c_use_sum` instead uses the
-power spectrum of the movie average.
+The `--m_grid 1x1x3` and `--c_grid 2x2x1` parameters define the resolution (`XxYxT`) of
+motion and CTF models that will be estimated.
 
 When processing tilt series data we typically recommend `1x1xNFrames` for motion grids
-due to the low amount of signal available per tilt and `2x2` for CTF grids to enable
+due to the low amount of signal available per tilt and `2x2x1` for CTF grids to enable
 checking that defocus varies as expected across the tilt axis.
 
 #### CTF Parameters
@@ -735,7 +732,7 @@ First, we check how well our data match expectations. (1)
 { .annotate }
 
 1. :man_raising_hand: this check requires that defocus was estimated with at least
-   two points in each spatial dimension (i.e. minimum `2x2`).
+   two points in each spatial dimension (i.e. minimum `2x2x1`).
 
 ```txt title="Defocus Handedness Check"
 WarpTools ts_defocus_hand \
