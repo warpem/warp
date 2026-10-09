@@ -58,9 +58,8 @@ Showing all available options for command fs_motion_and_ctf:
                           of individual frames' spectra. Can help in the absence
                            of an energy filter, or when signal is low.
 
---c_grid                  Resolution of the defocus model grid in X, Y, and temp
-                          oral dimensions, separated by 'x': e.g. 5x5x40; empty 
-                          = auto; Z > 1 is purely experimental
+--c_grid                  Resolution of the spatial defocus grid in X and Y,
+                          separated by 'x': e.g. 6x6; empty = auto
 
 --out_averages            Export aligned averages
 
@@ -245,9 +244,8 @@ Showing all available options for command fs_ctf:
                           of individual frames' spectra. Can help in the absence
                            of an energy filter, or when signal is low.
 
---grid                    Resolution of the defocus model grid in X, Y, and temp
-                          oral dimensions, separated by 'x': e.g. 5x5x40; empty 
-                          = auto; Z > 1 is purely experimental
+--grid                    Resolution of the spatial defocus grid in X and Y,
+                          separated by 'x': e.g. 6x6; empty = auto
 
 
 -------------------------------Work distribution--------------------------------

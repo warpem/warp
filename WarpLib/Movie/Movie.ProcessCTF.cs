@@ -27,20 +27,19 @@ public partial class Movie
                 float dose = (float)(options.DosePerAngstromFrame < 0 ? -options.DosePerAngstromFrame : options.DosePerAngstromFrame * input.Dims.Z);
                 float extent = Math.Min(dims.X, dims.Y) * (float)options.BinnedPixelSizeMean;
                 int side = Math.Max(2, (int)MathF.Round(5 * Math.Min(1, dose / 30) * extent / 4000));
-                options.GridDims = new int3(Math.Max(1, side * dims.X / Math.Min(dims.X, dims.Y)),
-                    Math.Max(1, side * dims.Y / Math.Min(dims.X, dims.Y)), Math.Max(1, (int)Math.Ceiling(dose)));
+                options.GridDims = new int2(Math.Max(1, side * dims.X / Math.Min(dims.X, dims.Y)),
+                    Math.Max(1, side * dims.Y / Math.Min(dims.X, dims.Y)));
             }
-            int groups = Math.Clamp(options.GridDims.Z, 1, input.Dims.Z);
             double inputSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
-            var extraction = CtfPowerSpectrum.Extract(input, options, groups);
+            var extraction = CtfPowerSpectrum.Extract(input, options);
             double extractionSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             originalStack.FreeDevice();
             var records = extraction.Observations.ToArray();
             int3 defocusDims = new int3(Math.Clamp(options.GridDims.X, 1, extraction.PositionGrid.X),
-                Math.Clamp(options.GridDims.Y, 1, extraction.PositionGrid.Y), groups);
-            int3 phaseDims = new int3(1, 1, options.DoPhase ? groups : 1);
+                Math.Clamp(options.GridDims.Y, 1, extraction.PositionGrid.Y), 1);
+            int3 phaseDims = new int3(1);
             float3[] positions = records.Select(r => r.Position).ToArray();
             double[][] dw = CtfFitGeometry.GridWeights(defocusDims, positions), pw = CtfFitGeometry.GridWeights(phaseDims, positions);
             var geometry = records.Select((r, i) => new CtfFitGeometry(dw[i], pw[i])).ToArray();
@@ -51,7 +50,7 @@ public partial class Movie
             double[] initial = new double[nd + 3 + np];
             Array.Fill(initial, seed.Defocus, 0, nd);
             Array.Fill(initial, seed.Phase, nd + 2, np);
-            // First fit a shared CTF; only then release the spatial/temporal grid.
+            // First fit a shared CTF; only then release the spatial grid.
             var sharedGeometry = records.Select(_ => new CtfFitGeometry(new[] { 1.0 }, new[] { 1.0 })).ToArray();
             var shared = CtfFitEngine.Refine(records, sharedGeometry, new[] { seed.Defocus, 0.0, 0.0, seed.Phase, 0.0 }, options).Parameters;
             Array.Fill(initial, shared[0], 0, nd); initial[nd] = shared[1]; initial[nd + 1] = shared[2];
@@ -66,12 +65,8 @@ public partial class Movie
             GridCTFPhase = new CubicGrid(phaseDims, p.Skip(nd + 2).Take(np).Select(v => (float)(v / Math.PI)).ToArray());
             CTF = CtfFitEngine.MakeCtf(options, p.Take(nd).Average(), p[nd], p[nd + 1], p.Skip(nd + 2).Take(np).Average());
             using var diagnosticExtractor = new CtfPowerSpectrum.Extractor(dims, options, fullSpectrum: true);
-            var diagnosticInputs = Enumerable.Range(0, groups).Select(g =>
-            {
-                int first = g * input.Dims.Z / groups, end = (g + 1) * input.Dims.Z / groups;
-                return new CtfFitDiagnostics.Input(input, geometry.Where((_, i) => records[i].Group == g).ToArray(), 0, first, end - first);
-            });
-            var diagnostic = CtfFitDiagnostics.CreateFullSpectrum(diagnosticExtractor, diagnosticInputs.ToArray(), fit,
+            var diagnosticInputs = new[] { new CtfFitDiagnostics.Input(input, geometry, 0) };
+            var diagnostic = CtfFitDiagnostics.CreateFullSpectrum(diagnosticExtractor, diagnosticInputs, fit,
                 new[] { CTF }, CTF, window, new[] { extraction.Display }).Global;
             PS1D = diagnostic.Spectrum; SimulatedBackground = diagnostic.Background; SimulatedScale = diagnostic.Envelope;
             CTFResolutionEstimate = diagnostic.Resolution;
@@ -102,7 +97,7 @@ public class ProcessingOptionsMovieCTF : ProcessingOptionsBase
     [WarpSerializable] public bool UseMovieSum { get; set; }
     [WarpSerializable] public decimal ZMin { get; set; }
     [WarpSerializable] public decimal ZMax { get; set; }
-    [WarpSerializable] public int3 GridDims { get; set; }
+    [WarpSerializable] public int2 GridDims { get; set; }
     [WarpSerializable] public decimal DosePerAngstromFrame { get; set; }
 
     public override bool Equals(object obj)

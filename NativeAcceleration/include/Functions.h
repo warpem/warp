@@ -972,7 +972,7 @@ extern "C" __declspec(dllexport) void OptimizeWeights(int nrecs,
 
 // CUDA CTF fitting and power-spectrum preparation (owned contexts).
 extern "C" __declspec(dllexport) int CtfPowerCreate(int width, int height, int window, int fft, int batch, int patches, int bins, const int3* origins, const float* hann, const int* starts, const int* indices, const int* displayIndices, void** result);
-extern "C" __declspec(dllexport) int CtfPowerBegin(void* context, int resetDisplay);
+extern "C" __declspec(dllexport) int CtfPowerBegin(void* context);
 extern "C" __declspec(dllexport) int CtfPowerAdd(void* context, const float* frame);
 extern "C" __declspec(dllexport) int CtfPowerRead(void* context, double* power, float* display);
 extern "C" __declspec(dllexport) void CtfPowerDestroy(void* context);

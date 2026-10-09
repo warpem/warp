@@ -15,10 +15,10 @@ public static class CtfFitDiagnostics
     }
     public sealed record Result(Diagnostic[] Groups, Diagnostic Global);
 
-    public sealed record Input(Image Image, CtfFitGeometry[] Geometry, int Group, int FirstFrame = 0, int FrameCount = -1);
+    public sealed record Input(Image Image, CtfFitGeometry[] Geometry, int Group);
 
     /// <summary>Full-Nyquist diagnostics after fitting. Only nuisance curves are refitted;
-    /// CTF parameters remain frozen. Stream one tilt/frame group at a time to bound memory.</summary>
+    /// CTF parameters remain frozen. Stream one tilt/movie at a time to bound memory.</summary>
     public static Result CreateFullSpectrum(CtfPowerSpectrum.Extractor extractor, IEnumerable<Input> inputs,
         CtfFitEngine.Fit fit, CTF[] references, CTF globalReference, int window, float[][] displays)
     {
@@ -27,7 +27,7 @@ public static class CtfFitDiagnostics
         foreach (var display in displays) Array.Clear(display);
         foreach (var input in inputs)
         {
-            var extraction = extractor.Extract(input.Image, firstFrame: input.FirstFrame, frameCount: input.FrameCount);
+            var extraction = extractor.Extract(input.Image);
             var records = extraction.Observations.ToArray();
             if (records.Length != input.Geometry.Length) throw new ArgumentException("Diagnostic patch geometry differs from fitting geometry.");
             using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
@@ -58,7 +58,7 @@ public static class CtfFitDiagnostics
             }
             AddDiagnostic(diagnostic.Groups[0], sums[input.Group], weights[input.Group], models[input.Group]);
             AddDiagnostic(diagnostic.Global, globalSum, globalWeight, globalModel);
-            int frames = input.FrameCount < 0 ? input.Image.Dims.Z - input.FirstFrame : input.FrameCount;
+            int frames = input.Image.Dims.Z;
             displayWeights[input.Group] += frames;
             for (int i = 0; i < extraction.Display.Length; i++) displays[input.Group][i] += extraction.Display[i] * frames;
         }

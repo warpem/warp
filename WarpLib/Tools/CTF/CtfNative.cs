@@ -13,7 +13,7 @@ internal static class CtfNative
     public static extern int PowerCreate(int width, int height, int window, int fft, int batch, int patches, int bins,
         int3[] origins, float[] hann, int[] starts, int[] indices, int[] displayIndices, out IntPtr context);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerBegin")]
-    public static extern int PowerBegin(IntPtr context, int resetDisplay);
+    public static extern int PowerBegin(IntPtr context);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerAdd")]
     public static extern int PowerAdd(IntPtr context, float[] frame);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerRead")]

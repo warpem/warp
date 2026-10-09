@@ -91,9 +91,9 @@ extern "C" __declspec(dllexport) int CtfPowerCreate(int width,int height,int win
     }
     catch(cudaError_t e){return e;}catch(...){return cudaErrorUnknown;}
 }
-extern "C" __declspec(dllexport) int CtfPowerBegin(void* context,int resetDisplay)
+extern "C" __declspec(dllexport) int CtfPowerBegin(void* context)
 {
-    try {auto& c=*(PowerContext*)context;DeviceScope scope(c.device);c.power.Clear((size_t)c.patches*c.bins);c.invalid.Clear(1);if(resetDisplay)c.display.Clear(c.displaySize);return cudaSuccess;}
+    try {auto& c=*(PowerContext*)context;DeviceScope scope(c.device);c.power.Clear((size_t)c.patches*c.bins);c.invalid.Clear(1);c.display.Clear(c.displaySize);return cudaSuccess;}
     catch(cudaError_t e){return e;}catch(...){return cudaErrorUnknown;}
 }
 extern "C" __declspec(dllexport) int CtfPowerAdd(void* context,const float* frame)
