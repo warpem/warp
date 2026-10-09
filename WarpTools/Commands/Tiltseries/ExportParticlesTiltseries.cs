@@ -98,7 +98,7 @@ namespace WarpTools.Commands
 
         [Option("max_missing_tilts",
                 HelpText =
-                    "Particles not visible in more than this number of tilts will be excluded (only works with --2d)",
+                    "Particles not visible in more than this number of tilts will be excluded",
                 Default = 5)]
         public int MaxMissingTilts { get; set; }
 
@@ -354,14 +354,20 @@ namespace WarpTools.Commands
 
                     if (OutputImageDimensionality == 3)
                     {
-                        Star TiltSeriesTable = ConstructSubvolumeOutputTable(tiltSeries: tiltSeries,
-                                                                            xyz: tsParticleXyzAngstroms,
-                                                                            eulerAngles: tsParticleRotTiltPsi,
-                                                                            inputHasEulerAngles: inputHasEulerAngles,
-                                                                            outputPixelSize: cli.OutputPixelSize,
-                                                                            relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
-                                                                            particleStarFile: cli.OutputStarFile,
-                                                                            additionalColumns: tsAdditionalColumns);
+                        string[] visibleFrames = File.ReadAllLines(
+                            tiltSeries.GetSubtomoVisibilityPath(ExportOptions));
+
+                        Star TiltSeriesTable = ConstructSubvolumeOutputTable(
+                            tiltSeries: tiltSeries,
+                            xyz: tsParticleXyzAngstroms,
+                            eulerAngles: tsParticleRotTiltPsi,
+                            inputHasEulerAngles: inputHasEulerAngles,
+                            outputPixelSize: cli.OutputPixelSize,
+                            relativeToParticleStarFile: cli.OutputPathsRelativeToStarFile,
+                            particleStarFile: cli.OutputStarFile,
+                            visibleFrames: visibleFrames,
+                            additionalColumns: tsAdditionalColumns);
+
                         OutputStarTables.Add(tiltSeries.Name, TiltSeriesTable);
                     }
                     else // OutputImageDimensionality == 2
@@ -561,7 +567,7 @@ namespace WarpTools.Commands
         /// Groups particles by tilt series ID.
         /// </summary>
         /// <returns>
-        /// Returns a dictionary where each key is a tilt series ID and the value is a list of indices 
+        /// Returns a dictionary where each key is a tilt series ID and the value is a list of indices
         /// corresponding to particles belonging to that tilt series
         /// .</returns>
         private static Dictionary<string, List<int>> GroupParticles(
@@ -704,7 +710,7 @@ namespace WarpTools.Commands
                                           int particleIndex,
                                           float pixelSize,
                                           string suffix,
-                                          bool relativeToParticleStarFile, // default is relative to working directory 
+                                          bool relativeToParticleStarFile, // default is relative to working directory
                                           string? particleStarFilePath)
         {
             string path = Path.Combine(
@@ -731,7 +737,7 @@ namespace WarpTools.Commands
             int particleIndex,
             float pixelSize,
             string suffix,
-            bool relativeToParticleStarFile, // default is relative to working directory 
+            bool relativeToParticleStarFile, // default is relative to working directory
             string? particleStarFilePath
         )
         {
@@ -758,6 +764,7 @@ namespace WarpTools.Commands
             float outputPixelSize,
             bool relativeToParticleStarFile, // default is relative to working directory
             string? particleStarFile,
+            string[] visibleFrames,
             Dictionary<string, string[]> additionalColumns
         )
         {
@@ -777,6 +784,11 @@ namespace WarpTools.Commands
             string[] particlePixelSize = new string[nParticles];
             string[] particleCtfVoltage = new string[nParticles];
             string[] particleCtfSphericalAberration = new string[nParticles];
+
+            if (visibleFrames == null || visibleFrames.Length != nParticles)
+                throw new ArgumentException(
+                    "Expected one visibility mask per input particle.",
+                    nameof(visibleFrames));
 
             for (int i = 0; i < nParticles; i++)
             {
@@ -839,6 +851,7 @@ namespace WarpTools.Commands
                 "rlnPixelSize",
                 "rlnVoltage",
                 "rlnSphericalAberration",
+                "rlnTomoVisibleFrames",
             };
 
             string[][] columns = new string[][]
@@ -858,6 +871,7 @@ namespace WarpTools.Commands
                 particlePixelSize,
                 particleCtfVoltage,
                 particleCtfSphericalAberration,
+                visibleFrames,
             };
 
             Star table = new Star(columns, columnNames);
@@ -1069,6 +1083,34 @@ namespace WarpTools.Commands
             dummyImage.WriteMRC16b(path);
         }
 
+        // filter to remove particles not visible in more than --max_missing_tilts
+        // c.f. https://github.com/warpem/warp/issues/243
+        private void FilterInvisibleParticles(Star table, int maxMissingTilts)
+        {
+            int before = table.RowCount;
+
+            table.RemoveRowsWhere(
+                columnName: "rlnTomoVisibleFrames",
+                match: s =>
+                {
+                    int[] visibility = s
+                        .Trim('[', ']')
+                        .Split(',')
+                        .Select(int.Parse)
+                        .ToArray();
+
+                    int nVisible = visibility.Count(value => value != 0);
+                    int nMissing = visibility.Length - nVisible;
+
+                    return nVisible == 0 || nMissing > maxMissingTilts;
+                });
+
+            if (Helper.IsDebug)
+                Console.WriteLine(
+                    $"{before} -> {table.RowCount} particles after removing " +
+                    $"particles not visible in more than {maxMissingTilts} tilt images");
+        }
+
         private void WriteOutputStarFile(Dictionary<string, Star> perTiltSeriesTables,
                                          string particleStarPath,
                                          int outputDimensionality,
@@ -1104,26 +1146,7 @@ namespace WarpTools.Commands
                                                                                       ).Values.ToArray()
                                               );
 
-                // filter to remove particles not visible in more than --max_missing_tilts
-                // c.f. https://github.com/warpem/warp/issues/243
-                int nParticlesBeforeFiltering = tableParticles.RowCount;
-                tableParticles.RemoveRowsWhere(
-                                               columnName: "rlnTomoVisibleFrames",
-                                               match: s =>
-                                               {
-                                                   int[] visibility = s
-                                                                      .Trim('[', ']')
-                                                                      .Split(',')
-                                                                      .Select(int.Parse)
-                                                                      .ToArray();
-                                                   int nVisible = visibility.Count(value => value != 0);
-                                                   int nMissing = visibility.Length - nVisible;
-                                                   return nVisible == 0 || nMissing > maxMissingTilts;
-                                               }
-                                              );
-                int nParticlesAfterFiltering = tableParticles.RowCount;
-                if (Helper.IsDebug)
-                    Console.WriteLine($"{nParticlesBeforeFiltering} -> {nParticlesAfterFiltering} particles after removing particles not visible in more than {maxMissingTilts} tilt images");
+                FilterInvisibleParticles(tableParticles, maxMissingTilts);
 
                 // write file
                 Star.SaveMultitable(
@@ -1189,6 +1212,7 @@ namespace WarpTools.Commands
             else if (outputDimensionality == 3)
             {
                 Star combinedTable = new Star(perTiltSeriesTables.Values.ToArray());
+                FilterInvisibleParticles(combinedTable, maxMissingTilts);
                 combinedTable.Save(particleStarPath);
             }
         }

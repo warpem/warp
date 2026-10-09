@@ -8,7 +8,7 @@ namespace Warp;
 
 public partial class TiltSeries
 {
-    public void ReconstructSubtomos(ProcessingOptionsTomoSubReconstruction options, float3[] positions, float3[] angles)
+    public string[] ReconstructSubtomos(ProcessingOptionsTomoSubReconstruction options, float3[] positions, float3[] angles)
     {
         int GPUID = GPU.GetDevice();
 
@@ -116,11 +116,24 @@ public partial class TiltSeries
         float[] TiltWeights = new float[NTilts];
         if (options.DoLimitDose)
             for (int t = 0; t < Math.Min(NTilts, options.NTilts); t++)
-                TiltWeights[IndicesSortedDose[t]] = 1 * (UseTilt[t] ? 1 : 0);
+            {
+                int TiltIndex = IndicesSortedDose[t];
+                TiltWeights[TiltIndex] = UseTilt[TiltIndex] ? 1f : 0f;
+            }
         else
             TiltWeights = UseTilt.Select(v => v ? 1f : 0f).ToArray();
 
-        Helper.ForCPU(0, positions.Length / NTilts, NThreads,
+        int NParticles = positions.Length / NTilts;
+        string[] ParticleVisibleFrames = new string[NParticles];
+        int NReconstructed = 0;
+
+        // Match the 2D selection and frame ordering.
+        int[] UsedTilts = options.DoLimitDose
+            ? IndicesSortedDose.Take(options.NTilts).ToArray()
+            : IndicesSortedDose.ToArray();
+        Array.Sort(UsedTilts);
+
+        Helper.ForCPU(0, NParticles, NThreads,
             threadID => GPU.SetDevice(GPUID),
             (p, threadID) =>
             {
@@ -130,12 +143,36 @@ public partial class TiltSeries
                 float3[] ParticlePositions = positions.Skip(p * NTilts).Take(NTilts).ToArray();
                 float3[] ParticleAngles = options.PrerotateParticles ? angles.Skip(p * NTilts).Take(NTilts).ToArray() : null;
 
+                // Match the particle-footprint visibility rule used by 2D export.
+                float HalfDiameter = options.ParticleDiameter / 2f;
+                float3[] ImagePositions = GetPositionInAllTilts(ParticlePositions);
+                float[] ParticleTiltWeights = new float[NTilts];
+                for (int t = 0; t < NTilts; t++)
+                {
+                    float3 ImagePosition = ImagePositions[t];
+                    bool Visible = ImagePosition.X > HalfDiameter &&
+                                   ImagePosition.X < ImageDimensionsPhysical.X - HalfDiameter &&
+                                   ImagePosition.Y > HalfDiameter &&
+                                   ImagePosition.Y < ImageDimensionsPhysical.Y - HalfDiameter;
+                    ParticleTiltWeights[t] = Visible ? TiltWeights[t] : 0f;
+                }
+
+                ParticleVisibleFrames[p] =
+                    $"[{string.Join(",", UsedTilts.Select(t =>
+                        ParticleTiltWeights[t] > 0f ? "1" : "0").ToArray())}]";
+
+                // The manager removes this row before writing the final STAR.
+                if (!ParticleTiltWeights.Any(w => w > 0f))
+                    return;
+
                 #region Multiplicity
 
                 ProjectorsMultiplicity[threadID].Data.Fill(0);
                 ProjectorsMultiplicity[threadID].Weights.Fill(0);
                 CTFsComplex[threadID].Fill(new float2(1, 0));
                 CTFs[threadID].Fill(1);
+                CTFs[threadID].Multiply(ParticleTiltWeights);
+                CTFsComplex[threadID].Multiply(ParticleTiltWeights);
 
                 ProjectorsMultiplicity[threadID].BackProject(CTFsComplex[threadID], CTFs[threadID], !options.PrerotateParticles ? GetAngleInAllTilts(ParticlePositions) : GetParticleAngleInAllTilts(ParticlePositions, ParticleAngles), MagnificationCorrection);
                 ProjectorsMultiplicity[threadID].Weights.Min(1);
@@ -151,8 +188,9 @@ public partial class TiltSeries
                 GetCTFsForOneParticle(options, ParticlePositions, CTFCoords, null, false, false, false, CTFsUnweighted[threadID]);
                 Timing.Finish("CreateRawCTF");
 
-                if (options.DoLimitDose)
-                    CTFs[threadID].Multiply(TiltWeights);
+                // Exclude invalid tilts from both the signal and denominator.
+                CTFs[threadID].Multiply(ParticleTiltWeights);
+                CTFsUnweighted[threadID].Multiply(ParticleTiltWeights);
 
                 // Subtomo is (Image * CTFweighted) / abs(CTFunweighted)
                 // 3D CTF is (CTFweighted * CTFweighted) / abs(CTFweighted)
@@ -274,17 +312,26 @@ public partial class TiltSeries
 
                 #endregion
 
+                System.Threading.Interlocked.Increment(ref NReconstructed);
+
                 //Console.WriteLine(SizeSubSuper);
                 //Timing.PrintMeasurements();
             }, null);
 
         // Write the sum of all particles
+        if (NReconstructed > 0)
         {
             for (int i = 1; i < NThreads; i++)
                 SumAllParticles[0].Add(SumAllParticles[i]);
-            SumAllParticles[0].Multiply(1f / Math.Max(1, positions.Length / NTilts));
 
-            SumAllParticles[0].WriteMRC16b(System.IO.Path.Combine(SubtomoDir, $"{RootName}{options.Suffix}_{options.BinnedPixelSizeMean:F2}A_average.mrc"), (float)options.BinnedPixelSizeMean, true);
+            SumAllParticles[0].Multiply(1f / NReconstructed);
+
+            SumAllParticles[0].WriteMRC16b(
+                System.IO.Path.Combine(
+                    SubtomoDir,
+                    $"{RootName}{options.Suffix}_{options.BinnedPixelSizeMean:F2}A_average.mrc"),
+                (float)options.BinnedPixelSizeMean,
+                true);
         }
 
         #region Teardown
@@ -327,6 +374,12 @@ public partial class TiltSeries
             tiltMask?.FreeDevice();
 
         #endregion
+
+        if (ParticleVisibleFrames.Any(v => v == null))
+            throw new InvalidOperationException(
+                $"Visibility was not recorded for every particle in {RootName}.");
+
+        return ParticleVisibleFrames;
     }
 }
 

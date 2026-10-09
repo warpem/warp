@@ -388,12 +388,12 @@ namespace WarpWorker
                     ProcessingOptionsTardisSegmentMembranes2D options = (ProcessingOptionsTardisSegmentMembranes2D)Command.Content[1];
 
                     Movie[] movies = paths.Select(p => new Movie(p)).ToArray();
-                    
+
                     // Create a temporary directory
                     string randomId = Path.GetRandomFileName().Replace(".", "");
                     string tempDir = Path.Combine(movies.First().MembraneSegmentationDir, $"temp_{randomId}");
                     Directory.CreateDirectory(tempDir);
-                    
+
                     // downsample images to 15Apx
                     string[] downsampledImagePaths = movies.Select(
                         m => Path.Combine(tempDir, m.RootName + "_15.00Apx.mrc")
@@ -402,23 +402,23 @@ namespace WarpWorker
                     {
                         // load average
                         Image average = Image.FromFile(movie.AveragePath);
-                        
+
                         // downsample to 15Apx
                         float averagePixelSize = average.PixelSize;
                         float targetPixelSize = 15;
                         int2 dimsOut = (new int2(average.Dims * averagePixelSize / targetPixelSize) + 1) / 2 * 2;
                         Image scaled = average.AsScaled(dimsOut);
-                        
+
                         // write out downsampled image, force header pixel size to 15.00
                         scaled.PixelSize = (float)15.00;
                         scaled.WriteMRC(outputPath);
                     }
-                    
+
                     // run tardis in tempdir
                     string Arguments = $"--path {tempDir} --output_format mrc_None --device {DeviceID} --patch_size 64";
                     Console.WriteLine($"Executing tardis_mem2d in {tempDir} with arguments: {Arguments}");
                     File.WriteAllText(Path.Combine(tempDir, "command.txt"), $"tardis_mem2d {Arguments}");
-                    
+
                     Process Tardis = new Process
                     {
                         StartInfo =
@@ -432,16 +432,16 @@ namespace WarpWorker
                             RedirectStandardError = true
                         }
                     };
-                    
+
                     using (var stdout = File.CreateText(Path.Combine(tempDir, "run.out")))
                     using (var stderr = File.CreateText(Path.Combine(tempDir, "run.err")))
                     {
-                        Tardis.OutputDataReceived += (sender, args) => 
+                        Tardis.OutputDataReceived += (sender, args) =>
                         {
                             if (args.Data != null) stdout.WriteLine(args.Data);
                         };
-    
-                        Tardis.ErrorDataReceived += (sender, args) => 
+
+                        Tardis.ErrorDataReceived += (sender, args) =>
                         {
                             if (args.Data != null) stderr.WriteLine(args.Data);
                         };
@@ -461,7 +461,7 @@ namespace WarpWorker
 
                     if (Tardis.ExitCode != 0)
                         throw new Exception($"tardis_mem2d exited with code {Tardis.ExitCode}");
-                    
+
                     // copy files to correct directory
                     string[] membraneImageFiles = downsampledImagePaths.Select(
                         p =>
@@ -487,7 +487,7 @@ namespace WarpWorker
                             throw;
                         }
                     }
-                    
+
                     // remove all files recursively from temp dir
                     Directory.Delete(tempDir, recursive: true);
                     Console.WriteLine($"Segmented membranes using TARDIS");
@@ -570,7 +570,7 @@ namespace WarpWorker
                     string AtPatch = $"{Options.AtPatch[0]} {Options.AtPatch[1]}";
                     string Axis = Options.AxisAngle.ToString() + (Options.DoAxisSearch ? " 0" : " -1");
                     string AlignZ = Options.AlignZ.ToString();
-                    
+
                     // VolZ is forced to 0 as per AreTomo3 requirements
                     string Arguments = $"-InPrefix {InPrefix} -InSuffix {InSuffix} -OutDir {StackDir} " +
                                      $"-TiltAxis {Axis} -AlignZ {AlignZ} -AtPatch {AtPatch} -VolZ 0 " +
@@ -614,7 +614,7 @@ namespace WarpWorker
                     var Options = (ProcessingOptionsTomoEtomoPatch)Command.Content[1];
 
                     TiltSeries T = new TiltSeries(TiltSeriesPath);
-                    
+
                     // First generate a directive file to run Etomo automatically through batchruntomo
                     int PatchSize = (int)(Options.PatchSizeAngstroms / Options.TiltStackAngPix);
                     int RotOption = Options.DoAxisAngleSearch ? -1 : 0; // Fit single value (-1) or leave fixed (0)
@@ -640,7 +640,7 @@ namespace WarpWorker
                                     $"comparam.align.tiltalign.RobustFitting = 1\n" +
                                     $"comparam.align.tiltalign.WeightWholeTracks = 1\n";
                     File.WriteAllText(path: DirectiveFile, contents: BRTConfig);
-                    
+
                     // Then run batchruntomo
                     // Only do setup and alignment calculation if on second pass, otherwise do fiducial model generation too
                     int EndingStep = Options.DoPatchTracking ? 5 : 0;
@@ -655,7 +655,7 @@ namespace WarpWorker
                     bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     string BatchRunTomoExecutable = IsWindows ? "batchruntomo.cmd" : "batchruntomo";
                     Console.WriteLine($"Running '{BatchRunTomoExecutable} {Arguments}'");
-                    Process BatchRunTomo = new Process 
+                    Process BatchRunTomo = new Process
                     {
                         StartInfo =
                         {
@@ -681,7 +681,7 @@ namespace WarpWorker
 
                     if (BatchRunTomo.ExitCode != 0)
                         throw new Exception($"{BatchRunTomoExecutable} exited with code {BatchRunTomo.ExitCode}");
-                    
+
                     // Run alignment separately from batchruntomo to avoid expensive cross-validation calculations
                     if (Options.DoTiltAlign)
                     {
@@ -724,7 +724,7 @@ namespace WarpWorker
                     var Options = (ProcessingOptionsTomoEtomoFiducials)Command.Content[1];
 
                     TiltSeries T = new TiltSeries(TiltSeriesPath);
-                    
+
                     // first generate a directive file to run Etomo automatically through batchruntomo
                     int RotOption = Options.DoAxisAngleSearch ? -1 : 0; // fit single value (-1) or leave fixed (0)
                     var BRTConfig = $"setupset.copyarg.userawtlt = 1\n" +
@@ -748,7 +748,7 @@ namespace WarpWorker
                     var DirectiveFile = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
                     DirectiveFile = Path.ChangeExtension(DirectiveFile, ".adoc");
                     File.WriteAllText(path: DirectiveFile, contents: BRTConfig);
-                    
+
                     // then run batchruntomo
                     // only do setup and alignment calculation if on second pass, otherwise do fiducial model generation too
                     int EndingStep = Options.DoFiducialTracking ? 5 : 0;
@@ -761,7 +761,7 @@ namespace WarpWorker
                     bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
                     string BatchRunTomoExecutable = IsWindows ? "batchruntomo.cmd" : "batchruntomo";
                     Console.WriteLine($"Running '{BatchRunTomoExecutable} {Arguments}'");
-                    Process BatchRunTomo = new Process 
+                    Process BatchRunTomo = new Process
                     {
                         StartInfo =
                         {
@@ -926,10 +926,18 @@ namespace WarpWorker
                     float3[] Angles = Command.Content[3] != null ? (float3[])Command.Content[3] : null;
 
                     TiltSeries T = new TiltSeries(Path);
-                    T.ReconstructSubtomos(Options, Coordinates, Angles);
+
+                    string[] visibleFrames = T.ReconstructSubtomos(
+                        Options, Coordinates, Angles);
+
+                    File.WriteAllLines(
+                        T.GetSubtomoVisibilityPath(Options),
+                        visibleFrames);
+
                     T.SaveMeta();
 
-                    Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+                    Console.WriteLine(
+                        $"Exported {Coordinates.Length / T.NTilts} input particles for {Path}");
                 }
                 else if (Command.Name == "TomoExportParticleSeries")
                 {
@@ -961,7 +969,7 @@ namespace WarpWorker
                     int BoxSize = (int)Command.Content[1];
                     int Oversample = (int)Command.Content[2];
 
-                    Reconstructions = Helper.ArrayOfFunction(i => new Projector(new int3(BoxSize), Oversample), 
+                    Reconstructions = Helper.ArrayOfFunction(i => new Projector(new int3(BoxSize), Oversample),
                                                              NReconstructions);
 
                     Console.WriteLine($"Initialized reconstructions");
@@ -1221,11 +1229,11 @@ namespace WarpWorker
 
             int2 SourceDims = new int2(header.Dimensions);
             if (IsEER)
-            { 
+            {
                 SourceDims *= 4;
 
-                if (GainRef != null && 
-                    correctGain && 
+                if (GainRef != null &&
+                    correctGain &&
                     new int2(GainRef.Dims) != SourceDims)
                     GainRef = GainRef.AsScaled(SourceDims).AndDisposeParent();
             }
@@ -1264,7 +1272,7 @@ namespace WarpWorker
                 {
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
-                    else 
+                    else
                         IOHelper.ReadMapFloatPatient(10, 500,
                                                      path,
                                                      HeaderlessDims,
@@ -1335,9 +1343,9 @@ namespace WarpWorker
                     if (IsTiff)
                         TiffNative.ReadTIFFPatient(10, 500, path, z, true, RawLayers[threadID]);
                     else if (IsEER)
-                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames, 
+                        EERNative.ReadEERPatient(10, 500, path, z * EERGroupFrames,
                                                  Math.Min(((HeaderEER)header).DimensionsUngrouped.Z,
-                                                          (z + 1) * EERGroupFrames), 
+                                                          (z + 1) * EERGroupFrames),
                                                  3, // 3 = 4x super-resolution
                                                  RawLayers[threadID]);
                     else

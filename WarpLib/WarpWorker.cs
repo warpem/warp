@@ -394,7 +394,7 @@ namespace Warp
                                     $"comparam.align.tiltalign.MagOption = 0\n" +
                                     $"comparam.align.tiltalign.TiltOption = 0\n" +
                                     $"comparam.align.tiltalign.RotOption = {RotOption}\n" +
-                                    $"comparam.restrictalign.restrictalign.UseCrossValidation = 0\n" +    
+                                    $"comparam.restrictalign.restrictalign.UseCrossValidation = 0\n" +
                                     $"comparam.align.tiltalign.RobustFitting = 1\n" +
                                     $"comparam.align.tiltalign.WeightWholeTracks = 1\n";
                     File.WriteAllText(path: DirectiveFile, contents: BRTConfig);
@@ -499,7 +499,7 @@ namespace Warp
                                     $"comparam.align.tiltalign.MagOption = 0\n" +
                                     $"comparam.align.tiltalign.TiltOption = 0\n" +
                                     $"comparam.align.tiltalign.RotOption = {RotOption}\n" +
-                                    $"comparam.restrictalign.restrictalign.UseCrossValidation = 0\n" +    
+                                    $"comparam.restrictalign.restrictalign.UseCrossValidation = 0\n" +
                                     $"comparam.align.tiltalign.RobustFitting = 1\n" +
                                     $"comparam.align.tiltalign.WeightWholeTracks = 1\n";
 
@@ -655,10 +655,18 @@ namespace Warp
                     float3[] Angles = Command.Content[3] != null ? (float3[])Command.Content[3] : null;
 
                     TiltSeries T = new TiltSeries(Path);
-                    T.ReconstructSubtomos(Options, Coordinates, Angles);
+
+                    string[] visibleFrames = T.ReconstructSubtomos(
+                        Options, Coordinates, Angles);
+
+                    File.WriteAllLines(
+                        T.GetSubtomoVisibilityPath(Options),
+                        visibleFrames);
+
                     T.SaveMeta();
 
-                    Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
+                    Console.WriteLine(
+                        $"Exported {Coordinates.Length / T.NTilts} input particles for {Path}");
                 }
                 else if (Command.Name == "TomoExportParticleSeries")
                 {

@@ -35,13 +35,13 @@ namespace Warp
         public string TiltStackDir => IOPath.Combine(ProcessingDirectoryName, TiltStackDirName, RootName);
 
         public static string ToTiltStackPath (string name) => IOPath.Combine(TiltStackDirName, Helper.PathToName(name) + ".st");
-        
+
         public static readonly string TiltStackThumbnailDirName = "thumbnails";
         public string TiltStackThumbnailDir => IOPath.Combine(TiltStackDir, TiltStackThumbnailDirName);
         public string TiltStackThumbnailPath (string tiltName) => IOPath.Combine(TiltStackThumbnailDir,
                                                                                  Helper.PathToName(tiltName) + ".png");
-        public static string ToTiltStackThumbnailPath (string seriesName, string tiltName) => IOPath.Combine(TiltStackDirName, 
-                                                                                                             Helper.PathToName(seriesName), 
+        public static string ToTiltStackThumbnailPath (string seriesName, string tiltName) => IOPath.Combine(TiltStackDirName,
+                                                                                                             Helper.PathToName(seriesName),
                                                                                                              TiltStackThumbnailDirName,
                                                                                                              Helper.PathToName(tiltName) + ".png");
         public string TiltStackPath => IOPath.Combine(TiltStackDir, RootName + ".st");
@@ -50,7 +50,7 @@ namespace Warp
         public string AngleFilePath => IOPath.Combine(TiltStackDir, RootName + ".rawtlt");
 
         public static string ToTomogramWithPixelSize(string name, decimal pixelSize) => $"{Helper.PathToName(name)}_{pixelSize:F2}Apx";
-        
+
         public static readonly string ReconstructionDirName = "reconstruction";
         public string ReconstructionDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDirName);
         public static string ToReconstructionTomogramPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
@@ -67,7 +67,7 @@ namespace Warp
         public static readonly string ReconstructionEvenDirName = IOPath.Combine(ReconstructionDirName, "even");
         public string ReconstructionEvenDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionEvenDirName);
         public static string ToReconstructionEvenPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionEvenDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
-        
+
         public static readonly string ReconstructionDenoisedDirName = "denoised";
         public string ReconstructionDenoisedDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionDenoisedDirName);
         public static string ToReconstructionDenoisedTomogramPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionDenoisedDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
@@ -77,15 +77,15 @@ namespace Warp
         public string ReconstructionCTFDir => IOPath.Combine(ProcessingDirectoryName, ReconstructionCTFDirName);
         public static string ToReconstructionCTFPath(string name, decimal pixelSize) => IOPath.Combine(ReconstructionCTFDirName, ToTomogramWithPixelSize(name, pixelSize) + ".mrc");
 
-        public static readonly string SubtomoDirName = "subtomo"; 
+        public static readonly string SubtomoDirName = "subtomo";
         public static string ToSubtomoDirPath(string name) => IOPath.Combine(SubtomoDirName, Helper.PathToName(name));
         public string SubtomoDir => IOPath.Combine(ProcessingDirectoryName, SubtomoDirName, RootName);
 
         public static readonly string ParticleSeriesDirName = "particleseries";
         public static string ToParticleSeriesDirPath(string path) => IOPath.Combine(ParticleSeriesDirName, Helper.PathToName(path));
-        public static string ToParticleSeriesAveragePath(string path, decimal angpix) => 
+        public static string ToParticleSeriesAveragePath(string path, decimal angpix) =>
             IOPath.Combine(ToParticleSeriesDirPath(path), $"{Helper.PathToName(path)}_{angpix:F2}A_average.mrcs");
-        public static string ToParticleSeriesFilePath(string path, decimal angpix, int id) => 
+        public static string ToParticleSeriesFilePath(string path, decimal angpix, int id) =>
             IOPath.Combine(ToParticleSeriesDirPath(Helper.PathToName(path)), $"{Helper.PathToName(path)}_{angpix:F2}A_{id:D6}.mrcs");
         public string ParticleSeriesDir => IOPath.Combine(ProcessingDirectoryName, ParticleSeriesDirName, RootName);
 
@@ -252,7 +252,7 @@ namespace Warp
         public float[] TiltAxisOffsetX = { 0 };
         public float[] TiltAxisOffsetY = { 0 };
         public string[] TiltMoviePaths = { "" };
-        
+
         public float[] FOVFraction = { 1 };
 
         public int[] IndicesSortedAngle
@@ -440,8 +440,8 @@ namespace Warp
             Span<float> GridDefocusInterp = GridCTFDefocus.GetInterpolated(GridCoords.Slice(0, NTilts), BuffersValues.Rent(NTilts));
             BuffersCoords3.Return(GridCoords);
 
-            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, 
-                                                                               (Angles[t] + LevelAngleY) * Helper.ToRad, 
+            Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0,
+                                                                               (Angles[t] + LevelAngleY) * Helper.ToRad,
                                                                                -TiltAxisAngles[t] * Helper.ToRad) *
                                                                  Matrix3.RotateX(LevelAngleX * Helper.ToRad),
                                                                  NTilts);
@@ -564,10 +564,10 @@ namespace Warp
             BuffersCoords3.Return(GridCoords);
 
 
-            Matrix3[] OverallRotations = Helper.ArrayOfFunction(t => Matrix3.Euler(0, 
+            Matrix3[] OverallRotations = Helper.ArrayOfFunction(t => Matrix3.Euler(0,
                                                                                    (Angles[t] + LevelAngleY) * Helper.ToRad,
                                                                                    -TiltAxisAngles[t] * Helper.ToRad) *
-                                                                     Matrix3.RotateX(LevelAngleX * Helper.ToRad), 
+                                                                     Matrix3.RotateX(LevelAngleX * Helper.ToRad),
                                                                      NTilts);
             Span<float3> OverallOffsets = BuffersCoords3.Rent(NTilts);
             for (int t = 0; t < NTilts; t++)
@@ -695,7 +695,7 @@ namespace Warp
             float[] GridAngleZInterp = GridAngleZ.GetInterpolatedNative(GridCoords);
 
             Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, (Angles[t] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad) *
-                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad), 
+                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad),
                                                             NTilts);
 
             for (int i = 0; i < coords.Length; i++)
@@ -733,7 +733,7 @@ namespace Warp
             float[] GridAngleZInterp = GridAngleZ.GetInterpolatedNative(GridCoords);
 
             Matrix3[] TiltMatrices = Helper.ArrayOfFunction(t => Matrix3.Euler(0, (Angles[t] + LevelAngleY) * Helper.ToRad, -TiltAxisAngles[t] * Helper.ToRad) *
-                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad), 
+                                                                 Matrix3.RotateX(LevelAngleX * Helper.ToRad),
                                                             NTilts);
 
             for (int i = 0; i < coords.Length; i++)
@@ -1242,14 +1242,14 @@ namespace Warp
 
         #region Many-particles GetImages and GetCTFs
 
-        public Image GetParticleImagesFromOneTilt(ProcessingOptionsBase options, 
-                                                  Image[] tiltData, 
-                                                  int tiltID, 
-                                                  int size, 
-                                                  float3[] coordsMoving, 
-                                                  int planForw = 0, 
-                                                  bool doDecenter = true, 
-                                                  Image result = null, 
+        public Image GetParticleImagesFromOneTilt(ProcessingOptionsBase options,
+                                                  Image[] tiltData,
+                                                  int tiltID,
+                                                  int size,
+                                                  float3[] coordsMoving,
+                                                  int planForw = 0,
+                                                  bool doDecenter = true,
+                                                  Image result = null,
                                                   Image resultFT = null)
         {
             int NParticles = coordsMoving.Length;
@@ -1437,6 +1437,15 @@ namespace Warp
             }
 
             return Result;
+        }
+
+        public string GetSubtomoVisibilityPath(
+            ProcessingOptionsTomoSubReconstruction options)
+        {
+            string fileName = FormattableString.Invariant(
+                $"{RootName}{options.Suffix}_{options.BinnedPixelSizeMean:F2}A_visible_frames.txt");
+
+            return System.IO.Path.Combine(SubtomoDir, fileName);
         }
 
         #region Data loading
@@ -1796,13 +1805,13 @@ namespace Warp
             int CurrentDevice = GPU.GetDevice();
 
             #region Make sure reusable buffers are there and correctly sized
-            
+
             if (DirtErasureLabelsBuffer == null || DirtErasureLabelsBuffer.Length != GPU.GetDeviceCount())
                 DirtErasureLabelsBuffer = new int[GPU.GetDeviceCount()][];
 
             if (DirtErasureLabelsBuffer[CurrentDevice] == null || DirtErasureLabelsBuffer[CurrentDevice].Length != ImageData.Length)
                 DirtErasureLabelsBuffer[CurrentDevice] = new int[ImageData.Length];
-            
+
             if (DirtErasureMaskBuffer == null || DirtErasureMaskBuffer.Length != GPU.GetDeviceCount())
                 DirtErasureMaskBuffer = new Image[GPU.GetDeviceCount()];
 
@@ -1841,7 +1850,7 @@ namespace Warp
                 float[] NeighborhoodIntensities = Helper.IndexedSubset(ImageData, component.NeighborhoodIndices);
                 float2 MeanStd = MathHelper.MeanAndStd(NeighborhoodIntensities);
                 float ComponentMean = MeanStd.X;
-                float ComponentStd = MeanStd.Y; 
+                float ComponentStd = MeanStd.Y;
 
                 foreach (int id in component.ComponentIndices)
                     ImageData[id] = RandN.NextSingle(ComponentMean, ComponentStd * noiseScale);
@@ -1915,7 +1924,7 @@ namespace Warp
                     GlobalWeight = XMLHelper.LoadAttribute(Reader, "Weight", GlobalWeight);
 
                     MagnificationCorrection = XMLHelper.LoadAttribute(Reader, "MagnificationCorrection", MagnificationCorrection);
-                    
+
                     ImageDimensionsPhysical = XMLHelper.LoadAttribute(Reader, "ImageDimensionsAngstrom", ImageDimensionsPhysical);
                     VolumeDimensionsPhysical = XMLHelper.LoadAttribute(Reader, "VolumeDimensionsAngstrom", VolumeDimensionsPhysical);
 
@@ -2192,7 +2201,7 @@ namespace Warp
                 Writer.WriteAttributeString("Weight", GlobalWeight.ToString(CultureInfo.InvariantCulture));
 
                 Writer.WriteAttributeString("MagnificationCorrection", MagnificationCorrection.ToString());
-                
+
                 Writer.WriteAttributeString("ImageDimensionsAngstrom", ImageDimensionsPhysical.ToString());
                 Writer.WriteAttributeString("VolumeDimensionsAngstrom", VolumeDimensionsPhysical.ToString());
 
@@ -2404,11 +2413,11 @@ namespace Warp
             // Angles
             Json["MinTilt"] = Angles.Min();
             Json["MaxTilt"] = Angles.Max();
-            
+
             Json["MinAxis"] = TiltAxisAngles.Min();
             Json["MeanAxis"] = TiltAxisAngles.Mean();
             Json["MaxAxis"] = TiltAxisAngles.Max();
-            
+
             // Shifts
             Json["MinShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Min();
             Json["MeanShiftX"] = TiltAxisOffsetX.Select(Math.Abs).Average();
@@ -2429,11 +2438,11 @@ namespace Warp
                 }
 
                 Json["Astigmatism"] = Math.Abs(CTF.DefocusDelta);
-                
+
                 Json["MinPhase"] = GridCTFPhase.Values.Min();
                 Json["MeanPhase"] = GridCTFPhase.Values.Mean();
                 Json["MaxPhase"] = GridCTFPhase.Values.Max();
-                
+
                 Json["CtfResolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
 
                 Json["CtfInclination"] = MathF.Acos(PlaneNormal.Z) * Helper.ToDeg;
@@ -2649,11 +2658,11 @@ namespace Warp
 
         [WarpSerializable]
         public string Executable { get; set; }
-        
+
         [WarpSerializable]
         public int[] NPatchesXY { get; set; }
     }
-    
+
     [Serializable]
     public class ProcessingOptionsTomoAretomo3 : TomoProcessingOptionsBase
     {
@@ -2672,50 +2681,50 @@ namespace Warp
         [WarpSerializable]
         public string Executable { get; set; }
     }
-    
+
     [Serializable]
     public class ProcessingOptionsTomoEtomoPatch : TomoProcessingOptionsBase
     {
         [WarpSerializable]
         public decimal AxisAngle { get; set; }
-        
+
         [WarpSerializable]
         public bool DoPatchTracking { get; set; }
-        
+
         [WarpSerializable]
         public bool DoTiltAlign { get; set; }
-        
+
         [WarpSerializable]
         public bool DoAxisAngleSearch { get; set; }
-        
+
         [WarpSerializable]
         public decimal TiltStackAngPix { get; set; }
-        
+
         [WarpSerializable]
         public decimal PatchSizeAngstroms { get; set; }
     }
-    
+
     [Serializable]
     public class ProcessingOptionsTomoEtomoFiducials : TomoProcessingOptionsBase
     {
         [WarpSerializable]
         public decimal AxisAngle { get; set; }
-        
+
         [WarpSerializable]
         public bool DoFiducialTracking { get; set; }
-        
+
         [WarpSerializable]
         public decimal FiducialSizeNanometers { get; set; }
-        
+
         [WarpSerializable]
         public bool DoTiltAlign { get; set; }
-        
+
         [WarpSerializable]
         public bool DoAxisAngleSearch { get; set; }
-        
+
         [WarpSerializable]
         public decimal TiltStackAngPix { get; set; }
-        
+
         [WarpSerializable]
         public decimal TargetNBeads { get; set; }
     }
