@@ -98,7 +98,7 @@ namespace WarpTools.Commands
 
         [Option("max_missing_tilts",
                 HelpText =
-                    "Particles not visible in more than this number of tilts will be excluded (only works with --2d)",
+                    "Particles not visible in more than this number of tilts will be excluded",
                 Default = 5)]
         public int MaxMissingTilts { get; set; }
 
