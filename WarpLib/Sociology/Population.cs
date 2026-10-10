@@ -208,16 +208,14 @@ namespace Warp.Sociology
 
         public void SaveRefinementProgress(string folder)
         {
-            // Write each file to a temp name and atomically rename over the target. With
-            // the filesystem work-distribution path a worker safe-saves its running
-            // progress after every item, so a crash mid-write must never leave a truncated
-            // partial that a later gather would fail to read — the rename is the only
-            // durability point, leaving the previous complete partial intact on failure.
-            static void AtomicWriteMRC(Projector p, string path)
+            // Finish and close every temporary file before replacing any published file.
+            // The final rename pass is short, but is not atomic across the whole checkpoint.
+            var pendingPaths = new List<string>();
+            void WriteTemporaryMRC(Projector p, string path)
             {
                 if (p == null) return;
                 p.WriteMRC(path + ".tmp");
-                System.IO.File.Move(path + ".tmp", path, overwrite: true);
+                pendingPaths.Add(path);
             }
 
             foreach (var species in Species)
@@ -226,14 +224,17 @@ namespace Warp.Sociology
 
                 for (int i = 0; i < species.HalfMap1Reconstruction.Length; i++)
                 {
-                    AtomicWriteMRC(species.HalfMap1Reconstruction[i], System.IO.Path.Combine(folder, $"{SpeciesID}_half1_{i}.mrc"));
-                    AtomicWriteMRC(species.HalfMap2Reconstruction[i], System.IO.Path.Combine(folder, $"{SpeciesID}_half2_{i}.mrc"));
+                    WriteTemporaryMRC(species.HalfMap1Reconstruction[i], System.IO.Path.Combine(folder, $"{SpeciesID}_half1_{i}.mrc"));
+                    WriteTemporaryMRC(species.HalfMap2Reconstruction[i], System.IO.Path.Combine(folder, $"{SpeciesID}_half2_{i}.mrc"));
                 }
 
                 string starPath = System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star");
                 species.ParticlesToStar().Save(starPath + ".tmp");
-                System.IO.File.Move(starPath + ".tmp", starPath, overwrite: true);
+                pendingPaths.Add(starPath);
             }
+
+            foreach (string path in pendingPaths)
+                System.IO.File.Move(path + ".tmp", path, overwrite: true);
         }
 
         /// <summary>
@@ -255,14 +256,18 @@ namespace Warp.Sociology
             {
                 string SpeciesID = species.GUID.ToString().Substring(0, 8);
 
+                string[] CompleteFolders = RefinementProgressFiles.GetCompleteFolders(folders, SpeciesID);
+
                 Projector Rec1 = species.HalfMap1Reconstruction[0];
                 Projector Rec2 = species.HalfMap2Reconstruction[0];
 
                 Particle[] OriginalParticles = species.Particles.ToList().ToArray();
                 Particle[] FinalParticles = species.Particles;
 
-                foreach (var folder in folders)
+                foreach (var folder in CompleteFolders)
                 {
+                    Particle[] UpdatedParticles = species.ParticlesFromStar(new Star(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star")));
+
                     foreach (var path in Directory.EnumerateFiles(folder, $"{SpeciesID}_half1_*.mrc"))
                     {
                         Projector Saved = Projector.FromFile(path);
@@ -282,8 +287,6 @@ namespace Warp.Sociology
 
                         Saved.Dispose();
                     }
-
-                    Particle[] UpdatedParticles = species.ParticlesFromStar(new Star(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star")));
 
                     for (int p = 0; p < OriginalParticles.Length; p++)
                         if (OriginalParticles[p].Coordinates.Where((v, i) => v != UpdatedParticles[p].Coordinates[i]).Count() > 0 ||

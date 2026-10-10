@@ -2177,14 +2177,20 @@ namespace Warp.Sociology
 
             string SpeciesID = GUID.ToString().Substring(0, 8);
 
+            // Check every folder before accumulating anything, so incomplete published
+            // results cannot silently contribute maps without their particle updates.
+            string[] CompleteFolders = RefinementProgressFiles.GetCompleteFolders(folders, SpeciesID);
+
             Projector Rec1 = HalfMap1Reconstruction[0];
             Projector Rec2 = HalfMap2Reconstruction[0];
 
             Particle[] OriginalParticles = Particles.ToList().ToArray();
             Particle[] FinalParticles = Particles;
 
-            foreach (var folder in folders)
+            foreach (var folder in CompleteFolders)
             {
+                Particle[] UpdatedParticles = ParticlesFromStar(new Star(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star")));
+
                 Projector[] Recs = { Rec1, Rec2 };
 
                 Helper.ForCPU(0, 2, 2, null, (ihalf, threadID) =>
@@ -2203,8 +2209,6 @@ namespace Warp.Sociology
                         Saved.Dispose();
                     }
                 }, null);
-
-                Particle[] UpdatedParticles = ParticlesFromStar(new Star(System.IO.Path.Combine(folder, $"{SpeciesID}_particles.star")));
 
                 for (int p = 0; p < OriginalParticles.Length; p++)
                     if (OriginalParticles[p].Coordinates.Where((v, i) => v != UpdatedParticles[p].Coordinates[i]).Count() > 0 ||

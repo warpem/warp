@@ -104,9 +104,8 @@ static partial class WorkerProcess
         GPU.CheckGPUExceptions();
 
         // Safe-save the running accumulation (half-map partials + updated poses) for this
-        // worker. SaveRefinementProgress writes atomically (temp + rename per file), so a
-        // crash mid-save leaves the previous complete partial intact and loses at most
-        // this item — which the queue re-pends and another worker redoes.
+        // worker. SaveRefinementProgress finishes all temporary writes before a short
+        // rename pass. Each rename is atomic; the checkpoint as a whole is not.
         MPAPopulation.SaveRefinementProgress(WorkerDir);
 
         Console.WriteLine($"Finished refining {Item.Name}; saved progress for worker {WorkerId}");
