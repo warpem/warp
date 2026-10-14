@@ -2434,6 +2434,10 @@ namespace Warp
                 Json["MeanPhase"] = GridCTFPhase.Values.Mean();
                 Json["MaxPhase"] = GridCTFPhase.Values.Max();
                 
+                // Specimen thickness in angstroms; null when no estimate is available.
+                Json["CtfSpecimenThicknessAngstrom"] = CTFSpecimenThicknessAngstrom > 0
+                    ? (double)CTFSpecimenThicknessAngstrom : null;
+
                 Json["CtfResolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
 
                 Json["CtfInclination"] = MathF.Acos(PlaneNormal.Z) * Helper.ToDeg;

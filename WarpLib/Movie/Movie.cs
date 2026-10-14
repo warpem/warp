@@ -2511,6 +2511,10 @@ namespace Warp
                 // Phase shift
                 Json["Phase"] = CTF == null ? null : MathF.Round((float)CTF.PhaseShift, 2);
 
+                // Specimen thickness in angstroms; null when no estimate is available.
+                Json["CtfSpecimenThicknessAngstrom"] = CTFSpecimenThicknessAngstrom > 0
+                    ? (double)CTFSpecimenThicknessAngstrom : null;
+
                 // Estimated resolution
                 Json["Resolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
 
