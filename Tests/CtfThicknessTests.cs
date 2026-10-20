@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 using Warp;
 using Warp.Tools;
 using Xunit;
@@ -10,6 +11,40 @@ namespace Tests;
 
 public class CtfThicknessTests
 {
+    [Fact]
+    public void MovieHeightApertureChainRuleAndFlatModeAreConsistent()
+    {
+        var positions = new[] { new float3(.3f, .7f, .5f) };
+        var dims = new int3(2, 2, 1);
+        var widths = CtfFitGeometry.GridApertureWeights(dims, positions, new float2(.3f, .4f));
+        var geometry = new CtfFitGeometry(CtfFitGeometry.GridWeights(dims, positions)[0], new[] { 1.0 },
+            defocusWidthXWeights: widths.X[0], defocusWidthYWeights: widths.Y[0]);
+        double[] p = { 2.1, 2.3, 2.2, 2.4, .03, -.02, .1, 0 };
+        double[] local = { .7, -.3, .4, .9, 1.3, -.6, .2 };
+        var gradient = new double[p.Length]; geometry.AccumulateVolume(gradient, local, p);
+        double Value() { var pose = new double[7]; geometry.WritePose(p, pose, 0); return pose.Zip(local, (a,b) => a*b).Sum(); }
+        for (int j = 0; j < p.Length; j++)
+        {
+            const double h = 1e-6; p[j] += h; double a = Value(); p[j] -= 2*h; double b = Value(); p[j] += h;
+            Assert.InRange(Math.Abs((a-b)/(2*h)-gradient[j]), 0, 1e-7);
+        }
+        for (int j = 0; j < 4; j++) p[j] = 3;
+        var flat = geometry.SlabGeometry(p);
+        Assert.InRange(Math.Abs(flat.WidthX) + Math.Abs(flat.WidthY), 0, 1e-12);
+    }
+    [Fact]
+    public void ThicknessFittingIsOptInAndSurvivesSettingsConversion()
+    {
+        var options = new OptionsWarp();
+        Assert.False(options.GetProcessingMovieCTF().FitThickness);
+        options.CTF.FitThickness = true;
+        var processing = options.GetProcessingMovieCTF();
+        Assert.True(processing.FitThickness);
+        var adopted = new OptionsWarp();
+        adopted.Adopt(processing);
+        Assert.True(adopted.CTF.FitThickness);
+        Assert.NotEqual(new ProcessingOptionsMovieCTF(), new ProcessingOptionsMovieCTF { FitThickness = true });
+    }
     [Fact]
     public void SlabPowerEqualsDepthAverageOfSquaredCtfAndHannIntegral()
     {
@@ -61,12 +96,24 @@ public class CtfThicknessTests
         try
         {
             string movie=Path.Combine(dir,"movie.mrc");
-            var m=new Movie(movie){CTFSpecimenThicknessAngstrom=1000.125M};m.SaveMeta();
+            var m=new Movie(movie){CTFSpecimenThicknessAngstrom=1000.125M, OptionsCTF=new ProcessingOptionsMovieCTF { FitThickness=true }};m.SaveMeta();
             Assert.Equal(1000.125M,new Movie(movie).CTFSpecimenThicknessAngstrom);
+            Assert.True(new Movie(movie).OptionsCTF.FitThickness);
             string series=Path.Combine(dir,"series.tomostar");
             File.WriteAllText(series,"data_\n\nloop_\n_wrpMovieName #1\n_wrpAngleTilt #2\n_wrpDose #3\na.mrc -30 1\nb.mrc 30 2\n");
-            var ts=new TiltSeries(series){CTFSpecimenThicknessAngstrom=987.25M};ts.SaveMeta();
+            var ts=new TiltSeries(series){CTFSpecimenThicknessAngstrom=987.25M, OptionsCTF=new ProcessingOptionsMovieCTF { FitThickness=false }};ts.SaveMeta();
             Assert.Equal(987.25M,new TiltSeries(series).CTFSpecimenThicknessAngstrom);
+            Assert.False(new TiltSeries(series).OptionsCTF.FitThickness);
+            // Metadata written by the always-on slab fitter has thickness, but no
+            // explicit switch. Older pre-slab metadata has neither.
+            foreach (var path in new[] { Path.ChangeExtension(movie, ".xml"), Path.ChangeExtension(series, ".xml") })
+            {
+                var xml = XDocument.Load(path);
+                xml.Descendants("OptionsCTF").Elements("Param").Single(p => (string)p.Attribute("Name") == "FitThickness").Remove();
+                xml.Save(path);
+            }
+            Assert.True(new Movie(movie).OptionsCTF.FitThickness);
+            Assert.True(new TiltSeries(series).OptionsCTF.FitThickness);
         }
         finally { Directory.Delete(dir,true); }
     }
@@ -114,9 +161,11 @@ public class CtfThicknessTests
         {
             GPU.SetDevice(0);
             foreach(bool tilted in new[] {false,true})
+            foreach(bool fitThickness in new[] {false,true})
             {
-                var options=new ProcessingOptionsMovieCTF{Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=4,DoPhase=true};
+                var options=new ProcessingOptionsMovieCTF{FitThickness=fitThickness,Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=4,DoPhase=true};
                 double[] truth=tilted ? new[] {2.3,.025,-.015,.2,.035,-.025,.01} : new[] {2.3,.025,-.015,.2,.01};
+                if (!fitThickness) truth[^1] = 0;
                 var records=new List<CtfPowerSpectrum.Observation>();var geometry=new List<CtfFitGeometry>();
                 for(int i=0;i<5;i++)for(int patch=0;patch<3;patch++)
                 {
@@ -125,11 +174,16 @@ public class CtfThicknessTests
                     var pose=new double[7];g.WritePose(truth,pose,0);
                     records.Add(new(new CtfSpectrumFit(Samples(pose,i*3+patch+1),300,2.7,.07),new float3(.5f),i));geometry.Add(g);
                 }
-                var initial=(double[])truth.Clone();initial[0]+=.008;initial[1]=initial[2]=0;initial[3]+=.015;initial[^1]=0;
+                var initial=(double[])truth.Clone();initial[0]+=.008;initial[1]=initial[2]=0;initial[3]+=.015;initial[^1]=fitThickness?0:.01;
                 var fit=CtfFitEngine.Refine(records.ToArray(),geometry.ToArray(),initial,options);
                 double thickness=Math.Sqrt(fit.Parameters[^1])*1e4;
-                Assert.True(thickness >= 970 && thickness <= 1030, $"tilted {tilted}: thickness {thickness}, pose {string.Join(",",fit.Parameters)}, loss {fit.Loss}");
+                if (fitThickness)
+                    Assert.True(thickness >= 970 && thickness <= 1030, $"tilted {tilted}: thickness {thickness}, pose {string.Join(",",fit.Parameters)}, loss {fit.Loss}");
+                else
+                    Assert.Equal(0, thickness);
                 Assert.InRange(Math.Abs(fit.Parameters[0]-truth[0])*1e4,0,1);
+                Assert.InRange(Math.Abs(fit.Parameters[1]-truth[1]),0,.001);
+                Assert.InRange(Math.Abs(fit.Parameters[2]-truth[2]),0,.001);
                 if(tilted){Assert.InRange(Math.Abs(fit.Parameters[4]-truth[4]),0,.005);Assert.InRange(Math.Abs(fit.Parameters[5]-truth[5]),0,.005);}
             }
         }

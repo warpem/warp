@@ -44,7 +44,7 @@ public static class CtfFitDiagnostics
             batch.Evaluate(poses);
             var profiled = fit with { Coefficients = batch.ReadCoefficients() };
             var diagnostic = Create(records, input.Geometry, profiled, new int[records.Length],
-                new[] { references[input.Group] }, globalReference, extraction.FourierSize, window, new[] { extraction.Display });
+                new[] { references[input.Group] }, globalReference, extraction.FourierSize, window, new[] { extraction.Display }, extraction.AperturePixels);
             if (sums == null)
             {
                 fourierSize = extraction.FourierSize; int bins = fourierSize / 2;
@@ -65,8 +65,8 @@ public static class CtfFitDiagnostics
         if (sums == null) throw new ArgumentException("No diagnostic inputs.");
         for (int g = 0; g < displays.Length; g++) if (displayWeights[g] > 0)
             for (int i = 0; i < displays[g].Length; i++) displays[g][i] /= (float)displayWeights[g];
-        var groups = references.Select((r, i) => Finish(sums[i], weights[i], r, fourierSize, window, models[i])).ToArray();
-        return new(groups, Finish(globalSum, globalWeight, globalReference, fourierSize, window, globalModel));
+        var groups = references.Select((r, i) => Finish(sums[i], weights[i], r, fourierSize, extractor.AperturePixels, models[i])).ToArray();
+        return new(groups, Finish(globalSum, globalWeight, globalReference, fourierSize, extractor.AperturePixels, globalModel));
     }
 
     sealed class Accumulator
@@ -87,11 +87,12 @@ public static class CtfFitDiagnostics
     // All frequency-sized arithmetic is FP32; fixed patch chunks run in parallel, including movies with one output group.
     public static Result Create(CtfPowerSpectrum.Observation[] records, CtfFitGeometry[] geometry,
         CtfFitEngine.Fit fit, int[] groups, CTF[] references, CTF globalReference,
-        int fourierSize, int window, float[][] displays)
+        int fourierSize, int window, float[][] displays, int aperturePixels = 0)
     {
         if (records.Length == 0 || records.Length != geometry.Length || records.Length != groups.Length ||
             references.Length == 0 || references.Length != displays.Length ||
             groups.Any(g => g < 0 || g >= references.Length)) throw new ArgumentException("Invalid CTF diagnostic groups.");
+        if (aperturePixels == 0) aperturePixels = window;
         int stride = records[0].Spectrum.KnotCount * 2;
         if (fit.Coefficients == null || fit.Coefficients.Length != records.Length * stride)
             throw new ArgumentException("Diagnostics require the accepted GPU nuisance coefficients.");
@@ -182,13 +183,13 @@ public static class CtfFitDiagnostics
         {
             var a = accumulators[group];
             SubtractDisplayBackground(displays[group], a, window);
-            diagnostics[group] = Finish(a.Sum, a.Weight, references[group], fourierSize, window, a.Model);
+            diagnostics[group] = Finish(a.Sum, a.Weight, references[group], fourierSize, aperturePixels, a.Model);
         });
         if (references.Length == 1 && ReferenceEquals(references[0], globalReference)) return new(diagnostics, diagnostics[0]);
         // Fixed reduction order makes diagnostic output independent of worker scheduling.
         var sum = new float[bins]; var weights = new float[bins]; var model = new float[bins];
         foreach (var a in accumulators) for (int b = 0; b < bins; b++) { sum[b] += a.GlobalSum[b]; weights[b] += a.GlobalWeight[b]; model[b] += a.GlobalModel[b]; }
-        return new(diagnostics, Finish(sum, weights, globalReference, fourierSize, window, model));
+        return new(diagnostics, Finish(sum, weights, globalReference, fourierSize, aperturePixels, model));
     }
 
     static void Add(float[] target, float[] source)

@@ -24,12 +24,20 @@ public sealed class CtfFitGeometry
             Math.Abs(r.M31*sx+r.M32*sy+r.M33)/norm>=cosine;
     }
     public readonly double[] DefocusWeights, PhaseWeights;
+    public readonly double[] DefocusWidthXWeights, DefocusWidthYWeights;
     public readonly double X, Y;
     public readonly Matrix3? Rotation;
     public readonly double PatchWidth;
     public int ThicknessIndex => DefocusWeights.Length + 2 + PhaseWeights.Length + (Rotation.HasValue ? 2 : 0);
-    public CtfFitGeometry(double[] defocusWeights, double[] phaseWeights, double x = 0, double y = 0, Matrix3? rotation = null, double patchWidth = 0)
-    { DefocusWeights = defocusWeights; PhaseWeights = phaseWeights; X = x; Y = y; Rotation = rotation; PatchWidth = patchWidth; }
+    public CtfFitGeometry(double[] defocusWeights, double[] phaseWeights, double x = 0, double y = 0, Matrix3? rotation = null, double patchWidth = 0,
+        double[] defocusWidthXWeights = null, double[] defocusWidthYWeights = null)
+    {
+        if ((defocusWidthXWeights == null) != (defocusWidthYWeights == null) ||
+            (defocusWidthXWeights != null && (rotation.HasValue || defocusWidthXWeights.Length != defocusWeights.Length || defocusWidthYWeights.Length != defocusWeights.Length)))
+            throw new ArgumentException("Movie aperture gradients must match the defocus grid and cannot be combined with tilt-plane geometry.");
+        DefocusWeights = defocusWeights; PhaseWeights = phaseWeights; X = x; Y = y; Rotation = rotation; PatchWidth = patchWidth;
+        DefocusWidthXWeights = defocusWidthXWeights; DefocusWidthYWeights = defocusWidthYWeights;
+    }
     public (double Defocus, double Phase, double SlopeX, double SlopeY) Evaluate(double[] p)
     {
         int nd = DefocusWeights.Length, np = PhaseWeights.Length;
@@ -70,7 +78,14 @@ public sealed class CtfFitGeometry
     public (double Factor, double WidthX, double WidthY, double FactorX, double FactorY,
         double WidthXX, double WidthXY, double WidthYX, double WidthYY) SlabGeometry(double[] p)
     {
-        if (!Rotation.HasValue) return (1,0,0,0,0,0,0,0,0);
+        if (!Rotation.HasValue)
+        {
+            double wx = 0, wy = 0;
+            if (DefocusWidthXWeights != null)
+                for (int i = 0; i < DefocusWeights.Length; i++)
+                { wx += p[i] * DefocusWidthXWeights[i]; wy += p[i] * DefocusWidthYWeights[i]; }
+            return (1,wx,wy,0,0,0,0,0,0);
+        }
         var r = Rotation.Value; int j = ThicknessIndex-2;
         double sx=p[j], sy=p[j+1], norm=1+sx*sx+sy*sy;
         double nx=r.M11*sx+r.M12*sy+r.M13, ny=r.M21*sx+r.M22*sy+r.M23, nz=r.M31*sx+r.M32*sy+r.M33;
@@ -86,11 +101,36 @@ public sealed class CtfFitGeometry
         Accumulate(gradient,local,center.SlopeX,center.SlopeY);
         var slab = SlabGeometry(p); int t = ThicknessIndex;
         gradient[t] += local[4]*slab.Factor;
+        if (DefocusWidthXWeights != null)
+            for (int i = 0; i < DefocusWeights.Length; i++)
+                gradient[i] += local[5] * DefocusWidthXWeights[i] + local[6] * DefocusWidthYWeights[i];
         if (Rotation.HasValue)
         {
             gradient[t-2] += local[4]*p[t]*slab.FactorX+local[5]*slab.WidthXX+local[6]*slab.WidthYX;
             gradient[t-1] += local[4]*p[t]*slab.FactorY+local[5]*slab.WidthXY+local[6]*slab.WidthYY;
         }
+    }
+
+    // The local tangent of a movie's defocus grid determines the signed defocus
+    // width across its Hann aperture, independently of specimen thickness.
+    public static (double[][] X, double[][] Y) GridApertureWeights(int3 dims, float3[] positions, float2 apertureFraction)
+    {
+        const float step = .001f;
+        double[][] Axis(bool x)
+        {
+            var minus = positions.Select(p => new float3(p.X - (x ? step : 0), p.Y - (x ? 0 : step), p.Z)).ToArray();
+            var plus = positions.Select(p => new float3(p.X + (x ? step : 0), p.Y + (x ? 0 : step), p.Z)).ToArray();
+            var a = GridWeights(dims, minus); var b = GridWeights(dims, plus);
+            double scale = (x ? apertureFraction.X : apertureFraction.Y) / (2 * step);
+            return a.Select((row, i) =>
+            {
+                var derivative = row.Select((v, j) => (b[i][j] - v) * scale).ToArray();
+                // Interpolation uses float weights; preserve the exactly flat mode.
+                double mean = derivative.Average();
+                return derivative.Select(v => v - mean).ToArray();
+            }).ToArray();
+        }
+        return (Axis(true), Axis(false));
     }
     public static double[][] GridWeights(int3 dimensions, float3[] positions)
     {

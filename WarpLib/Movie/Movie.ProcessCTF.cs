@@ -33,6 +33,8 @@ public partial class Movie
             double inputSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             var extraction = CtfPowerSpectrum.Extract(input, options);
+            if (extraction.AperturePixels != window)
+                Console.WriteLine($"CTF: enlarged extraction aperture from {window} to {extraction.AperturePixels} pixels to retain physical support at the requested defocus range.");
             double extractionSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             originalStack.FreeDevice();
@@ -42,8 +44,11 @@ public partial class Movie
             int3 phaseDims = new int3(1);
             float3[] positions = records.Select(r => r.Position).ToArray();
             double[][] dw = CtfFitGeometry.GridWeights(defocusDims, positions), pw = CtfFitGeometry.GridWeights(phaseDims, positions);
-            var geometry = records.Select((r, i) => new CtfFitGeometry(dw[i], pw[i])).ToArray();
-            var seed = CtfFitEngine.Initialize(records, new double[records.Length], options);
+            var apertureWeights = CtfFitGeometry.GridApertureWeights(defocusDims, positions,
+                new float2((float)extraction.AperturePixels / dims.X, (float)extraction.AperturePixels / dims.Y));
+            var geometry = records.Select((r, i) => new CtfFitGeometry(dw[i], pw[i],
+                defocusWidthXWeights: apertureWeights.X[i], defocusWidthYWeights: apertureWeights.Y[i])).ToArray();
+            var seed = CtfFitEngine.InitializeMovie(records, options);
             double searchSeconds = timer.Elapsed.TotalSeconds;
             timer.Restart();
             int nd = (int)defocusDims.Elements(), np = (int)phaseDims.Elements();
@@ -94,6 +99,7 @@ public class ProcessingOptionsMovieCTF : ProcessingOptionsBase
     [WarpSerializable] public decimal Cc { get; set; }
     [WarpSerializable] public decimal Amplitude { get; set; }
     [WarpSerializable] public bool DoPhase { get; set; }
+    [WarpSerializable] public bool FitThickness { get; set; }
     [WarpSerializable] public bool UseMovieSum { get; set; }
     [WarpSerializable] public decimal ZMin { get; set; }
     [WarpSerializable] public decimal ZMax { get; set; }
@@ -119,6 +125,7 @@ public class ProcessingOptionsMovieCTF : ProcessingOptionsBase
                Cc == other.Cc &&
                Amplitude == other.Amplitude &&
                DoPhase == other.DoPhase &&
+               FitThickness == other.FitThickness &&
                UseMovieSum == other.UseMovieSum &&
                ZMin == other.ZMin &&
                ZMax == other.ZMax &&

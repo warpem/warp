@@ -15,7 +15,7 @@ namespace WarpTools.Commands
     [CommandRunner(typeof(CTFFrameseries))]
     class CTFFrameseriesOptions : DistributedOptions
     {
-        [Option("window", Default = 512, HelpText = "Patch size for CTF estimation in binned pixels")]
+        [Option("window", Default = 512, HelpText = "Minimum patch size in binned pixels; enlarged automatically when needed for the pixel size and defocus range")]
         public int Window { get; set; }
 
         [Option("range_min", Default = 30, HelpText = "Minimum resolution in Angstrom to consider in fit")]
@@ -42,6 +42,9 @@ namespace WarpTools.Commands
 
         [Option("fit_phase", HelpText = "Fit the phase shift of a phase plate")]
         public bool PhaseEnable { get; set; }
+
+        [Option("fit_thickness", HelpText = "Fit specimen thickness jointly with CTF parameters; disabled by default (thin-specimen model)")]
+        public bool ThicknessEnable { get; set; }
 
 
         [Option("use_sum", HelpText = "Use the movie average spectrum instead of the average of individual frames' spectra. " +
@@ -76,6 +79,7 @@ namespace WarpTools.Commands
             Options.CTF.Amplitude = (decimal)CLI.Amplitude;
 
             Options.CTF.DoPhase = CLI.PhaseEnable;
+            Options.CTF.FitThickness = CLI.ThicknessEnable;
             Options.CTF.UseMovieSum = CLI.MovieSumEnable;
 
             if (!string.IsNullOrEmpty(CLI.GridDims))

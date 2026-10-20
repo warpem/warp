@@ -10,7 +10,24 @@ namespace Warp.Tools;
 public static class CtfPowerSpectrum
 {
     public sealed record Observation(CtfSpectrumFit Spectrum, float3 Position, int Group);
-    public sealed record Extraction(List<Observation> Observations, float[] Display, int2 PositionGrid, int FourierSize);
+    public sealed record Extraction(List<Observation> Observations, float[] Display, int2 PositionGrid, int FourierSize, int AperturePixels);
+
+    // A larger FFT only interpolates a periodogram. Preserve real-space support
+    // for the two-beam separation 2*lambda*defocus*q in the low-frequency support band.
+    // Retain an adequate requested aperture (Hann autocorrelation >= ~0.47);
+    // when enlargement is needed, target ~0.66 to leave a support margin.
+    internal static int ApertureSize(int2 dimensions, ProcessingOptionsMovieCTF options)
+    {
+        double pixel = (double)options.BinnedPixelSizeMean;
+        double low = (double)options.RangeMin / (2 * pixel), high = (double)options.RangeMax / (2 * pixel);
+        double q = Math.Min(high, Math.Sqrt(Math.Max(.01, 2 * low * low)));
+        double separation = 2 * CtfSpectrumFit.Wavelength(options.Voltage) * (double)options.ZMax * 1e4 * q / pixel;
+        if (3 * separation <= options.Window) return options.Window;
+        double needed = 4 * separation;
+        int available = Math.Min(dimensions.X, dimensions.Y) / 2 * 2;
+        int aperture = (int)(Math.Ceiling(Math.Min(needed, available) / 64) * 64);
+        return Math.Min(available, Math.Max(options.Window, aperture));
+    }
 
     public static Extraction Extract(Image image, ProcessingOptionsMovieCTF options, int group = 0, CtfSpectrumFit basisSource = null)
     {
@@ -25,20 +42,22 @@ public static class CtfPowerSpectrum
         IntPtr context;
         readonly ProcessingOptionsMovieCTF options;
         readonly int2 dimensions, grid;
-        readonly int window, fftSize, bins;
+        readonly int window, displayWindow, fftSize, bins;
         readonly int3[] origins;
         readonly double[] count, q2, q4, ax, ay;
         CtfSpectrumFit sharedBasis;
+        public int AperturePixels => window;
 
         public Extractor(int2 dimensions, ProcessingOptionsMovieCTF options, bool fullSpectrum = false)
         {
-            this.options = options; this.dimensions = dimensions; window = options.Window;
+            this.options = options; this.dimensions = dimensions; displayWindow = options.Window;
             double pixel = (double)options.BinnedPixelSizeMean;
-            if (window < 64 || window > Math.Min(dimensions.X, dimensions.Y) || window % 2 != 0)
+            if (displayWindow < 64 || displayWindow > Math.Min(dimensions.X, dimensions.Y) || displayWindow % 2 != 0)
                 throw new ArgumentException("CTF window must be even, at least 64 pixels, and fit inside the image.");
             if (!(pixel > 0) || !(options.RangeMin > 0 && options.RangeMax > options.RangeMin && options.RangeMax <= 1))
                 throw new ArgumentException("Invalid CTF pixel size or frequency range.");
             if (!(options.ZMin >= 0 && options.ZMax > options.ZMin)) throw new ArgumentException("The CTF defocus search range must be nonnegative and nonempty.");
+            window = ApertureSize(dimensions, options);
             double qmax = (fullSpectrum ? 1 : (double)options.RangeMax) / (2 * pixel);
             fftSize = 1;
             double minimum = Math.Max(window * 2, 6 * CtfSpectrumFit.Wavelength((double)options.Voltage) * (double)options.ZMax * 1e4 * qmax / pixel);
@@ -108,7 +127,25 @@ public static class CtfPowerSpectrum
             observations[0] = Make(0); sharedBasis ??= observations[0].Spectrum;
             Parallel.For(1,origins.Length,p => observations[p] = Make(p));
             for (int i = 0; i < display.Length; i++) display[i] /= (float)((long)frames.Length*origins.Length);
-            return new(observations.ToList(),display,grid,fftSize);
+            // Preserve the requested diagnostic image size independently of the
+            // physical extraction aperture, just as for the Fourier sampling.
+            if (displayWindow != window)
+            {
+                var resized = new float[displayWindow * displayWindow / 2];
+                for (int y = 0; y < displayWindow / 2; y++) for (int x = 0; x < displayWindow; x++)
+                {
+                    double sx = (double)x * window / displayWindow;
+                    double sy = window / 2 - 1 - (double)(displayWindow / 2 - 1 - y) * window / displayWindow;
+                    int x0 = Math.Clamp((int)sx, 0, window - 1), x1 = Math.Min(x0 + 1, window - 1);
+                    int y0 = Math.Clamp((int)sy, 0, window / 2 - 1), y1 = Math.Min(y0 + 1, window / 2 - 1);
+                    double dx = sx - x0, dy = sy - y0;
+                    resized[y * displayWindow + x] = (float)(
+                        (1 - dy) * ((1 - dx) * display[y0 * window + x0] + dx * display[y0 * window + x1]) +
+                        dy * ((1 - dx) * display[y1 * window + x0] + dx * display[y1 * window + x1]));
+                }
+                display = resized;
+            }
+            return new(observations.ToList(),display,grid,fftSize,window);
         }
         public void Dispose()
         {

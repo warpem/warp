@@ -1037,6 +1037,11 @@ namespace Warp
                     {
                         ProcessingOptionsMovieCTF Temp = new ProcessingOptionsMovieCTF();
                         Temp.ReadFromXML(NavOptionsCTF);
+                        // The first slab fitter always fitted thickness. Preserve that
+                        // provenance so switching to the thin model requests a new fit.
+                        if (NavOptionsCTF.SelectSingleNode("Param[@Name='FitThickness']") == null &&
+                            Reader.SelectSingleNode("/*/@CTFSpecimenThicknessAngstrom") != null)
+                            Temp.FitThickness = true;
                         OptionsCTF = Temp;
                     }
 

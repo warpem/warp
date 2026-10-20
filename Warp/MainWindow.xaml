@@ -237,8 +237,7 @@
                                         <s:ValueSlider Value="{Binding CTF.ZMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="-1000" MaxValue="1000" StepSize="0.1" />
                                         <TextBlock Text=" μm" />
                                     </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal">
-                                    </StackPanel>
+                                    <CheckBox Grid.Row="2" Grid.Column="2" IsChecked="{Binding CTF.FitThickness}" Content="Fit Thickness" FontSize="13" VerticalAlignment="Top" ToolTip="Fit specimen thickness when the fitted frequency range contains sufficient thickness-dependent signal." />
                                     <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal">
                                     </StackPanel>
                                 </Grid>

@@ -2078,6 +2078,9 @@ namespace Warp
                     {
                         ProcessingOptionsMovieCTF Temp = new ProcessingOptionsMovieCTF();
                         Temp.ReadFromXML(NavOptionsCTF);
+                        if (NavOptionsCTF.SelectSingleNode("Param[@Name='FitThickness']") == null &&
+                            Reader.SelectSingleNode("/*/@CTFSpecimenThicknessAngstrom") != null)
+                            Temp.FitThickness = true;
                         OptionsCTF = Temp;
                     }
 

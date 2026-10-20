@@ -9,6 +9,29 @@ namespace Warp.Tools;
 public static class CtfFitEngine
 {
     public sealed record Fit(double[] Parameters, double Loss, int Evaluations, float[] Coefficients = null, double PlaneInitializationSeconds = 0, bool PlaneAtBoundary = false, CtfFitReliability.Curve[] Reliability = null);
+    // Locate the movie's mean defocus using all available power, before releasing
+    // spatial variation. Nine isolated periodograms can pick a noise basin in thin ice.
+    public static (double Defocus, double Phase) InitializeMovie(CtfPowerSpectrum.Observation[] records, ProcessingOptionsMovieCTF options)
+    {
+        if (records.Length == 0) throw new ArgumentException("No movie CTF spectra.");
+        var first = records[0].Spectrum;
+        if (records.Any(r => !first.HasSameGpuLayout(r.Spectrum)))
+            throw new ArgumentException("Movie CTF spectra must share frequency sampling.");
+        var samples = new CtfSpectrumFit.Sample[first.Samples.Length];
+        for (int b = 0; b < samples.Length; b++)
+        {
+            double power = 0, count = 0;
+            foreach (var record in records)
+            {
+                var sample = record.Spectrum.Samples[b];
+                power += sample.Power * sample.Count;
+                count += sample.Count;
+            }
+            samples[b] = first.Samples[b] with { Power = power / count, Count = count };
+        }
+        var pooled = new CtfSpectrumFit(samples, first.VoltageKV, first.CsMM, first.Amplitude, first);
+        return Initialize(new[] { new CtfPowerSpectrum.Observation(pooled, new float3(.5f), 0) }, new double[1], options);
+    }
     // A radial, geometry-aware search locates several defocus basins before the full angular fit.
     public static (double Defocus, double Phase) Initialize(CtfPowerSpectrum.Observation[] records, double[] offsets, ProcessingOptionsMovieCTF options)
         => InitializeMany(new[] { records }, new[] { offsets }, options)[0];
@@ -106,6 +129,7 @@ public static class CtfFitEngine
     {
         if (initial.Length != geometry[0].ThicknessIndex+1) throw new ArgumentException("CTF parameters must include squared specimen thickness.");
         initial = (double[])initial.Clone();
+        if (!options.FitThickness) initial[^1] = 0;
         int planeEvaluations=0;double planeSeconds=0;CtfDefocusPrior prior=null;
         if(geometry[0].Rotation.HasValue)
         {
@@ -114,7 +138,7 @@ public static class CtfFitEngine
             initial=plane.Parameters;prior=plane.Prior;planeEvaluations=plane.Evaluations;planeSeconds=timer.Elapsed.TotalSeconds;
         }
         using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
-        int searchEvaluations = SeedThickness(records,geometry,initial,batch);
+        int searchEvaluations = options.FitThickness ? SeedThickness(records,geometry,initial,batch) : 0;
         // Shared geometry, astigmatism and thickness use the joint, full-band fit.
         // A narrow reliable band in a weak tilt cannot separately identify thickness
         // and envelope, so the subsequent local correction must retain these estimates.
@@ -188,7 +212,7 @@ public static class CtfFitEngine
         for(int j=nd+2;j<nd+2+np;j++){scale[j]=.1;lo[j]=0;hi[j]=options.DoPhase?Math.PI:0;}
         // IsValidPlane enforces the circular/geometric domain inside these enclosing bounds.
         for(int j=nd+2+np;j<n-1;j++){scale[j]=.01;lo[j]=-CtfFitGeometry.MaximumSlope;hi[j]=CtfFitGeometry.MaximumSlope;}
-        scale[n-1]=.0025;lo[n-1]=0;hi[n-1]=1;
+        scale[n-1]=.0025;lo[n-1]=0;hi[n-1]=options.FitThickness?1:0;
         return (scale,lo,hi);
     }
 
@@ -231,7 +255,7 @@ public static class CtfFitEngine
             initial = result.Parameters;
             // Reprofile once after astigmatism/phase/defocus have settled. Their initial
             // errors can otherwise make the thickness grid select the wrong sinc lobe.
-            if (pass == 0) { prior?.Update(initial); if(!defocusOnly)evaluations += SeedThickness(records,geometry,initial,batch); continue; }
+            if (pass == 0) { prior?.Update(initial); if(!defocusOnly && options.FitThickness)evaluations += SeedThickness(records,geometry,initial,batch); continue; }
             if (pass == 6 || weightChange < .01) break;
             UpdatePoses(initial);
             double[] output = batch.Evaluate(poses, true);

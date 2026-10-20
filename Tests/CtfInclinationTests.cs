@@ -74,7 +74,7 @@ public class CtfInclinationTests
                     records.Add(new(Spectrum(pose,100*t+j,c.Noise,c.Outliers&&j==4),new float3(.5f),t));geometry.Add(g);
                 }
                 var initial=new double[truth.Length];Array.Fill(initial,4.2,0,tilts);initial[tilts+2]=1.1;
-                var options=new ProcessingOptionsMovieCTF{Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=5,DoPhase=true};
+                var options=new ProcessingOptionsMovieCTF{FitThickness=true,Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=5,DoPhase=true};
                 var fit=CtfFitEngine.Refine(records.ToArray(),geometry.ToArray(),initial,options);var p=fit.Parameters;
                 double norm=Math.Sqrt(1+p[plane]*p[plane]+p[plane+1]*p[plane+1]);
                 double cosine=(1+p[plane]*truth[plane]+p[plane+1]*truth[plane+1])/norm/Math.Sqrt(1+truth[plane]*truth[plane]+truth[plane+1]*truth[plane+1]);
@@ -112,7 +112,7 @@ public class CtfInclinationTests
                 geometry.Add(g);
             }
             var initial = new double[truth.Length]; Array.Fill(initial, 4.2, 0, tilts);
-            var options = new ProcessingOptionsMovieCTF { Voltage=300, Cs=2.7M, Amplitude=.07M, ZMin=.5M, ZMax=5, DoPhase=false };
+            var options = new ProcessingOptionsMovieCTF { FitThickness=true, Voltage=300, Cs=2.7M, Amplitude=.07M, ZMin=.5M, ZMax=5, DoPhase=false };
             var fit = CtfFitEngine.Refine(records.ToArray(), geometry.ToArray(), initial, options);
             output.WriteLine($"Weak tilt: {fit.Parameters[0]:F5} um; real jump: {fit.Parameters[tilts-1]:F5} um");
             Assert.InRange(Math.Abs(fit.Parameters[0]-truth[0]), 0, .15);
@@ -138,7 +138,7 @@ public class CtfInclinationTests
                 return new CtfPowerSpectrum.Observation(Spectrum(pose,300+i,.005,false),positions[i],0);
             }).ToArray();
             var initial=(double[])truth.Clone();Array.Fill(initial,2.035,0,36);
-            var options=new ProcessingOptionsMovieCTF{Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=4};
+            var options=new ProcessingOptionsMovieCTF{FitThickness=true,Voltage=300,Cs=2.7M,Amplitude=.07M,ZMin=1,ZMax=4};
             var fit=CtfFitEngine.Refine(records,geometry,initial,options);
             Assert.Null(fit.Reliability);
             foreach(var g in geometry)Assert.InRange(Math.Abs(g.Evaluate(fit.Parameters).Defocus-g.Evaluate(truth).Defocus),0,.002);

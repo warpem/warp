@@ -1,5 +1,21 @@
 # Tilt Series CTF Estimation
 
+`WarpTools ts_ctf` fits a thin-specimen model by default: thickness is fixed to
+zero while per-tilt defocus, astigmatism, and the specimen plane remain free.
+Use `--fit_thickness` to jointly estimate thickness when the frequency range
+supports it. A limited band such as 30–7 Å may not constrain the thickness of a
+thin specimen. The GUI exposes the same choice as **Fit Thickness**.
+The choice is saved as `OptionsCTF.FitThickness`; disabling it clears the fitted
+thickness on the next fit.
+
+The requested window is a minimum extraction size. At small pixel sizes or large
+defocus, the fitter enlarges the physical aperture to retain signal in the
+low-frequency support band (through 10 Å, or the requested coarser limit). Fourier padding
+alone cannot provide this support. The actual aperture is logged, while spectrum
+display dimensions retain the requested window size. Tilt-plane geometry uses
+the actual aperture. Adequate requested apertures stay unchanged to preserve
+spatial sampling.
+
 ### Contrast transfer function estimation in tilt series
 
 From [*Real-time cryo-electron microscopy data preprocessing with Warp*](https://doi.org/10.1038/s41592-019-0580-y)

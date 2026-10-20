@@ -36,6 +36,8 @@ public partial class TiltSeries
             double extractionSeconds = 0, searchSeconds = 0;
             var timer = System.Diagnostics.Stopwatch.StartNew();
             using var extractor = new CtfPowerSpectrum.Extractor(new int2(images[0].Dims), options);
+            if (extractor.AperturePixels != options.Window)
+                Console.WriteLine($"CTF: enlarged extraction aperture from {options.Window} to {extractor.AperturePixels} pixels to retain physical support at the requested defocus range.");
             double setupSeconds = timer.Elapsed.TotalSeconds;
             for (int t = 0; t < NTilts; t++)
             {
@@ -53,7 +55,7 @@ public partial class TiltSeries
                     double[] dw = new double[NTilts]; dw[t] = 1;
                     var g = new CtfFitGeometry(dw, phaseWeights[t],
                         (local[i].Position.X - .5) * images[t].Dims.X * (double)options.BinnedPixelSizeMean * 1e-4,
-                        (local[i].Position.Y - .5) * images[t].Dims.Y * (double)options.BinnedPixelSizeMean * 1e-4, rotation, options.Window * (double)options.BinnedPixelSizeMean * 1e-4);
+                        (local[i].Position.Y - .5) * images[t].Dims.Y * (double)options.BinnedPixelSizeMean * 1e-4, rotation, extraction.AperturePixels * (double)options.BinnedPixelSizeMean * 1e-4);
                     geometry.Add(g);
                 }
                 records.AddRange(local);

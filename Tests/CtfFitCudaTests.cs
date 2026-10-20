@@ -31,6 +31,27 @@ public class CtfFitCudaTests
         => Assert.True(Math.Abs(actual - expected) <= relative * Math.Max(1, Math.Abs(expected)), $"Expected {expected:G17}, actual {actual:G17}, relative tolerance {relative:G6}");
 
     [CtfCudaFact]
+    public void MovieInitializationUsesPowerOutsideTheNineSearchPatches()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            // The nine evenly spaced patches used by the old initializer all
+            // contain a competing CTF. The remaining patches agree on the signal.
+            var signal = Spectrum(0);
+            var contaminant = new CtfSpectrumFit(Spectrum(154).Samples.Select((s, b) =>
+                s with { Count = signal.Samples[b].Count }).ToArray(), 300, 2.7, .07);
+            var records = Enumerable.Range(0, 81).Select(i =>
+                new CtfPowerSpectrum.Observation(i % 10 == 0 ? contaminant : signal,
+                    new float3((i % 9 + .5f) / 9, (i / 9 + .5f) / 9, .5f), 0)).ToArray();
+            var options = new ProcessingOptionsMovieCTF
+                { Voltage = 300, Cs = 2.7M, Amplitude = .07M, ZMin = 1, ZMax = 5, DoPhase = true };
+            var result = CtfFitEngine.InitializeMovie(records, options);
+            Assert.InRange(Math.Abs(result.Defocus - 2.3), 0, .005);
+        }
+    }
+
+    [CtfCudaFact]
     public void BatchedTiltSeedsMatchIndependentSearchesAndUnequalMovieFrameGroups()
     {
         lock (GPU.Sync)

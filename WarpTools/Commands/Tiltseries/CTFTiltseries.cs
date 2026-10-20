@@ -17,7 +17,7 @@ namespace WarpTools.Commands
     [CommandRunner(typeof(CTFTiltseries))]
     class CTFTiltseriesOptions : DistributedOptions
     {
-        [Option("window", Default = 512, HelpText = "Patch size for CTF estimation in binned pixels")]
+        [Option("window", Default = 512, HelpText = "Minimum patch size in binned pixels; enlarged automatically when needed for the pixel size and defocus range")]
         public int Window { get; set; }
 
         [Option("range_low", Default = 30, HelpText = "Lowest (worst) resolution in Angstrom to consider in fit")]
@@ -44,6 +44,9 @@ namespace WarpTools.Commands
 
         [Option("fit_phase", HelpText = "Fit the phase shift of a phase plate")]
         public bool PhaseEnable { get; set; }
+
+        [Option("fit_thickness", HelpText = "Fit specimen thickness jointly with CTF parameters; disabled by default (thin-specimen model)")]
+        public bool ThicknessEnable { get; set; }
 
 
         [Option("auto_hand", HelpText = "Run defocus handedness estimation based on this many tilt series (e.g. 10), then estimate CTF with the correct handedness")]
@@ -110,6 +113,7 @@ namespace WarpTools.Commands
             Options.CTF.Amplitude = (decimal)CLI.Amplitude;
 
             Options.CTF.DoPhase = CLI.PhaseEnable;
+            Options.CTF.FitThickness = CLI.ThicknessEnable;
 
             #endregion
 
