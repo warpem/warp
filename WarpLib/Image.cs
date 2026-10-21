@@ -3281,6 +3281,34 @@ namespace Warp
                                   (uint)Dims.Z);
         }
 
+        /// <summary>
+        /// Add independent high-frequency noise to a real-space volume before masking.
+        /// The white-noise standard deviation is relative to the map contrast, so the
+        /// noise floor is independent of the input map's arbitrary density scale.
+        /// The default adds at most 1% of the map variance (less after high-pass filtering).
+        /// </summary>
+        public void AddHighFrequencyNoise(float nyquistCutoff, float relativeStd = 0.1f, int seed = 123)
+        {
+            if (IsComplex || IsFT)
+                throw new InvalidOperationException("High-frequency noise requires a real-space volume.");
+            if (!float.IsFinite(nyquistCutoff) || nyquistCutoff <= 0 || nyquistCutoff > 1)
+                throw new ArgumentOutOfRangeException(nameof(nyquistCutoff));
+            if (!float.IsFinite(relativeStd) || relativeStd < 0)
+                throw new ArgumentOutOfRangeException(nameof(relativeStd));
+
+            float Sigma = MathHelper.MeanAndStd(GetHost(Intent.Read)).Y * relativeStd;
+            if (Sigma == 0)
+                return;
+
+            using Image Noise = new Image(Dims);
+            RandomNormal Random = new RandomNormal(seed);
+            Noise.TransformValues(_ => Random.NextSingle(0, Sigma));
+            // Ramp up just below the cutoff, overlapping the low-pass taper. Keep
+            // Fourier corners too (r can reach sqrt(3)), including upsampled zeros.
+            Noise.Bandpass(nyquistCutoff, 2, true, 0.05f);
+            Add(Noise);
+        }
+
         public void Bandpass(float nyquistLow, float nyquistHigh, bool isVolume, float nyquistsoftedge = 0, int batch = 1)
         {
             if (!isVolume && batch != 1)

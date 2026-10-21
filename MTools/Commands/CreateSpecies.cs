@@ -224,12 +224,16 @@ namespace MTools.Commands
             #region Rescale and pad maps if needed
 
             float AngPix = Options.AngPix.Value;
+            float? NoiseCutoff = null;
 
             if (AngPix != Options.AngPixResample)
             {
                 Console.Write($"Resampling maps to {(float)Options.AngPixResample:F4} A/px... ");
 
                 int DimMapResampled = (int)MathF.Round(Half1.Dims.X * (float)Options.AngPix / (float)Options.AngPixResample / 2) * 2;
+                if (DimMapResampled > Half1.Dims.X)
+                    NoiseCutoff = (float)Half1.Dims.X / DimMapResampled;
+
                 Half1 = Half1.AsScaled(new int3(DimMapResampled)).AndDisposeParent();
                 Half2 = Half2.AsScaled(new int3(DimMapResampled)).AndDisposeParent();
 
@@ -284,13 +288,26 @@ namespace MTools.Commands
                     return;
                 }
 
-                Half1.Bandpass(0, (float)Options.Lowpass / AngPix / 2, true, 0.05f);
-                Half2.Bandpass(0, (float)Options.Lowpass / AngPix / 2, true, 0.05f);
+                float Cutoff = 2 * AngPix / Options.Lowpass.Value;
+                Half1.Bandpass(0, Cutoff, true, 0.05f);
+                Half2.Bandpass(0, Cutoff, true, 0.05f);
+                NoiseCutoff = Math.Min(NoiseCutoff ?? Cutoff, Cutoff);
             }
 
-            RandomNormal RandN = new RandomNormal(123);
-            Half1.TransformValues(v => v + RandN.NextSingle(0, 1e-10f));
-            Half2.TransformValues(v => v + RandN.NextSingle(0, 1e-10f));
+            // Filtering and Fourier upsampling leave empty high-frequency regions. Fill
+            // these with independent noise BEFORE masking, otherwise leaked shared
+            // low-frequency signal can dominate them and give spuriously high FSC.
+            if (NoiseCutoff.HasValue)
+            {
+                Half1.AddHighFrequencyNoise(NoiseCutoff.Value, seed: 123);
+                Half2.AddHighFrequencyNoise(NoiseCutoff.Value, seed: 456);
+            }
+            else
+            {
+                RandomNormal RandN = new RandomNormal(123);
+                Half1.TransformValues(v => v + RandN.NextSingle(0, 1e-10f));
+                Half2.TransformValues(v => v + RandN.NextSingle(0, 1e-10f));
+            }
 
             Half1.MaskSpherically(Half1.Dims.X - 32, 16, true);
             Half2.MaskSpherically(Half2.Dims.X - 32, 16, true);
