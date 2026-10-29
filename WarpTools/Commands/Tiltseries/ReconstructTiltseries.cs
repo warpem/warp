@@ -83,7 +83,7 @@ namespace WarpTools.Commands
                 Movie FirstMovie = new Movie(((TiltSeries)CLI.InputSeries.First()).TiltMoviePaths.First());
                 if (!File.Exists(Path.Combine(CLI.InputSeries.First().DataOrProcessingDirectoryName, FirstMovie.AverageOddPath)) || 
                     !File.Exists(Path.Combine(CLI.InputSeries.First().DataOrProcessingDirectoryName, FirstMovie.AverageEvenPath)))
-                    throw new Exception("Can't find half-averages for --halfmap_frames; run align_frameseries with --average_halves first");
+                    throw new Exception("Can't find half-averages for --halfmap_frames; run fs_motion_and_ctf with --out_average_halves first");
             }
 
             if (CLI.DeconvHighpass < 10)
