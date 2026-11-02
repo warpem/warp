@@ -247,6 +247,10 @@ public partial class TiltSeries
 
             if (options.MinFOV > 0)
                 UseTilt = UseTilt.Select((v, t) => v && FOVFraction[t] >= (float)options.MinFOV).ToArray();
+
+            // The planar FOV calculation must not persist its temporary 1 A
+            // depth: metadata consumers need the physical tomogram center.
+            VolumeDimensionsPhysical = options.DimensionsPhysical;
         }
 
         #endregion
