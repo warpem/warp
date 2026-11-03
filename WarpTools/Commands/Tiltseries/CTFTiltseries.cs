@@ -119,6 +119,18 @@ namespace WarpTools.Commands
 
             var OptionsCTF = Options.GetProcessingMovieCTF();
 
+            // Older alignment imports may have saved the temporary planar FOV
+            // depth. Publish the configured physical coordinate frame for every
+            // series before any worker reloads and saves its CTF metadata.
+            foreach (var item in CLI.InputSeries)
+            {
+                var series = (TiltSeries)item;
+                series.VolumeDimensionsPhysical = new float3((float)Options.Tomo.DimensionsX,
+                                                             (float)Options.Tomo.DimensionsY,
+                                                             (float)Options.Tomo.DimensionsZ) * (float)Options.Import.PixelSize;
+                series.SaveMeta();
+            }
+
             // Local helper: one CTF task per current InputSeries item, distributed via
             // the filesystem work queue. The auto-hand path calls it up to three times
             // (subset for the handedness check, then the full set), each time over the
