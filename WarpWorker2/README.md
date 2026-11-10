@@ -142,7 +142,7 @@ No other registration or wiring is needed — the reflection scan at startup pic
 up the new attribute automatically.
 
 
-### Complete Warp Live simulation
+### Complete on-the-fly Warp session simulation
 
 The filesystem protocol, worker claiming, heartbeats, errors and result collection
 are unchanged in mock mode. Movie motion/CTF, averaging, thumbnails, enhancement,

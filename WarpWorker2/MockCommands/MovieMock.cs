@@ -40,11 +40,21 @@ static partial class WorkerProcess
         movie.CTFSpecimenThicknessAngstrom=options.FitThickness?(MockVariant(path,"thickice")?2500+seed%800:150+seed%700):0;
         movie.SimulatedBackground=new Cubic1D([new float2(0,.1f),new float2(.5f,.03f)]);
         movie.SimulatedScale=new Cubic1D([new float2(0,1),new float2(.5f,.25f)]);
-        movie.PS1D=Enumerable.Range(0,128).Select(i=>{float f=i/256f;return new float2(f,.1f+(float)(.5+.45*Math.Cos(f*f*900+(seed%11)))*MathF.Exp(-f*2));}).ToArray();
-        movie.CTFQuality=Enumerable.Range(0,128).Select(i=>{float f=i/256f;float cutoff=sampling/(float)movie.CTFResolutionEstimate;return new float2(f,Math.Clamp(.98f-.9f/(1+MathF.Exp(-(f-cutoff)*22)),0,1));}).ToArray();
+        // Measured spectra come from the CTF this mock reports, so "Fitted" follows them as a real fit would;
+        // past the reported resolution the signal fades into noise, where real fits stop following the data.
+        float cutoff=sampling/(float)movie.CTFResolutionEstimate;
+        float Fade(float f)=>1/(1+MathF.Exp(-(f-cutoff)*22));
+        float[] ctf1D=movie.CTF.Get1D(128,true);
+        movie.PS1D=Enumerable.Range(0,128).Select(i=>{float f=i/256f;return new float2(f,ctf1D[i]*ctf1D[i]*movie.SimulatedScale.Interp(f)*(1-.7f*Fade(f))+.03f*(1+3*Fade(f))*MockNoise(seed,i,0,1));}).ToArray();
+        movie.CTFQuality=Enumerable.Range(0,128).Select(i=>{float f=i/256f;return new float2(f,Math.Clamp(.98f-.9f*Fade(f),0,1));}).ToArray();
         int window=options.Window>0?Math.Clamp(options.Window,64,512):256;
+        // Warp's layout: a window x window/2 half-plane with zero frequency at (window/2, window/2 - 1).
+        var polar=new float2[window*window/2];
+        for(int y=0;y<window/2;y++)for(int x=0;x<window;x++)
+        {double xx=(x-window/2.0)/window,yy=(window/2-1-y)/(double)window;polar[y*window+x]=new float2((float)Math.Sqrt(xx*xx+yy*yy),(float)Math.Atan2(yy,xx));}
+        float[] ctf2D=movie.CTF.Get2D(polar,true);
         MockWriteMrc(movie.PowerSpectrumPath,new(window,window/2,1),sampling,(x,y,_)=>
-        {double xx=(x-window/2.0)/window,yy=(double)y/window,r2=xx*xx+yy*yy;return (float)(.15+(.6+.4*Math.Cos(r2*900+seed%11))*Math.Exp(-r2*3))+.035f*MockNoise(seed,x,y,0);});
+        {int i=y*window+x;float r=polar[i].X;return movie.SimulatedBackground.Interp(r)+ctf2D[i]*ctf2D[i]*movie.SimulatedScale.Interp(r)*(1-.7f*Fade(r))+.08f*MockNoise(seed,x,y,0);});
         MockPause(3000+(int)(seed%1000));movie.SaveMeta();
         Console.WriteLine($"[MOCK] Synthetic CTF, power spectrum and fit metadata for {path}");
     }

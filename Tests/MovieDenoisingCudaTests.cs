@@ -15,7 +15,7 @@ public class MovieDenoisingCudaTests
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            string root = Path.Combine(Path.GetTempPath(), "warp-live-denoise-" + Guid.NewGuid());
+            string root = Path.Combine(Path.GetTempPath(), "warp-denoise-" + Guid.NewGuid());
             Directory.CreateDirectory(root);
             try
             {

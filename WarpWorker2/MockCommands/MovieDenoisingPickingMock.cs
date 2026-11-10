@@ -73,18 +73,21 @@ static partial class WorkerProcess
         var header=MapHeader.ReadFromFile(path);var movie=new Movie(path);uint seed=MockSeed(path);
         float margin=MathF.Ceiling(2*radius);
         if(margin*2>=Math.Min(header.Dimensions.X,header.Dimensions.Y))throw new ArgumentException("Mock micrograph is too small for the full blob support.");
-        int count=MockVariant(path,"fewparticles")?3:20;var picks=new float4[count];
+        int count=MockVariant(path,"fewparticles")?3:20;var picks=new System.Collections.Generic.List<float4>(count);
+        // Picks sit on the synthetic particles. Like the real picker, which scores positions without the
+        // full blob support as invalid, particles within the margin of an edge are not picked.
         for(int i=0;i<count;i++)
         {
             int gx=i%5,gy=i/5;
             float xx=.1f+gx*.2f+MockNoise(seed,gx,gy,1)*.025f,yy=.12f+gy*.25f+MockNoise(seed,gx,gy,2)*.025f;
-            picks[i]=new float4(Math.Clamp(xx*header.Dimensions.X,margin,header.Dimensions.X-1-margin),Math.Clamp(yy*header.Dimensions.Y,margin,header.Dimensions.Y-1-margin),.2f+.75f*((i*7+seed%19)%19)/18f,
-                MathF.Exp(.2f+4.8f*((i*11+seed%23)%23)/22f));
+            float x=xx*header.Dimensions.X,y=yy*header.Dimensions.Y;
+            if(x<margin||y<margin||x>=header.Dimensions.X-margin||y>=header.Dimensions.Y-margin)continue;
+            picks.Add(new float4(x,y,.2f+.75f*((i*7+seed%19)%19)/18f,MathF.Exp(.2f+4.8f*((i*11+seed%23)%23)/22f)));
         }
         Directory.CreateDirectory(movie.MatchingDir);string output=Path.Combine(movie.MatchingDir,movie.RootName+"_blob.star");
-        BlobPicker.WriteStar(output,movie.Name,picks);
+        BlobPicker.WriteStar(output,movie.Name,picks.ToArray());
         File.WriteAllText(output,"# "+MockProvenance+Environment.NewLine+File.ReadAllText(output));
-        MockPause();Console.WriteLine($"[MOCK] Wrote {count} synthetic blob scores to {output}");
+        MockPause();Console.WriteLine($"[MOCK] Wrote {picks.Count} synthetic blob scores to {output}");
     }
 
     [MockCommand(WorkerCommandNames.MovieExportParticlesFromStar)]

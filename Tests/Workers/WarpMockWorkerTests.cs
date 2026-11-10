@@ -15,9 +15,9 @@ using Xunit;
 
 namespace Tests.Workers;
 
-public sealed class WarpLiveMockWorkerTests : IDisposable
+public sealed class WarpMockWorkerTests : IDisposable
 {
-    private readonly string root=Path.Combine(Path.GetTempPath(),"warp live worker mock "+Guid.NewGuid().ToString("N"));
+    private readonly string root=Path.Combine(Path.GetTempPath(),"warp session worker mock "+Guid.NewGuid().ToString("N"));
     public void Dispose(){if(Directory.Exists(root))Directory.Delete(root,true);}
 
     [Fact]
@@ -38,7 +38,7 @@ public sealed class WarpLiveMockWorkerTests : IDisposable
             WorkerCommands.TrainMovieDenoiser([path],model,"",2),
             WorkerCommands.MovieDenoise(path,model),
             WorkerCommands.MicrographPickBlobs(movie.AverageDenoisedPath,1),
-            WorkerCommands.MovieExportParticlesFromStar(path,new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_live"},picks,5),
+            WorkerCommands.MovieExportParticlesFromStar(path,new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_warp"},picks,5),
             WorkerCommands.WaitAsyncTasks()
         };
         RunTask("first",commands);
@@ -51,11 +51,12 @@ public sealed class WarpLiveMockWorkerTests : IDisposable
         var enhanced=MapHeader.ReadFromFile(movie.AverageDenoisedPath);Assert.Equal(new int3(20,12,1),enhanced.Dimensions);Assert.Equal(5,enhanced.PixelSize.X);
         Assert.Equal(enhanced.Dimensions,MapHeader.ReadFromFile(movie.DenoiseTrainingOddPath).Dimensions);
         Assert.Equal(new int3(128,64,1),MapHeader.ReadFromFile(movie.PowerSpectrumPath).Dimensions);
-        var table=new Star(picks);Assert.Equal(20,table.RowCount);Assert.True(table.HasColumn("wrpAutopickPower"));
-        Assert.All(table.GetFloat("rlnCoordinateX"),x=>Assert.InRange(x,2,17));
-        Assert.All(table.GetFloat("rlnCoordinateY"),y=>Assert.InRange(y,2,9));
-        string stack=Path.Combine(movie.ParticlesDir,movie.RootName+"_live.mrcs");
-        Assert.Equal(new int3(16,16,20),MapHeader.ReadFromFile(stack).Dimensions);
+        // Radius 1 needs a 2-pixel margin on the 20x12 enhanced image; particles closer to an edge are not picked.
+        var table=new Star(picks);Assert.InRange(table.RowCount,1,19);Assert.True(table.HasColumn("wrpAutopickPower"));
+        Assert.All(table.GetFloat("rlnCoordinateX"),x=>Assert.True(x>=2&&x<18,$"x={x}"));
+        Assert.All(table.GetFloat("rlnCoordinateY"),y=>Assert.True(y>=2&&y<10,$"y={y}"));
+        string stack=Path.Combine(movie.ParticlesDir,movie.RootName+"_warp.mrcs");
+        Assert.Equal(new int3(16,16,table.RowCount),MapHeader.ReadFromFile(stack).Dimensions);
         using(var marker=JsonDocument.Parse(File.ReadAllText(model))){Assert.Equal("warpworker2-mock-denoiser",marker.RootElement.GetProperty("format").GetString());Assert.True(marker.RootElement.GetProperty("synthetic").GetBoolean());}
         ValidatePng(movie.ThumbnailsPath,64,64);
         string[] files=[movie.AveragePath,movie.PowerSpectrumPath,movie.ThumbnailsPath,movie.AverageDenoisedPath,picks,stack];
