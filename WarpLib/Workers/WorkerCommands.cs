@@ -53,9 +53,32 @@ namespace Warp.Workers
             string path, ProcessingOptionsBoxNet options) =>
             new(WorkerCommandNames.MoviePickBoxNet, path, options);
 
+        /// <summary>Pick dark disk/ring blobs. All distances are in micrograph pixels.</summary>
+        public static NamedSerializableObject MicrographPickBlobs(
+            string path, float radius, float innerRadius = 0, float? minimumSeparation = null)
+        {
+            float separation = BlobPicker.Validate(radius, innerRadius, minimumSeparation);
+            return new(WorkerCommandNames.MicrographPickBlobs, path, radius, innerRadius, separation);
+        }
+
         public static NamedSerializableObject MovieExportParticles(
             string path, ProcessingOptionsParticleExport options, float2[] coordinates) =>
             new(WorkerCommandNames.MovieExportParticles, path, options, coordinates);
+
+        /// <summary>Prepare deconvolved averages and independent training halves at >=5 Å/pixel.</summary>
+        public static NamedSerializableObject MoviePrepareDenoising(string moviePath, float pixelSize, float strength, float falloff) =>
+            new(WorkerCommandNames.MoviePrepareDenoising, moviePath, pixelSize, strength, falloff);
+
+        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int iterations) =>
+            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", iterations);
+
+        public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath) =>
+            new(WorkerCommandNames.MovieDenoise, moviePath, modelPath);
+
+        /// <summary>Coordinates in the picker image are converted to physical Å before extraction.</summary>
+        public static NamedSerializableObject MovieExportParticlesFromStar(string moviePath, ProcessingOptionsParticleExport options,
+            string coordinateStarPath, float coordinatePixelSize) =>
+            new(WorkerCommandNames.MovieExportParticlesFromStar, moviePath, options, coordinateStarPath, coordinatePixelSize);
 
         // --- Tilt series ---
 
@@ -175,9 +198,9 @@ namespace Warp.Workers
     /// Wire identifiers for every worker command — the single source of truth for the
     /// filesystem work-distribution path. Referenced by the <see cref="WorkerCommands"/>
     /// factories (senders) and the WarpWorker2 [Command]/[MockCommand] handlers
-    /// (receivers). Values must stay byte-identical to the matching WorkerWrapper method
-    /// names, since the legacy RPC transport (Warp/M GUIs → WarpWorker) still emits those
-    /// strings for the same commands.
+    /// (receivers). For commands also supported by the legacy RPC transport
+    /// (Warp/M GUIs → WarpWorker), values must stay byte-identical to the matching
+    /// WorkerWrapper method names. Worker2-only commands need no legacy RPC handler.
     /// </summary>
     public static class WorkerCommandNames
     {
@@ -191,6 +214,11 @@ namespace Warp.Workers
         public const string LoadBoxNet = "LoadBoxNet";
         public const string DropBoxNet = "DropBoxNet";
         public const string MoviePickBoxNet = "MoviePickBoxNet";
+        public const string MicrographPickBlobs = "MicrographPickBlobs";
+        public const string MoviePrepareDenoising = "MoviePrepareDenoising";
+        public const string TrainMovieDenoiser = "TrainMovieDenoiser";
+        public const string MovieDenoise = "MovieDenoise";
+        public const string MovieExportParticlesFromStar = "MovieExportParticlesFromStar";
         public const string MovieExportParticles = "MovieExportParticles";
 
         // --- Tilt series ---

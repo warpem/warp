@@ -236,6 +236,7 @@ namespace Warp
                         TensorSource[i].Dispose();
                         TensorTarget[i].Dispose();
                         TensorCTF[i].Dispose();
+                        TensorMask[i].Dispose();
 
                         UNetModel[i].Dispose();
                     }

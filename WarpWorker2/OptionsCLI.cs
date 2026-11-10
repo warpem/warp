@@ -26,6 +26,15 @@ namespace WarpWorker2
         [Option("mock", HelpText = "Mock mode: run MockCommand handlers instead of real GPU work")]
         public bool Mock { get; set; }
 
+        [Option("mock-delay-ms", Default = -1, HelpText = "Mock-only delay per processing command in milliseconds; 0 is fast, -1 preserves legacy CTF/motion delays")]
+        public int MockDelayMs { get; set; } = -1;
+
+        [Option("mock-fail-command", HelpText = "Mock-only deterministic failure injection: exact command name")]
+        public string MockFailCommand { get; set; }
+
+        [Option("mock-fail-path", HelpText = "Mock-only failure injection: path substring; can be combined with --mock-fail-command")]
+        public string MockFailPath { get; set; }
+
         [Option("debug", HelpText = "Debug output; do not exit on heartbeat stall")]
         public bool Debug { get; set; }
 

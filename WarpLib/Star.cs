@@ -376,6 +376,34 @@ namespace Warp
             }
         }
 
+        /// <summary>Encode a single-line STAR value. Used by streaming exporters as well as Save.</summary>
+        public static string QuoteValue(string value)
+        {
+            value ??= "";
+            if (value.IndexOf('\r') >= 0 || value.IndexOf('\n') >= 0)
+                throw new ArgumentException("Multiline STAR values are not supported by the row writer.", nameof(value));
+            bool hasWhitespace = false;
+            foreach (char c in value) if (char.IsWhiteSpace(c)) { hasWhitespace = true; break; }
+            bool quote = value.Length == 0 || hasWhitespace ||
+                value[0] is '#' or ';' or '\'' or '"' or '_' ||
+                value.StartsWith("data_", StringComparison.OrdinalIgnoreCase) ||
+                value.StartsWith("save_", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("loop_", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("stop_", StringComparison.OrdinalIgnoreCase) ||
+                value.Equals("global_", StringComparison.OrdinalIgnoreCase);
+            if (!quote) return value;
+            // STAR quotes close only before whitespace or end-of-line; embedded apostrophes are valid.
+            bool CanUse(char delimiter)
+            {
+                for (int i = 0; i < value.Length - 1; i++)
+                    if (value[i] == delimiter && char.IsWhiteSpace(value[i + 1])) return false;
+                return true;
+            }
+            if (CanUse('\'')) return "'" + value + "'";
+            if (CanUse('"')) return "\"" + value + "\"";
+            throw new ArgumentException("This value requires a multiline STAR field, which the row writer does not support.", nameof(value));
+        }
+
         public virtual void Save(string path, string name = "", bool append = false)
         {
             using (TextWriter Writer = append ? File.AppendText(path) : File.CreateText(path))
@@ -397,7 +425,7 @@ namespace Warp
                 {
                     string[] row = Rows[r];
                     for (int i = 0; i < row.Length; i++)
-                        ColumnWidths[threadID][i] = Math.Max(ColumnWidths[threadID][i], row[i].Length);
+                        ColumnWidths[threadID][i] = Math.Max(ColumnWidths[threadID][i], QuoteValue(row[i]).Length);
                 }, null);
                 for (int c = 0; c < ColumnCount; c++)
                 for (int t = 1; t < NThreads; t++)
@@ -412,12 +440,13 @@ namespace Warp
                     int Cursor = 0;
                     for (int i = 0; i < row.Length; i++)
                     {
-                        int Whitespaces = 2 + ColumnWidths[0][i] - row[i].Length;
+                        string encoded = QuoteValue(row[i]);
+                        int Whitespaces = 2 + ColumnWidths[0][i] - encoded.Length;
                         for (int w = 0; w < Whitespaces; w++)
                             RowBuilder[Cursor++] = ' ';
 
-                        row[i].AsSpan().CopyTo(RowBuilder.Slice(Cursor));
-                        Cursor += row[i].Length;
+                        encoded.AsSpan().CopyTo(RowBuilder.Slice(Cursor));
+                        Cursor += encoded.Length;
                     }
 
                     RowBuilder[Cursor] = '\n';

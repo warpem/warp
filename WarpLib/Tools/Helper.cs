@@ -1060,55 +1060,37 @@ namespace Warp.Tools
             return Helper.ArrayOfFunction(i => values.Skip(i * PerPart).Take(PerPart).ToArray(), nParts);
         }
 
+        /// <summary>Tokenize a STAR table row, preserving single/double quoted paths and column masks.</summary>
         public static string[] StringSplitWhitespace(ReadOnlySpan<char> value, bool[] mask = null, string[] buffer = null)
         {
-            int Cursor = 0;
-            int Parts = 0;
-
-            while (Cursor < value.Length)
+            int cursor = 0, parts = 0;
+            while (cursor < value.Length)
             {
-                while (Cursor < value.Length && (value[Cursor] == ' ' || value[Cursor] == '\t'))
-                    Cursor++;
-
-                int Start = Cursor;
-
-                while (Cursor < value.Length && !(value[Cursor] == ' ' || value[Cursor] == '\t'))
-                    Cursor++;
-
-                int End = Cursor;
-
-                if (End == Start)
-                    continue;
-
-                Parts++;
-
-                if (buffer == null || buffer.Length < Parts)
+                while (cursor < value.Length && char.IsWhiteSpace(value[cursor])) cursor++;
+                if (cursor == value.Length || value[cursor] == '#') break;
+                int start, end;
+                if (value[cursor] == '\'' || value[cursor] == '"')
                 {
-                    if (buffer == null)
-                        buffer = new string[Parts];
-                    else
-                    {
-                        string[] NewBuffer = new string[Parts];
-                        for (int i = 0; i < Parts - 1; i++)
-                            NewBuffer[i] = buffer[i];
-                        buffer = NewBuffer;
-                    }
+                    char quote = value[cursor++];
+                    start = cursor;
+                    while (cursor < value.Length && !(value[cursor] == quote &&
+                        (cursor + 1 == value.Length || char.IsWhiteSpace(value[cursor + 1])))) cursor++;
+                    if (cursor == value.Length) throw new FormatException("Unterminated quoted STAR value.");
+                    end = cursor++;
                 }
-
-                if (mask != null && !mask[Parts - 1])
-                    continue;
-
-                buffer[Parts - 1] = new string(value.Slice(Start, End - Start));
+                else
+                {
+                    start = cursor;
+                    while (cursor < value.Length && !char.IsWhiteSpace(value[cursor])) cursor++;
+                    end = cursor;
+                }
+                parts++;
+                if (buffer == null || buffer.Length < parts) Array.Resize(ref buffer, parts);
+                if (mask == null || parts > mask.Length || mask[parts - 1])
+                    buffer[parts - 1] = new string(value.Slice(start, end - start));
             }
-
-            if (buffer != null & Parts < buffer.Length)
-            {
-                string[] NewBuffer = new string[Parts];
-                for (int i = 0; i < Parts; i++)
-                    NewBuffer[i] = buffer[i];
-                buffer = NewBuffer;
-            }
-
+            if (buffer == null) return Array.Empty<string>();
+            if (parts < buffer.Length) Array.Resize(ref buffer, parts);
             return buffer;
         }
 

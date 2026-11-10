@@ -25,8 +25,9 @@ WarpWorker2/
     Service.cs             — LoadGainRef, SetHeaderlessParams, GcCollect,
                              WaitAsyncTasks (shared service commands)
   MockCommands/
-    MovieMock.cs           — MockLoadStack, MockMovieProcessCTF — CPU-only
-                             stubs used with --mock for GPU-free testing
+    MovieMock.cs           — deterministic motion, CTF, averages and thumbnails
+    MovieLiveMock.cs       — preparation, mock training, denoising, picking, extraction
+    MockImages.cs          — managed MRC/PNG writers and explicit service mocks
   DataLoading.cs           — shared data-loading helpers
 ```
 
@@ -81,13 +82,12 @@ Commands are registered at startup by scanning `WorkerProcess` methods for
 `[Command(name)]` / `[MockCommand(name)]` attributes, building two dictionaries.
 
 ```csharp
-// Registration (once, at startup):
-//   CommandMethods["LoadStack"]        → MethodInfo for LoadStack(NamedSerializableObject)
-//   MockCommandMethods["LoadStack"]    → MethodInfo for MockLoadStack(NamedSerializableObject)
-
-// Dispatch (per command in Init/Main):
-if (MockMode && MockCommandMethods.TryGetValue(cmd.Name, out var mock))
+if (MockMode)
+{
+    if (!MockCommandMethods.TryGetValue(cmd.Name, out var mock))
+        throw new NotSupportedException($"No CPU mock handler for {cmd.Name}");
     mock.Invoke(null, new object[] { cmd });
+}
 else
     CommandMethods[cmd.Name].Invoke(null, new object[] { cmd });
 ```
@@ -108,7 +108,7 @@ file built by `WorkerCommands.LoadStack(...)` is dispatched to the worker's
 | `GPU.GetDeviceCount()` | startup | **skipped** |
 | `GPU.SetDevice()` | startup + EvaluateCommand + ResetResourceState | **skipped** |
 | `GpuHealthProbe.Probe()` | startup + after exceptions | **skipped** |
-| Command handlers | real GPU work | `MockCommand` stubs (CPU-only allocations) |
+| Command handlers | real GPU work | explicitly registered CPU-only `MockCommand` handlers |
 
 This lets mock mode run on arm64 dev machines and CI runners without
 `NativeAcceleration.dll`. The `--device` argument is accepted but used only as an
@@ -140,3 +140,52 @@ manual setup.
 
 No other registration or wiring is needed — the reflection scan at startup picks
 up the new attribute automatically.
+
+
+### Complete Warp Live simulation
+
+The filesystem protocol, worker claiming, heartbeats, errors and result collection
+are unchanged in mock mode. Movie motion/CTF, averaging, thumbnails, enhancement,
+training, denoising, blob picking and extraction now produce CPU-generated files.
+They exercise Relay's actual readers, filters, exports and processing-state logic.
+They do **not** test numerical processing quality or CUDA kernels.
+
+```sh
+dotnet Warp/bin/WarpWorker2.dll --device 0 --queue-dir /shared/session/tasks \
+  --persistent --mock --mock-delay-ms 0
+```
+
+- `--mock-delay-ms N` sets the delay for each movie processing command. `0` runs
+  quickly. Omit it (or use `-1`) to retain the historical 3–4 second CTF and
+  100–150 millisecond motion delays used by heartbeat tests.
+- `--mock-fail-command MicrographPickBlobs` injects a failure for that command.
+  `--mock-fail-path failme` restricts failures to a path containing that exact
+  substring. Either selector can be used alone, or both must match when combined.
+  Restart without those options to test retry/recovery.
+- Readable MRC inputs supply XY/frame geometry; `LoadStack` applies its requested
+  scaling. Missing or non-MRC fake inputs use 512×512×16. Average/half images carry
+  the requested target sampling. Prepared/denoised images use `max(5 Å, target)`
+  with matching even XY dimensions. Extracted stacks have the requested box,
+  particle count and sampling, in source-STAR row order.
+- A stable hash of the movie basename controls synthetic variation. Names containing
+  `highmotion`, `badctf`, `thickice` or `fewparticles` introduce corresponding
+  deterministic anomalies. Thickness is reported only when its fitting option is
+  enabled. Defocus angles are in degrees; phase is stored in Warp's native units.
+- Each normal blob STAR has 20 deterministic positions and varied Pearson
+  correlation/local power; `fewparticles` produces three. Coordinates are in the
+  enhanced image's pixel units and remain inside the required support margin.
+  The mock rejects images too small for the specified blob radius.
+- MRC header labels, PNG metadata and STAR comments identify their synthetic
+  provenance. The model is JSON with `format: "warpworker2-mock-denoiser"`,
+  `synthetic: true`, `trainingMovies` and `iterations`. It is deliberately not a
+  Torch model; real processing cannot load it as trained weights.
+- Saved movie XML includes motion, CTF, 1D spectrum, background/scale and fit-quality
+  curves; the 2D spectrum and PNG thumbnail are real readable image files.
+- Missing mock handlers fail the task explicitly. They never fall through to GPU
+  processing. The explicitly registered legacy tomography/MPA log-only mocks remain
+  limited to their historical behavior. BoxNet initialization is a no-op;
+  BoxNet inference is unsupported and fails explicitly.
+
+Aligned movie-stack export (`DoStack`) is currently unsupported by the real movie
+exporter. The CPU mock fails that request explicitly rather than manufacturing a
+successful stack result. Extracted particle stacks remain fully supported.

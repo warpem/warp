@@ -36,9 +36,9 @@ public class EndToEndMockTests : IDisposable
                 Main = new[]
                 {
                     new NamedSerializableObject(nameof(WorkerWrapper.LoadStack),
-                        $"movie{i}.mrc", 1M, 1, true),
+                        Path.Combine(_root, $"movie{i}.mrc"), 1M, 1, true),
                     new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF),
-                        $"movie{i}.mrc", new ProcessingOptionsMovieCTF()),
+                        Path.Combine(_root, $"movie{i}.mrc"), new ProcessingOptionsMovieCTF()),
                 },
             };
             t.ComputeInitFingerprint();
@@ -93,10 +93,10 @@ public class EndToEndMockTests : IDisposable
             TaskId = "0000001-longmock",
             Main = new[]
             {
-                new NamedSerializableObject(nameof(WorkerWrapper.LoadStack), "movie.mrc", 1M, 1, true),
-                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), "movie.mrc", new ProcessingOptionsMovieCTF()),
-                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), "movie.mrc", new ProcessingOptionsMovieCTF()),
-                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), "movie.mrc", new ProcessingOptionsMovieCTF()),
+                new NamedSerializableObject(nameof(WorkerWrapper.LoadStack), Path.Combine(_root, "movie.mrc"), 1M, 1, true),
+                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), Path.Combine(_root, "movie.mrc"), new ProcessingOptionsMovieCTF()),
+                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), Path.Combine(_root, "movie.mrc"), new ProcessingOptionsMovieCTF()),
+                new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessCTF), Path.Combine(_root, "movie.mrc"), new ProcessingOptionsMovieCTF()),
             },
         };
         task.ComputeInitFingerprint();
@@ -167,8 +167,8 @@ public class EndToEndMockTests : IDisposable
                 TaskId = "0000001-latemock",
                 Main = new[]
                 {
-                    new NamedSerializableObject(nameof(WorkerWrapper.LoadStack), "m.mrc", 1M, 1, true),
-                    new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessMovement), "m.mrc", new ProcessingOptionsMovieMovement()),
+                    new NamedSerializableObject(nameof(WorkerWrapper.LoadStack), Path.Combine(_root, "m.mrc"), 1M, 1, true),
+                    new NamedSerializableObject(nameof(WorkerWrapper.MovieProcessMovement), Path.Combine(_root, "m.mrc"), new ProcessingOptionsMovieMovement()),
                 },
             };
             t.ComputeInitFingerprint();

@@ -20,6 +20,9 @@ namespace WarpWorker2
         // output (e.g. reconstruction partials). Set once in Main.
         static string WorkerId = "";
         static bool MockMode = false;
+        static int MockDelayMs = -1;
+        static string MockFailCommand = "";
+        static string MockFailPath = "";
         static bool DebugMode = false;
         static bool IsSilent = false;
 
@@ -80,11 +83,15 @@ namespace WarpWorker2
 
             if (MockMode)
             {
+                bool injectFailure = (!string.IsNullOrEmpty(MockFailCommand) || !string.IsNullOrEmpty(MockFailPath)) &&
+                    (string.IsNullOrEmpty(MockFailCommand) || command.Name == MockFailCommand) &&
+                    (string.IsNullOrEmpty(MockFailPath) || command.Content.OfType<string>().Any(path => path.Contains(MockFailPath, StringComparison.Ordinal)) ||
+                     command.Content.OfType<string[]>().SelectMany(paths => paths).Any(path => path.Contains(MockFailPath, StringComparison.Ordinal)));
+                if (injectFailure) throw new InvalidOperationException($"[MOCK] Injected failure for {command.Name}");
                 if (MockCommandMethods.TryGetValue(command.Name, out var mockMethod))
                     mockMethod.Invoke(null, new object[] { command });
-                // No mock handler => no-op in mock mode (e.g. init commands like
-                // LoadStack do no real GPU work). Intentionally does NOT fall through
-                // to the real command.
+                else
+                    throw new NotSupportedException($"No CPU mock handler for command '{command.Name}'.");
                 return;
             }
 
@@ -112,7 +119,16 @@ namespace WarpWorker2
             if (opts.DebugAttach && !System.Diagnostics.Debugger.IsAttached)
                 System.Diagnostics.Debugger.Launch();
 
+            if (opts.MockDelayMs < -1)
+            {
+                Console.Error.WriteLine("--mock-delay-ms must be -1 or nonnegative.");
+                Environment.ExitCode = 2;
+                return;
+            }
             MockMode = opts.Mock;
+            MockDelayMs = opts.MockDelayMs;
+            MockFailCommand = opts.MockFailCommand ?? "";
+            MockFailPath = opts.MockFailPath ?? "";
             DebugMode = opts.Debug;
             IsSilent = opts.Silent;
 
@@ -337,6 +353,7 @@ namespace WarpWorker2
         static void ResetResourceState()
         {
             GainRef?.Dispose(); GainRef = null;
+            MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
             OriginalStack?.Dispose(); OriginalStack = null;
             DefectMap?.Dispose(); DefectMap = null;
             if (Reconstructions != null)
@@ -349,7 +366,7 @@ namespace WarpWorker2
                 MPAPopulation.FreeRefinementResources();
                 MPAPopulation = null;
             }
-            GPU.SetDevice(DeviceID);
+            if (!MockMode) GPU.SetDevice(DeviceID);
         }
 
         static void MarkSick(Warp.Workers.Queue.QueueLayout layout, string wdir, string workerId, string reason)

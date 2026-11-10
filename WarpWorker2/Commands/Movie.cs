@@ -42,6 +42,16 @@ static partial class WorkerProcess
         ProcessingOptionsMovieExport Options = (ProcessingOptionsMovieExport)Command.Content[1];
 
         Movie M = new Movie(Path);
+        int first = Math.Max(0, Math.Min(OriginalStack.Dims.Z - 1, Options.SkipFirstN));
+        int last = Math.Min(OriginalStack.Dims.Z, OriginalStack.Dims.Z - Options.SkipLastN);
+        if (Options.DoDenoise && last - first < 2)
+        {
+            // A reprocessed one-frame input must not inherit old training halves.
+            System.IO.File.Delete(M.AverageOddPath);
+            System.IO.File.Delete(M.AverageEvenPath);
+            System.IO.File.Delete(M.DenoiseTrainingOddPath);
+            System.IO.File.Delete(M.DenoiseTrainingEvenPath);
+        }
         M.ExportMovie(OriginalStack, Options);
         M.SaveMeta();
 
@@ -98,6 +108,17 @@ static partial class WorkerProcess
         M.SaveMeta();
 
         Console.WriteLine($"Picked particles for {Path}");
+    }
+
+    [Command(WorkerCommandNames.MicrographPickBlobs)]
+    static void MicrographPickBlobs(NamedSerializableObject Command)
+    {
+        string Path = (string)Command.Content[0];
+        float Radius = (float)Command.Content[1];
+        float InnerRadius = Command.Content.Length > 2 ? (float)Command.Content[2] : 0;
+        float? Separation = Command.Content.Length > 3 ? (float)Command.Content[3] : null;
+        string Output = BlobPicker.Match(Path, Radius, InnerRadius, Separation);
+        Console.WriteLine($"Picked blobs for {Path}: {Output}");
     }
 
     [Command(WorkerCommandNames.MovieExportParticles)]

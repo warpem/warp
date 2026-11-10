@@ -70,6 +70,7 @@
     <ClInclude Include="liblion\tabfuncs.h" />
     <ClInclude Include="liblion\transformations.h" />
     <ClInclude Include="include/Functions.h" />
+    <ClInclude Include="include/BlobPicker.h" />
     <ClInclude Include="include/TemplateMatchRefineBatch.h" />
     <ClInclude Include="include/TemplateMatchBfgs.h" />
     <ClInclude Include="src/TemplateMatchBfgs.cuh" />
@@ -243,6 +244,7 @@
     <CudaCompile Include="src/CtfFit.cu" />
     <CudaCompile Include="src/CtfPowerSpectrum.cu" />
     <CudaCompile Include="src/TemplateMatchRefine.cu" />
+    <CudaCompile Include="src/BlobPicker.cu" />
     <CudaCompile Include="src/TemplateMatchRefineBatch.cu" />
     <CudaCompile Include="src/TemplateMatchPreparation.cu" />
     <CudaCompile Include="src/Raycast.cu" />
