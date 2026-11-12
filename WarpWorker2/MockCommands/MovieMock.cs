@@ -99,6 +99,16 @@ static partial class WorkerProcess
         MockWritePng(movie.ThumbnailsPath,size,size,(x,y)=>(byte)Math.Clamp(155+MockMicrograph(seed,x,y,size,size,.08f)*70,0,255));
         Console.WriteLine($"[MOCK] Synthetic thumbnail for {path}");
     }
+    // The preview math is real; only the PNG writer is the mock's, so the file carries its provenance.
+    [MockCommand(WorkerCommandNames.MicrographCreatePreview)]
+    static void MockMicrographCreatePreview(NamedSerializableObject command)
+    {
+        string source=(string)command.Content[0],destination=(string)command.Content[1];int maxSize=(int)command.Content[2];
+        using var micrograph=Image.FromFile(source);
+        var (gray,width,height)=MicrographPreview.Render(micrograph.GetHost(Intent.Read)[0],micrograph.Dims.X,micrograph.Dims.Y,maxSize);
+        MockWritePng(destination,width,height,(x,y)=>(byte)gray[(height-1-y)*width+x]);
+        Console.WriteLine($"[MOCK] Preview for {source}");
+    }
     [MockCommand(WorkerCommandNames.LoadBoxNet)] static void MockLoadBoxNet(NamedSerializableObject command)=>Console.WriteLine("[MOCK] BoxNet initialization ignored.");
     [MockCommand(WorkerCommandNames.DropBoxNet)] static void MockDropBoxNet(NamedSerializableObject command) { }
     [MockCommand(WorkerCommandNames.MoviePickBoxNet)] static void MockMoviePickBoxNet(NamedSerializableObject command)

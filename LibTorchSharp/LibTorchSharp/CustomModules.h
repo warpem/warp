@@ -15,6 +15,15 @@ EXPORT_API(Tensor)   THSNN_UNet3D_forward(const NNModule module, const Tensor in
 EXPORT_API(NNModule) THSNN_UNet2D_ctor(const int64_t depth_block, const int64_t width_block, const int64_t input_channels, const int64_t final_channels, const int64_t final_kernel, const bool dochannelattn, const bool dospatialattn, NNAnyModule* outAsAnyModule);
 EXPORT_API(Tensor)   THSNN_UNet2D_forward(const NNModule module, const Tensor input);
 
+EXPORT_API(NNModule) THSNN_R2UNet2D_ctor(const int64_t patch_size, const int64_t features_base, const int64_t blocks, const int64_t t, const int64_t min_feature_size, NNAnyModule* outAsAnyModule);
+EXPORT_API(Tensor)   THSNN_R2UNet2D_forward(const NNModule module, const Tensor input);
+EXPORT_API(Tensor)   THSNN_R2UNet2D_forward_autocast(const NNModule module, const Tensor input, const int64_t precision);
+EXPORT_API(int)      THSTorch_cuda_supports_bf16(const int64_t device);
+EXPORT_API(void)     THSTorch_cuda_peak_memory(const int64_t device, int64_t* allocated, int64_t* reserved, const bool reset);
+EXPORT_API(void)     THSNN_Module_load_state_dict(const NNModule module, const char* location);
+EXPORT_API(void)     THSNN_Module_save_state_dict(const NNModule module, const char* location, const int64_t patch_size, const int64_t features, const int64_t depth, const int64_t t,
+                                                  const double deconv_strength, const double deconv_falloff, const double deconv_highpass);
+
 EXPORT_API(NNModule) THSNN_ParticleWGANGenerator_ctor(int64_t boxsize, int64_t codelength, NNAnyModule* outAsAnyModule);
 EXPORT_API(Tensor)   THSNN_ParticleWGANGenerator_forward_particle(const NNModule module, const Tensor code, const bool transform, const double sigmashift);
 EXPORT_API(Tensor)   THSNN_ParticleWGANGenerator_forward_noise(const NNModule module, const Tensor crapcode, const Tensor fakeimages, const Tensor ctf);

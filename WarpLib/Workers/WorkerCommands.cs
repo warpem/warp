@@ -69,8 +69,13 @@ namespace Warp.Workers
         public static NamedSerializableObject MoviePrepareDenoising(string moviePath, float pixelSize, float strength, float falloff) =>
             new(WorkerCommandNames.MoviePrepareDenoising, moviePath, pixelSize, strength, falloff);
 
-        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int iterations) =>
-            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", iterations);
+        /// <summary>Noise2Mic training for epochs over the movies' prepared halves; the deconvolution settings are saved with the model.</summary>
+        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int epochs, float deconvStrength, float deconvFalloff) =>
+            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff);
+
+        /// <summary>A PNG of the micrograph that fits maxSize, in the browser viewer's contrast.</summary>
+        public static NamedSerializableObject MicrographCreatePreview(string micrographPath, string pngPath, int maxSize) =>
+            new(WorkerCommandNames.MicrographCreatePreview, micrographPath, pngPath, maxSize);
 
         public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath) =>
             new(WorkerCommandNames.MovieDenoise, moviePath, modelPath);
@@ -218,6 +223,7 @@ namespace Warp.Workers
         public const string MoviePrepareDenoising = "MoviePrepareDenoising";
         public const string TrainMovieDenoiser = "TrainMovieDenoiser";
         public const string MovieDenoise = "MovieDenoise";
+        public const string MicrographCreatePreview = "MicrographCreatePreview";
         public const string MovieExportParticlesFromStar = "MovieExportParticlesFromStar";
         public const string MovieExportParticles = "MovieExportParticles";
 

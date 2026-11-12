@@ -40,16 +40,17 @@ public class MovieDenoisingCudaTests
                 using (var image = new Image(a, dimensions)) image.WriteMRC(movie.AverageOddPath, 5);
                 using (var image = new Image(b, dimensions)) image.WriteMRC(movie.AverageEvenPath, 5);
                 using (var image = new Image(average, dimensions)) image.WriteMRC(movie.AveragePath, 5);
-                MovieDenoising.Prepare(movie.Path, 5, .85f, .25f);
+                MovieDenoising.Prepare(movie.Path, 5, .9f, .1f);
                 Assert.True(File.Exists(movie.DenoiseTrainingOddPath));
                 Assert.True(File.Exists(movie.DenoiseTrainingEvenPath));
                 string model = Path.Combine(root, "models", "first.pt");
-                MovieDenoising.Train([movie.Path], model, "", 2, 0);
+                MovieDenoising.Train([movie.Path], model, "", 2, 0, .9f, .1f);
                 Assert.True(File.Exists(model));
                 MovieDenoising.Apply(movie.Path, model, 0);
                 using var enhanced = Image.FromFile(movie.AverageDenoisedPath);
-                Assert.Equal(dimensions, enhanced.Dims);
-                Assert.Equal(5f, enhanced.PixelSize);
+                // Noise2Mic works at 6 Å/pixel: 320 pixels at 5 Å become 266 (rounded to even).
+                Assert.Equal(new int3(266, 266, 1), enhanced.Dims);
+                Assert.Equal(6f, enhanced.PixelSize);
                 Assert.All(enhanced.GetHost(Intent.Read)[0], value => Assert.True(float.IsFinite(value)));
             }
             finally { Directory.Delete(root, true); }

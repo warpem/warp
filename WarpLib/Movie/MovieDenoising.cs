@@ -1,26 +1,57 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using Warp.Headers;
 using Warp.Tools;
-using ZLinq;
 
 namespace Warp;
 
-/// <summary>Shared frame-series enhancement used by disk workers. No image or network lives in Relay.</summary>
+/// <summary>
+/// Frame-series enhancement for disk workers, following Noise2Mic (the denoiser behind the BoxNet picking corpus):
+/// 6 Å/pixel, its Wiener deconvolution and robust normalization, its R2-U-Net and training recipe, and paired
+/// inference on the mean of the normalized halves. No image or network lives in Relay.
+/// </summary>
 public static class MovieDenoising
 {
+    const int TileOverlap = 64, InferenceBatch = 16;
+    const int TrainingBatch = 12, PatchesPerImage = 4, WarmupSteps = 50;
+    const double LearningRateStart = 1e-4, LearningRateFinish = 1e-6;
+    /// <summary>
+    /// Fine-tuning an existing model takes one 512-pixel patch per step: GroupNorm needs no batch statistics, and a
+    /// patch carries plenty of gradient at this rate. With bfloat16 it peaks at 9.5 GB (batch 2 needs 18.3 GB).
+    /// Chosen on corpus data (100 pairs, 8 epochs, 9 held-out pairs): Noise2Noise loss fell steadily from 3e-6 to 1e-4,
+    /// while outputs still matched the corpus model's at r ≥ 0.996, so they stay what BoxNet was trained on.
+    /// </summary>
+    public const double FineTuneLearningRate = 1e-4;
+    public const int FineTuneBatch = 1;
+    const float BlankThreshold = 1e-4f;
+
+    public static float Sampling(float pixelSize) => Math.Max(Noise2MicTorch.PixelSize, pixelSize);
+
+    /// <summary>A normalized, deconvolved image on the canvas Noise2Mic crops to (at least one patch per side).</summary>
+    public readonly record struct Prepared(float[] Data, int Width, int Height, int OriginalWidth, int OriginalHeight);
+
+    /// <summary>
+    /// The deconvolved average (shown, and picked when denoising is off) at the micrograph's own size, and the
+    /// deconvolved halves Noise2Mic trains on and denoises from, when the export wrote halves.
+    /// </summary>
     public static void Prepare(string moviePath, float pixelSize, float strength, float falloff)
     {
         if (!float.IsFinite(pixelSize) || pixelSize <= 0 || !float.IsFinite(strength) || !float.IsFinite(falloff))
             throw new ArgumentOutOfRangeException(nameof(pixelSize));
         var movie = new Movie(moviePath);
         if (movie.OptionsCTF == null) throw new InvalidOperationException("CTF must be processed before enhancement.");
-        float sampling = Math.Max(NoiseNet2DTorch.PixelSize, pixelSize);
-        PrepareImage(movie.AveragePath, movie.DeconvolvedPath, movie.CTF, pixelSize, sampling, strength, falloff);
+        float sampling = Sampling(pixelSize);
+
+        var average = Preprocess(movie.AveragePath, movie.CTF, pixelSize, sampling, strength, falloff);
+        Write(movie.DeconvolvedPath, Noise2MicPreprocessing.Crop(average.Data, average.Width, average.Height, average.OriginalWidth, average.OriginalHeight),
+              average.OriginalWidth, average.OriginalHeight, sampling);
         if (File.Exists(movie.AverageOddPath) && File.Exists(movie.AverageEvenPath))
         {
-            PrepareImage(movie.AverageOddPath, movie.DenoiseTrainingOddPath, movie.CTF, pixelSize, sampling, strength, falloff);
-            PrepareImage(movie.AverageEvenPath, movie.DenoiseTrainingEvenPath, movie.CTF, pixelSize, sampling, strength, falloff);
+            var odd = Preprocess(movie.AverageOddPath, movie.CTF, pixelSize, sampling, strength, falloff);
+            var even = Preprocess(movie.AverageEvenPath, movie.CTF, pixelSize, sampling, strength, falloff);
+            Write(movie.DenoiseTrainingOddPath, odd.Data, odd.Width, odd.Height, sampling);
+            Write(movie.DenoiseTrainingEvenPath, even.Data, even.Width, even.Height, sampling);
         }
         else
         {
@@ -29,135 +60,228 @@ public static class MovieDenoising
         }
     }
 
-    static void PrepareImage(string source, string destination, CTF ctf, float inputPixel, float sampling, float strength, float falloff)
+    /// <summary>MicrographPreprocessor for one image: resampled to <paramref name="sampling"/>, deconvolved, normalized.</summary>
+    public static Prepared Preprocess(string source, CTF ctf, float inputPixel, float sampling, float strength, float falloff)
     {
-        using var image = Image.FromFile(source);
-        if (image.Dims.Z != 1) throw new InvalidDataException("Expected one micrograph slice.");
-        var dims = new int2(Math.Max(4, (int)Math.Round(image.Dims.X * inputPixel / sampling / 2) * 2),
-                            Math.Max(4, (int)Math.Round(image.Dims.Y * inputPixel / sampling / 2) * 2));
-        using var fft = image.AsFFT();
-        using var scaledFft = fft.AsPadded(dims);
-        using var scaled = scaledFft.AsIFFT(false, 0, true);
-        // Keep amplitudes independent of the Fourier crop size, including power scores from the picker.
-        scaled.Multiply((float)dims.Elements() / (image.Dims.X * image.Dims.Y));
-        using var padded = scaled.AsPaddedClamped(dims * 2);
-        using var paddedFft = padded.AsFFT();
-        var localCtf = ctf.GetCopy();
-        localCtf.PixelSize = (decimal)sampling;
-        GPU.DeconvolveCTF(paddedFft.GetDevice(Intent.Read), paddedFft.GetDevice(Intent.Write), paddedFft.Dims,
-            localCtf.ToStruct(), strength, falloff, sampling * 2 / 500f);
-        using var deconvolved = paddedFft.AsIFFT(false, 0, true);
-        using var cropped = deconvolved.AsPadded(dims);
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        cropped.WriteMRC16b(destination, sampling, true);
+        float[] data; int width, height;
+        using (var image = Image.FromFile(source))
+        {
+            if (image.Dims.Z != 1) throw new InvalidDataException("Expected one micrograph slice.");
+            var dims = new int2(Math.Max(4, (int)Math.Round(image.Dims.X * inputPixel / sampling / 2) * 2),
+                                Math.Max(4, (int)Math.Round(image.Dims.Y * inputPixel / sampling / 2) * 2));
+            // Fourier cropping, as Warp's export bins halves; normalization below makes the scale irrelevant.
+            using var fft = image.AsFFT();
+            using var scaledFft = fft.AsPadded(dims);
+            using var scaled = scaledFft.AsIFFT(false, 0, true);
+            data = (float[])scaled.GetHost(Intent.Read)[0].Clone();
+            width = dims.X; height = dims.Y;
+        }
+        foreach (float v in data) if (!float.IsFinite(v)) throw new InvalidDataException("Non-finite values in denoising input.");
+
+        var canvas = Noise2MicPreprocessing.DeconvolutionCanvas(width, height, Noise2MicTorch.PatchSize);
+        float[] padded = Noise2MicPreprocessing.ReflectPad(data, width, height, canvas.Left, canvas.Right, canvas.Top, canvas.Bottom);
+        float[] filter = Noise2MicPreprocessing.WienerFilter(canvas.Width, canvas.Height, ctf, sampling, strength, falloff, Noise2MicTorch.DeconvolutionHighpass);
+        float[] deconvolved;
+        using (var image = new Image(padded, new int3(canvas.Width, canvas.Height, 1)))
+        using (var fft = image.AsFFT())
+        {
+            float[] spectrum = fft.GetHost(Intent.ReadWrite)[0];
+            for (int i = 0; i < filter.Length; i++) { spectrum[i * 2] *= filter[i]; spectrum[i * 2 + 1] *= filter[i]; }
+            using var result = fft.AsIFFT(false, 0, true);
+            deconvolved = (float[])result.GetHost(Intent.Read)[0].Clone();
+        }
+        float[] cropped = Noise2MicPreprocessing.Crop(deconvolved, canvas.Width, canvas.Height, canvas.CropWidth, canvas.CropHeight);
+        return new Prepared(Noise2MicPreprocessing.NormalizeRobustly(cropped, canvas.CropWidth, canvas.CropHeight),
+                            canvas.CropWidth, canvas.CropHeight, width, height);
     }
 
-    /// <summary>Noise2Noise training with reusable crop buffers and at most one image pair resident.</summary>
-    public static void Train(string[] moviePaths, string outputModel, string previousModel, int iterations, int device)
+    static void Write(string path, float[] data, int width, int height, float sampling)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var image = new Image(data, new int3(width, height, 1));
+        image.WriteMRC16b(path, sampling, true);
+    }
+
+    static (float[] Data, int Width, int Height) Read(string path)
+    {
+        using var image = Image.FromFile(path);
+        return ((float[])image.GetHost(Intent.Read)[0].Clone(), image.Dims.X, image.Dims.Y);
+    }
+
+    /// <summary>
+    /// Noise2Mic training: random 512-pixel patches of the prepared halves (4 per image per epoch), quarter-turn
+    /// and mirror augmentation, either half as input, batches of 12, MSE, Adam from 1e-4 with 50 warm-up steps,
+    /// then exponential decay to 1e-6 by the last epoch. A previous model (the corpus model, or the session's last
+    /// one) is fine-tuned instead: one patch per step from <see cref="FineTuneLearningRate"/>, same warm-up and decay.
+    /// </summary>
+    public static void Train(string[] moviePaths, string outputModel, string previousModel, int epochs, int device,
+                             float strength, float falloff, int microBatch = 4, int seed = 123, double? fineTuneLearningRate = null, int? fineTuneBatch = null)
     {
         if (moviePaths == null || moviePaths.Length == 0) throw new ArgumentException("No training micrographs.");
-        if (iterations < 1) throw new ArgumentOutOfRangeException(nameof(iterations));
-        const int box = 256, batch = 8, stepsPerPair = 8;
-        using var network = new NoiseNet2DTorch(new int2(box), new[] { device }, batch);
-        if (!string.IsNullOrWhiteSpace(previousModel)) network.Load(previousModel);
-        using var source = new Image(new int3(box, box, batch));
-        using var target = new Image(new int3(box, box, batch));
-        var random = new Random(123);
-        int[] order = Enumerable.Range(0, moviePaths.Length).OrderBy(_ => random.Next()).ToArray();
-        Image odd = null, even = null;
-        try
+        if (epochs < 1) throw new ArgumentOutOfRangeException(nameof(epochs));
+        using var network = new Noise2MicTorch(device);
+        bool fineTune = !string.IsNullOrWhiteSpace(previousModel);
+        if (fineTune) network.Load(previousModel);
+        var random = new Random(seed);
+        int patch = Noise2MicTorch.PatchSize, size = patch * patch, batch = fineTune ? fineTuneBatch ?? FineTuneBatch : TrainingBatch;
+        double start = fineTune ? fineTuneLearningRate ?? FineTuneLearningRate : LearningRateStart;
+        int samples = moviePaths.Length * PatchesPerImage, steps = (samples + batch - 1) / batch;
+        double gamma = epochs > 1 ? Math.Pow(Math.Min(1, LearningRateFinish / start), 1.0 / (epochs - 1)) : 1;
+        var source = new float[batch * size];
+        var target = new float[batch * size];
+        double learningRate = start;
+        for (int epoch = 0, step = 0; epoch < epochs; epoch++)
         {
-            for (int step = 0; step < iterations; step++)
+            int[] order = new int[samples];
+            for (int i = 0; i < samples; i++) order[i] = i;
+            random.Shuffle(order);
+            for (int batchStart = 0; batchStart < samples; batchStart += batch, step++)
             {
-                if (step % stepsPerPair == 0)
+                int count = Math.Min(batch, samples - batchStart);
+                bool swap = random.Next(2) == 0;
+                for (int b = 0; b < count; b++)
                 {
-                    odd?.Dispose(); even?.Dispose(); odd = even = null;
-                    var movie = new Movie(moviePaths[order[(step / stepsPerPair) % order.Length]]);
-                    odd = Image.FromFile(movie.DenoiseTrainingOddPath);
-                    even = Image.FromFile(movie.DenoiseTrainingEvenPath);
-                    if (odd.Dims != even.Dims || odd.Dims.Z != 1 || Math.Min(odd.Dims.X, odd.Dims.Y) < box)
-                        throw new InvalidDataException($"Training pair has incompatible dimensions: {movie.RootName}");
-                    // The same scale on both halves avoids introducing a target-dependent intensity bias.
-                    var stats = Moments(odd.GetHost(Intent.Read)[0]);
-                    Normalize(odd.GetHost(Intent.ReadWrite)[0], stats.mean, stats.std);
-                    Normalize(even.GetHost(Intent.ReadWrite)[0], stats.mean, stats.std);
+                    var (odd, even) = SamplePatch(moviePaths, order[batchStart + b] / PatchesPerImage, random);
+                    Array.Copy(swap ? even : odd, 0, source, b * size, size);
+                    Array.Copy(swap ? odd : even, 0, target, b * size, size);
                 }
-                var oddData = odd.GetHost(Intent.Read)[0];
-                var evenData = even.GetHost(Intent.Read)[0];
-                var sources = source.GetHost(Intent.Write);
-                var targets = target.GetHost(Intent.Write);
-                for (int b = 0; b < batch; b++)
-                {
-                    int x0 = random.Next(odd.Dims.X - box + 1), y0 = random.Next(odd.Dims.Y - box + 1);
-                    int transform = random.Next(8);
-                    bool swap = random.Next(2) == 0;
-                    FillCrop(sources[b], swap ? evenData : oddData, odd.Dims.X, x0, y0, box, transform);
-                    FillCrop(targets[b], swap ? oddData : evenData, odd.Dims.X, x0, y0, box, transform);
-                }
-                float rate = 0.0001f * (1 - .9f * step / iterations);
-                network.Train(source, target, rate, out _, out var loss);
-                if (!float.IsFinite(loss[0])) throw new InvalidOperationException("Denoiser loss became non-finite.");
-                if (step % 25 == 0 || step == iterations - 1)
-                    Console.WriteLine($"Denoiser training {step + 1}/{iterations}, loss {loss[0]:G5}");
+                if (epoch == 0 && step < WarmupSteps) learningRate = start * (step + 1) / WarmupSteps;
+                float loss = network.Train(source, target, count, learningRate, Math.Max(1, microBatch));
+                if (!float.IsFinite(loss)) throw new InvalidOperationException("Denoiser loss became non-finite.");
+                if (step % 25 == 0 || step == epochs * steps - 1)
+                    Console.WriteLine($"Denoiser training step {step + 1}/{epochs * steps}, epoch {epoch + 1}/{epochs}, loss {loss:G5}, learning rate {learningRate:G3}");
             }
-            network.Save(outputModel);
+            // ExponentialLR scales whatever rate the epoch ended on, so a warm-up longer than the first epoch carries over.
+            learningRate *= gamma;
         }
-        finally { odd?.Dispose(); even?.Dispose(); }
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputModel))!);
+        network.Save(outputModel, strength, falloff);
     }
 
-    static void FillCrop(float[] output, float[] input, int width, int x0, int y0, int box, int transform)
+    /// <summary>A random patch of one movie's prepared halves; blank patches are redrawn as Noise2Mic does.</summary>
+    static (float[] Odd, float[] Even) SamplePatch(string[] moviePaths, int index, Random random)
     {
-        for (int y = 0; y < box; y++)
-            for (int x = 0; x < box; x++)
+        int patch = Noise2MicTorch.PatchSize;
+        for (int attempt = 0; ; attempt++)
+        {
+            var movie = new Movie(moviePaths[index]);
+            var (oddData, width, height) = Read(movie.DenoiseTrainingOddPath);
+            var (evenData, evenWidth, evenHeight) = Read(movie.DenoiseTrainingEvenPath);
+            if (width != evenWidth || height != evenHeight || width < patch || height < patch)
+                throw new InvalidDataException($"Training pair has incompatible dimensions: {movie.RootName}");
+            int x0 = random.Next(width - patch + 1), y0 = random.Next(height - patch + 1);
+            int turns = random.Next(4);
+            bool flipX = random.Next(2) == 0, flipY = random.Next(2) == 0;
+            var odd = Augment(oddData, width, x0, y0, patch, turns, flipX, flipY);
+            var even = Augment(evenData, width, x0, y0, patch, turns, flipX, flipY);
+            if (StandardDeviation(odd) >= BlankThreshold && StandardDeviation(even) >= BlankThreshold || attempt >= 10)
+                return (odd, even);
+            index = random.Next(moviePaths.Length);
+        }
+    }
+
+    static float[] Augment(float[] data, int width, int x0, int y0, int patch, int turns, bool flipX, bool flipY)
+    {
+        var result = new float[patch * patch];
+        for (int y = 0; y < patch; y++)
+            for (int x = 0; x < patch; x++)
             {
-                int xx = (transform & 1) != 0 ? box - 1 - x : x;
-                int yy = (transform & 2) != 0 ? box - 1 - y : y;
-                if ((transform & 4) != 0) (xx, yy) = (yy, xx);
-                output[y * box + x] = input[(y0 + yy) * width + x0 + xx];
+                int sx = flipX ? patch - 1 - x : x, sy = flipY ? patch - 1 - y : y;
+                for (int t = 0; t < turns; t++) (sx, sy) = (sy, patch - 1 - sx);
+                result[y * patch + x] = data[(y0 + sy) * width + x0 + sx];
             }
+        return result;
+    }
+
+    static float StandardDeviation(float[] values)
+    {
+        double sum = 0, square = 0;
+        foreach (float v in values) { sum += v; square += (double)v * v; }
+        double mean = sum / values.Length;
+        return (float)Math.Sqrt(Math.Max(0, square / values.Length - mean * mean));
     }
 
     public static void Apply(string moviePath, string modelPath, int device)
     {
-        using var network = new NoiseNet2DTorch(new int2(256), new[] { device }, 4);
+        using var network = new Noise2MicTorch(device);
         network.Load(modelPath);
         Apply(moviePath, network);
     }
 
-    public static void Apply(string moviePath, NoiseNet2DTorch network)
+    /// <summary>
+    /// Paired inference on the mean of the normalized halves when the movie has them. Otherwise the deconvolved,
+    /// normalized average stands in as it is: on corpus data it matches Noise2Mic's paired output to a 3% relative
+    /// RMS (r = 0.9998), because the normalization scale comes from low-frequency signal, which halves and average
+    /// share. Scaling it as a mean of two unit-noise halves (1/√2) was tested and is 27% off.
+    /// </summary>
+    public static void Apply(string moviePath, Noise2MicTorch network)
     {
         var movie = new Movie(moviePath);
-        using var image = Image.FromFile(movie.DeconvolvedPath);
-        if (image.Dims.Z != 1 || Math.Min(image.Dims.X, image.Dims.Y) < 256)
-            throw new InvalidDataException("Denoising requires a micrograph at least 256 pixels across.");
-        var stats = Moments(image.GetHost(Intent.Read)[0]);
-        Normalize(image.GetHost(Intent.ReadWrite)[0], stats.mean, stats.std);
-        NoiseNet2DTorch.Denoise(image, new[] { network });
-        image.TransformValues(v => v * stats.std + stats.mean);
+        var header = MapHeader.ReadFromFile(movie.DeconvolvedPath);
+        int originalWidth = header.Dimensions.X, originalHeight = header.Dimensions.Y;
+        float sampling = header.PixelSize.X;
+        float[] input; int width, height;
+        if (File.Exists(movie.DenoiseTrainingOddPath) && File.Exists(movie.DenoiseTrainingEvenPath))
+        {
+            var (odd, oddWidth, oddHeight) = Read(movie.DenoiseTrainingOddPath);
+            var (even, evenWidth, evenHeight) = Read(movie.DenoiseTrainingEvenPath);
+            if (oddWidth != evenWidth || oddHeight != evenHeight) throw new InvalidDataException("Training halves differ in size.");
+            input = new float[odd.Length];
+            for (int i = 0; i < input.Length; i++) input[i] = (odd[i] + even[i]) / 2;
+            (width, height) = (oddWidth, oddHeight);
+        }
+        else
+        {
+            var (average, averageWidth, averageHeight) = Read(movie.DeconvolvedPath);
+            int patch = Noise2MicTorch.PatchSize;
+            int padWidth = Math.Max(0, patch - averageWidth), padHeight = Math.Max(0, patch - averageHeight);
+            input = Noise2MicPreprocessing.ReflectPad(average, averageWidth, averageHeight, padWidth / 2, padWidth - padWidth / 2, padHeight / 2, padHeight - padHeight / 2);
+            (width, height) = (averageWidth + padWidth, averageHeight + padHeight);
+        }
+        foreach (float v in input) if (!float.IsFinite(v)) throw new InvalidDataException("Non-finite values in denoising input.");
+
+        float[] denoised = Denoise(network, input, width, height);
+        float[] output = Noise2MicPreprocessing.Crop(denoised, width, height, Math.Min(width, originalWidth), Math.Min(height, originalHeight));
         Directory.CreateDirectory(movie.AverageDenoisedDir);
-        image.WriteMRC16b(movie.AverageDenoisedPath, image.PixelSize, true);
+        Write(movie.AverageDenoisedPath, output, Math.Min(width, originalWidth), Math.Min(height, originalHeight), sampling);
     }
 
-    static (float mean, float std) Moments(float[] values)
+    /// <summary>Tiled inference with Hann-weighted blending, as Noise2Mic's inference loop does it.</summary>
+    public static float[] Denoise(Noise2MicTorch network, float[] image, int width, int height)
     {
-        double sum = 0, square = 0;
-        foreach (float value in values)
+        int patch = Noise2MicTorch.PatchSize, size = patch * patch;
+        if (width < patch || height < patch) throw new ArgumentException("Denoising input must be at least one patch across.");
+        int[] ys = Noise2MicPreprocessing.TilePositions(height, patch, TileOverlap), xs = Noise2MicPreprocessing.TilePositions(width, patch, TileOverlap);
+        float[] window1D = Noise2MicPreprocessing.HannWindow(patch);
+        var tiles = new List<(int X, int Y)>();
+        foreach (int y in ys) foreach (int x in xs) tiles.Add((x, y));
+        var sum = new float[width * height];
+        var weight = new float[width * height];
+        var batch = new float[InferenceBatch * size];
+        for (int start = 0; start < tiles.Count; start += InferenceBatch)
         {
-            if (!float.IsFinite(value)) throw new InvalidDataException("Non-finite values in denoising input.");
-            sum += value; square += (double)value * value;
+            int count = Math.Min(InferenceBatch, tiles.Count - start);
+            for (int b = 0; b < count; b++)
+            {
+                var (x0, y0) = tiles[start + b];
+                for (int y = 0; y < patch; y++)
+                    Array.Copy(image, (y0 + y) * width + x0, batch, b * size + y * patch, patch);
+            }
+            float[] result = network.Predict(batch, count);
+            for (int b = 0; b < count; b++)
+            {
+                var (x0, y0) = tiles[start + b];
+                for (int y = 0; y < patch; y++)
+                    for (int x = 0; x < patch; x++)
+                    {
+                        float w = window1D[y] * window1D[x];
+                        int i = (y0 + y) * width + x0 + x;
+                        sum[i] += result[b * size + y * patch + x] * w;
+                        weight[i] += w;
+                    }
+            }
         }
-        double mean = sum / values.Length;
-        double std = Math.Sqrt(Math.Max(0, square / values.Length - mean * mean));
-        if (std <= 1e-20) throw new InvalidDataException("Denoising input has no intensity variance.");
-        return ((float)mean, (float)std);
-    }
-
-    static void Normalize(float[] values, float mean, float std)
-    {
-        for (int i = 0; i < values.Length; i++)
-        {
-            if (!float.IsFinite(values[i])) throw new InvalidDataException("Non-finite values in denoising input.");
-            values[i] = Math.Clamp((values[i] - mean) / std, -5, 5);
-        }
+        for (int i = 0; i < sum.Length; i++) sum[i] /= Math.Max(weight[i], 1e-6f);
+        return sum;
     }
 }

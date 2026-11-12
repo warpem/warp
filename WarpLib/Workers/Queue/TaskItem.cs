@@ -24,6 +24,14 @@ namespace Warp.Workers.Queue
         public int RetryCount { get; set; } = 0;
         public string CreatedAt { get; set; } = "";
 
+        /// <summary>Claimed before ordinary tasks. Enqueue marks the task id with <see cref="TaskQueue.PriorityPrefix"/>,
+        /// so workers can tell without reading every pending file.</summary>
+        public bool Priority { get; set; }
+
+        /// <summary>Main commands that finished in the latest attempt, so a caller can keep the results of a
+        /// partly completed task. Written by the worker when the task fails.</summary>
+        public int CompletedCommands { get; set; }
+
         // Result payload (set by the worker on completion); inline scalars only.
         public object Result { get; set; }
         public string Error { get; set; }

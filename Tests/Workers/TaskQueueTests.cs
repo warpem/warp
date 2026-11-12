@@ -213,4 +213,36 @@ public class TaskQueueTests : IDisposable
         Assert.Equal(TaskCount, claimed.Count);
         Assert.Equal(TaskCount, new HashSet<string>(claimed).Count); // no duplicates
     }
+
+    [Fact]
+    public void PriorityTaskIsClaimedBeforeEarlierOrdinaryTasks()
+    {
+        for (int i = 0; i < 50; i++) _queue.Enqueue(MakeTask($"{i:D3}-ordinary"));
+        var urgent = MakeTask("train");
+        urgent.Priority = true;
+        _queue.Enqueue(urgent);
+
+        Assert.StartsWith(TaskQueue.PriorityPrefix, urgent.TaskId);
+        Assert.Equal(urgent.TaskId, _queue.ClaimOne("worker-a").TaskId);
+    }
+
+    [Fact]
+    public void WithdrawLeavesClaimedTaskWithItsWorker()
+    {
+        _queue.Enqueue(MakeTask("claimed"));
+        Assert.Equal("claimed", _queue.ClaimOne("worker-a").TaskId);
+
+        Assert.False(_queue.TryWithdraw("claimed"));
+        Assert.True(File.Exists(Path.Combine(_layout.RunningFor("worker-a"), "claimed.json")));
+    }
+
+    [Fact]
+    public void WithdrawRemovesPendingTask()
+    {
+        _queue.Enqueue(MakeTask("waiting"));
+        Assert.True(_queue.TryWithdraw("waiting"));
+        Assert.Empty(Directory.GetFiles(_layout.Pending));
+        Assert.Null(_queue.ClaimOne("worker-a"));
+        Assert.False(_queue.TryWithdraw("waiting"));
+    }
 }

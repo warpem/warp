@@ -71,6 +71,19 @@ static partial class WorkerProcess
         Console.WriteLine($"Created thumbnail for {Path}");
     }
 
+    [Command(WorkerCommandNames.MicrographCreatePreview)]
+    static void MicrographCreatePreview(NamedSerializableObject Command)
+    {
+        string source = (string)Command.Content[0], destination = (string)Command.Content[1];
+        int maxSize = (int)Command.Content[2];
+        using Image micrograph = Image.FromFile(source);
+        var (gray, width, height) = MicrographPreview.Render(micrograph.GetHost(Intent.Read)[0], micrograph.Dims.X, micrograph.Dims.Y, maxSize);
+        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destination)!);
+        using Image preview = new Image(gray, new int3(width, height, 1));
+        preview.WritePNG(destination);
+        Console.WriteLine($"Created preview for {source}");
+    }
+
     [Command(WorkerCommandNames.LoadBoxNet)]
     static void LoadBoxNet(NamedSerializableObject Command)
     {

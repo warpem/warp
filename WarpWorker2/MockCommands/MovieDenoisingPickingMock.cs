@@ -21,7 +21,7 @@ static partial class WorkerProcess
         if(!float.IsFinite(inputSampling)||inputSampling<=0)throw new ArgumentOutOfRangeException(nameof(inputSampling));
         var movie=new Movie(path);
         if(movie.OptionsCTF==null)throw new InvalidOperationException("CTF metadata is required before mock enhancement.");
-        var source=MapHeader.ReadFromFile(movie.AveragePath);float sampling=Math.Max(5,inputSampling);uint seed=MockSeed(path);
+        var source=MapHeader.ReadFromFile(movie.AveragePath);float sampling=MovieDenoising.Sampling(inputSampling);uint seed=MockSeed(path);
         int3 dims=new(Math.Max(4,(int)Math.Round(source.Dimensions.X*inputSampling/sampling/2)*2),Math.Max(4,(int)Math.Round(source.Dimensions.Y*inputSampling/sampling/2)*2),1);
         MockWriteMrc(movie.DeconvolvedPath,dims,sampling,(x,y,z)=>MockMicrograph(seed,x,y,dims.X,dims.Y,.16f));
         if(File.Exists(movie.AverageOddPath)&&File.Exists(movie.AverageEvenPath))
@@ -36,8 +36,8 @@ static partial class WorkerProcess
     [MockCommand(WorkerCommandNames.TrainMovieDenoiser)]
     static void MockTrainMovieDenoiser(NamedSerializableObject command)
     {
-        string[] movies=(string[])command.Content[0];string output=(string)command.Content[1],previous=(string)command.Content[2];int iterations=(int)command.Content[3];
-        if(movies.Length==0||iterations<1)throw new ArgumentException("Mock training requires movies and positive iterations.");
+        string[] movies=(string[])command.Content[0];string output=(string)command.Content[1],previous=(string)command.Content[2];int epochs=(int)command.Content[3];
+        if(movies.Length==0||epochs<1)throw new ArgumentException("Mock training requires movies and positive epochs.");
         foreach(string path in movies)
         {
             var movie=new Movie(path);
@@ -46,7 +46,7 @@ static partial class WorkerProcess
         }
         if(!string.IsNullOrEmpty(previous))MockValidateModel(previous);
         MockDirectory(output);MockPause();
-        File.WriteAllText(output,JsonSerializer.Serialize(new{format=MockModelFormat,synthetic=true,provenance=MockProvenance,trainingMovies=movies,iterations}));
+        File.WriteAllText(output,JsonSerializer.Serialize(new{format=MockModelFormat,synthetic=true,provenance=MockProvenance,trainingMovies=movies,epochs}));
         Console.WriteLine($"[MOCK] Wrote synthetic denoiser marker for {movies.Length} movies (not a Torch model): {output}");
     }
     static void MockValidateModel(string path)

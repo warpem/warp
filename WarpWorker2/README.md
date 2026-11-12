@@ -177,8 +177,10 @@ dotnet Warp/bin/WarpWorker2.dll --device 0 --queue-dir /shared/session/tasks \
   The mock rejects images too small for the specified blob radius.
 - MRC header labels, PNG metadata and STAR comments identify their synthetic
   provenance. The model is JSON with `format: "warpworker2-mock-denoiser"`,
-  `synthetic: true`, `trainingMovies` and `iterations`. It is deliberately not a
+  `synthetic: true`, `trainingMovies` and `epochs`. It is deliberately not a
   Torch model; real processing cannot load it as trained weights.
+- Micrograph previews (`MicrographCreatePreview`) use the real preview math: box binning
+  to the requested size and the browser viewer's mean ± 2.5 SD contrast.
 - Saved movie XML includes motion, CTF, 1D spectrum, background/scale and fit-quality
   curves; the 2D spectrum and PNG thumbnail are real readable image files.
 - Missing mock handlers fail the task explicitly. They never fall through to GPU

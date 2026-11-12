@@ -9,7 +9,7 @@ namespace WarpWorker2;
 
 static partial class WorkerProcess
 {
-    static NoiseNet2DTorch MicrographDenoiserModel;
+    static Noise2MicTorch MicrographDenoiserModel;
     static string MicrographDenoiserPath = "";
 
     [Command(WorkerCommandNames.MoviePrepareDenoising)]
@@ -24,7 +24,7 @@ static partial class WorkerProcess
         OriginalStack?.Dispose(); OriginalStack = null; OriginalStackOwner = "";
         MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
         MovieDenoising.Train((string[])command.Content[0], (string)command.Content[1],
-            (string)command.Content[2], (int)command.Content[3], DeviceID);
+            (string)command.Content[2], (int)command.Content[3], DeviceID, (float)command.Content[4], (float)command.Content[5]);
     }
 
     [Command(WorkerCommandNames.MovieDenoise)]
@@ -34,7 +34,7 @@ static partial class WorkerProcess
         if (MicrographDenoiserModel == null || MicrographDenoiserPath != modelPath)
         {
             MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
-            var model = new NoiseNet2DTorch(new int2(256), new[] { DeviceID }, 4);
+            var model = new Noise2MicTorch(DeviceID);
             try { model.Load(modelPath); }
             catch { model.Dispose(); throw; }
             MicrographDenoiserModel = model; MicrographDenoiserPath = modelPath;

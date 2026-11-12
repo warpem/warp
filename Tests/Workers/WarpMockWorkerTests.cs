@@ -35,7 +35,7 @@ public sealed class WarpMockWorkerTests : IDisposable
             WorkerCommands.MovieExportMovie(path,new ProcessingOptionsMovieExport{PixelSize=1,DoAverage=true,DoDenoise=true}),
             WorkerCommands.MovieCreateThumbnail(path,64,2),
             WorkerCommands.MoviePrepareDenoising(path,1,1,1),
-            WorkerCommands.TrainMovieDenoiser([path],model,"",2),
+            WorkerCommands.TrainMovieDenoiser([path],model,"",2,.9f,.1f),
             WorkerCommands.MovieDenoise(path,model),
             WorkerCommands.MicrographPickBlobs(movie.AverageDenoisedPath,1),
             WorkerCommands.MovieExportParticlesFromStar(path,new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_warp"},picks,5),
@@ -48,13 +48,13 @@ public sealed class WarpMockWorkerTests : IDisposable
         Assert.InRange(movie.CTF.DefocusAngle,0,179);Assert.True(movie.MeanFrameMovement>0);Assert.True(movie.CTFSpecimenThicknessAngstrom>0);
         var average=MapHeader.ReadFromFile(movie.AveragePath);Assert.Equal(new int3(96,64,1),average.Dimensions);Assert.Equal(1,average.PixelSize.X);
         Assert.Contains("SYNTHETIC",new string(((HeaderMRC)average).Labels[0]));
-        var enhanced=MapHeader.ReadFromFile(movie.AverageDenoisedPath);Assert.Equal(new int3(20,12,1),enhanced.Dimensions);Assert.Equal(5,enhanced.PixelSize.X);
+        var enhanced=MapHeader.ReadFromFile(movie.AverageDenoisedPath);Assert.Equal(new int3(16,10,1),enhanced.Dimensions);Assert.Equal(6,enhanced.PixelSize.X);
         Assert.Equal(enhanced.Dimensions,MapHeader.ReadFromFile(movie.DenoiseTrainingOddPath).Dimensions);
         Assert.Equal(new int3(128,64,1),MapHeader.ReadFromFile(movie.PowerSpectrumPath).Dimensions);
-        // Radius 1 needs a 2-pixel margin on the 20x12 enhanced image; particles closer to an edge are not picked.
+        // Radius 1 needs a 2-pixel margin on the 16x10 enhanced image (6 Å/pixel); particles closer to an edge are not picked.
         var table=new Star(picks);Assert.InRange(table.RowCount,1,19);Assert.True(table.HasColumn("wrpAutopickPower"));
-        Assert.All(table.GetFloat("rlnCoordinateX"),x=>Assert.True(x>=2&&x<18,$"x={x}"));
-        Assert.All(table.GetFloat("rlnCoordinateY"),y=>Assert.True(y>=2&&y<10,$"y={y}"));
+        Assert.All(table.GetFloat("rlnCoordinateX"),x=>Assert.True(x>=2&&x<14,$"x={x}"));
+        Assert.All(table.GetFloat("rlnCoordinateY"),y=>Assert.True(y>=2&&y<8,$"y={y}"));
         string stack=Path.Combine(movie.ParticlesDir,movie.RootName+"_warp.mrcs");
         Assert.Equal(new int3(16,16,table.RowCount),MapHeader.ReadFromFile(stack).Dimensions);
         using(var marker=JsonDocument.Parse(File.ReadAllText(model))){Assert.Equal("warpworker2-mock-denoiser",marker.RootElement.GetProperty("format").GetString());Assert.True(marker.RootElement.GetProperty("synthetic").GetBoolean());}
@@ -91,6 +91,34 @@ public sealed class WarpMockWorkerTests : IDisposable
         Assert.True(File.Exists(Path.Combine(layout.Done,"service.json")));
     }
 
+    [Fact]
+    public void PreviewCommandWritesAFittedGrayPng()
+    {
+        Directory.CreateDirectory(root);
+        string path=Path.Combine(root,"synthetic.mrc"),preview=Path.Combine(root,"previews","synthetic.png");
+        IOHelper.WriteMapFloat(path,new HeaderMRC{Dimensions=new int3(2048,1024,1),PixelSize=new float3(1)},Enumerable.Range(0,2048*1024).Select(i=>(float)Math.Sin(i*.01)).ToArray());
+        RunTask("preview",[WorkerCommands.MicrographCreatePreview(path,preview,1024),WorkerCommands.WaitAsyncTasks()]);
+        ValidatePng(preview,1024,512);
+    }
+
+    [Fact]
+    public void FailedTaskRecordsHowManyCommandsCompleted()
+    {
+        Directory.CreateDirectory(root);
+        string path=Path.Combine(root,"synthetic.mrc");
+        IOHelper.WriteMapFloat(path,new HeaderMRC{Dimensions=new int3(96,64,4),PixelSize=new float3(1)},new float[96*64*4]);
+        var layout=new QueueLayout(Path.Combine(root,"tasks"));layout.EnsureDirectories();var queue=new TaskQueue(layout);
+        var task=new TaskItem{TaskId="partial",Main=[
+            WorkerCommands.LoadStack(path,1,1),
+            WorkerCommands.MovieProcessMovement(path,new ProcessingOptionsMovieMovement{PixelSize=1}),
+            WorkerCommands.MovieProcessCTF(path,new ProcessingOptionsMovieCTF{PixelSize=1,Window=128}),
+            WorkerCommands.WaitAsyncTasks()]};
+        task.ComputeInitFingerprint();queue.Enqueue(task);
+        RunWorker(layout.Root,"--mock-fail-command",WorkerCommandNames.MovieProcessCTF);
+        var failed=TaskItem.FromJson(File.ReadAllText(Path.Combine(layout.Failed,"partial.json")));
+        Assert.Equal(2,failed.CompletedCommands);
+    }
+
     private void RunTask(string id,NamedSerializableObject[] commands)
     {
         var layout=new QueueLayout(Path.Combine(root,"tasks"));layout.EnsureDirectories();var queue=new TaskQueue(layout);
@@ -99,10 +127,10 @@ public sealed class WarpMockWorkerTests : IDisposable
         string error=Path.Combine(layout.Failed,id+".json");
         Assert.True(File.Exists(Path.Combine(layout.Done,id+".json")),File.Exists(error)?File.ReadAllText(error):"Worker did not complete task");
     }
-    private void RunWorker(string queueDirectory=null)
+    private void RunWorker(string queueDirectory=null,params string[] extra)
     {
         var info=new ProcessStartInfo{FileName=Path.Combine(AppContext.BaseDirectory,"WarpWorker2"),UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
-        foreach(string arg in new[]{"--device","0","--queue-dir",queueDirectory??root,"--mock","--mock-delay-ms","0","--debug"})info.ArgumentList.Add(arg);
+        foreach(string arg in new[]{"--device","0","--queue-dir",queueDirectory??root,"--mock","--mock-delay-ms","0","--debug"}.Concat(extra))info.ArgumentList.Add(arg);
         using var process=Process.Start(info)!;
         try{Assert.True(process.WaitForExit(30000),"Mock worker timed out");Assert.Equal(0,process.ExitCode);}
         finally{if(!process.HasExited){process.Kill(true);process.WaitForExit();}}

@@ -25,8 +25,13 @@ namespace Warp.Workers.Queue
 
         public TaskQueue(QueueLayout layout) { _layout = layout; }
 
+        /// <summary>Task ids starting with this are claimed before all others.</summary>
+        public const string PriorityPrefix = "0priority-";
+
         public void Enqueue(TaskItem task)
         {
+            if (task.Priority && !task.TaskId.StartsWith(PriorityPrefix, StringComparison.Ordinal))
+                task.TaskId = PriorityPrefix + task.TaskId;
             if (string.IsNullOrEmpty(task.CreatedAt))
                 task.CreatedAt = DateTime.UtcNow.ToString("o");
             AtomicWrite(Path.Combine(_layout.Pending, task.TaskId + ".json"), task.ToJson());
@@ -62,6 +67,10 @@ namespace Warp.Workers.Queue
                 int j = System.Random.Shared.Next(i + 1);
                 (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
             }
+            // Priority tasks go first; the shuffle above still spreads workers within each group.
+            for (int i = 0, front = 0; i < candidates.Length; i++)
+                if (Path.GetFileName(candidates[i]).StartsWith(PriorityPrefix, StringComparison.Ordinal))
+                    (candidates[front], candidates[i]) = (candidates[i], candidates[front++]);
 
             foreach (string src in candidates)
             {
@@ -81,6 +90,21 @@ namespace Warp.Workers.Queue
                 return TaskItem.FromJson(File.ReadAllText(dst));
             }
             return null;
+        }
+
+        /// <summary>
+        /// Take back a task no worker has claimed. Claiming and withdrawing both rename the pending
+        /// file, so exactly one side wins; false means a worker already has the task (or it is unknown).
+        /// </summary>
+        public bool TryWithdraw(string taskId)
+        {
+            string src = Path.Combine(_layout.Pending, taskId + ".json");
+            string held = src + ".withdrawn";
+            try { File.Move(src, held); }
+            catch (FileNotFoundException) { return false; }
+            catch (DirectoryNotFoundException) { return false; }
+            File.Delete(held);
+            return true;
         }
 
         public void MarkDone(string workerId, TaskItem task, object result)

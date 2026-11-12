@@ -318,9 +318,10 @@ namespace WarpWorker2
                 }
 
                 // ---- main sequence ----
+                task.CompletedCommands = 0;
                 try
                 {
-                    foreach (var cmd in task.Main) EvaluateCommand(cmd);
+                    foreach (var cmd in task.Main) { EvaluateCommand(cmd); task.CompletedCommands++; }
                     _currentTask = null;
                     queue.MarkDone(workerId, task, null);
                 }
