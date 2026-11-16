@@ -79,6 +79,30 @@ public class TemplateMatchPipelineCudaTests
     }
 
     [TemplateMatchCudaFact]
+    public void StoredTiltWeightsAndDamageAreUsedWithoutCandidateCalibration()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            using var fixture = new PipelineFixture(addNoise: false, storedCalibration: true);
+            float[] weights = fixture.Series.GridDoseWeights.Values.ToArray();
+            float[] damage = fixture.Series.GridDoseBfacs.Values.ToArray();
+            Solution result = Assert.Single(Refine(fixture,
+                new[] { new Start(fixture.TruePosition, fixture.TrueRotation, 0) }, 0, out _));
+            Near(result.Amplitude, PipelineFixture.Amplitude, .003, "stored-calibration amplitude");
+            Near(result.Z, PipelineFixture.Amplitude * Math.Sqrt(fixture.OraclePower.Sum()), .003,
+                "stored-calibration projection score");
+            for (int t = 0; t < PipelineFixture.Views; t++)
+                Near(result.Statistics[t * 14 + 1], fixture.OraclePower[t], .003, "stored-calibration tilt power");
+            Assert.Equal(weights, fixture.Series.GridDoseWeights.Values);
+            Assert.Equal(damage, fixture.Series.GridDoseBfacs.Values);
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            Assert.Null(typeof(TiltSeries).GetField("matchDoseSlope", flags).GetValue(fixture.Series));
+            Assert.Null(typeof(TiltSeries).GetField("matchTiltScales", flags).GetValue(fixture.Series));
+        }
+    }
+
+    [TemplateMatchCudaFact]
     public void NearbyStartsRecoverKnownPoseIndependentlyWithFixedPatchNoise()
     {
         lock (GPU.Sync)
@@ -171,6 +195,50 @@ public class TemplateMatchPipelineCudaTests
         }
     }
 
+    [TemplateMatchCudaFact]
+    public void PairedIdentityControlUsesFrozenTiltCalibrationAndIndependentPoseSearches()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            using var fixture = new PipelineFixture(addNoise: true);
+            // Identical templates are a control, not useful decoys: their independently
+            // searched local maxima should cancel when the observation model is shared.
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var scaleField = typeof(TiltSeries).GetField("matchTiltScales", flags);
+            var doseField = typeof(TiltSeries).GetField("matchDoseSlope", flags);
+            var detectorField = typeof(TiltSeries).GetField("matchDetectorVariance", flags);
+            double[] scales = { .8, 1.1, 1, .9, .7 }, detector = { .2, .3, .25, .35, .4 };
+            scaleField.SetValue(fixture.Series, scales);
+            doseField.SetValue(fixture.Series, (double?)2.0);
+            detectorField.SetValue(fixture.Series, detector);
+            Start[] targetStarts =
+            {
+                new(fixture.TruePosition + new float3(.3f, -.2f, .1f), fixture.TrueRotation * Matrix3.RotateX(.02f), 0),
+                new(fixture.TruePosition + new float3(-.2f, .3f, -.1f), fixture.TrueRotation * Matrix3.RotateY(-.02f), 1)
+            };
+            Solution[] target = Refine(fixture, targetStarts, 90, out _);
+            Solution[] decoy = Refine(fixture, targetStarts.Reverse().ToArray(), 90, out _);
+            double Gain(Solution candidate)
+            {
+                double cross = 0, power = 0;
+                for (int t = 0; t < PipelineFixture.Views; t++)
+                {
+                    cross += candidate.Statistics[t * 14];
+                    power += candidate.Statistics[t * 14 + 1];
+                }
+                return TemplateMatchStatistics.BoundedGain(cross, power, 1, 2);
+            }
+            double targetMax = target.Max(Gain), decoyMax = decoy.Max(Gain);
+            Assert.True(double.IsFinite(targetMax) && targetMax > 0);
+            Assert.InRange(Math.Abs(TemplateMatchSpecificity.Score((float)targetMax, new[] { (float)decoyMax })),
+                0, 1e-4 * Math.Max(1, Math.Abs(targetMax)));
+            Assert.Same(scales, scaleField.GetValue(fixture.Series));
+            Assert.Equal(2.0, (double)doseField.GetValue(fixture.Series));
+            Assert.Same(detector, detectorField.GetValue(fixture.Series));
+        }
+    }
+
     private sealed record Start(float3 Position, Matrix3 Rotation, int Index);
     private sealed class Solution
     {
@@ -236,7 +304,7 @@ public class TemplateMatchPipelineCudaTests
         public float3 TruePosition => Anchor + new float3(2.7f, -2.1f, 1.8f);
         public Matrix3 TrueRotation { get; } = Matrix3.Euler(0.31f, 0.77f, -0.28f);
 
-        public PipelineFixture(bool addNoise)
+        public PipelineFixture(bool addNoise, bool storedCalibration = false)
         {
             Directory.CreateDirectory(directory);
             string path = Path.Combine(directory, "synthetic.tomostar");
@@ -257,6 +325,14 @@ public class TemplateMatchPipelineCudaTests
             Series.GridCTFDefocusDelta = Grid(new int3(1, 1, Views), 0.065f);
             Series.GridCTFDefocusAngle = Grid(new int3(1, 1, Views), 31f);
             Series.GridCTFPhase = Grid(new int3(1, 1, Views), 0.11f);
+            if (storedCalibration)
+            {
+                // Deliberately different from cos(tilt) and -4*dose defaults.
+                Series.GridDoseWeights = new CubicGrid(new int3(1, 1, Views), new[] { .3f, .9f, .55f, .8f, .2f });
+                Series.GridDoseBfacs = new CubicGrid(new int3(1, 1, Views), new[] { -80f, -100f, -140f, -210f, -290f });
+                grids.Add(Series.GridDoseWeights);
+                grids.Add(Series.GridDoseBfacs);
+            }
             using Image volume = CreateAsymmetricVolume();
             Projector = new Projector(volume, 2, true);
             CtfCoordinates = CTF.GetCTFCoords(Box, Box, Series.MagnificationCorrection);

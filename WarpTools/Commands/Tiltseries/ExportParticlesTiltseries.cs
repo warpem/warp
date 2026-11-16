@@ -247,6 +247,7 @@ namespace WarpTools.Commands
             var OutputStarTables = new Dictionary<string, Star>();
             string OutputStarPath = Path.GetFullPath(cli.OutputStarFile);
             int nextOpticsGroup = 0;
+            var ExtractionSnapshots = new List<string>();
 
             #endregion
 
@@ -369,6 +370,8 @@ namespace WarpTools.Commands
                         string TempTiltSeriesParticleStarPath = Path.Combine(tiltSeries.ParticleSeriesDir,
                                                                              tiltSeries.RootName + "_temp.star");
                         int opticsGroup = ++nextOpticsGroup;
+                        if (cli.DontPremultiply)
+                            ExtractionSnapshots.Add(ParticleSeriesExportManifest.SidecarPath(TempTiltSeriesParticleStarPath));
 
                         // generate necessary metadata for particles.star
                         Star ParticleTable = Construct2DParticleTable(tempParticleStarPath: TempTiltSeriesParticleStarPath,
@@ -418,6 +421,9 @@ namespace WarpTools.Commands
                                 pathsRelativeTo: cli.OutputPathsRelativeToStarFile ?
                                                      Path.GetFullPath(cli.OutputStarFile) :
                                                      Directory.GetCurrentDirectory());
+
+            if (OutputImageDimensionality == 2 && cli.DontPremultiply)
+                ParticleSeriesExportManifest.WriteCombined(cli.OutputStarFile, ExtractionSnapshots, ExportOptions);
 
             #endregion
         }

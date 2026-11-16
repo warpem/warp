@@ -23,10 +23,16 @@ The example describes a small target; choose diameter, symmetry, minimum separat
 6. Measure an anisotropic per-tilt patch PSD and use the hybrid metric
    `W = 1 / [N + c * max(P - N, 0)]`.
    `c` counts geometrically overlapping components among that candidate's usable tilts. The overlap length is `max(400 Å, 3 × target diameter)`. The quadratic metric receives this weight once; independent detector noise is not multiplied by multiplicity. The particle core and its allowed motion must remain in view. Padding outside image boundaries is filled with zero after subtracting the observed patch mean; patches touching contamination masks are excluded. At least three usable tilts are required.
-7. Before the final band, use up to 300 spatially distinct strong candidates to fit one shared dose-damage slope and pooled relative tilt amplitudes. The slope grid is 0, 1, 2, 3, 4, 5, 6, 8, 10 Å²/(e/Å²); the reference envelope is `exp(-slope * dose * q² / 4)`. Score comparisons use fixed-pose per-tilt sufficient statistics. Tilt amplitudes have their overall scale removed. A single-band request repeats that band after calibration. Calibration requires at least eight usable candidates and does not use labels or a requested particle count.
-8. At final poses, estimate amplitude bounds from the 2nd and 98th percentiles of up to 300 distinct strong candidates. Rank by bounded-amplitude weighted log likelihood, then apply final spherical suppression. With fewer than eight calibration candidates, use the nonnegative free-amplitude profile score.
+7. Keep the existing imaging parameters fixed throughout discovery. Read dose B-factors and tilt weights from tilt-series metadata through the existing CTF path. When those grids are absent, use Warp's standard dose/tilt defaults. Candidate matches do not change the observation model by default.
+8. Select each anchor's best final pose by signed projection score, then apply final spherical suppression using that same score. Fit one free overall nonnegative particle amplitude for reporting; do not learn an amplitude interval from the detected population.
 
-Boundary padding follows the research implementation; truncation of weak delocalized template tails at detector edges is an approximation, not an explicit masked-pixel likelihood. The weighting is a diagonal approximation to correlated structural background, not a full covariance likelihood. The multiplicity length and empirical amplitude interval are defaults supported by the synthetic experiments; their transfer to heterogeneous experimental particles needs evaluation. The highest-scoring starts are alternative explanations, not independent evidence.
+Two independent experimental switches retain the previous behavior for comparisons. `--refine_calibrate` uses up to 300 spatially distinct strong candidates before the final band to fit a shared dose-damage slope and relative tilt amplitudes. It requires eight usable candidates and repeats the band after fitting for a single-band request. `--refine_bounded_score` learns amplitude bounds from the 2nd and 98th percentiles of up to 300 distinct strong candidates, then selects final poses and ranks peaks by bounded-amplitude gain. With fewer than eight candidates it falls back to nonnegative free-amplitude gain; paired decoy scoring instead requires eight. Use both switches to request the previous combination. For an imaging-calibration comparison, change only `--refine_calibrate` and keep projection ranking in both arms.
+
+Saved `GridDoseWeights` and `GridDoseBfacs` are consumed through the normal Warp CTF path; template matching does not overwrite them. That path retains its existing B-factor limit, `B <= -3 * dose`, and uses `B = -4 * dose` and `scale = cos(tilt)` when the respective grids are absent. Thus “fixed” means fixed under these existing CTF conventions. The experimental candidate calibration is an in-memory override, not a source of validated metadata for future runs.
+
+M's existing weight estimator derives these grids from correlation curves. Those values are not established least-squares estimates of the transfer amplitude between a projection and the data. Reusing this metadata preserves existing behavior; it does not validate it as a physical forward model. A future calibration from identified particles needs an explicit residual objective and separate provenance before its parameters can be treated as transferable fitted amplitudes.
+
+Boundary padding follows the research implementation; truncation of weak delocalized template tails at detector edges is an approximation, not an explicit masked-pixel likelihood. The weighting is a diagonal approximation to correlated structural background, not a full covariance likelihood. The multiplicity length remains an approximation whose transfer to heterogeneous experimental particles needs evaluation. Projection ranking removes the candidate-derived amplitude interval; it does not guarantee comparable null distributions across tilt series. The highest-scoring starts are alternative explanations, not independent evidence.
 
 ## Scores and outputs
 
@@ -36,20 +42,24 @@ For weighted inner product `C` and model power `P`:
 projection score = C / sqrt(P)
 unconstrained nonnegative amplitude = max(C, 0) / P
 bounded amplitude = clamp(C / P, lower, upper)
-final score = bounded_amplitude * C - bounded_amplitude² * P / 2
+default final score = projection score
+experimental bounded score = bounded_amplitude * C - bounded_amplitude² * P / 2
 ```
 
-`rlnAutopickFigureOfMerit` contains the final score. `wrpTemplateMatchProjectionZ` retains the projection score and `wrpTemplateMatchAmplitude` the unconstrained nonnegative amplitude. These are ranking statistics, not calibrated Gaussian Z scores or false-discovery probabilities. Final bounded scores can be negative.
+`rlnAutopickFigureOfMerit` contains the final score. `wrpTemplateMatchProjectionZ` retains the projection score and `wrpTemplateMatchAmplitude` the unconstrained nonnegative amplitude. These are ranking statistics, not calibrated Gaussian Z scores or false-discovery probabilities. Experimental bounded scores can be negative. In the default target-only workflow, nonpositive projection matches are omitted.
+
+The final STAR always includes `wrpTemplateMatchAmplitude`, including when amplitude-based ranking is disabled. It is the fitted multiplier of the transferred template at the selected final pose, `max(C, 0) / P`, before any amplitude bounds are applied. Users can plot projection score against amplitude and apply their own amplitude filters after matching. Amplitude depends on the reference-map scale, image scale, and imaging parameters; it is not a normalized image-power measurement or automatically comparable across differently scaled jobs. In the default workflow it does not affect ranking or spatial suppression.
 
 The matching directory also contains:
 
 - `_starting_poses.tsv`: proposal centers, neighboring starts, angle IDs, and coarse scores.
 - `_refinement.tsv`: per-band poses, scores, convergence, merging, and optimizer diagnostics.
 - `_tilt_scores.tsv`: final per-tilt cross terms and model powers.
-- `_calibration.tsv`: slope objective values and selected tilt-scale corrections.
-- `_amplitude_bounds.tsv`: final interval and calibration-set size.
+- `_matching_policy.json`: component scoring mode (before optional decoy subtraction), requested candidate calibration, applied shared corrections, stored dose/tilt grid values, and resolution bands. This is authoritative for the current run if optional diagnostics from a previous run with the same name remain.
+- `_calibration.tsv`: slope objective values and selected tilt-scale corrections, when candidate calibration succeeds.
+- `_amplitude_bounds.tsv`: final interval and calibration-set size, when bounded scoring learns an interval.
 
-Optional amplitude/B diagnostics remain available through `--refine_fit_bfactor` and `--refine_export_tilt_spectra`. They do not select particles. Optional independent complete decoy searches remain diagnostics; decoys are not part of the default ranking.
+Optional amplitude/B diagnostics remain available through `--refine_fit_bfactor` and `--refine_export_tilt_spectra`. These diagnostics do not alter ranking or shared imaging parameters. With `--decoy_templates`, each decoy searches its own orientations at target-selected anchors using shared imaging parameters and noise weights. The final ranking becomes target score minus mean decoy score, using projection scores by default or bounded scores with `--refine_bounded_score`. Missing decoy fits are excluded. This contrast is not a calibrated false-discovery rate; decoys are absent from the default workflow.
 
 ## Controls and resource use
 
@@ -62,6 +72,8 @@ Optional amplitude/B diagnostics remain available through `--refine_fit_bfactor`
 | `--match_topk` | 8 | Orientations retained per voxel. |
 | `--refine_starts` | 32 | Maximum initial pose hypotheses per peak, pooled from its 3×3×3 neighborhood. |
 | `--refine_iterations` | 90 | Maximum accepted BFGS steps per hypothesis per band. |
+| `--refine_calibrate` | off | Experimental candidate-derived shared dose/tilt fitting. |
+| `--refine_bounded_score` | off | Experimental candidate-derived amplitude bounds and bounded-gain ranking. |
 | `--refine_noise_patches` | 256 | Unselected patches per tilt for the directional background PSD. |
 | `--optimize_poses_angpix` | `--tomo_angpix` | Finest refinement sampling in Å/px; defaults to the coarse-search pixel size. |
 | `--max_missing_tilts` | -1 | Optional coarse coverage culling; disabled by default. |

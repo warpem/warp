@@ -19,7 +19,7 @@ using Warp.Workers.Queue;
 namespace WarpTools.Commands
 {
     [VerbGroup("Tilt series")]
-    [Verb("ts_template_match", HelpText = "Match a 3D template against tilt images using matched-filter proposals and calibrated multistart refinement")]
+    [Verb("ts_template_match", HelpText = "Match a 3D template against tilt images using fixed imaging parameters and multistart pose refinement")]
     [CommandRunner(typeof(TemplateMatchTiltseries))]
     class TemplateMatchTiltseriesOptions : DistributedOptions
     {
@@ -66,6 +66,12 @@ namespace WarpTools.Commands
         [Option("refine_noise_patches", Default = 256, HelpText = "Unselected patches per tilt for the anisotropic background power estimate")]
         public int RefineNoisePatches { get; set; }
 
+        [Option("refine_calibrate", HelpText = "Experimental: refit shared dose damage and relative tilt amplitudes from the strongest matches. By default, keep stored imaging parameters (or the standard dose/tilt defaults) fixed")]
+        public bool RefineCalibrate { get; set; }
+
+        [Option("refine_bounded_score", HelpText = "Experimental: learn amplitude bounds from the strongest matches and rank by bounded likelihood gain. By default, select poses and suppress peaks using projection score")]
+        public bool RefineBoundedScore { get; set; }
+
         [Option("refine_fit_bfactor", HelpText = "Jointly fit amplitude and B at each final pose; write envelope diagnostics without changing particle scores or selection")]
         public bool RefineFitBfactor { get; set; }
 
@@ -75,7 +81,7 @@ namespace WarpTools.Commands
         [Option("refine_export_tilt_spectra", HelpText = "Export per-tilt sufficient statistics for experimental shared tilt-scale calibration; requires --refine_fit_bfactor")]
         public bool RefineExportTiltSpectra { get; set; }
 
-        [Option("decoy_templates", Separator = ',', HelpText = "Optional comma-separated decoy map paths. Each runs the complete search and writes empirical false-count diagnostics. Maps must match the target dimensions and pixel size; --template_angpix overrides all map headers")]
+        [Option("decoy_templates", Separator = ',', HelpText = "Optional comma-separated decoy map paths. Each searches its own orientations at target peak anchors using shared imaging parameters; final score is target minus mean decoy score in the selected scoring mode. Maps must match the target dimensions and pixel size; --template_angpix overrides all map headers")]
         public IEnumerable<string> DecoyTemplates { get; set; } = Array.Empty<string>();
 
         [Option("optimize_poses_angpix", HelpText = "Minimum pixel size to use for pose optimization. Leave empty to use the coarse-search pixel size (--tomo_angpix)")]
@@ -248,6 +254,8 @@ namespace WarpTools.Commands
             OptionsMatch.RefineMergeFraction = (decimal)CLI.RefineMergeFraction;
             OptionsMatch.RefineMaxShift = (decimal)CLI.RefineMaxShift;
             OptionsMatch.RefineNoisePatches = CLI.RefineNoisePatches;
+            OptionsMatch.RefineCalibrate = CLI.RefineCalibrate;
+            OptionsMatch.RefineBoundedScore = CLI.RefineBoundedScore;
             OptionsMatch.RefineFitBfactor = CLI.RefineFitBfactor;
             OptionsMatch.RefineFitHighpass = (decimal)CLI.RefineFitHighpass;
             OptionsMatch.RefineExportTiltSpectra = CLI.RefineExportTiltSpectra;
@@ -368,11 +376,9 @@ namespace WarpTools.Commands
             string PeakTablePath(TiltSeries series) => Path.Combine(series.MatchingDir,
                 TiltSeries.ToTomogramWithPixelSize(series.Path, OptionsMatch.BinnedPixelSizeMean) +
                 (string.IsNullOrWhiteSpace(OptionsMatch.OverrideSuffix) ? "_" + OptionsMatch.TemplateName : OptionsMatch.OverrideSuffix) + ".star");
-            string CalibrationPath(string peakTablePath) => Path.Combine(Path.GetDirectoryName(peakTablePath),
-                Path.GetFileNameWithoutExtension(peakTablePath) + "_decoy_calibration.tsv");
 
             int MatchRun = 0;
-            void RunMatch(string templatePath, Action<TiltSeries> onSuccess = null, bool invalidateCalibration = false)
+            void RunMatch(string templatePath, Action<TiltSeries> onSuccess = null)
             {
                 foreach (var item in CLI.InputSeries)
                     item.ProcessingStatus = ProcessingStatus.Unprocessed;
@@ -390,12 +396,6 @@ namespace WarpTools.Commands
                             FileInfo previous = new FileInfo(outputPath);
                             previousOutputs[t] = (outputPath, previous.Exists,
                                 previous.Exists ? previous.Length : 0, previous.Exists ? previous.LastWriteTimeUtc : DateTime.MinValue);
-                            if (invalidateCalibration)
-                            {
-                                // A first-ever decoy run has no matching directory yet.
-                                Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-                                File.Delete(CalibrationPath(outputPath));
-                            }
                         }
                         var task = new TaskItem
                         {
@@ -471,86 +471,9 @@ namespace WarpTools.Commands
 
             OptionsMatch.TemplateName = Path.GetFileNameWithoutExtension(CLI.TemplatePath);
 
-            if (DecoyPaths.Length == 0)
-            {
-                RunMatch(CLI.TemplatePath);
-                return;
-            }
-
-            string TargetName = OptionsMatch.TemplateName;
-            string TargetSuffix = OptionsMatch.OverrideSuffix;
-            var TargetScores = new Dictionary<TiltSeries, (string Path, float[] Scores)>();
-            var DecoyScores = DecoyPaths.Select(_ => new Dictionary<TiltSeries, float[]>()).ToArray();
-            float[] ReadFinalScores(TiltSeries series)
-            {
-                var table = new Star(PeakTablePath(series));
-                if (!table.HasColumn("wrpTemplateMatchProjectionZ"))
-                    throw new IOException("Decoy diagnostics require newly refined projection-space scores.");
-                float[] scores = table.GetFloat("rlnAutopickFigureOfMerit");
-                if (scores.Any(s => !float.IsFinite(s)))
-                    throw new IOException("Peak table contains nonfinite final detection scores.");
-                return scores;
-            }
-
-            RunMatch(CLI.TemplatePath, t => TargetScores[t] = (PeakTablePath(t), ReadFinalScores(t)), invalidateCalibration: true);
-            try
-            {
-                for (int decoy = 0; decoy < DecoyPaths.Length; decoy++)
-                {
-                    int index = decoy;
-                    string tag = $"__decoy_{decoy + 1:D3}_{Path.GetFileNameWithoutExtension(DecoyPaths[decoy])}";
-                    OptionsMatch.TemplateName = TargetName + tag;
-                    OptionsMatch.OverrideSuffix = string.IsNullOrWhiteSpace(TargetSuffix) ? "" : TargetSuffix + tag;
-                    Console.WriteLine($"Running complete decoy search {decoy + 1}/{DecoyPaths.Length}: {DecoyPaths[decoy]}");
-                    RunMatch(DecoyPaths[decoy], t => DecoyScores[index][t] = ReadFinalScores(t));
-                }
-            }
-            finally
-            {
-                OptionsMatch.TemplateName = TargetName;
-                OptionsMatch.OverrideSuffix = TargetSuffix;
-            }
-
-            int Calibrated = 0;
-            foreach (TiltSeries series in CLI.InputSeries)
-            {
-                if (!TargetScores.TryGetValue(series, out var target) || DecoyScores.Any(search => !search.ContainsKey(series)))
-                {
-                    Console.WriteLine($"Skipping decoy diagnostics for {series.RootName}: target and every decoy must complete successfully.");
-                    continue;
-                }
-                float[][] searches = DecoyScores.Select(search => search[series]).ToArray();
-                string output = CalibrationPath(target.Path);
-                string temporary = output + ".tmp";
-                using (var writer = new StreamWriter(temporary, false, new UTF8Encoding(false)))
-                {
-                    writer.WriteLine("# Empirical false-output counts for this series and this complete search procedure.");
-                    writer.WriteLine("# Validity depends on decoys reproducing false matches to the target; these are not posterior probabilities or calibrated FDR values.");
-                    writer.WriteLine("# Zero observed exceedances means unresolved tail support, not proof of zero false outputs.");
-                    writer.WriteLine($"# Target STAR: {target.Path}");
-                    for (int decoy = 0; decoy < DecoyPaths.Length; decoy++)
-                        writer.WriteLine($"# Decoy {decoy + 1}: {DecoyPaths[decoy]}");
-                    writer.WriteLine("target_row\ttarget_score\tdecoy_exceedances\tdecoy_searches\testimated_false_count\tone_count_resolution\tcalibration_support\tcounts_by_decoy");
-                    for (int row = 0; row < target.Scores.Length; row++)
-                    {
-                        var count = TemplateMatchDecoyCalibration.Count(target.Scores[row], searches);
-                        writer.WriteLine(string.Join("\t", new[]
-                        {
-                            (row + 1).ToString(CultureInfo.InvariantCulture),
-                            target.Scores[row].ToString("R", CultureInfo.InvariantCulture),
-                            count.TotalExceedances.ToString(CultureInfo.InvariantCulture),
-                            count.SearchCount.ToString(CultureInfo.InvariantCulture),
-                            count.MeanCount.ToString("R", CultureInfo.InvariantCulture),
-                            count.OneCountResolution.ToString("R", CultureInfo.InvariantCulture),
-                            count.TailUnresolved ? "unresolved_zero_exceedances" : "observed_exceedances",
-                            string.Join(",", count.CountsBySearch)
-                        }));
-                    }
-                }
-                File.Move(temporary, output, true);
-                Calibrated++;
-            }
-            Console.WriteLine($"Wrote decoy diagnostics for {Calibrated} tilt series. Validate decoy false-match behavior before interpreting these counts as significance.");
+            OptionsMatch.DecoyTemplatePaths = DecoyPaths;
+            OptionsMatch.DecoyFlipX = CLI.TemplatePath == CLI.FlippedTemplatePath;
+            RunMatch(CLI.TemplatePath);
         }
 
         async Task<byte[]> DownloadFileAsync(string url)

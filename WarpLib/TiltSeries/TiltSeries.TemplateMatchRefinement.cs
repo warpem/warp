@@ -160,7 +160,8 @@ public partial class TiltSeries
     }
 
     private ParticlePeak[] RefineTemplateMatches(ProcessingOptionsTomoFullMatch options, Image template,
-        ParticlePeak[] peaks, TemplateMatchStart[][] starts, Func<float, string, bool> progress)
+        ParticlePeak[] peaks, TemplateMatchStart[][] starts, Func<float, string, bool> progress,
+        MatchComparison comparison = null, bool isDecoy = false)
     {
         decimal originalBinTimes = options.BinTimes;
         decimal originalLowpass = options.Lowpass;
@@ -175,12 +176,14 @@ public partial class TiltSeries
             throw new ArgumentException("Invalid refinement resolution, merge threshold or low-pass cutoff.");
         float[] resolutions = TemplateMatchStatistics.ResolutionSchedule(
             2 * coarsePixel / (float)originalLowpass, 2 * (float)finalPixel / (float)originalLowpass);
-        // Even a single requested band needs a pass after estimating the shared envelope.
-        if (resolutions.Length == 1) resolutions = [resolutions[0], resolutions[0]];
+        // Only the experimental self-calibration needs a second pass at the same resolution.
+        if (options.RefineCalibrate && resolutions.Length == 1) resolutions = [resolutions[0], resolutions[0]];
         int stages = resolutions.Length;
         if (options.RefineFitHighpass < 0 || (options.RefineFitBfactor && options.RefineFitHighpass > 0 &&
             options.RefineFitHighpass <= 2 * finalPixel / Math.Min(1M, options.Lowpass)))
             throw new ArgumentException("The amplitude/B high-pass must be nonnegative and coarser than the final refinement resolution.");
+        int finalBox = 0;
+        float[][] finalNoiseWeights = null;
         List<MatchSolution>[] solutions = starts.Select(group => group.Select((start, index) => new MatchSolution
         {
             Position = start.Position, Rotation = Matrix3.Euler(start.Angles), StartIndex = index
@@ -188,6 +191,12 @@ public partial class TiltSeries
         string name = ToTomogramWithPixelSize(Path, options.BinnedPixelSizeMean);
         string suffix = string.IsNullOrWhiteSpace(options.OverrideSuffix) ? "_" + options.TemplateName : options.OverrideSuffix;
         string diagnosticsPath = System.IO.Path.Combine(MatchingDir, name + suffix + "_refinement.tsv");
+        MatchProgress(progress, 0, options.RefineCalibrate
+            ? "Experimental imaging calibration from matching candidates enabled"
+            : "Keeping stored imaging parameters (or standard dose/tilt defaults) fixed");
+        MatchProgress(progress, 0, options.RefineBoundedScore
+            ? "Experimental bounded-amplitude ranking enabled"
+            : "Selecting final poses and suppressing peaks by projection score");
         // Preserve sparse proposals and anchors so score/optimizer comparisons do not depend
         // on reconstructing peak selection from large, rounded diagnostic MRC volumes.
         using (StreamWriter proposals = new(System.IO.Path.Combine(MatchingDir, name + suffix + "_starting_poses.tsv")))
@@ -239,7 +248,15 @@ public partial class TiltSeries
                     if (tilts.Any(t => t.Dims.X < box || t.Dims.Y < box))
                         throw new InvalidOperationException($"The CTF-padded refinement box ({box}) exceeds a tilt image. Use a coarser refinement pixel size.");
                     MatchProgress(progress, 0, $"Estimating fixed background spectra ({options.RefineNoisePatches} patches/tilt, box {box})...");
-                    float[][] noiseWeights = EstimateMatchNoise(tilts, masks, box, options.RefineNoisePatches);
+                    float[][] noiseWeights;
+                    if (isDecoy)
+                        noiseWeights = comparison.NoiseWeights[(pixel, box)];
+                    else
+                    {
+                        noiseWeights = EstimateMatchNoise(tilts, masks, box, options.RefineNoisePatches);
+                        if (comparison != null) comparison.NoiseWeights[(pixel, box)] = noiseWeights;
+                    }
+                    if (stage == stages - 1) { finalBox = box; finalNoiseWeights = noiseWeights; }
                     int scaledSize = Math.Max(2, (int)Math.Round(template.Dims.X * (float)options.TemplatePixel / pixel / 2) * 2);
                     using Image scaled = template.AsScaled(new int3(scaledSize));
                     SubtractMatchTemplateBackground(scaled, (float)options.TemplateDiameter, pixel);
@@ -263,7 +280,7 @@ public partial class TiltSeries
                             peaks.Skip(first).Take(count).Select(p => p.PositionF).ToArray(),
                             solutions.Skip(first).Take(count).ToArray(), tilts, masks, noiseWeights,
                             projector, ctfCoordinates, box, pixel, maxShift, true, out int[] usableTilts,
-                            options.RefineFitBfactor && stage == stages - 1);
+                            false);
                         for (int local = 0; local < count; local++)
                         {
                             int p = first + local;
@@ -278,7 +295,7 @@ public partial class TiltSeries
                     }
                     diagnostics.Flush();
                     MatchProgress(progress, 1, $"Stage {stage+1}: {stageTimer.Elapsed.TotalSeconds:F2}s; prepare {matchPreparationSeconds:F2}s, optimize {matchOptimizationSeconds:F2}s, results {matchResultSeconds:F2}s; {solutions.Sum(g=>g.Count)} surviving hypotheses");
-                    if (stage == Math.Max(0, stages - 2))
+                    if (options.RefineCalibrate && !isDecoy && stage == Math.Max(0, stages - 2))
                         CalibrateMatchSeries(options, peaks, solutions, tilts, masks, noiseWeights, projector,
                             ctfCoordinates, box, pixel, maxShift, System.IO.Path.Combine(MatchingDir, name + suffix), progress);
                 }
@@ -294,70 +311,167 @@ public partial class TiltSeries
             options.BinTimes = originalBinTimes;
             options.Lowpass = originalLowpass;
         }
+        // Candidate-derived amplitude bounds are an explicit experimental alternative.
+        // Discovery defaults to the same projection objective as BFGS and continuation.
+        List<MatchSolution> calibration = new();
+        if (options.RefineBoundedScore && !isDecoy)
+            foreach (var best in solutions.Where(g => g.Any(s => double.IsFinite(s.Z) && s.Z > 0))
+                         .Select(g => g.Where(s => double.IsFinite(s.Z) && s.Z > 0).OrderByDescending(s => s.Z).First())
+                         .OrderByDescending(s => s.Z))
+            {
+                if (calibration.Any(other => (other.Position-best.Position).LengthSq() < (float)(options.PeakDistance*options.PeakDistance))) continue;
+                calibration.Add(best);
+                if (calibration.Count == 300) break;
+            }
+        (double Lower, double Upper)? amplitudeBounds = isDecoy ? comparison.AmplitudeBounds : null;
+        if (options.RefineBoundedScore && !isDecoy && calibration.Count >= 8)
+        {
+            amplitudeBounds = (Math.Max(0, TemplateMatchStatistics.Quantile(calibration.Select(s => s.Amplitude).ToArray(), .02)),
+                TemplateMatchStatistics.Quantile(calibration.Select(s => s.Amplitude).ToArray(), .98));
+            if (comparison != null) comparison.AmplitudeBounds = amplitudeBounds;
+            File.WriteAllText(System.IO.Path.Combine(MatchingDir,name+suffix+"_amplitude_bounds.tsv"),
+                FormattableString.Invariant($"lower\tupper\tcalibration_particles\n{amplitudeBounds.Value.Lower:R}\t{amplitudeBounds.Value.Upper:R}\t{calibration.Count}\n"));
+        }
+        if (options.RefineBoundedScore && comparison != null && amplitudeBounds == null)
+            throw new InvalidOperationException("Paired decoy scoring requires at least eight distinct target detections for shared amplitude calibration.");
+
         List<(ParticlePeak Peak, int OriginalPeak, MatchSolution Solution)> output = new();
-        string perTiltPath = System.IO.Path.Combine(MatchingDir, name + suffix + "_tilt_scores.tsv");
-        using StreamWriter perTilt = new(perTiltPath);
+        using StreamWriter perTilt = new(System.IO.Path.Combine(MatchingDir, name + suffix + "_tilt_scores.tsv"));
         perTilt.WriteLine("peak\ttilt\tcross\tmodel_power");
         for (int p = 0; p < peaks.Length; p++)
         {
-            if (solutions[p].Count == 0) continue;
-            // Multiplicity of starts is never extra evidence. Final spatial NMS also
-            // merges solutions from different original peaks that land on one particle.
-            MatchSolution best = solutions[p].OrderByDescending(s => s.Z).First();
-            if (!double.IsFinite(best.Gain) || best.Z <= 0) continue;
+            MatchSolution best = SelectMatchSolution(solutions[p], amplitudeBounds, options.RefineBoundedScore);
+            // Negative decoy correlations are valid evidence, not missing observations.
+            if (best == null || comparison == null && best.Z <= 0) continue;
             ParticlePeak peak = peaks[p];
+            peak.AnchorIndex = p;
             peak.PositionF = best.Position;
             peak.Position = new int3((int)Math.Round(best.Position.X / coarsePixel),
                 (int)Math.Round(best.Position.Y / coarsePixel), (int)Math.Round(best.Position.Z / coarsePixel));
             peak.Angles = Matrix3.EulerFromMatrix(best.Rotation) * Helper.ToDeg;
-            peak.Score = (float)best.Gain;
+            peak.Score = (float)ScoreMatchSolution(best, amplitudeBounds, options.RefineBoundedScore);
             peak.ProjectionZ = (float)best.Z;
             peak.FittedAmplitude = (float)best.Amplitude;
             output.Add((peak, p, best));
+            if (comparison != null && !isDecoy) comparison.TargetSolutions[p] = best;
             for (int t = 0; t < NTilts; t++)
                 perTilt.WriteLine(FormattableString.Invariant($"{p}\t{t}\t{best.TiltStatistics[t * 14]:R}\t{best.TiltStatistics[t * 14 + 1]:R}"));
-        }
-        // Estimate the amplitude interval from distinct strong detections; no labels or expected particle count.
-        List<MatchSolution> calibration = new();
-        foreach (var item in output.OrderByDescending(p => p.Solution.Z))
-        {
-            if (calibration.Any(other => (other.Position-item.Solution.Position).LengthSq() < (float)(options.PeakDistance*options.PeakDistance))) continue;
-            calibration.Add(item.Solution);
-            if (calibration.Count == 300) break;
-        }
-        if (calibration.Count >= 8)
-        {
-            double lower = Math.Max(0, TemplateMatchStatistics.Quantile(calibration.Select(s=>s.Amplitude).ToArray(),.02));
-            double upper = TemplateMatchStatistics.Quantile(calibration.Select(s=>s.Amplitude).ToArray(),.98);
-            for (int i=0;i<output.Count;i++)
-            {
-                var item = output[i];
-                double cross = 0, power = 0;
-                for(int t=0;t<NTilts;t++) { cross += item.Solution.TiltStatistics[t*14]; power += item.Solution.TiltStatistics[t*14+1]; }
-                item.Peak.Score = (float)TemplateMatchStatistics.BoundedGain(cross,power,lower,upper);
-                output[i] = item;
-            }
-            File.WriteAllText(System.IO.Path.Combine(MatchingDir,name+suffix+"_amplitude_bounds.tsv"),
-                FormattableString.Invariant($"lower\tupper\tcalibration_particles\n{lower:R}\t{upper:R}\t{calibration.Count}\n"));
         }
         List<ParticlePeak> kept = new();
         float separation2 = (float)(options.PeakDistance * options.PeakDistance);
         var envelopeRows = new List<(int OriginalPeak, MatchSolution Solution)>();
         foreach (var item in output.OrderByDescending(p => p.Peak.Score))
-            if (kept.All(other => (other.PositionF - item.Peak.PositionF).LengthSq() >= separation2))
+            if (comparison != null || kept.All(other => (other.PositionF - item.Peak.PositionF).LengthSq() >= separation2))
             {
                 kept.Add(item.Peak);
                 envelopeRows.Add((item.OriginalPeak, item.Solution));
             }
-        if (options.RefineFitBfactor)
+        if (comparison != null && !isDecoy)
         {
-            MatchProgress(progress, 1, $"Fitting joint amplitude/B envelopes for {kept.Count} final candidates...");
-            WriteMatchEnvelopes(System.IO.Path.Combine(MatchingDir, name + suffix), envelopeRows);
-            if (options.RefineExportTiltSpectra)
-                WriteMatchTiltEnvelopeSpectra(System.IO.Path.Combine(MatchingDir, name + suffix), envelopeRows, (float)finalPixel);
+            comparison.FinalBox = finalBox;
+            comparison.FinalNoiseWeights = finalNoiseWeights;
         }
-        MatchProgress(progress, 1, $"GPU refinement retained {kept.Count}/{peaks.Length} peaks after final spatial suppression");
+        if (options.RefineFitBfactor && comparison == null)
+            WriteFinalMatchEnvelopes(options, template, peaks, envelopeRows, finalNoiseWeights, finalBox, progress);
+        // This file is authoritative for this run; optional diagnostics from an older
+        // run with the same output name may still exist.
+        File.WriteAllText(System.IO.Path.Combine(MatchingDir, name + suffix + "_matching_policy.json"),
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Score = options.RefineBoundedScore
+                    ? (amplitudeBounds.HasValue ? "bounded_amplitude_gain" : "nonnegative_profile_gain")
+                    : "projection",
+                CandidateCalibrationRequested = options.RefineCalibrate,
+                OptimizationObjective = "projection",
+                SharedDoseSlope = matchDoseSlope,
+                SharedTiltScaleCorrections = matchTiltScales,
+                AmplitudeLower = amplitudeBounds?.Lower,
+                AmplitudeUpper = amplitudeBounds?.Upper,
+                ResolutionBandsAngstrom = resolutions,
+                StoredDoseBfactors = GridDoseBfacs.Values,
+                StoredTiltWeights = GridDoseWeights.Values
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+        MatchProgress(progress, 1, comparison == null
+            ? $"GPU refinement retained {kept.Count}/{peaks.Length} peaks after final spatial suppression"
+            : $"GPU refinement produced {kept.Count}/{peaks.Length} anchor scores; spatial suppression deferred until paired comparison");
         return kept.ToArray();
+    }
+
+    private static double ScoreMatchSolution(MatchSolution solution, (double Lower, double Upper)? amplitudeBounds, bool boundedScore)
+    {
+        if (solution.TiltStatistics == null || !double.IsFinite(solution.Z)) return double.NegativeInfinity;
+        if (!boundedScore) return solution.Z;
+        if (amplitudeBounds == null) return solution.Gain;
+        double cross = 0, power = 0;
+        for (int t = 0; t < solution.TiltStatistics.Length / 14; t++)
+        {
+            cross += solution.TiltStatistics[t*14];
+            power += solution.TiltStatistics[t*14+1];
+        }
+        return TemplateMatchStatistics.BoundedGain(cross, power, amplitudeBounds.Value.Lower, amplitudeBounds.Value.Upper);
+    }
+
+    private static MatchSolution SelectMatchSolution(List<MatchSolution> solutions, (double Lower, double Upper)? amplitudeBounds, bool boundedScore)
+        => solutions.Where(s => s.MergedIntoStart == -1 && double.IsFinite(ScoreMatchSolution(s, amplitudeBounds, boundedScore)))
+            .OrderByDescending(s => ScoreMatchSolution(s, amplitudeBounds, boundedScore)).ThenBy(s => s.StartIndex).FirstOrDefault();
+
+    private void WriteFinalMatchEnvelopes(ProcessingOptionsTomoFullMatch options, Image template,
+        ParticlePeak[] anchors, List<(int OriginalPeak, MatchSolution Solution)> rows,
+        float[][] noiseWeights, int box, Func<float, string, bool> progress)
+    {
+        decimal bin = options.BinTimes, lowpass = options.Lowpass;
+        int iterations = options.RefineIterations;
+        string name = ToTomogramWithPixelSize(Path, options.BinnedPixelSizeMean);
+        string suffix = string.IsNullOrWhiteSpace(options.OverrideSuffix) ? "_" + options.TemplateName : options.OverrideSuffix;
+        decimal finalPixel = options.OptimizePosesAngPix ?? options.BinnedPixelSizeMean;
+        float maxShift = options.RefineMaxShift > 0 ? (float)options.RefineMaxShift : 3 * (float)options.BinnedPixelSizeMean;
+        try
+        {
+            options.BinTimes = (decimal)Math.Log2((double)(finalPixel / options.PixelSizeMean));
+            options.RefineIterations = 0;
+            float pixel = (float)options.BinnedPixelSizeMean;
+            LoadMovieData(options, out _, out Image[] tilts, false, out _, out _);
+            LoadMovieMasks(options, out Image[] masks);
+            try
+            {
+                if (!options.DontInvert) foreach (Image tilt in tilts) tilt.Multiply(-1);
+                int size = Math.Max(2, (int)Math.Round(template.Dims.X * (float)options.TemplatePixel / pixel / 2) * 2);
+                using Image scaled = template.AsScaled(new int3(size));
+                SubtractMatchTemplateBackground(scaled, (float)options.TemplateDiameter, pixel);
+                MaskMatchTemplate(scaled, (float)options.TemplateDiameter, pixel, false);
+                using Image padded = scaled.AsPadded(new int3(box));
+                using Projector projector = new(padded, 2, true);
+                using Image coords = CTF.GetCTFCoords(box, box, MagnificationCorrection);
+                var evaluated = new List<(int OriginalPeak, MatchSolution Solution)>();
+                // Envelope exports are optional diagnostics. Evaluate one fixed winning pose
+                // per anchor, rather than exporting spectra for every optimization hypothesis.
+                long bytesPerParticle = (long)NTilts * (box * (box / 2 + 1) * 32L + box * box * 8L);
+                if (options.RefineExportTiltSpectra)
+                    bytesPerParticle += (long)NTilts * 2 * TemplateMatchEnvelope.SpectrumBins * sizeof(float);
+                long budget = Math.Min(2L << 30, Math.Max(1, GPU.GetFreeMemory(GPU.GetDevice())) * (1L << 18));
+                int batchSize = (int)Math.Clamp(budget / bytesPerParticle, 1, 64);
+                for (int first = 0; first < rows.Count; first += batchSize)
+                {
+                    var batch = rows.Skip(first).Take(batchSize).ToArray();
+                    MatchProgress(progress, (float)first / Math.Max(1, rows.Count),
+                        $"Fitting amplitude/B diagnostics {first + 1}–{first + batch.Length}/{rows.Count}...");
+                    var results = RefineMatchBatch(options, batch.Select(row => anchors[row.OriginalPeak].PositionF).ToArray(),
+                        batch.Select(row => new List<MatchSolution> { row.Solution }).ToArray(),
+                        tilts, masks, noiseWeights, projector, coords, box, pixel, maxShift, false, out _, true);
+                    for (int i = 0; i < batch.Length; i++)
+                        evaluated.Add((batch[i].OriginalPeak, results[i].Single(s => s.EnvelopeSpectrum != null)));
+                }
+                WriteMatchEnvelopes(System.IO.Path.Combine(MatchingDir, name + suffix), evaluated);
+                if (options.RefineExportTiltSpectra)
+                    WriteMatchTiltEnvelopeSpectra(System.IO.Path.Combine(MatchingDir, name + suffix), evaluated, pixel);
+            }
+            finally
+            {
+                foreach (Image tilt in tilts) tilt?.FreeDevice();
+                foreach (Image mask in masks) mask?.FreeDevice();
+            }
+        }
+        finally { options.BinTimes = bin; options.Lowpass = lowpass; options.RefineIterations = iterations; }
     }
 
     private static void MatchProgress(Func<float, string, bool> callback, float fraction, string message)
@@ -649,7 +763,7 @@ public partial class TiltSeries
         {
             // Only the winning surviving pose is needed. Keep its original native pose
             // values (rather than subtracting large absolute coordinates again).
-            var winners = result.Select(group => group.Where(s => s.MergedIntoStart == -1 && s.Z > 0)
+            var winners = result.Select(group => group.Where(s => s.MergedIntoStart == -1 && double.IsFinite(s.Z))
                 .OrderByDescending(s => s.Z).FirstOrDefault()).ToArray();
             float[] envelopePoses = new float[particles * 12];
             int[] active = Enumerable.Repeat(-1, particles).ToArray();

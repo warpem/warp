@@ -17,6 +17,13 @@ public partial class TiltSeries
 {
     public void MatchLargeVolume(ProcessingOptionsTomoFullMatch options, Image template, Func<float, string, bool> progressCallback)
     {
+        using MatchComparison comparison = options.DecoyTemplatePaths.Length > 0 ? new MatchComparison() : null;
+        MatchLargeVolumeCore(options, template, progressCallback, comparison);
+    }
+
+    private ParticlePeak[] MatchLargeVolumeCore(ProcessingOptionsTomoFullMatch options, Image template,
+        Func<float, string, bool> progressCallback, MatchComparison comparison, bool isDecoy = false)
+    {
         if (options.MatchTopK < 1 || options.RefineStarts < 1 || options.RefineIterations < 1 || options.RefineNoisePatches < 2)
             throw new ArgumentOutOfRangeException(nameof(options), "Top-K, starts, iterations must be positive; at least two noise patches are required.");
         if (options.RefineMaxShift < 0 || options.BatchAngles < 1 || options.NResults < 1)
@@ -85,10 +92,33 @@ public partial class TiltSeries
             {
                 progressCallback?.Invoke(0, "Loading...");
 
-                TomoRec = ReconstructMatchVolume(options, DimsVolumeScaled, progressCallback);
-                TomoRec = TomoRec.AsPadded(DimsVolumePadded).AndDisposeParent();
-                TomoRec.PixelSize = (float)options.BinnedPixelSizeMean;
-                using Image BackgroundRootPower = WhitenMatchVolume(ref TomoRec, (float)options.BinnedPixelSizeMean);
+                Image backgroundRootPower;
+                if (isDecoy)
+                {
+                    // Reuse the identical whitened observation and detector estimate. Reconstructing
+                    // here would reset the target-derived tilt/dose calibration.
+                    // Fine-band loading changes image rounding. Restore the geometry that
+                    // produced the cached coarse observation before CTFs and coverage trimming.
+                    ImageDimensionsPhysical = comparison.CoarseImageDimensionsPhysical;
+                    SizeRoundingFactors = comparison.CoarseSizeRoundingFactors;
+                    TomoRec = comparison.CoarseVolume.GetCopy();
+                    backgroundRootPower = comparison.BackgroundRootPower.GetCopy();
+                }
+                else
+                {
+                    TomoRec = ReconstructMatchVolume(options, DimsVolumeScaled, progressCallback);
+                    TomoRec = TomoRec.AsPadded(DimsVolumePadded).AndDisposeParent();
+                    TomoRec.PixelSize = (float)options.BinnedPixelSizeMean;
+                    backgroundRootPower = WhitenMatchVolume(ref TomoRec, (float)options.BinnedPixelSizeMean);
+                    if (comparison != null)
+                    {
+                        comparison.CoarseImageDimensionsPhysical = ImageDimensionsPhysical;
+                        comparison.CoarseSizeRoundingFactors = SizeRoundingFactors;
+                        comparison.CoarseVolume = TomoRec.GetCopy();
+                        comparison.BackgroundRootPower = backgroundRootPower.GetCopy();
+                    }
+                }
+                using Image BackgroundRootPower = backgroundRootPower;
 
                 CorrVolume = new Image(DimsVolumePadded);
                 CorrVolume.Fill(float.MinValue);
@@ -349,6 +379,9 @@ public partial class TiltSeries
             AngleIDData = AngleIDVolume.GetHost(Intent.Read);
 
             ParticlePeak[] Peaks;
+            if (isDecoy)
+                Peaks = comparison.Anchors.ToArray();
+            else
             {
                 int3[] InitialPeaks = CorrVolume.GetLocalPeaks(1, -float.MaxValue);
 
@@ -382,6 +415,8 @@ public partial class TiltSeries
                 PeakList = separated;
                 Peaks = PeakList.OrderBy(p => p.Position.Z).ThenBy(p => p.Position.Y).ThenBy(p => p.Position.X).ToArray();
             }
+            if (comparison != null && !isDecoy)
+                comparison.Anchors = Peaks.ToArray();
             GPU.CheckGPUExceptions();
 
             #endregion
@@ -420,10 +455,14 @@ public partial class TiltSeries
                 CorrVolume.FreeDevice();
                 AngleIDVolume.FreeDevice();
                 TomoRec.FreeDevice();
-                Peaks = RefineTemplateMatches(options, template, Peaks, StartingPoses, progressCallback);
+                Peaks = RefineTemplateMatches(options, template, Peaks, StartingPoses, progressCallback, comparison, isDecoy);
             }
             RankedScores.Dispose();
             RankedAngles.Dispose();
+
+            if (isDecoy) return Peaks;
+            if (comparison != null && Peaks.Length > 0)
+                Peaks = CompareMatchDecoys(options, template, Peaks, comparison, progressCallback);
 
             #region Write out images for quickly assessing different thresholds for picking
 
@@ -531,7 +570,12 @@ public partial class TiltSeries
                 "rlnAutopickFigureOfMerit",
                 "wrpTemplateMatchProjectionZ",
                 "wrpTemplateMatchAmplitude"
-            });
+            }
+            .Concat(comparison == null ? Array.Empty<string>() : new[]
+            {
+                "wrpTemplateMatchAnchorIndex", "wrpTemplateMatchTargetScore", "wrpTemplateMatchDecoyMeanScore"
+            }.Concat(Enumerable.Range(1, options.DecoyTemplatePaths.Length)
+                .Select(i => $"wrpTemplateMatchDecoyScore{i}")).ToArray()).ToArray());
 
             {
                 for (int n = 0; n < Peaks.Length; n++)
@@ -557,7 +601,11 @@ public partial class TiltSeries
                         Score.ToString(CultureInfo.InvariantCulture),
                         Peaks[n].ProjectionZ.ToString(CultureInfo.InvariantCulture),
                         Peaks[n].FittedAmplitude.ToString(CultureInfo.InvariantCulture)
-                    });
+                    }
+                    .Concat(comparison == null ? Array.Empty<string>() :
+                        new[] { Peaks[n].AnchorIndex.ToString(CultureInfo.InvariantCulture) }.Concat(
+                            new[] { Peaks[n].TargetScore, Peaks[n].DecoyMeanScore }.Concat(Peaks[n].DecoyScores)
+                                .Select(v => v.ToString("R", CultureInfo.InvariantCulture))).ToArray()).ToArray());
                 }
             }
 
@@ -572,6 +620,7 @@ public partial class TiltSeries
             progressCallback?.Invoke(0, "Done.");
 
             #endregion
+            return Peaks;
         }
         finally
         {
@@ -608,10 +657,14 @@ public class ProcessingOptionsTomoFullMatch : TomoProcessingOptionsBase
     // Angstrom; zero selects three coarse tomogram pixels.
     [WarpSerializable] public decimal RefineMaxShift { get; set; } = 0;
     [WarpSerializable] public int RefineNoisePatches { get; set; } = 256;
+    [WarpSerializable] public bool RefineCalibrate { get; set; }
+    [WarpSerializable] public bool RefineBoundedScore { get; set; }
     [WarpSerializable] public bool RefineFitBfactor { get; set; }
     [WarpSerializable] public decimal RefineFitHighpass { get; set; } = 30;
     [WarpSerializable] public bool RefineExportTiltSpectra { get; set; }
     [WarpSerializable] public decimal? OptimizePosesAngPix { get; set; }
+    [WarpSerializable] public string[] DecoyTemplatePaths { get; set; } = Array.Empty<string>();
+    [WarpSerializable] public bool DecoyFlipX { get; set; }
     [WarpSerializable] public bool DontInvert { get; set; }
     [WarpSerializable] public bool DontSaveCorrVolume { get; set; }
     [WarpSerializable] public bool DontSaveAngleIDVolume { get; set; }
@@ -625,6 +678,9 @@ struct ParticlePeak
     public float Score;
     public float ProjectionZ;
     public float FittedAmplitude;
+    public int AnchorIndex;
+    public float TargetScore, DecoyMeanScore;
+    public float[] DecoyScores;
 
     public ParticlePeak(int3 position, float3 positionf, float3 angles, float score)
     {

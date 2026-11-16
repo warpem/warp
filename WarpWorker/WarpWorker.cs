@@ -949,6 +949,8 @@ namespace WarpWorker
                     if (!string.IsNullOrEmpty(PathTableOut))
                         TableOut.Save(PathTableOut);
 
+                    ParticleSeriesExportManifest.Capture(T, Options, PathTableOut);
+
                     Console.WriteLine($"Exported {Coordinates.Length / T.NTilts} particles for {Path}");
                 }
                 else if (Command.Name == "InitReconstructions")

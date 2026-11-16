@@ -1885,6 +1885,10 @@ namespace Warp
 
         #region Load/save meta
 
+        // Preserve independently namespaced metadata (e.g. Beam calibration)
+        // without interpreting it as Warp's native dose/CTF parameters.
+        public string[] MetadataExtensions { get; private set; } = Array.Empty<string>();
+
         public override void LoadMeta()
         {
             if (!File.Exists(XMLPath))
@@ -1898,6 +1902,12 @@ namespace Warp
                     XPathNavigator Reader = Doc.CreateNavigator();
                     Reader.MoveToRoot();
                     Reader.MoveToFirstChild();
+
+                    var Extensions = new List<string>();
+                    XPathNodeIterator ExtensionNodes = Reader.Select("*[namespace-uri() != '']");
+                    while (ExtensionNodes.MoveNext())
+                        Extensions.Add(ExtensionNodes.Current.OuterXml);
+                    MetadataExtensions = Extensions.ToArray();
 
                     #region Attributes
 
@@ -2384,6 +2394,9 @@ namespace Warp
                 Writer.WriteEndElement();
 
                 #endregion
+
+                foreach (string Extension in MetadataExtensions)
+                    Writer.WriteRaw(Extension);
 
                 Writer.WriteEndElement();
                 Writer.WriteEndDocument();
