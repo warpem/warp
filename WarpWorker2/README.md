@@ -4,8 +4,6 @@ Queue-consuming worker binary. Lifts the `WarpCore` branch's reflection-based
 command dispatch and command bodies, drops all REST/controller networking. Reads
 commands from claimed task files instead.
 
-Full architecture: `docs/superpowers/specs/2026-06-03-filesystem-work-distribution.md`.
-
 ---
 
 ## File layout

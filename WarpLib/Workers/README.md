@@ -1,7 +1,7 @@
 # WarpLib/Workers — Filesystem Work-Distribution Library
 
 Pure-filesystem work queue and scheduler. No GPU, no network — every component is
-testable in isolation.  Full architecture description: `docs/superpowers/specs/2026-06-03-filesystem-work-distribution.md`.
+testable in isolation.
 
 ---
 
