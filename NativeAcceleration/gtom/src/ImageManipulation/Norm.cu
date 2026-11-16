@@ -39,8 +39,6 @@ namespace gtom
 		cudaMalloc((void**)&d_imagestats, batch * sizeof(imgstats5));
 		d_Dev(d_input, d_imagestats, elements, d_mask, batch);
 
-		imgstats5* h_imagestats = (imgstats5*)MallocFromDeviceArray(d_imagestats, batch * sizeof(imgstats5));
-
 		size_t TpB = tmin((size_t)192, NextMultipleOf(elements, 32));
 		size_t totalblocks = tmin((elements + TpB - 1) / TpB, (size_t)32768);
 		dim3 grid = dim3((uint)totalblocks, batch);
@@ -65,7 +63,6 @@ namespace gtom
 		else if (mode == T_NORM_CUSTOM)
 			NormCustomScfKernel << <grid, (uint)TpB >> > (d_input, d_output, d_imagestats, elements, scf);
 
-		free(h_imagestats);
 		cudaFree(d_imagestats);
 	}
 	template void d_Norm<tfloat>(tfloat* d_input, tfloat* d_output, size_t elements, tfloat* d_mask, T_NORM_MODE mode, tfloat stddev, int batch);

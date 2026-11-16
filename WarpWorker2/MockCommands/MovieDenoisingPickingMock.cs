@@ -14,39 +14,25 @@ static partial class WorkerProcess
 {
     const string MockModelFormat="warpworker2-mock-denoiser";
 
-    [MockCommand(WorkerCommandNames.MoviePrepareDenoising)]
-    static void MockMoviePrepareDenoising(NamedSerializableObject command)
-    {
-        string path=(string)command.Content[0];float inputSampling=(float)command.Content[1];
-        if(!float.IsFinite(inputSampling)||inputSampling<=0)throw new ArgumentOutOfRangeException(nameof(inputSampling));
-        var movie=new Movie(path);
-        if(movie.OptionsCTF==null)throw new InvalidOperationException("CTF metadata is required before mock enhancement.");
-        var source=MapHeader.ReadFromFile(movie.AveragePath);float sampling=MovieDenoising.Sampling(inputSampling);uint seed=MockSeed(path);
-        int3 dims=new(Math.Max(4,(int)Math.Round(source.Dimensions.X*inputSampling/sampling/2)*2),Math.Max(4,(int)Math.Round(source.Dimensions.Y*inputSampling/sampling/2)*2),1);
-        MockWriteMrc(movie.DeconvolvedPath,dims,sampling,(x,y,z)=>MockMicrograph(seed,x,y,dims.X,dims.Y,.16f));
-        if(File.Exists(movie.AverageOddPath)&&File.Exists(movie.AverageEvenPath))
-        {
-            MockWriteMrc(movie.DenoiseTrainingOddPath,dims,sampling,(x,y,z)=>MockMicrograph(seed,x,y,dims.X,dims.Y,.24f,1));
-            MockWriteMrc(movie.DenoiseTrainingEvenPath,dims,sampling,(x,y,z)=>MockMicrograph(seed,x,y,dims.X,dims.Y,.24f,2));
-        }
-        else{File.Delete(movie.DenoiseTrainingOddPath);File.Delete(movie.DenoiseTrainingEvenPath);}
-        MockPause();Console.WriteLine($"[MOCK] Prepared synthetic deconvolution/training halves for {path}");
-    }
-
     [MockCommand(WorkerCommandNames.TrainMovieDenoiser)]
     static void MockTrainMovieDenoiser(NamedSerializableObject command)
     {
         string[] movies=(string[])command.Content[0];string output=(string)command.Content[1],previous=(string)command.Content[2];int epochs=(int)command.Content[3];
         if(movies.Length==0||epochs<1)throw new ArgumentException("Mock training requires movies and positive epochs.");
+        // Real training deconvolves the half-averages on the fly with each movie's CTF; the mock checks they are there.
         foreach(string path in movies)
         {
             var movie=new Movie(path);
-            var odd=MapHeader.ReadFromFile(movie.DenoiseTrainingOddPath);var even=MapHeader.ReadFromFile(movie.DenoiseTrainingEvenPath);
-            if(odd.Dimensions!=even.Dimensions||odd.Dimensions.Z!=1||odd.PixelSize.X!=even.PixelSize.X)throw new InvalidDataException("Mock training halves have incompatible dimensions/sampling.");
+            if(movie.OptionsCTF==null)throw new InvalidOperationException("CTF metadata is required before mock training.");
+            var odd=MapHeader.ReadFromFile(movie.AverageOddPath);var even=MapHeader.ReadFromFile(movie.AverageEvenPath);
+            if(odd.Dimensions!=even.Dimensions||odd.Dimensions.Z!=1||odd.PixelSize.X!=even.PixelSize.X)throw new InvalidDataException("Mock half-averages have incompatible dimensions/sampling.");
         }
         if(!string.IsNullOrEmpty(previous))MockValidateModel(previous);
-        MockDirectory(output);MockPause();
+        MockDirectory(output);
+        // Real training reports progress beside its model; the mock walks the same file through its steps.
+        for(int step=1;step<=epochs;step++){new TrainingProgress(step,epochs,step,epochs,1f/step).Write(TrainingProgress.PathFor(output));MockPause();}
         File.WriteAllText(output,JsonSerializer.Serialize(new{format=MockModelFormat,synthetic=true,provenance=MockProvenance,trainingMovies=movies,epochs}));
+        File.Delete(TrainingProgress.PathFor(output));
         Console.WriteLine($"[MOCK] Wrote synthetic denoiser marker for {movies.Length} movies (not a Torch model): {output}");
     }
     static void MockValidateModel(string path)
@@ -59,9 +45,14 @@ static partial class WorkerProcess
     [MockCommand(WorkerCommandNames.MovieDenoise)]
     static void MockMovieDenoise(NamedSerializableObject command)
     {
-        string path=(string)command.Content[0];MockValidateModel((string)command.Content[1]);var movie=new Movie(path);
-        var source=MapHeader.ReadFromFile(movie.DeconvolvedPath);uint seed=MockSeed(path);int3 dims=source.Dimensions;
-        MockWriteMrc(movie.AverageDenoisedPath,dims,source.PixelSize.X,(x,y,z)=>MockMicrograph(seed,x,y,dims.X,dims.Y,.035f));
+        string path=(string)command.Content[0];MockValidateModel((string)command.Content[1]);float inputSampling=(float)command.Content[2];
+        if(!float.IsFinite(inputSampling)||inputSampling<=0)throw new ArgumentOutOfRangeException(nameof(inputSampling));
+        var movie=new Movie(path);
+        if(movie.OptionsCTF==null)throw new InvalidOperationException("CTF metadata is required before mock denoising.");
+        // Real denoising deconvolves the average on the fly at the denoiser's sampling; the mock writes that size.
+        var source=MapHeader.ReadFromFile(movie.AveragePath);float sampling=MovieDenoising.Sampling(inputSampling);uint seed=MockSeed(path);
+        int3 dims=new(Math.Max(4,(int)Math.Round(source.Dimensions.X*inputSampling/sampling/2)*2),Math.Max(4,(int)Math.Round(source.Dimensions.Y*inputSampling/sampling/2)*2),1);
+        MockWriteMrc(movie.AverageDenoisedPath,dims,sampling,(x,y,z)=>MockMicrograph(seed,x,y,dims.X,dims.Y,.035f));
         MockPause();Console.WriteLine($"[MOCK] Synthetic denoised micrograph for {path}");
     }
 
@@ -96,9 +87,12 @@ static partial class WorkerProcess
         float sampling=(float)command.Content[3];if(!float.IsFinite(sampling)||sampling<=0)throw new ArgumentOutOfRangeException(nameof(sampling));
         var table=new Star((string)command.Content[2]);
         if(!table.HasColumn("rlnCoordinateX")||!table.HasColumn("rlnCoordinateY"))throw new InvalidDataException("Missing mock particle coordinates.");
+        string extracted=command.Content.Length>8?(string)command.Content[8]:null;
+        if(extracted!=null)table=PickSelection.Select(table,(double)command.Content[4],(double)command.Content[5],(double)command.Content[6],(double)command.Content[7]);
         foreach(string value in table.GetColumn("rlnCoordinateX").Concat(table.GetColumn("rlnCoordinateY")))
             if(!float.IsFinite(float.Parse(value,CultureInfo.InvariantCulture)))throw new InvalidDataException("Invalid mock particle coordinate.");
         MockExtract((string)command.Content[0],(ProcessingOptionsParticleExport)command.Content[1],table.RowCount);
+        if(extracted!=null)PickSelection.Write(table,extracted);
     }
     static void MockExtract(string path,ProcessingOptionsParticleExport options,int count)
     {

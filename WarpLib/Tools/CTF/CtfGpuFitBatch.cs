@@ -19,11 +19,13 @@ public sealed class CtfGpuFitBatch : IDisposable
         if (spectra.Length == 0) throw new ArgumentException("No CTF spectra.");
         this.spectra = spectra;
         var first = spectra[0]; int samples = first.Samples.Length;
-        foreach (var s in spectra)
-            if (!first.HasSameGpuLayout(s)) throw new ArgumentException("A CTF GPU batch requires common frequency sampling and microscope parameters.");
+        // Full-spectrum diagnostics hold hundreds of patches × tens of thousands of samples: check and copy them in parallel.
+        bool sameLayout = true;
+        Parallel.For(1, spectra.Length, (i, state) => { if (!first.HasSameGpuLayout(spectra[i])) { sameLayout = false; state.Stop(); } });
+        if (!sameLayout) throw new ArgumentException("A CTF GPU batch requires common frequency sampling and microscope parameters.");
         int count = checked(samples * spectra.Length);
         var data = new double[count]; var counts = new double[count]; var currentWeights = new double[count];
-        for (int i = 0; i < spectra.Length; i++) spectra[i].CopyGpuData(data, counts, currentWeights, i * samples);
+        Parallel.For(0, spectra.Length, i => spectra[i].CopyGpuData(data, counts, currentWeights, i * samples));
         CtfNative.Check(CtfNative.FitCreate(spectra.Length, samples, first.KnotCount, first.GpuMoments(), first.GpuBasis(), data, counts, currentWeights, out context), "create fitting batch");
         output = new double[spectra.Length * 9];
     }
@@ -64,6 +66,12 @@ public sealed class CtfGpuFitBatch : IDisposable
         CtfNative.Check(CtfNative.FitReadWeights(context, weights), "read robust weights");
         Parallel.For(0, spectra.Length, i => spectra[i].SetGpuWeights(weights, i * samples));
     }
+    /// <summary>
+    /// The nuisance solves of batches created afterwards run on a warp per patch when they fit in shared memory (the
+    /// default), or else on one thread per patch. Both give identical results; tests switch between them to compare.
+    /// Returns the previous setting.
+    /// </summary>
+    public static bool SetWarpSolver(bool enabled) => CtfNative.FitSetWarpSolver(enabled ? 1 : 0) != 0;
     public void Dispose()
     {
         if (context != IntPtr.Zero) { CtfNative.FitDestroy(context); context = IntPtr.Zero; }

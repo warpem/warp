@@ -10,7 +10,9 @@ namespace Warp;
 
 public partial class Movie
 {
-    public void ProcessShift(Image originalStack, ProcessingOptionsMovieMovement options)
+    /// <param name="releaseStack">Free the stack's device copy once the patches are extracted; a caller that runs
+    /// more GPU steps on the same stack can keep it resident instead of uploading it again.</param>
+    public void ProcessShift(Image originalStack, ProcessingOptionsMovieMovement options, bool releaseStack = true)
     {
         if (originalStack.Dims.Z == 1)
         {
@@ -188,7 +190,8 @@ public partial class Movie
             Patches.Multiply(1 / AmpsMean);
             BfacWeights.Dispose();
 
-            originalStack.FreeDevice();
+            if (releaseStack)
+                originalStack.FreeDevice();
             PatchesAverage = new Image(IntPtr.Zero, new int3(MaskLength, NPositions, 1), false, true);
             Shifts = new Image(new int3(NPositions * NFrames * 2, 1, 1));
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -34,9 +35,8 @@ public sealed class WarpMockWorkerTests : IDisposable
             WorkerCommands.MovieProcessCTF(path,new ProcessingOptionsMovieCTF{PixelSize=1,Window=128,FitThickness=true,DoPhase=true}),
             WorkerCommands.MovieExportMovie(path,new ProcessingOptionsMovieExport{PixelSize=1,DoAverage=true,DoDenoise=true}),
             WorkerCommands.MovieCreateThumbnail(path,64,2),
-            WorkerCommands.MoviePrepareDenoising(path,1,1,1),
-            WorkerCommands.TrainMovieDenoiser([path],model,"",2,.9f,.1f),
-            WorkerCommands.MovieDenoise(path,model),
+            WorkerCommands.TrainMovieDenoiser([path],model,"",2,.9f,.1f,1),
+            WorkerCommands.MovieDenoise(path,model,1,.9f,.1f),
             WorkerCommands.MicrographPickBlobs(movie.AverageDenoisedPath,1),
             WorkerCommands.MovieExportParticlesFromStar(path,new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_warp"},picks,5),
             WorkerCommands.WaitAsyncTasks()
@@ -49,7 +49,8 @@ public sealed class WarpMockWorkerTests : IDisposable
         var average=MapHeader.ReadFromFile(movie.AveragePath);Assert.Equal(new int3(96,64,1),average.Dimensions);Assert.Equal(1,average.PixelSize.X);
         Assert.Contains("SYNTHETIC",new string(((HeaderMRC)average).Labels[0]));
         var enhanced=MapHeader.ReadFromFile(movie.AverageDenoisedPath);Assert.Equal(new int3(16,10,1),enhanced.Dimensions);Assert.Equal(6,enhanced.PixelSize.X);
-        Assert.Equal(enhanced.Dimensions,MapHeader.ReadFromFile(movie.DenoiseTrainingOddPath).Dimensions);
+        // Denoising deconvolves on the fly: nothing deconvolved is left on disk.
+        Assert.False(File.Exists(movie.DeconvolvedPath));Assert.False(File.Exists(movie.DenoiseTrainingOddPath));
         Assert.Equal(new int3(128,64,1),MapHeader.ReadFromFile(movie.PowerSpectrumPath).Dimensions);
         // Radius 1 needs a 2-pixel margin on the 16x10 enhanced image (6 Å/pixel); particles closer to an edge are not picked.
         var table=new Star(picks);Assert.InRange(table.RowCount,1,19);Assert.True(table.HasColumn("wrpAutopickPower"));
@@ -63,6 +64,20 @@ public sealed class WarpMockWorkerTests : IDisposable
         var hashes=files.Select(file=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file)))).ToArray();
         RunTask("second",commands);
         Assert.Equal(hashes,files.Select(file=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file)))).ToArray());
+
+        // With score bounds only the picks within them are extracted, and their rows are recorded in stack order.
+        var correlations=table.GetColumn("rlnAutopickFigureOfMerit").Select(v=>double.Parse(v,CultureInfo.InvariantCulture)).ToArray();
+        double median=correlations.OrderBy(v=>v).ElementAt(correlations.Length/2);
+        string extracted=Path.Combine(movie.ParticlesDir,movie.RootName+"_warp.star");
+        var particleOptions=new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_warp"};
+        RunTask("bounded",[WorkerCommands.LoadStack(path,1,1),WorkerCommands.MovieExportParticlesFromStar(path,particleOptions,picks,5,median,1,0,double.MaxValue,extracted),WorkerCommands.WaitAsyncTasks()]);
+        var kept=new Star(extracted);
+        Assert.Equal(correlations.Count(c=>c>=median),kept.RowCount);
+        Assert.Equal(correlations.Where(c=>c>=median),kept.GetColumn("rlnAutopickFigureOfMerit").Select(v=>double.Parse(v,CultureInfo.InvariantCulture)));
+        Assert.Equal(new int3(16,16,kept.RowCount),MapHeader.ReadFromFile(stack).Dimensions);
+        // Bounds that keep nothing leave an empty list and no stack from the earlier extraction.
+        RunTask("none",[WorkerCommands.LoadStack(path,1,1),WorkerCommands.MovieExportParticlesFromStar(path,particleOptions,picks,5,1.5,2,0,double.MaxValue,extracted),WorkerCommands.WaitAsyncTasks()]);
+        Assert.Equal(0,new Star(extracted).RowCount);Assert.True(new Star(extracted).HasColumn("wrpAutopickPower"));Assert.False(File.Exists(stack));
     }
 
     [Fact]
@@ -132,7 +147,8 @@ public sealed class WarpMockWorkerTests : IDisposable
         var info=new ProcessStartInfo{FileName=Path.Combine(AppContext.BaseDirectory,"WarpWorker2"),UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
         foreach(string arg in new[]{"--device","0","--queue-dir",queueDirectory??root,"--mock","--mock-delay-ms","0","--debug"}.Concat(extra))info.ArgumentList.Add(arg);
         using var process=Process.Start(info)!;
-        try{Assert.True(process.WaitForExit(30000),"Mock worker timed out");Assert.Equal(0,process.ExitCode);}
+        var stdout=process.StandardOutput.ReadToEndAsync();var stderr=process.StandardError.ReadToEndAsync();
+        try{Assert.True(process.WaitForExit(30000),"Mock worker timed out");Assert.True(process.ExitCode==0,$"exit {process.ExitCode}\n{stdout.Result}\n{stderr.Result}");}
         finally{if(!process.HasExited){process.Kill(true);process.WaitForExit();}}
     }
     private static void ValidatePng(string path,int width,int height)

@@ -62,7 +62,8 @@ public static class Noise2MicPreprocessing
         double phaseContrast = Math.Sqrt(Math.Max(0, 1 - amplitude * amplitude));
         double cutoff = highpassAngstrom > 0 ? 1.0 / highpassAngstrom : 0, strengthTerm = Math.Pow(10, 3 * strength);
         var filter = new float[halfWidth * height];
-        for (int y = 0; y < height; y++)
+        // Rows in parallel: every value is computed on its own, so the filter is the same however rows are scheduled.
+        System.Threading.Tasks.Parallel.For(0, height, y =>
         {
             // torch.fft.fftfreq: the upper half are negative frequencies.
             double qy = (y < (height + 1) / 2 ? y : y - height) / (height * (double)pixelSize);
@@ -75,7 +76,7 @@ public static class Noise2MicPreprocessing
                 double snr = Math.Exp(-q * pixelSize * 2 * falloff * 100) * strengthTerm * highpass;
                 filter[y * halfWidth + x] = (float)(value / (value * value + 1 / Math.Max(snr, 1e-15)));
             }
-        }
+        });
         return filter;
     }
 

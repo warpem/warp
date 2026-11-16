@@ -730,6 +730,12 @@ __declspec(dllexport) void PrefilterForCubic(float* d_data, int3 dims)
 		d_CubicBSplinePrefilter2D(d_data, toInt2(dims));
 }
 
+// The previous 2D prefilter kernels (one thread per line), for comparison in tests.
+__declspec(dllexport) void PrefilterForCubicReference2D(float* d_data, int3 dims)
+{
+	d_CubicBSplinePrefilter2DReference(d_data, toInt2(dims));
+}
+
 __declspec(dllexport) void CreateTexture3D(float* d_data, int3 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering)
 {
 	d_BindTextureTo3DArray(d_data, ((cudaArray_t*)h_arrayid)[0], ((cudaTex*)h_textureid)[0], dims, linearfiltering ? cudaFilterModeLinear : cudaFilterModePoint, false);

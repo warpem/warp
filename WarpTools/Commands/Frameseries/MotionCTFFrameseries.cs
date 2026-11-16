@@ -66,11 +66,6 @@ namespace WarpTools.Commands
         public bool CTFThicknessEnable { get; set; }
 
 
-        [Option("c_use_sum", HelpText = "Use the movie average spectrum instead of the average of individual frames' spectra. " +
-                                      "Can help in the absence of an energy filter, or when signal is low.")]
-        public bool CTFMovieSumEnable { get; set; }
-
-
         [Option("c_grid", HelpText = "Resolution of the spatial defocus grid in X and Y, separated by 'x': e.g. 6x6; empty = auto")]
         public string CTFGridDims { get; set; }
 
@@ -152,7 +147,6 @@ namespace WarpTools.Commands
 
             Options.CTF.DoPhase = CLI.CTFPhaseEnable;
             Options.CTF.FitThickness = CLI.CTFThicknessEnable;
-            Options.CTF.UseMovieSum = CLI.CTFMovieSumEnable;
 
             if (!string.IsNullOrEmpty(CLI.CTFGridDims))
             {
@@ -229,18 +223,7 @@ namespace WarpTools.Commands
                 if (CLI.OutThumbnails.HasValue)
                     main.Add(WorkerCommands.MovieCreateThumbnail(m.Path, CLI.OutThumbnails.Value, 3));
 
-                if (Options.CTF.UseMovieSum)
-                {
-                    // Drain the async export before loading the average — same
-                    // ordering as the old worker.WaitAsyncTasks() call.
-                    main.Add(WorkerCommands.WaitAsyncTasks());
-                    // Average is already gain-corrected; correctGain=false avoids
-                    // applying it a second time (unlike standalone fs_ctf).
-                    if (File.Exists(m.AveragePath))
-                        main.Add(WorkerCommands.LoadStack(m.AveragePath, 1M,
-                            Options.Import.EERGroupFrames, correctGain: false));
-                }
-
+                // CTF spectra come from aligned frame groups of the stack still loaded, using the motion just fitted.
                 main.Add(WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF));
                 main.Add(WorkerCommands.WaitAsyncTasks());
                 main.Add(WorkerCommands.GcCollect());

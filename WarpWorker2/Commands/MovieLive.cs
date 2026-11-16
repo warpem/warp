@@ -12,10 +12,51 @@ static partial class WorkerProcess
     static Noise2MicTorch MicrographDenoiserModel;
     static string MicrographDenoiserPath = "";
 
-    [Command(WorkerCommandNames.MoviePrepareDenoising)]
-    static void MoviePrepareDenoising(NamedSerializableObject command) =>
-        MovieDenoising.Prepare((string)command.Content[0], (float)command.Content[1],
-            (float)command.Content[2], (float)command.Content[3]);
+    /// <summary>
+    /// Denoising's object erasure needs only the exported averages, so while a task fits a movie's CTF the erasure for
+    /// its later MovieDenoise runs on another thread (CPU work, and its own FFT plans); denoising then deconvolves and
+    /// runs the network. It is the same computation on the same files, which MovieDenoising.Denoise checks.
+    /// </summary>
+    static (string Path, float PixelSize, System.Threading.Tasks.Task<MovieDenoising.Erasure> Work) PendingErasure;
+
+    static void StartErasureAhead(NamedSerializableObject[] commands, int index)
+    {
+        if (MockMode || commands[index].Name != WorkerCommandNames.MovieProcessCTF) return;
+        string path = (string)commands[index].Content[0];
+        for (int i = index + 1; i < commands.Length; i++)
+            if (commands[i].Name == WorkerCommandNames.MovieDenoise && (string)commands[i].Content[0] == path)
+            {
+                FinishErasure();
+                float pixelSize = (float)commands[i].Content[2];
+                int device = DeviceID;
+                PendingErasure = (path, pixelSize, System.Threading.Tasks.Task.Run(() =>
+                {
+                    GPU.SetDevice(device);
+                    using var plans = new PrivateFftPlans();
+                    return MovieDenoising.Erase(path, pixelSize, plans);
+                }));
+                return;
+            }
+    }
+
+    /// <summary>The erasure made ahead for this movie, or null (denoising then makes it, and reports any error).</summary>
+    static MovieDenoising.Erasure TakeErasure(string path, float pixelSize)
+    {
+        var pending = PendingErasure;
+        if (pending.Work == null || pending.Path != path || pending.PixelSize != pixelSize) return null;
+        PendingErasure = default;
+        try { return pending.Work.GetAwaiter().GetResult(); }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>Waits for and drops an erasure nobody took, so none runs into the next task.</summary>
+    static void FinishErasure()
+    {
+        var pending = PendingErasure;
+        PendingErasure = default;
+        if (pending.Work == null) return;
+        try { pending.Work.Wait(); } catch (Exception) { }
+    }
 
     [Command(WorkerCommandNames.TrainMovieDenoiser)]
     static void TrainMovieDenoiser(NamedSerializableObject command)
@@ -23,8 +64,8 @@ static partial class WorkerProcess
         // Training is a standalone queue task; release a prior movie/model before allocating its batches.
         OriginalStack?.Dispose(); OriginalStack = null; OriginalStackOwner = "";
         MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
-        MovieDenoising.Train((string[])command.Content[0], (string)command.Content[1],
-            (string)command.Content[2], (int)command.Content[3], DeviceID, (float)command.Content[4], (float)command.Content[5]);
+        MovieDenoising.TrainMovies((string[])command.Content[0], (string)command.Content[1], (string)command.Content[2],
+            (int)command.Content[3], DeviceID, (float)command.Content[6], (float)command.Content[4], (float)command.Content[5]);
     }
 
     [Command(WorkerCommandNames.MovieDenoise)]
@@ -39,7 +80,9 @@ static partial class WorkerProcess
             catch { model.Dispose(); throw; }
             MicrographDenoiserModel = model; MicrographDenoiserPath = modelPath;
         }
-        MovieDenoising.Apply((string)command.Content[0], MicrographDenoiserModel);
+        string path = (string)command.Content[0];
+        float pixelSize = (float)command.Content[2];
+        MovieDenoising.Denoise(path, pixelSize, (float)command.Content[3], (float)command.Content[4], MicrographDenoiserModel, TakeErasure(path, pixelSize));
     }
 
     [Command(WorkerCommandNames.MovieExportParticlesFromStar)]
@@ -51,6 +94,10 @@ static partial class WorkerProcess
         float sampling = (float)command.Content[3];
         if (!float.IsFinite(sampling) || sampling <= 0) throw new ArgumentOutOfRangeException(nameof(sampling));
         var table = new Star(starPath);
+        // With score bounds, only the picks within them are extracted, and their rows are recorded in stack order.
+        string extractedStarPath = command.Content.Length > 8 ? (string)command.Content[8] : null;
+        if (extractedStarPath != null)
+            table = PickSelection.Select(table, (double)command.Content[4], (double)command.Content[5], (double)command.Content[6], (double)command.Content[7]);
         string[] x = table.GetColumn("rlnCoordinateX"), y = table.GetColumn("rlnCoordinateY");
         var coordinates = new float2[table.RowCount];
         for (int i = 0; i < coordinates.Length; i++)
@@ -59,10 +106,18 @@ static partial class WorkerProcess
             if (!float.IsFinite(xx) || !float.IsFinite(yy)) throw new InvalidDataException("Non-finite particle coordinates.");
             coordinates[i] = new float2(xx, yy) * sampling;
         }
-        // There is no stack to write for an empty pick list. The source STAR remains an explicit empty result.
-        if (coordinates.Length == 0) return;
-        options.Dimensions = OriginalStack.Dims.MultXY((float)options.BinnedPixelSizeMean);
-        new Movie(path).ExportParticles(OriginalStack, coordinates, options);
+        var movie = new Movie(path);
+        if (coordinates.Length == 0)
+        {
+            // There is no stack for an empty list; one left from an earlier extraction is no longer valid.
+            File.Delete(Path.Combine(movie.ParticlesDir, movie.RootName + options.Suffix + ".mrcs"));
+        }
+        else
+        {
+            options.Dimensions = OriginalStack.Dims.MultXY((float)options.BinnedPixelSizeMean);
+            movie.ExportParticles(OriginalStack, coordinates, options, releaseStack: !StackResident);
+        }
+        if (extractedStarPath != null) PickSelection.Write(table, extractedStarPath);
         Console.WriteLine($"Exported {coordinates.Length} particles for {path}");
     }
 }

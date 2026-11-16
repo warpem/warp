@@ -47,11 +47,6 @@ namespace WarpTools.Commands
         public bool ThicknessEnable { get; set; }
 
 
-        [Option("use_sum", HelpText = "Use the movie average spectrum instead of the average of individual frames' spectra. " +
-                                      "Can help in the absence of an energy filter, or when signal is low.")]
-        public bool MovieSumEnable { get; set; }
-
-
         [Option("grid", HelpText = "Resolution of the spatial defocus grid in X and Y, separated by 'x': e.g. 6x6; empty = auto")]
         public string GridDims { get; set; }
     }
@@ -80,7 +75,6 @@ namespace WarpTools.Commands
 
             Options.CTF.DoPhase = CLI.PhaseEnable;
             Options.CTF.FitThickness = CLI.ThicknessEnable;
-            Options.CTF.UseMovieSum = CLI.MovieSumEnable;
 
             if (!string.IsNullOrEmpty(CLI.GridDims))
             {
@@ -130,11 +124,8 @@ namespace WarpTools.Commands
             // writes, progress/error output) is owned by DistributeItems.
             CLI.DistributeItems<Movie>(buildTask: (m, i) =>
             {
-                // correctGain=true matches the original fs_ctf default. The sibling
-                // fs_motion_and_ctf passes false for the average (already gain-corrected
-                // and binned). Preserved for behavioral fidelity; see manual acceptance
-                // test notes for the --use_sum + gain-reference caveat.
-                bool useSum = Options.CTF.UseMovieSum && File.Exists(m.AveragePath);
+                // Spectra come from aligned ~3 e⁻/Å² frame groups, which needs the raw frames and the motion
+                // model fs_motion saved (without it, frames stay separate).
                 var task = new TaskItem
                 {
                     TaskId = $"{i:D7}-ctf-{m.RootName}",
@@ -143,8 +134,7 @@ namespace WarpTools.Commands
                     Init = new[] { loadGainRef },
                     Main = new[]
                     {
-                        useSum ? WorkerCommands.LoadStack(m.AveragePath, 1M, Options.Import.EERGroupFrames)
-                               : WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
+                        WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
                         WorkerCommands.MovieProcessCTF(m.Path, OptionsCTF),
                         WorkerCommands.GcCollect(),
                     },

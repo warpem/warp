@@ -245,4 +245,50 @@ public class TaskQueueTests : IDisposable
         Assert.Null(_queue.ClaimOne("worker-a"));
         Assert.False(_queue.TryWithdraw("waiting"));
     }
+
+    [Fact]
+    public void PreferredTaskIsClaimedFirstUnlessAPriorityTaskWaits()
+    {
+        for (int i = 0; i < 20; i++) _queue.Enqueue(MakeTask($"task-{i:D2}"));
+        Assert.Equal("task-13", _queue.ClaimOne("worker-a", preferredTaskId: "task-13").TaskId);
+        // Gone or unknown preferences fall back to the usual claim.
+        var fallback = _queue.ClaimOne("worker-a", preferredTaskId: "task-13");
+        Assert.NotNull(fallback);
+        // The fallback claim is random; prefer a task it cannot have taken.
+        string preferred = fallback.TaskId == "task-05" ? "task-06" : "task-05";
+        _queue.Enqueue(new TaskItem { TaskId = "urgent", Priority = true, Main = new[] { new NamedSerializableObject("MovieProcessCTF") } });
+        Assert.StartsWith(TaskQueue.PriorityPrefix, _queue.ClaimOne("worker-a", preferredTaskId: preferred).TaskId);
+        Assert.Equal(preferred, _queue.ClaimOne("worker-a", preferredTaskId: preferred).TaskId);
+    }
+
+    [Fact]
+    public void PeekLeavesTheTaskPendingAndHonorsStagesAndPriority()
+    {
+        Assert.Null(_queue.PeekOne());
+        _queue.Enqueue(MakeTask("motion-1", "motion"));
+        _queue.Enqueue(MakeTask("train-1", "train"));
+        Assert.Equal("motion-1", _queue.PeekOne(new[] { "motion" }).TaskId);
+        Assert.Equal(2, Directory.GetFiles(_layout.Pending, "*.json").Length);
+        _queue.Enqueue(new TaskItem { TaskId = "urgent", Stage = "motion", Priority = true, Main = new[] { new NamedSerializableObject("MovieProcessCTF") } });
+        for (int i = 0; i < 10; i++) Assert.StartsWith(TaskQueue.PriorityPrefix, _queue.PeekOne().TaskId);
+    }
+
+    [Fact]
+    public void PeekSkipsMalformedTaskFiles()
+    {
+        // Any worker's prefetch peeks at a random pending task; a bad file there must not fail its own task.
+        File.WriteAllText(Path.Combine(_layout.Pending, "broken.json"), "{ not json");
+        File.WriteAllText(Path.Combine(_layout.Pending, "empty.json"), "");
+        _queue.Enqueue(MakeTask("good"));
+        for (int i = 0; i < 10; i++) Assert.Equal("good", _queue.PeekOne().TaskId);
+    }
+
+    [Fact]
+    public void ExclusiveFlagSurvivesTheQueue()
+    {
+        var task = MakeTask("train");
+        task.Exclusive = true;
+        _queue.Enqueue(task);
+        Assert.True(_queue.ClaimOne("worker-a").Exclusive);
+    }
 }

@@ -35,31 +35,56 @@ public static class CtfPowerSpectrum
         return extractor.Extract(image, group, basisSource);
     }
 
-    /// <summary>Reuse one extractor across a tilt series. Window, Fourier-bin geometry,
-    /// FFT plan and device scratch buffers are allocated once. Only compact spectra return to the host.</summary>
-    public sealed class Extractor : IDisposable
-    {
-        IntPtr context;
-        readonly ProcessingOptionsMovieCTF options;
-        readonly int2 dimensions, grid;
-        readonly int window, displayWindow, fftSize, bins;
-        readonly int3[] origins;
-        readonly double[] count, q2, q4, ax, ay;
-        CtfSpectrumFit sharedBasis;
-        public int AperturePixels => window;
+    /// <summary>
+    /// Per-patch frame sums need patches × small²/2 floats on the device; beyond this, frames go straight to the fine grid.
+    /// Precision: the resampled periodogram's FP32 rounding error is relative to a patch's total power, not to each
+    /// frequency's, so it grows with the spectrum's dynamic range (about 1e-5 of a bin's value for noise-dominated
+    /// frames, up to ~1e-3 for synthetic patches spanning six decades; the direct path stays near 1e-6).
+    /// </summary>
+    const long SmallGridBudgetBytes = 2L << 30;
 
-        public Extractor(int2 dimensions, ProcessingOptionsMovieCTF options, bool fullSpectrum = false)
+    /// <summary>Off only in tests, to compare against transforming every frame on the fine grid.</summary>
+    static bool UseSmallGrid = true;
+
+    /// <summary>The grid frames are summed on, or 0 to transform them on the fine grid directly.</summary>
+    internal static int SmallGrid(int window, int fftSize, int patches)
+    {
+        int small = 2 * window;
+        if (!UseSmallGrid || small >= fftSize) return 0;
+        if ((long)patches * small * (small / 2 + 1) * sizeof(float) > SmallGridBudgetBytes)
         {
-            this.options = options; this.dimensions = dimensions; displayWindow = options.Window;
+            Console.WriteLine($"CTF: {patches} patches of {window} pixels need more than {SmallGridBudgetBytes >> 30} GB of frame sums; transforming every frame on the {fftSize}-pixel grid instead (slower, same spectra).");
+            return 0;
+        }
+        return small;
+    }
+
+    /// <summary>
+    /// Patch positions and Fourier-bin geometry of an extractor. They depend only on the image size and the CTF
+    /// options below, so a worker computes them once per session instead of once per movie (the full-spectrum
+    /// grid has millions of Fourier pixels to sort into bins).
+    /// </summary>
+    sealed record Layout(int Window, int FftSize, int Bins, int2 Grid, int3[] Origins, float[] Hann, double[] Count, double[] Q2, double[] Q4,
+        double[] Ax, double[] Ay, int[] Starts, int[] Indices, int[] DisplayIndices)
+    {
+        readonly record struct Key(int2 Dimensions, int Window, decimal Pixel, decimal RangeMin, decimal RangeMax, int Voltage, decimal ZMax, bool FullSpectrum);
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<Key, Layout> Cache = new();
+
+        public static Layout For(int2 dimensions, ProcessingOptionsMovieCTF options, bool fullSpectrum)
+        {
+            var key = new Key(dimensions, options.Window, options.BinnedPixelSizeMean, options.RangeMin, options.RangeMax, options.Voltage, options.ZMax, fullSpectrum);
+            if (Cache.TryGetValue(key, out var cached)) return cached;
+            var layout = Create(dimensions, options, fullSpectrum);
+            if (Cache.Count >= 16) Cache.Clear();
+            return Cache.GetOrAdd(key, layout);
+        }
+
+        static Layout Create(int2 dimensions, ProcessingOptionsMovieCTF options, bool fullSpectrum)
+        {
             double pixel = (double)options.BinnedPixelSizeMean;
-            if (displayWindow < 64 || displayWindow > Math.Min(dimensions.X, dimensions.Y) || displayWindow % 2 != 0)
-                throw new ArgumentException("CTF window must be even, at least 64 pixels, and fit inside the image.");
-            if (!(pixel > 0) || !(options.RangeMin > 0 && options.RangeMax > options.RangeMin && options.RangeMax <= 1))
-                throw new ArgumentException("Invalid CTF pixel size or frequency range.");
-            if (!(options.ZMin >= 0 && options.ZMax > options.ZMin)) throw new ArgumentException("The CTF defocus search range must be nonnegative and nonempty.");
-            window = ApertureSize(dimensions, options);
+            int window = ApertureSize(dimensions, options);
             double qmax = (fullSpectrum ? 1 : (double)options.RangeMax) / (2 * pixel);
-            fftSize = 1;
+            int fftSize = 1;
             double minimum = Math.Max(window * 2, 6 * CtfSpectrumFit.Wavelength((double)options.Voltage) * (double)options.ZMax * 1e4 * qmax / pixel);
             while (fftSize < minimum) fftSize *= 2;
             if (fftSize > 8192) throw new ArgumentException("CTF fitting requires an impractically large Fourier grid. Reduce the fitting frequency or maximum defocus.");
@@ -80,15 +105,14 @@ public static class CtfPowerSpectrum
                 u[b] += (x*x-yy*yy)/Math.Pow(fftSize*pixel,2); v[b] += 2.0*x*yy/Math.Pow(fftSize*pixel,2);
             }
             int[] valid = Enumerable.Range(0,binCount).Where(b => c[b]>0).ToArray();
-            bins = valid.Length;
-            if (bins < 16) throw new ArgumentException("The CTF fitting band contains too few Fourier samples.");
-            count = valid.Select(b => c[b]).ToArray(); q2 = valid.Select(b => r2[b]/c[b]).ToArray(); q4 = valid.Select(b => r4[b]/c[b]).ToArray();
-            ax = valid.Select(b => u[b]/c[b]).ToArray(); ay = valid.Select(b => v[b]/c[b]).ToArray();
+            int bins = valid.Length;
+            double[] count = valid.Select(b => c[b]).ToArray(), q2 = valid.Select(b => r2[b]/c[b]).ToArray(), q4 = valid.Select(b => r4[b]/c[b]).ToArray();
+            double[] ax = valid.Select(b => u[b]/c[b]).ToArray(), ay = valid.Select(b => v[b]/c[b]).ToArray();
             int[] starts = new int[bins+1];
             for (int b = 0; b < bins; b++) starts[b+1] = starts[b]+pixels[valid[b]].Count;
             int[] indices = new int[starts[bins]];
             for (int b = 0; b < bins; b++) pixels[valid[b]].CopyTo(indices,starts[b]);
-            origins = Helper.GetEqualGridSpacing(dimensions,new int2(window),.5f,out grid);
+            var origins = Helper.GetEqualGridSpacing(dimensions,new int2(window),.5f,out int2 grid);
             var hann = new float[window];
             for (int x = 0; x < window; x++) hann[x] = (float)(.5-.5*Math.Cos(2*Math.PI*(x+.5)/window));
             var displayIndices = new int[window*window/2];
@@ -100,33 +124,104 @@ public static class CtfPowerSpectrum
                 int ix = (int)Math.Round((double)xx*fftSize/window);
                 displayIndices[y*window+x] = iy*(fftSize/2+1)+ix;
             }
+            return new(window, fftSize, bins, grid, origins, hann, count, q2, q4, ax, ay, starts, indices, displayIndices);
+        }
+    }
+
+    /// <summary>Reuse one extractor across a tilt series. Window, Fourier-bin geometry,
+    /// FFT plan and device scratch buffers are allocated once. Only compact spectra return to the host.</summary>
+    public sealed class Extractor : IDisposable
+    {
+        IntPtr context;
+        readonly ProcessingOptionsMovieCTF options;
+        readonly int2 dimensions, grid;
+        readonly int window, displayWindow, fftSize, bins, small;
+        readonly int3[] origins;
+        readonly double[] count, q2, q4, ax, ay;
+        CtfSpectrumFit sharedBasis;
+        // What the frame sums currently hold: the image, its version and frame count when they were read.
+        readonly WeakReference<Image> summedImage = new(null);
+        long summedVersion = -1; int summedFrames;
+        public int AperturePixels => window;
+
+        public Extractor(int2 dimensions, ProcessingOptionsMovieCTF options, bool fullSpectrum = false)
+        {
+            this.options = options; this.dimensions = dimensions; displayWindow = options.Window;
+            double pixel = (double)options.BinnedPixelSizeMean;
+            if (displayWindow < 64 || displayWindow > Math.Min(dimensions.X, dimensions.Y) || displayWindow % 2 != 0)
+                throw new ArgumentException("CTF window must be even, at least 64 pixels, and fit inside the image.");
+            if (!(pixel > 0) || !(options.RangeMin > 0 && options.RangeMax > options.RangeMin && options.RangeMax <= 1))
+                throw new ArgumentException("Invalid CTF pixel size or frequency range.");
+            if (!(options.ZMin >= 0 && options.ZMax > options.ZMin)) throw new ArgumentException("The CTF defocus search range must be nonnegative and nonempty.");
+            var layout = Layout.For(dimensions, options, fullSpectrum);
+            window = layout.Window; fftSize = layout.FftSize; bins = layout.Bins; grid = layout.Grid; origins = layout.Origins;
+            count = layout.Count; q2 = layout.Q2; q4 = layout.Q4; ax = layout.Ax; ay = layout.Ay;
+            if (bins < 16) throw new ArgumentException("The CTF fitting band contains too few Fourier samples.");
             int batch = Math.Max(1,Math.Min(8,32*1024*1024/(fftSize*fftSize)));
-            CtfNative.Check(CtfNative.PowerCreate(dimensions.X,dimensions.Y,window,fftSize,batch,origins.Length,bins,origins,hann,starts,indices,displayIndices,out context),"create spectrum extractor");
+            // Frames are summed on the smallest grid that holds the patch autocorrelation without wrap-around and
+            // resampled to fftSize once per patch: the same periodograms for a fraction of the transforms.
+            small = SmallGrid(window, fftSize, origins.Length);
+            CtfNative.Check(CtfNative.PowerCreate(dimensions.X,dimensions.Y,window,fftSize,small,batch,origins.Length,bins,origins,layout.Hann,layout.Starts,layout.Indices,layout.DisplayIndices,out context),"create spectrum extractor");
         }
 
-        public Extraction Extract(Image image, int group = 0, CtfSpectrumFit basisSource = null)
+        /// <summary>
+        /// Runs this extractor's GPU work on a stream of its own, so it can overlap work on the default stream (the
+        /// full-spectrum diagnostics are read while the fit is refined). The spectra are the same.
+        /// </summary>
+        public void UseOwnStream()
+        {
+            ObjectDisposedException.ThrowIf(context == IntPtr.Zero, this);
+            CtfNative.Check(CtfNative.PowerUseOwnStream(context), "move spectrum extractor to its own stream");
+        }
+
+        /// <summary>Whether <paramref name="other"/>'s frame sums of an image serve this extractor's Fourier grid too.</summary>
+        public bool CanShareFrameSums(Extractor other) => other != null && other != this && other.context != IntPtr.Zero &&
+            small > 0 && other.small == small && other.window == window && other.dimensions == dimensions && other.origins.Length == origins.Length;
+
+        bool HoldsSumsOf(Image image) =>
+            summedImage.TryGetTarget(out var held) && ReferenceEquals(held, image) && summedVersion == image.Version && summedFrames == image.Dims.Z;
+
+        /// <param name="framesSummedBy">An extractor with the same patches whose last extraction read this very image,
+        /// unchanged since (see <see cref="CanShareFrameSums"/>): its frame sums are resampled to this grid instead of
+        /// reading the frames again. If its sums are of anything else, this throws rather than return wrong spectra.</param>
+        public Extraction Extract(Image image, int group = 0, CtfSpectrumFit basisSource = null, Extractor framesSummedBy = null)
         {
             ObjectDisposedException.ThrowIf(context == IntPtr.Zero,this);
             if (image.Dims.X != dimensions.X || image.Dims.Y != dimensions.Y) throw new ArgumentException("CTF extractor/image dimensions differ.");
             sharedBasis ??= basisSource;
-            float[][] frames = image.GetHost(Intent.Read);
+            int frameCount = image.Dims.Z;
             var display = new float[window*window/2];
             var power = new double[checked(origins.Length*bins)];
-            CtfNative.Check(CtfNative.PowerBegin(context),"begin spectrum");
-            foreach(var frame in frames) CtfNative.Check(CtfNative.PowerAdd(context,frame),"prepare spectra");
-            CtfNative.Check(CtfNative.PowerRead(context,power,display),"read spectra (input pixels must be finite)");
+            if (CanShareFrameSums(framesSummedBy))
+            {
+                if (!framesSummedBy.HoldsSumsOf(image))
+                    throw new InvalidOperationException("The extractor whose frame sums were offered last read a different image, or this image has changed since.");
+                CtfNative.Check(CtfNative.PowerReadShared(context,framesSummedBy.context,power,display),"read shared spectra (input pixels must be finite)");
+            }
+            else
+            {
+                summedImage.SetTarget(null); summedVersion = -1; // until this pass completes
+                CtfNative.Check(CtfNative.PowerBegin(context),"begin spectrum");
+                // A stack already resident on the GPU is read in place; otherwise frames are uploaded one at a time.
+                if (image.IsDeviceCurrent)
+                    for (int z = 0; z < frameCount; z++) CtfNative.Check(CtfNative.PowerAddDevice(context,image.GetDeviceSlice(z,Intent.Read)),"prepare spectra");
+                else
+                    foreach(var frame in image.GetHost(Intent.Read)) CtfNative.Check(CtfNative.PowerAdd(context,frame),"prepare spectra");
+                CtfNative.Check(CtfNative.PowerRead(context,power,display),"read spectra (input pixels must be finite)");
+                summedImage.SetTarget(small > 0 ? image : null); summedVersion = image.Version; summedFrames = frameCount;
+            }
             var observations = new Observation[origins.Length];
             Observation Make(int p)
             {
                 var samples = new CtfSpectrumFit.Sample[bins];
-                for (int b = 0; b < bins; b++) samples[b] = new(q2[b],q4[b],ax[b],ay[b],power[p*bins+b]/(count[b]*frames.Length),count[b]*frames.Length*Math.Pow((double)window/fftSize,2));
+                for (int b = 0; b < bins; b++) samples[b] = new(q2[b],q4[b],ax[b],ay[b],power[p*bins+b]/(count[b]*frameCount),count[b]*frameCount*Math.Pow((double)window/fftSize,2));
                 var spectrum = new CtfSpectrumFit(samples,(double)options.Voltage,(double)options.Cs,(double)options.Amplitude,sharedBasis);
                 var origin = origins[p];
                 return new(spectrum,new float3((origin.X+window*.5f)/dimensions.X,(origin.Y+window*.5f)/dimensions.Y,.5f),group);
             }
             observations[0] = Make(0); sharedBasis ??= observations[0].Spectrum;
             Parallel.For(1,origins.Length,p => observations[p] = Make(p));
-            for (int i = 0; i < display.Length; i++) display[i] /= (float)((long)frames.Length*origins.Length);
+            for (int i = 0; i < display.Length; i++) display[i] /= (float)((long)frameCount*origins.Length);
             // Preserve the requested diagnostic image size independently of the
             // physical extraction aperture, just as for the Fourier sampling.
             if (displayWindow != window)

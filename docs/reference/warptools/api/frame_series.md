@@ -72,10 +72,6 @@ Showing all available options for command fs_motion_and_ctf:
 
 --c_fit_thickness         Fit specimen thickness (disabled by default)
 
---c_use_sum               Use the movie average spectrum instead of the average 
-                          of individual frames' spectra. Can help in the absence
-                           of an energy filter, or when signal is low.
-
 --c_grid                  Resolution of the spatial defocus grid in X and Y,
                           separated by 'x': e.g. 6x6; empty = auto
 
@@ -257,10 +253,6 @@ Showing all available options for command fs_ctf:
                           ly 0.07-0.10 for cryo
 
 --fit_phase               Fit the phase shift of a phase plate
-
---use_sum                 Use the movie average spectrum instead of the average 
-                          of individual frames' spectra. Can help in the absence
-                           of an energy filter, or when signal is low.
 
 --grid                    Resolution of the spatial defocus grid in X and Y,
                           separated by 'x': e.g. 6x6; empty = auto

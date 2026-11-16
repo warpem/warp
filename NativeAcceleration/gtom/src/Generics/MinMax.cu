@@ -20,11 +20,8 @@ namespace gtom
 
 	void MinMaxGetNumBlocksAndThreads(size_t n, int &blocks, int &threads, int maxblocks)
 	{
-		//get device capability, to avoid block/grid size excceed the upbound
-		cudaDeviceProp prop;
-		int device;
-		cudaGetDevice(&device);
-		cudaGetDeviceProperties(&prop, device);
+		// The device's properties were queried here and never used: cudaGetDeviceProperties takes milliseconds, and
+		// every reduction (image statistics, normalization) paid for it.
 
 		size_t maxthreads = 512;
 		threads = (int)((n < maxthreads * 2) ? NextPow2((n + 1) / 2) : maxthreads);

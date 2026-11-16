@@ -66,24 +66,39 @@ namespace Warp.Workers
             new(WorkerCommandNames.MovieExportParticles, path, options, coordinates);
 
         /// <summary>Prepare deconvolved averages and independent training halves at >=5 Å/pixel.</summary>
-        public static NamedSerializableObject MoviePrepareDenoising(string moviePath, float pixelSize, float strength, float falloff) =>
-            new(WorkerCommandNames.MoviePrepareDenoising, moviePath, pixelSize, strength, falloff);
-
-        /// <summary>Noise2Mic training for epochs over the movies' prepared halves; the deconvolution settings are saved with the model.</summary>
-        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int epochs, float deconvStrength, float deconvFalloff) =>
-            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff);
+        /// <summary>
+        /// Noise2Mic training for epochs over the movies' half-averages, deconvolved on the fly with each movie's CTF at
+        /// <paramref name="pixelSize"/> (the averages' pixel size); the deconvolution settings are saved with the model.
+        /// </summary>
+        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int epochs, float deconvStrength, float deconvFalloff, float pixelSize) =>
+            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize);
 
         /// <summary>A PNG of the micrograph that fits maxSize, in the browser viewer's contrast.</summary>
         public static NamedSerializableObject MicrographCreatePreview(string micrographPath, string pngPath, int maxSize) =>
             new(WorkerCommandNames.MicrographCreatePreview, micrographPath, pngPath, maxSize);
 
-        public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath) =>
-            new(WorkerCommandNames.MovieDenoise, moviePath, modelPath);
+        /// <summary>
+        /// Denoises the movie's average with the model, deconvolving on the fly with the movie's CTF and these settings
+        /// (the ones the model was trained with) at <paramref name="pixelSize"/>, the average's pixel size.
+        /// </summary>
+        public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath, float pixelSize, float deconvStrength, float deconvFalloff) =>
+            new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff);
 
         /// <summary>Coordinates in the picker image are converted to physical Å before extraction.</summary>
         public static NamedSerializableObject MovieExportParticlesFromStar(string moviePath, ProcessingOptionsParticleExport options,
             string coordinateStarPath, float coordinatePixelSize) =>
             new(WorkerCommandNames.MovieExportParticlesFromStar, moviePath, options, coordinateStarPath, coordinatePixelSize);
+
+        /// <summary>
+        /// Extracts only the picks whose Pearson correlation and local power lie within the bounds (inclusive,
+        /// <see cref="PickSelection"/>) and writes their rows to <paramref name="extractedStarPath"/> in the stack's order.
+        /// <paramref name="maxPower"/> = <see cref="double.MaxValue"/> leaves power unbounded.
+        /// </summary>
+        public static NamedSerializableObject MovieExportParticlesFromStar(string moviePath, ProcessingOptionsParticleExport options,
+            string coordinateStarPath, float coordinatePixelSize, double minCorrelation, double maxCorrelation, double minPower, double maxPower,
+            string extractedStarPath) =>
+            new(WorkerCommandNames.MovieExportParticlesFromStar, moviePath, options, coordinateStarPath, coordinatePixelSize,
+                minCorrelation, maxCorrelation, minPower, maxPower, extractedStarPath);
 
         // --- Tilt series ---
 
@@ -220,7 +235,6 @@ namespace Warp.Workers
         public const string DropBoxNet = "DropBoxNet";
         public const string MoviePickBoxNet = "MoviePickBoxNet";
         public const string MicrographPickBlobs = "MicrographPickBlobs";
-        public const string MoviePrepareDenoising = "MoviePrepareDenoising";
         public const string TrainMovieDenoiser = "TrainMovieDenoiser";
         public const string MovieDenoise = "MovieDenoise";
         public const string MicrographCreatePreview = "MicrographCreatePreview";

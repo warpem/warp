@@ -1,5 +1,6 @@
 #include "include/Functions.h"
 #include "tiffio.h"
+#include "include/MemoryTiff.h"
 #include <chrono>
 #include <iostream>
 #include <vector>
@@ -520,4 +521,199 @@ __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrame
 			total_n_electron += n_electron;
 		}
 	}
+}
+
+
+// Indexes an EER movie, read into memory (data != NULL) or opened from path, in one pass over its image directories:
+// for each frame, the offset and size of its compressed data, whose strips must be stored back to back. Returns the
+// number of frames (writing at most maxFrames), or -1 if the file cannot be read or is not a supported EER movie
+// (4096x4096, compression 65000 or 65001, the same in every frame).
+__declspec(dllexport) int IndexEER(const char* path, const unsigned char* data, long long size, long long* offsets, long long* sizes, int maxFrames, int* compression)
+{
+	TIFFSetWarningHandler(0);
+	TIFFSetErrorHandler(0);
+
+	MemoryTiff file = { data, (toff_t)size, 0 };
+	TIFF* ftiff = data != NULL ? OpenMemoryTiff(&file) : TIFFOpen(path, "rm");
+	if (ftiff == NULL)
+		return -1;
+
+	int frames = 0;
+	uint16_t first = 0;
+	bool valid = true;
+	do
+	{
+		uint32_t width = 0, height = 0;
+		uint16_t scheme = 0;
+		toff_t* stripOffsets = NULL;
+		toff_t* stripSizes = NULL;
+		if (TIFFGetField(ftiff, TIFFTAG_IMAGEWIDTH, &width) != 1 || TIFFGetField(ftiff, TIFFTAG_IMAGELENGTH, &height) != 1 ||
+			TIFFGetField(ftiff, TIFFTAG_COMPRESSION, &scheme) != 1 || width != EER_IMAGE_WIDTH || height != EER_IMAGE_HEIGHT ||
+			(scheme != TIFF_COMPRESSION_EER8bit && scheme != TIFF_COMPRESSION_EER7bit) || (frames > 0 && scheme != first) ||
+			TIFFNumberOfStrips(ftiff) < 1 ||
+			TIFFGetField(ftiff, TIFFTAG_STRIPOFFSETS, &stripOffsets) != 1 || TIFFGetField(ftiff, TIFFTAG_STRIPBYTECOUNTS, &stripSizes) != 1 ||
+			stripOffsets == NULL || stripSizes == NULL)
+		{
+			valid = false;
+			break;
+		}
+
+		// A frame's strips are one bit stream; stored back to back, they can be decoded where they are.
+		toff_t frameSize = 0;
+		int nstrips = (int)TIFFNumberOfStrips(ftiff);
+		for (int strip = 0; strip < nstrips && valid; strip++)
+		{
+			valid = stripOffsets[strip] == stripOffsets[0] + frameSize;
+			frameSize += stripSizes[strip];
+		}
+		if (!valid || (data != NULL && stripOffsets[0] + frameSize > (toff_t)size))
+		{
+			valid = false;
+			break;
+		}
+
+		first = scheme;
+		if (frames < maxFrames)
+		{
+			offsets[frames] = (long long)stripOffsets[0];
+			sizes[frames] = (long long)frameSize;
+		}
+		frames++;
+	} while (TIFFReadDirectory(ftiff) == 1);
+
+	TIFFClose(ftiff);
+	*compression = first;
+	return valid ? frames : -1;
+}
+
+namespace
+{
+	// 32 bits of the bit stream from a byte offset; past the readable bytes, zeros.
+	inline unsigned int FetchEER32(const unsigned char* frame, long long offset, long long readable)
+	{
+		unsigned int value = 0;
+		if (offset + 4 <= readable)
+			memcpy(&value, frame + offset, sizeof(value));
+		else
+			for (long long i = offset; i < readable && i < offset + 4; i++)
+				value |= (unsigned int)frame[i] << (8 * (i - offset));
+		return value;
+	}
+
+	// An electron at pixel index pixel of the 4K grid with sub-pixel symbol (0000YyXx, flips already applied), as its
+	// index on the 16K grid: (y << 14) | x.
+	inline unsigned int EERPosition16K(unsigned int pixel, unsigned int symbol)
+	{
+		unsigned int x = ((pixel & 4095) << 2) | (symbol & 3);
+		unsigned int y = ((pixel >> 12) << 2) | ((symbol & 12) >> 2);
+		return (y << 14) | x;
+	}
+
+	// Decodes one frame; returns its electron count, -1 if the frame is malformed, -2 if capacity is exceeded.
+	long long DecodeEERFrame(const unsigned char* frame, long long size, long long readable, bool is7bit, unsigned int* positions, long long capacity)
+	{
+		long long n = 0;
+		unsigned int n_pix = 0;
+
+		if (is7bit)
+		{
+			// Two chunks of 7 + 4 bits fit in the 32 bits fetched from the current byte (at most 7 bits in).
+			unsigned long long bit_pos = 0;
+			while (true)
+			{
+				long long byte_offset = (long long)(bit_pos >> 3);
+				if (byte_offset > size)
+					return -1;
+				const unsigned int chunk = FetchEER32(frame, byte_offset, readable) >> (bit_pos & 7);
+
+				unsigned int p = chunk & 127;
+				bit_pos += 7;
+				n_pix += p;
+				if (n_pix == EER_IMAGE_PIXELS) break;
+				if (n_pix > EER_IMAGE_PIXELS) return -1;
+				if (p == 127) continue;
+
+				bit_pos += 4;
+				if (n >= capacity) return -2;
+				positions[n++] = EERPosition16K(n_pix, ((chunk >> 7) & 15) ^ 0x0A);
+				n_pix++;
+
+				p = (chunk >> 11) & 127;
+				bit_pos += 7;
+				n_pix += p;
+				if (n_pix == EER_IMAGE_PIXELS) break;
+				if (n_pix > EER_IMAGE_PIXELS) return -1;
+				if (p == 127) continue;
+
+				bit_pos += 4;
+				if (n >= capacity) return -2;
+				positions[n++] = EERPosition16K(n_pix, ((chunk >> 18) & 15) ^ 0x0A);
+				n_pix++;
+			}
+		}
+		else
+		{
+			// Every two symbols are 3 bytes: high <- |bbbbBBBB|BBBBaaaa|AAAAAAAA| -> low.
+			for (long long b = 0; b + 2 < size; b += 3)
+			{
+				unsigned int p1 = frame[b];
+				unsigned int s1 = (frame[b + 1] & 0x0F) ^ 0x0A;
+				unsigned int p2 = (frame[b + 1] >> 4) | ((unsigned int)frame[b + 2] << 4);
+				unsigned int s2 = (frame[b + 2] >> 4) ^ 0x0A;
+				p2 &= 255;
+
+				n_pix += p1;
+				if (n_pix == EER_IMAGE_PIXELS) break;
+				if (n_pix > EER_IMAGE_PIXELS) return -1;
+				if (p1 < 255)
+				{
+					if (n >= capacity) return -2;
+					positions[n++] = EERPosition16K(n_pix, s1);
+					n_pix++;
+				}
+
+				n_pix += p2;
+				if (n_pix == EER_IMAGE_PIXELS) break;
+				if (n_pix > EER_IMAGE_PIXELS) return -1;
+				if (p2 < 255)
+				{
+					if (n >= capacity) return -2;
+					positions[n++] = EERPosition16K(n_pix, s2);
+					n_pix++;
+				}
+			}
+		}
+
+		return n_pix == EER_IMAGE_PIXELS ? n : -1;
+	}
+}
+
+// Decodes EER frames into electron positions on the 16K grid, (y << 14) | x, frame after frame, each in raster order.
+// Frame offsets are relative to data, which is readable for available bytes (the 7-bit stream is fetched 4 bytes at
+// a time, and past that reads as zeros). Returns the number of electrons, -1 if a frame is malformed, or -2 if they
+// would exceed capacity.
+__declspec(dllexport) long long DecodeEERFrames(const unsigned char* data, long long available, const long long* offsets, const long long* sizes, int nframes, int compression, unsigned int* positions, long long capacity)
+{
+	if (compression != TIFF_COMPRESSION_EER8bit && compression != TIFF_COMPRESSION_EER7bit)
+		return -1;
+
+	long long total = 0;
+	for (int f = 0; f < nframes; f++)
+	{
+		if (offsets[f] < 0 || sizes[f] < 0 || offsets[f] + sizes[f] > available)
+			return -1;
+		long long n = DecodeEERFrame(data + offsets[f], sizes[f], available - offsets[f], compression == TIFF_COMPRESSION_EER7bit,
+			positions + total, capacity - total);
+		if (n < 0)
+			return n;
+		total += n;
+	}
+	return total;
+}
+
+// An upper bound on a frame's electrons from its compressed size: every electron costs at least 11 (7-bit) or
+// 12 (8-bit) bits.
+__declspec(dllexport) long long EERMaxElectrons(long long size, int compression)
+{
+	return compression == TIFF_COMPRESSION_EER7bit ? size * 8 / 11 + 2 : size * 2 / 3 + 2;
 }

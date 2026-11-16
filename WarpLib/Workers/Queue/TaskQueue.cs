@@ -43,7 +43,9 @@ namespace Warp.Workers.Queue
         /// nothing claimable. Lost races (FileNotFoundException on Move) are
         /// retried on the next candidate.
         /// </summary>
-        public TaskItem ClaimOne(string workerId, IEnumerable<string> allowedStages = null)
+        /// <param name="preferredTaskId">Tried first if it is still pending and no priority task waits: a task this worker
+        /// has already started preparing for (see <see cref="PeekOne"/>). Otherwise the order below applies.</param>
+        public TaskItem ClaimOne(string workerId, IEnumerable<string> allowedStages = null, string preferredTaskId = null)
         {
             string wdir = _layout.RunningFor(workerId);
             Directory.CreateDirectory(wdir);
@@ -68,9 +70,17 @@ namespace Warp.Workers.Queue
                 (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
             }
             // Priority tasks go first; the shuffle above still spreads workers within each group.
-            for (int i = 0, front = 0; i < candidates.Length; i++)
+            int priorityCount = 0;
+            for (int i = 0; i < candidates.Length; i++)
                 if (Path.GetFileName(candidates[i]).StartsWith(PriorityPrefix, StringComparison.Ordinal))
-                    (candidates[front], candidates[i]) = (candidates[i], candidates[front++]);
+                    (candidates[priorityCount], candidates[i]) = (candidates[i], candidates[priorityCount++]);
+            // A preferred task was itself picked at random, so preferring it keeps workers spread.
+            if (!string.IsNullOrEmpty(preferredTaskId))
+            {
+                int preferred = Array.FindIndex(candidates, c => Path.GetFileNameWithoutExtension(c) == preferredTaskId);
+                if (preferred > 0 && (priorityCount == 0 || preferred < priorityCount))
+                    (candidates[0], candidates[preferred]) = (candidates[preferred], candidates[0]);
+            }
 
             foreach (string src in candidates)
             {
@@ -88,6 +98,30 @@ namespace Warp.Workers.Queue
                 catch (FileNotFoundException) { continue; } // lost the race; next candidate
 
                 return TaskItem.FromJson(File.ReadAllText(dst));
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// A pending task as ClaimOne would pick one (priority first, otherwise at random), read without claiming it,
+        /// or null. Another worker may claim it at any time.
+        /// </summary>
+        public TaskItem PeekOne(IEnumerable<string> allowedStages = null)
+        {
+            if (!Directory.Exists(_layout.Pending)) return null;
+            HashSet<string> allowed = allowedStages == null ? null : new HashSet<string>(allowedStages);
+            string[] candidates = Directory.GetFiles(_layout.Pending, "*.json");
+            System.Random.Shared.Shuffle(candidates);
+            for (int i = 0, front = 0; i < candidates.Length; i++)
+                if (Path.GetFileName(candidates[i]).StartsWith(PriorityPrefix, StringComparison.Ordinal))
+                    (candidates[front], candidates[i]) = (candidates[i], candidates[front++]);
+            foreach (string path in candidates)
+            {
+                TaskItem task;
+                // Claimed or withdrawn meanwhile, or unreadable: a peek skips it, ClaimOne deals with bad files.
+                try { task = TaskItem.FromJson(File.ReadAllText(path)); }
+                catch (Exception) { continue; }
+                if (task != null && (allowed == null || allowed.Contains(task.Stage ?? ""))) return task;
             }
             return null;
         }

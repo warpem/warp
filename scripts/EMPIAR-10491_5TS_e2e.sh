@@ -37,7 +37,6 @@ WarpTools fs_motion_and_ctf \
 --c_grid 2x2x1 \
 --c_range_max 7 \
 --c_defocus_max 8 \
---c_use_sum \
 --out_averages \
 --out_average_halves \
 --perdevice 4 

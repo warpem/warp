@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Warp;
 using Warp.Tools;
 using Warp.Workers;
@@ -76,7 +77,8 @@ public class BlobPickerTests
                     values[y * dims.X + x] = (x - 32) * (x - 32) + (y - 30) * (y - 30) <= 25 ? -3 : 0;
             using Image image = new Image(values, dims);
             float4[] picks = BlobPicker.Pick(image, 5);
-            Assert.Contains(picks, p => p.X == 32 && p.Y == 30 && p.Z > .99f && p.W > 0);
+            Assert.Equal(new float2(32, 30), new float2(picks[0].X, picks[0].Y));
+            Assert.True(picks[0].Z > .7f && picks[0].W > 0, $"best pick scores {picks[0].Z}");
             string directory = Path.Combine(Path.GetTempPath(), "warp-blob-cuda-" + Guid.NewGuid());
             Directory.CreateDirectory(directory);
             try
@@ -92,6 +94,52 @@ public class BlobPickerTests
             finally { Directory.Delete(directory, true); }
             using Image stack = new Image(new int3(16, 16, 2));
             Assert.Throws<ArgumentException>(() => BlobPicker.Pick(stack, 2));
+        }
+    }
+
+    [Fact]
+    public void SuppressionComparesPeaksWithPeaks()
+    {
+        // A weaker particle 1.3 separations from a strong one survives; one 0.8 separations away does not.
+        var peaks = new[] { new float4(100, 100, .3f, 1), new float4(10, 10, .9f, 1), new float4(23, 10, .4f, 1), new float4(18, 10, .5f, 1) };
+        float4[] kept = BlobPicker.Suppress(peaks, 10);
+        Assert.Equal(new[] { .9f, .4f, .3f }, kept.Select(p => p.Z));
+    }
+
+    static float[] Particles(int width, int height, (float X, float Y, float Radius, float Contrast)[] particles, int seed)
+    {
+        var random = new Random(seed);
+        var data = new float[width * height];
+        for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
+            {
+                float v = (float)(random.NextDouble() - .5) * .5f;
+                foreach (var p in particles)
+                    if ((x - p.X) * (x - p.X) + (y - p.Y) * (y - p.Y) <= p.Radius * p.Radius) v -= p.Contrast;
+                data[y * width + x] = v;
+            }
+        return data;
+    }
+
+    [TemplateMatchCudaFact]
+    public void PicksParticlesAtTheEdgeAndNextToStrongerOnes()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            // Radius 10, separation 20. The old picker scored nothing within 2 radii of the border (now: 1), and dropped any
+            // peak with a higher pixel within one separation, such as the slope of a stronger neighbour.
+            var particles = new (float X, float Y, float Radius, float Contrast)[]
+            {
+                (11, 60, 7, 2),         // 4 pixels from the left edge
+                (60, 60, 7, 3),         // strong
+                (86, 60, 7, 1),         // weaker, 1.3 separations from the strong one
+                (60, 112, 7, 2),        // near the bottom edge
+            };
+            using var image = new Image(Particles(128, 124, particles, 1), new int3(128, 124, 1));
+            float4[] picks = BlobPicker.Pick(image, 10, 0, 20);
+            foreach (var p in particles)
+                Assert.Contains(picks, q => (q.X - p.X) * (q.X - p.X) + (q.Y - p.Y) * (q.Y - p.Y) <= 2 * 2);
         }
     }
 }

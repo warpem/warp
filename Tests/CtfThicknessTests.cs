@@ -68,6 +68,15 @@ public class CtfThicknessTests
         Assert.InRange(Math.Abs(CtfSlabModel.Modulation(Math.PI*lambda*1e4*qzero*qzero,.01,0,0).Value),0,1e-12);
     }
     [Fact]
+    public void ModulationValueMatchesTheFullModulation()
+    {
+        // Includes arguments at and near the shifted sincs' series branches (multiples of π).
+        foreach(double k in new[] { 0.0,1e-3,.5,Math.PI/.13,2*Math.PI/.07,27,180 })
+            foreach(double t in new[] { 0.0,.0004,.01,.09 })
+                foreach(var (wx,wy) in new[] { (0.0,0.0),(.13,-.07),(-.02,.31),(Math.PI/27,2*Math.PI/27+1e-9) })
+                    Assert.InRange(Math.Abs(CtfSlabModel.ModulationValue(k,t,wx,wy)-CtfSlabModel.Modulation(k,t,wx,wy).Value),0,1e-12);
+    }
+    [Fact]
     public void SquaredThicknessAndTiltPlaneDerivativesRemainFiniteAtZeroThickness()
     {
         foreach(double t in new[] { 0.0,.01 })

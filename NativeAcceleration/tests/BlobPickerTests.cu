@@ -12,6 +12,14 @@ static void Check(cudaError_t status) { if (status) { std::fprintf(stderr,"CUDA:
 static void Near(double a, double b, double tolerance) {
     if (std::abs(a-b) > tolerance) { std::fprintf(stderr,"Mismatch %.9g vs %.9g\n",a,b); std::abort(); }
 }
+// The blob profile BlobPickerScore correlates with: a flat annulus, or for a disk a difference of Gaussians
+// (centre sigma radius/2, surround sigma radius), both within the 2*radius support.
+static double Blob(double r2, double radius, double inner) {
+    double outer2=radius*radius;
+    if (inner>0) return r2<=outer2 && r2>=inner*inner ? 1 : 0;
+    double centre2=.25*outer2, surround2=outer2;
+    return std::exp(-r2/(2*centre2))/centre2-std::exp(-r2/(2*surround2))/surround2;
+}
 int main() {
     int2 dims = make_int2(75,69); // Rectangular, odd-sized FFT.
     int n=dims.x*dims.y;
@@ -23,9 +31,10 @@ int main() {
         for (int y=0;y<dims.y;++y) for(int x=0;x<dims.x;++x) {
             int id=y*dims.x+x;
             image[id]=100.f+0.02f*std::sin(id*.731f);
+            // Dark particles shaped like the template, so a perfect match scores ~1.
             for (int cx : {22,52}) {
                 float r2=float((x-cx)*(x-cx)+(y-34)*(y-34));
-                if (r2<=radius*radius && (inner==0 || r2>=inner*inner)) image[id]-=4;
+                if (r2<=4*radius*radius) image[id]-=float(4*Blob(r2,radius,inner)/Blob(inner>0?inner*inner:0,radius,inner));
             }
         }
         Check(cudaMemcpy(input,image.data(),n*sizeof(float),cudaMemcpyHostToDevice));
@@ -39,16 +48,17 @@ int main() {
             if (x<margin || y<margin || x>=dims.x-margin || y>=dims.y-margin) {
                 assert(std::isinf(scores[id]) && scores[id]<0); assert(powers[id]==0); continue;
             }
-            double sum=0,sum2=0,signalSum=0,count=0,signal=0;
+            // The template is the zero-mean (over the support) negative of the blob profile b.
+            double sum=0,sum2=0,signalSum=0,count=0,signal=0,energy=0;
             for(int dy=-margin;dy<=margin;++dy) for(int dx=-margin;dx<=margin;++dx) {
                 float r2=float(dx*dx+dy*dy);
                 if(r2>4*radius*radius) continue;
-                double v=image[(y+dy)*dims.x+x+dx]-100.;
+                double v=image[(y+dy)*dims.x+x+dx]-100., b=Blob(r2,radius,inner);
                 sum+=v;sum2+=v*v;count++;
-                if(r2<=radius*radius && (inner==0 || r2>=inner*inner)) { signal++;signalSum+=v; }
+                signal+=b;energy+=b*b;signalSum+=v*b;
             }
             double variance=sum2/count-(sum/count)*(sum/count);
-            double expected=(sum*signal/count-signalSum)/std::sqrt((sum2-sum*sum/count)*(signal-signal*signal/count));
+            double expected=(sum*signal/count-signalSum)/std::sqrt((sum2-sum*sum/count)*(energy-signal*signal/count));
             Near(powers[id],variance,2e-5);
             Near(scores[id],expected,3e-3); // Background variance is ~2e-4.
         }
@@ -91,5 +101,5 @@ int main() {
     assert(BlobPickerPeaks(score,power,dims,1.9f,&picks,&count)==0); assert(count==3);std::free(picks);
     assert(BlobPickerPeaks(score,power,dims,2.1f,&picks,&count)==0); assert(count==1);assert(picks[0].x==10 && picks[0].y==12);std::free(picks);
     Check(cudaFree(input));Check(cudaFree(score));Check(cudaFree(power));
-    std::puts("BlobPicker CUDA tests passed (disk, ring, CPU reference, power scaling, boundaries, separation, flat/nonfinite).");
+    std::puts("BlobPicker CUDA tests passed (difference-of-Gaussians disk, ring, CPU reference, power scaling, boundaries, separation, flat/nonfinite).");
 }

@@ -341,6 +341,10 @@ namespace Warp
         /// Movies assume the plane is perpendicular to the beam; tilt series fit its normal.</summary>
         public decimal CTFSpecimenThicknessAngstrom { get; set; }
 
+        /// <summary>How clearly the spectrum shows the fitted CTF, in robust standard deviations above decoy defoci
+        /// (<see cref="Tools.CtfSignal"/>); NaN if the CTF was fitted before this was measured.</summary>
+        public double CTFSignal { get; set; } = double.NaN;
+
         private decimal _CTFResolutionEstimate = 0;
         public decimal CTFResolutionEstimate
         {
@@ -910,6 +914,7 @@ namespace Warp
                         _UnselectManual = null;
                     CTFSpecimenThicknessAngstrom = XMLHelper.LoadAttribute(Reader, "CTFSpecimenThicknessAngstrom", 0M);
                     CTFResolutionEstimate = XMLHelper.LoadAttribute(Reader, "CTFResolutionEstimate", CTFResolutionEstimate);
+                    CTFSignal = XMLHelper.LoadAttribute(Reader, "CTFSignal", double.NaN);
                     MeanFrameMovement = XMLHelper.LoadAttribute(Reader, "MeanFrameMovement", MeanFrameMovement);
                     MaskPercentage = XMLHelper.LoadAttribute(Reader, "MaskPercentage", MaskPercentage);
 
@@ -1116,6 +1121,8 @@ namespace Warp
 
                 Writer.WriteAttributeString("CTFSpecimenThicknessAngstrom", CTFSpecimenThicknessAngstrom.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("CTFResolutionEstimate", CTFResolutionEstimate.ToString(CultureInfo.InvariantCulture));
+                if (double.IsFinite(CTFSignal))
+                    Writer.WriteAttributeString("CTFSignal", CTFSignal.ToString("R", CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("MeanFrameMovement", MeanFrameMovement.ToString(CultureInfo.InvariantCulture));
                 Writer.WriteAttributeString("MaskPercentage", MaskPercentage.ToString(CultureInfo.InvariantCulture));
 
@@ -2522,6 +2529,9 @@ namespace Warp
 
                 // Estimated resolution
                 Json["Resolution"] = CTFResolutionEstimate <= 0 ? null : MathF.Round((float)CTFResolutionEstimate, 2);
+
+                // CTF signal (robust z-score of the fit against decoy defoci); null when not measured.
+                Json["CtfSignal"] = double.IsFinite(CTFSignal) ? Math.Round(CTFSignal, 2) : null;
 
                 // Astigmatism plot X and Y
                 Json["AstigX"] = CTF == null ? null : MathF.Round(MathF.Cos((float)CTF.DefocusAngle * 2 * Helper.ToRad) * (float)CTF.DefocusDelta, 4);

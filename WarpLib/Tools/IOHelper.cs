@@ -19,9 +19,13 @@ namespace Warp.Tools
             return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
         }
 
+        /// <summary>
+        /// A 1 MB buffer: slices smaller than that (particle stacks of small boxes) are written in large pieces rather
+        /// than one system call each, which a network file system serves one round trip at a time.
+        /// </summary>
         public static Stream CreateWithBigBuffer(string path)
         {
-            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write, 4096);
+            return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write, 1 << 20);
         }
 
         public static int3 GetMapDimensions(string path)
@@ -96,52 +100,62 @@ namespace Warp.Tools
                     ValueType = Header.GetValueType();
                     Data = reuseBuffer == null ? new float[layers == null ? Header.Dimensions.Z : layers.Length][] : reuseBuffer;
 
-                    int ReadBatchSize = Math.Min((int)Header.Dimensions.ElementsSlice(), 1 << 20);
+                    // Floats are read straight into their slice; other types through a buffer of up to 1M values,
+                    // then converted. Every read is filled completely or fails: a short read must not leave old data.
+                    int SliceElements = (int)Header.Dimensions.ElementsSlice();
                     int ValueSize = (int)ImageFormatsHelper.SizeOf(ValueType);
-                    byte[] Bytes = new byte[ReadBatchSize * ValueSize];
+                    bool IsFloat = ValueType == typeof(float);
+                    int ReadBatchSize = Math.Min(SliceElements, 1 << 20);
+                    byte[] Bytes = IsFloat ? null : new byte[ReadBatchSize * ValueSize];
+                    Stream Source = Reader.BaseStream;
 
-                    long ReaderDataStart = Reader.BaseStream.Position;
+                    long ReaderDataStart = Source.Position;
                     int CurrentLayer = 0;
 
                     for (int z = 0; z < (layers == null ? Data.Length : layers.Length); z++)
                     {
                         if (layers != null && CurrentLayer != layers[z])
                         {
-                            Reader.BaseStream.Seek(Header.Dimensions.ElementsSlice() * ImageFormatsHelper.SizeOf(ValueType) * layers[z] + ReaderDataStart, SeekOrigin.Begin);
+                            Source.Seek(Header.Dimensions.ElementsSlice() * ImageFormatsHelper.SizeOf(ValueType) * layers[z] + ReaderDataStart, SeekOrigin.Begin);
                             CurrentLayer = layers[z];
                         }
 
                         if (reuseBuffer == null)
-                            Data[z] = new float[(int)Header.Dimensions.ElementsSlice()];
+                            Data[z] = GC.AllocateUninitializedArray<float>(SliceElements); // filled completely below
+
+                        if (IsFloat)
+                        {
+                            Span<float> Slice = Data[z].AsSpan(0, SliceElements);
+                            Source.ReadExactly(MemoryMarshal.AsBytes(Slice));
+                            if (isBigEndian)
+                            {
+                                Span<int> Words = MemoryMarshal.Cast<float, int>(Slice);
+                                System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(Words, Words);
+                            }
+                            CurrentLayer++;
+                            continue;
+                        }
 
                         unsafe
                         {
                             fixed (byte* BytesPtr = Bytes)
                             fixed (float* DataPtr = Data[z])
                             {
-                                for (int b = 0; b < (int)Header.Dimensions.ElementsSlice(); b += ReadBatchSize)
+                                for (int b = 0; b < SliceElements; b += ReadBatchSize)
                                 {
-                                    int CurBatch = Math.Min(ReadBatchSize, (int)Header.Dimensions.ElementsSlice() - b);
+                                    int CurBatch = Math.Min(ReadBatchSize, SliceElements - b);
 
-                                    Reader.Read(Bytes, 0, CurBatch * ValueSize);
+                                    Source.ReadExactly(Bytes, 0, CurBatch * ValueSize);
 
                                     if (isBigEndian)
                                     {
-                                        if (ValueType == typeof(short) || ValueType == typeof(ushort) || ValueType == typeof(Half))
-                                        {
-                                            for (int i = 0; i < CurBatch * ValueSize / 2; i++)
-                                                Array.Reverse(Bytes, i * 2, 2);
-                                        }
-                                        else if (ValueType == typeof(int) || ValueType == typeof(float))
-                                        {
-                                            for (int i = 0; i < CurBatch * ValueSize / 4; i++)
-                                                Array.Reverse(Bytes, i * 4, 4);
-                                        }
-                                        else if (ValueType == typeof(double))
-                                        {
-                                            for (int i = 0; i < CurBatch * ValueSize / 8; i++)
-                                                Array.Reverse(Bytes, i * 8, 8);
-                                        }
+                                        Span<byte> Raw = Bytes.AsSpan(0, CurBatch * ValueSize);
+                                        if (ValueSize == 2)
+                                            System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<byte, ushort>(Raw), MemoryMarshal.Cast<byte, ushort>(Raw));
+                                        else if (ValueSize == 4)
+                                            System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<byte, uint>(Raw), MemoryMarshal.Cast<byte, uint>(Raw));
+                                        else if (ValueSize == 8)
+                                            System.Buffers.Binary.BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<byte, ulong>(Raw), MemoryMarshal.Cast<byte, ulong>(Raw));
                                     }
 
                                     float* DataP = DataPtr + b;
@@ -173,12 +187,6 @@ namespace Warp.Tools
                                     else if (ValueType == typeof(Half))
                                     {
                                         CPU.HalfToFloat((ushort*)BytesPtr, DataP, CurBatch);
-                                    }
-                                    else if (ValueType == typeof(float))
-                                    {
-                                        float* BytesP = (float*)BytesPtr;
-                                        for (int i = 0; i < CurBatch; i++)
-                                            *DataP++ = *BytesP++;
                                     }
                                     else if (ValueType == typeof(double))
                                     {

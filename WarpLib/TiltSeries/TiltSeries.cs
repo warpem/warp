@@ -1784,71 +1784,36 @@ namespace Warp
             }
         }
 
-        static int[][] DirtErasureLabelsBuffer = null;
-        static Image[] DirtErasureMaskBuffer = null;
+        /// <summary>
+        /// Replaces masked pixels with a continuation of the image around them (<see cref="MaskErasure.Continue"/>:
+        /// it follows intensity gradients, which a per-component mean did not) plus noise at
+        /// <paramref name="noiseScale"/> times the image's detrended spread, blended in over 12 pixels.
+        /// O(pixels) on the CPU; no connected components.
+        /// </summary>
         public static void EraseDirt(Image tiltImage, Image tiltMask, float noiseScale = 0.1f)
         {
             if (tiltMask == null)
                 return;
+            if (tiltImage.Dims.Z != 1 || tiltMask.Dims != tiltImage.Dims)
+                throw new ArgumentException("Expected one 2D image and a mask of the same size.");
 
-            float[] ImageData = tiltImage.GetHost(Intent.ReadWrite)[0];
+            int width = tiltImage.Dims.X, height = tiltImage.Dims.Y;
+            float[] maskData = tiltMask.GetHost(Intent.Read)[0];
+            var mask = new bool[maskData.Length];
+            bool any = false;
+            for (int i = 0; i < mask.Length; i++) any |= mask[i] = maskData[i] != 0;
+            if (!any)
+                return;
 
-            int CurrentDevice = GPU.GetDevice();
+            float[] imageData = tiltImage.GetHost(Intent.ReadWrite)[0];
+            // Seeded by the image itself, so a tilt erases the same way every time it is loaded.
+            int seed = 17;
+            for (int i = 0; i < Math.Min(imageData.Length, 10000); i++) seed = seed * 31 + BitConverter.SingleToInt32Bits(imageData[i]);
 
-            #region Make sure reusable buffers are there and correctly sized
-            
-            if (DirtErasureLabelsBuffer == null || DirtErasureLabelsBuffer.Length != GPU.GetDeviceCount())
-                DirtErasureLabelsBuffer = new int[GPU.GetDeviceCount()][];
-
-            if (DirtErasureLabelsBuffer[CurrentDevice] == null || DirtErasureLabelsBuffer[CurrentDevice].Length != ImageData.Length)
-                DirtErasureLabelsBuffer[CurrentDevice] = new int[ImageData.Length];
-            
-            if (DirtErasureMaskBuffer == null || DirtErasureMaskBuffer.Length != GPU.GetDeviceCount())
-                DirtErasureMaskBuffer = new Image[GPU.GetDeviceCount()];
-
-            if (DirtErasureMaskBuffer[CurrentDevice] == null || DirtErasureMaskBuffer[CurrentDevice].Dims != tiltMask.Dims)
-            {
-                if (DirtErasureMaskBuffer[CurrentDevice] != null)
-                    DirtErasureMaskBuffer[CurrentDevice].Dispose();
-
-                DirtErasureMaskBuffer[CurrentDevice] = new Image(tiltMask.Dims);
-            }
-
-            #endregion
-
-            var Components = tiltMask.GetConnectedComponents(8, DirtErasureLabelsBuffer[CurrentDevice]);
-
-            #region Inline Image.AsExpandedSmooth to use reusable buffer
-
-            GPU.DistanceMapExact(tiltMask.GetDevice(Intent.Read), DirtErasureMaskBuffer[CurrentDevice].GetDevice(Intent.Write), tiltMask.Dims, 12);
-            DirtErasureMaskBuffer[CurrentDevice].Multiply((float)Math.PI / 12f);
-            DirtErasureMaskBuffer[CurrentDevice].Cos();
-            DirtErasureMaskBuffer[CurrentDevice].Add(1);
-            DirtErasureMaskBuffer[CurrentDevice].Multiply(0.5f);
-
-            #endregion
-
-            RandomNormal RandN = new RandomNormal((int)(MathHelper.Normalize(ImageData.Take(10000).ToArray()).Select(v => Math.Abs(v)).Sum() * 100));
-
-            float[] MaskSmoothData = DirtErasureMaskBuffer[CurrentDevice].GetHost(Intent.Read)[0];
-            DirtErasureMaskBuffer[CurrentDevice].FreeDevice();
-
-            foreach (var component in Components)
-            {
-                if (component.NeighborhoodIndices.Length < 2)
-                    continue;
-
-                float[] NeighborhoodIntensities = Helper.IndexedSubset(ImageData, component.NeighborhoodIndices);
-                float2 MeanStd = MathHelper.MeanAndStd(NeighborhoodIntensities);
-                float ComponentMean = MeanStd.X;
-                float ComponentStd = MeanStd.Y; 
-
-                foreach (int id in component.ComponentIndices)
-                    ImageData[id] = RandN.NextSingle(ComponentMean, ComponentStd * noiseScale);
-
-                foreach (int id in component.NeighborhoodIndices)
-                    ImageData[id] = MathHelper.Lerp(ImageData[id], RandN.NextSingle(ComponentMean, ComponentStd * noiseScale), MaskSmoothData[id]);
-            }
+            float[] soft = MaskErasure.Feather(mask, width, height, 12);
+            float[] noise = MaskErasure.WhiteNoise(imageData, width, height, soft, seed, noiseScale);
+            float[] erased = MaskErasure.Erase(imageData, width, height, soft, noise);
+            Array.Copy(erased, imageData, imageData.Length);
         }
 
         public static void FreeDeviceBuffers()
@@ -1874,9 +1839,6 @@ namespace Warp
                 if (item != null)
                     foreach (var subitem in item)
                         subitem?.FreeDevice();
-
-            foreach (var item in DirtErasureMaskBuffer)
-                item?.FreeDevice();
         }
 
         #endregion

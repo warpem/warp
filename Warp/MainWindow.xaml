@@ -214,7 +214,6 @@
                                         <s:ValueSlider Value="{Binding CTF.RangeMax, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="{}{0}" MinValue="1" MaxValue="999" StepSize="0.1" />
                                         <TextBlock Text=" Å" />
                                     </StackPanel>
-                                    <CheckBox Grid.Row="0" Grid.Column="2" IsChecked="{Binding CTF.UseMovieSum}" Content="Use Movie Sum"  FontSize="13" VerticalAlignment="Top"/>
                                     <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
                                         <s:ValueSlider Value="{Binding CTF.Voltage, Mode=TwoWay}" UpdateTrigger="PropertyChanged" TextFormat="Voltage: {0} kV" MinValue="10" MaxValue="2000" StepSize="10" />
                                     </StackPanel>

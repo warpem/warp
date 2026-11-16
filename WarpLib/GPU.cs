@@ -131,6 +131,10 @@ namespace Warp
         [DllImport("NativeAcceleration", EntryPoint = "CopyHostToDevice")]
         public static extern void CopyHostPinnedToDevice(IntPtr hp_source, IntPtr d_dest, long elements);
 
+        /// <summary>Raw samples of a <see cref="TiffNative.RawType"/> to float, rows optionally flipped as TiffNative.ReadTIFF flips them.</summary>
+        [DllImport("NativeAcceleration", EntryPoint = "RawToFloat")]
+        public static extern void RawToFloat(IntPtr d_raw, int type, IntPtr d_result, int width, int height, bool flipy);
+
         [DllImport("NativeAcceleration", EntryPoint = "CopyHostToDeviceHalf")]
         public static extern void CopyHostToDeviceHalf(float[] h_source, IntPtr d_dest, long elements);
 
@@ -1046,6 +1050,10 @@ namespace Warp
 
         [DllImport("NativeAcceleration", EntryPoint = "PrefilterForCubic")]
         public static extern void PrefilterForCubic(IntPtr d_data, int3 dims);
+
+        /// <summary>The previous 2D implementation of <see cref="PrefilterForCubic"/>, for comparison in tests.</summary>
+        [DllImport("NativeAcceleration", EntryPoint = "PrefilterForCubicReference2D")]
+        public static extern void PrefilterForCubicReference2D(IntPtr d_data, int3 dims);
 
         [DllImport("NativeAcceleration", EntryPoint = "CreateTexture3D")]
         public static extern void CreateTexture3D(IntPtr d_data, int3 dims, ulong[] h_textureid, ulong[] h_arrayid, bool linearfiltering);

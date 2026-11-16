@@ -10,16 +10,26 @@ internal static class CtfNative
         if (error != 0) throw new InvalidOperationException($"CUDA CTF {operation} failed (error {error}).");
     }
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerCreate")]
-    public static extern int PowerCreate(int width, int height, int window, int fft, int batch, int patches, int bins,
+    public static extern int PowerCreate(int width, int height, int window, int fft, int small, int batch, int patches, int bins,
         int3[] origins, float[] hann, int[] starts, int[] indices, int[] displayIndices, out IntPtr context);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerBegin")]
     public static extern int PowerBegin(IntPtr context);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerAdd")]
     public static extern int PowerAdd(IntPtr context, float[] frame);
+    [DllImport("NativeAcceleration", EntryPoint = "CtfPowerAddDevice")]
+    public static extern int PowerAddDevice(IntPtr context, IntPtr deviceFrame);
+    [DllImport("NativeAcceleration", EntryPoint = "CtfPowerReadShared")]
+    public static extern int PowerReadShared(IntPtr context, IntPtr source, [Out] double[] power, [Out] float[] display);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerRead")]
     public static extern int PowerRead(IntPtr context, [Out] double[] power, [Out] float[] display);
+    [DllImport("NativeAcceleration", EntryPoint = "CtfPowerUseOwnStream")]
+    public static extern int PowerUseOwnStream(IntPtr context);
     [DllImport("NativeAcceleration", EntryPoint = "CtfPowerDestroy")]
     public static extern void PowerDestroy(IntPtr context);
+
+    [DllImport("NativeAcceleration", EntryPoint = "CtfExposureGroupAverage")]
+    public static extern int ExposureGroupAverage(IntPtr stack, int width, int height, int frames, int groups, int[] starts, int[] ends,
+        float[] shifts, IntPtr output);
 
     [DllImport("NativeAcceleration", EntryPoint = "CtfFitCreate")]
     public static extern int FitCreate(int records, int samples, int knots, double[] moments, double[] basis,
@@ -32,6 +42,8 @@ internal static class CtfNative
     public static extern int FitReadWeights(IntPtr context, [Out] double[] weights);
     [DllImport("NativeAcceleration", EntryPoint = "CtfFitReadCoefficients")]
     public static extern int FitReadCoefficients(IntPtr context, [Out] float[] coefficients);
+    [DllImport("NativeAcceleration", EntryPoint = "CtfFitSetWarpSolver")]
+    public static extern int FitSetWarpSolver(int enabled);
     [DllImport("NativeAcceleration", EntryPoint = "CtfFitDestroy")]
     public static extern void FitDestroy(IntPtr context);
 }

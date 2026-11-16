@@ -5,6 +5,9 @@
     <ClInclude Include="include/BlobPicker.h"><Filter>GPU</Filter></ClInclude>
     <CudaCompile Include="src/CtfFit.cu"><Filter>GPU</Filter></CudaCompile>
     <CudaCompile Include="src/CtfPowerSpectrum.cu"><Filter>GPU</Filter></CudaCompile>
+    <CudaCompile Include="src/CtfExposureGroups.cu"><Filter>GPU</Filter></CudaCompile>
+    <CudaCompile Include="src/RawConversion.cu"><Filter>GPU</Filter></CudaCompile>
+    <CudaCompile Include="src/EERRender.cu"><Filter>GPU</Filter></CudaCompile>
     <ClInclude Include="include/CtfGpuCommon.h"><Filter>GPU</Filter></ClInclude>
     <CudaCompile Include="src/Backprojection.cu">
       <Filter>GPU</Filter>

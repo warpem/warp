@@ -72,7 +72,9 @@ static partial class WorkerProcess
 
         OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain);
         OriginalStackOwner = Helper.PathToNameWithExtension(Path);
+        // Storage is idle while this movie is processed: read the next one meanwhile.
+        MoviePrefetch.StartNext(PrefetchQueue, PrefetchStages, Path);
 
-        Console.WriteLine($"Loaded stack: {OriginalStack}, {ScaleFactor}");
+        Console.WriteLine($"Loaded stack: {OriginalStack}, {ScaleFactor}, {(StackResident ? "kept on the GPU" : "on the host")}");
     }
 }

@@ -44,6 +44,11 @@ namespace WarpWorker2
         static float[][] RawLayers = null;
         static string OriginalStackOwner = "";
         static Image OriginalStack = null;
+        // LoadStack left OriginalStack on the GPU; movie commands then keep it there rather than freeing it.
+        static bool StackResident = false;
+        // The queue and stages this worker claims from, for LoadStack to prefetch the next movie (see MoviePrefetch).
+        static Warp.Workers.Queue.TaskQueue PrefetchQueue = null;
+        static string[] PrefetchStages = null;
         static BoxNetTorch BoxNetModel = null;
         static NoiseNet3DTorch DenoiserModel = null;
         // Fourier-space accumulators for averaged reconstruction. Allocated by the
@@ -101,6 +106,21 @@ namespace WarpWorker2
                 throw new ArgumentException($"Unknown command: '{command.Name}'");
         }
 
+        /// <summary>
+        /// Runs a command and logs its wall time, so per-item logs show where a task spends its time, and how much of
+        /// it the garbage collector paused the process for.
+        /// </summary>
+        static void EvaluateTimed(NamedSerializableObject command, string prefix)
+        {
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            TimeSpan paused = GC.GetTotalPauseDuration();
+            int fullCollections = GC.CollectionCount(2);
+            EvaluateCommand(command);
+            double pausedMs = (GC.GetTotalPauseDuration() - paused).TotalMilliseconds;
+            Console.WriteLine($"[time] {prefix}{command.Name} {System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds:F0} ms" +
+                              (pausedMs >= 1 ? $", GC paused {pausedMs:F0} ms ({GC.CollectionCount(2) - fullCollections} full)" : ""));
+        }
+
         static readonly System.Diagnostics.Stopwatch UpSince = System.Diagnostics.Stopwatch.StartNew();
 
         static void Main(string[] args)
@@ -151,6 +171,8 @@ namespace WarpWorker2
 
             var layout = new Warp.Workers.Queue.QueueLayout(opts.QueueDir);
             var queue = new Warp.Workers.Queue.TaskQueue(layout);
+            PrefetchStages = opts.Stages != null && opts.Stages.Any() ? opts.Stages.ToArray() : null;
+            PrefetchQueue = MockMode ? null : queue;
             string wdir = layout.RunningFor(workerId);
             System.IO.Directory.CreateDirectory(wdir);
 
@@ -262,7 +284,14 @@ namespace WarpWorker2
                     return;
                 }
 
-                var task = queue.ClaimOne(workerId, opts.Stages != null && opts.Stages.Any() ? opts.Stages : null);
+                // A worker on this GPU is running an exclusive task (training): leave the GPU to it.
+                if (Warp.Workers.Queue.DeviceLock.IsHeldByOther(layout, Environment.MachineName, DeviceID, Environment.ProcessId))
+                {
+                    System.Threading.Thread.Sleep(500);
+                    continue;
+                }
+
+                var task = queue.ClaimOne(workerId, PrefetchStages, MoviePrefetch.PreferredTaskId);
                 if (task == null)
                 {
                     // Persistent workers keep polling instead of exiting on an empty
@@ -296,7 +325,7 @@ namespace WarpWorker2
                 {
                     try
                     {
-                        foreach (var cmd in task.Init) EvaluateCommand(cmd);
+                        foreach (var cmd in task.Init) EvaluateTimed(cmd, "init:");
                         lastFingerprint = task.InitFingerprint;
                     }
                     catch (Exception ex)
@@ -319,9 +348,14 @@ namespace WarpWorker2
 
                 // ---- main sequence ----
                 task.CompletedCommands = 0;
+                using var exclusive = task.Exclusive ? Warp.Workers.Queue.DeviceLock.Acquire(layout, Environment.MachineName, DeviceID, Environment.ProcessId) : null;
                 try
                 {
-                    foreach (var cmd in task.Main) { EvaluateCommand(cmd); task.CompletedCommands++; }
+                    for (int i = 0; i < task.Main.Length; i++)
+                    {
+                        StartErasureAhead(task.Main, i);
+                        EvaluateTimed(task.Main[i], ""); task.CompletedCommands++;
+                    }
                     _currentTask = null;
                     queue.MarkDone(workerId, task, null);
                 }
@@ -338,6 +372,12 @@ namespace WarpWorker2
                     _currentTask = null;
                     queue.MarkFailed(workerId, task, Flatten(ex), Environment.MachineName);
                 }
+                // Outside the try: the task's outcome is recorded, and a failing release must not turn a finished
+                // task into a failed one. Idle workers, and those waiting on another's GPU lock, hold no stack.
+                FinishErasure();
+                if (!MockMode)
+                    try { ReleaseResidentStack(); }
+                    catch (Exception ex) { Console.WriteLine("Releasing the resident stack failed: " + Flatten(ex)); }
             }
             }
             finally

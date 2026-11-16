@@ -16,6 +16,8 @@ namespace gtom
 	* \param[in] dims	Image dimensions
 	*/
 	template<class T> void d_CubicBSplinePrefilter2D(T* d_image, int2 dims, int batch = 1);
+	// The original one-thread-per-line implementation of the same filter, kept to compare against in tests.
+	template<class T> void d_CubicBSplinePrefilter2DReference(T* d_image, int2 dims, int batch = 1);
 
 	/**
 	* \brief Prefilters a 3D volume to accelerate cubic interpolation over it; the operation is performed in-place, i. e. original data will be overwritten

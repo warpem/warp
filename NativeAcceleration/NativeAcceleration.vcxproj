@@ -15,6 +15,7 @@
     <ClInclude Include="gtom\include\Binary.cuh" />
     <ClInclude Include="gtom\include\Correlation.cuh" />
     <ClInclude Include="include/CtfGpuCommon.h" />
+    <ClInclude Include="include/MemoryTiff.h" />
     <ClInclude Include="gtom\include\CTF.cuh" />
     <ClInclude Include="gtom\include\CubicInterp.cuh" />
     <ClInclude Include="gtom\include\helper_math.cuh" />
@@ -243,8 +244,11 @@
     <CudaCompile Include="src/RealspaceProjection.cu" />
     <CudaCompile Include="src/CtfFit.cu" />
     <CudaCompile Include="src/CtfPowerSpectrum.cu" />
+    <CudaCompile Include="src/CtfExposureGroups.cu" />
     <CudaCompile Include="src/TemplateMatchRefine.cu" />
     <CudaCompile Include="src/BlobPicker.cu" />
+    <CudaCompile Include="src/RawConversion.cu" />
+    <CudaCompile Include="src/EERRender.cu" />
     <CudaCompile Include="src/TemplateMatchRefineBatch.cu" />
     <CudaCompile Include="src/TemplateMatchPreparation.cu" />
     <CudaCompile Include="src/Raycast.cu" />

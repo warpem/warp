@@ -15,7 +15,7 @@ static partial class WorkerProcess
         Options.Dimensions = OriginalStack.Dims.MultXY((float)Options.BinnedPixelSizeMean);
 
         Movie M = new Movie(Path);
-        M.ProcessCTF(OriginalStack, Options);
+        M.ProcessCTF(OriginalStack, Options, releaseStack: !StackResident);
         M.SaveMeta();
 
         Console.WriteLine($"Processed CTF for {Path}");
@@ -29,7 +29,7 @@ static partial class WorkerProcess
         Options.Dimensions = OriginalStack.Dims.MultXY((float)Options.BinnedPixelSizeMean);
 
         Movie M = new Movie(Path);
-        M.ProcessShift(OriginalStack, Options);
+        M.ProcessShift(OriginalStack, Options, releaseStack: !StackResident);
         M.SaveMeta();
 
         Console.WriteLine($"Processed movement for {Path}");
@@ -52,7 +52,7 @@ static partial class WorkerProcess
             System.IO.File.Delete(M.DenoiseTrainingOddPath);
             System.IO.File.Delete(M.DenoiseTrainingEvenPath);
         }
-        M.ExportMovie(OriginalStack, Options);
+        M.ExportMovie(OriginalStack, Options, releaseStack: !StackResident);
         M.SaveMeta();
 
         Console.WriteLine($"Exported movie for {Path}");
@@ -142,7 +142,7 @@ static partial class WorkerProcess
         float2[] Coordinates = (float2[])Command.Content[2];
 
         Movie M = new Movie(Path);
-        M.ExportParticles(OriginalStack, Coordinates, Options);
+        M.ExportParticles(OriginalStack, Coordinates, Options, releaseStack: !StackResident);
 
         Console.WriteLine($"Exported {Coordinates.Length} particles for {Path}");
     }

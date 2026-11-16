@@ -36,7 +36,10 @@ static partial class WorkerProcess
             Cs=options.Cs>0?options.Cs:2.7m,Voltage=options.Voltage>0?options.Voltage:300,PhaseShift=options.DoPhase?.15m+(seed%30)/100m:0};
         movie.GridCTFDefocus=new CubicGrid(new int3(1),[(float)movie.CTF.Defocus]);
         movie.GridCTFPhase=new CubicGrid(new int3(1),[(float)movie.CTF.PhaseShift]);
-        movie.CTFResolutionEstimate=MockVariant(path,"badctf")?8+(seed%20)/10m:2.5m+(seed%18)/10m;
+        // An empty hole has no Thon rings, yet its fit to noise still reports a plausible resolution.
+        bool noSignal=MockVariant(path,"nosignal");
+        movie.CTFResolutionEstimate=MockVariant(path,"badctf")?8+(seed%20)/10m:noSignal?2.4m+(seed%40)/10m:2.5m+(seed%18)/10m;
+        movie.CTFSignal=noSignal?(seed%36)/10.0:MockVariant(path,"badctf")?5.5+(seed%30)/10.0:8+(seed%250)/10.0;
         movie.CTFSpecimenThicknessAngstrom=options.FitThickness?(MockVariant(path,"thickice")?2500+seed%800:150+seed%700):0;
         movie.SimulatedBackground=new Cubic1D([new float2(0,.1f),new float2(.5f,.03f)]);
         movie.SimulatedScale=new Cubic1D([new float2(0,1),new float2(.5f,.25f)]);
@@ -45,7 +48,8 @@ static partial class WorkerProcess
         float cutoff=sampling/(float)movie.CTFResolutionEstimate;
         float Fade(float f)=>1/(1+MathF.Exp(-(f-cutoff)*22));
         float[] ctf1D=movie.CTF.Get1D(128,true);
-        movie.PS1D=Enumerable.Range(0,128).Select(i=>{float f=i/256f;return new float2(f,ctf1D[i]*ctf1D[i]*movie.SimulatedScale.Interp(f)*(1-.7f*Fade(f))+.03f*(1+3*Fade(f))*MockNoise(seed,i,0,1));}).ToArray();
+        float rings=noSignal?0:1;
+        movie.PS1D=Enumerable.Range(0,128).Select(i=>{float f=i/256f;return new float2(f,rings*ctf1D[i]*ctf1D[i]*movie.SimulatedScale.Interp(f)*(1-.7f*Fade(f))+.03f*(1+3*Fade(f))*MockNoise(seed,i,0,1));}).ToArray();
         movie.CTFQuality=Enumerable.Range(0,128).Select(i=>{float f=i/256f;return new float2(f,Math.Clamp(.98f-.9f*Fade(f),0,1));}).ToArray();
         int window=options.Window>0?Math.Clamp(options.Window,64,512):256;
         // Warp's layout: a window x window/2 half-plane with zero frequency at (window/2, window/2 - 1).
@@ -54,7 +58,7 @@ static partial class WorkerProcess
         {double xx=(x-window/2.0)/window,yy=(window/2-1-y)/(double)window;polar[y*window+x]=new float2((float)Math.Sqrt(xx*xx+yy*yy),(float)Math.Atan2(yy,xx));}
         float[] ctf2D=movie.CTF.Get2D(polar,true);
         MockWriteMrc(movie.PowerSpectrumPath,new(window,window/2,1),sampling,(x,y,_)=>
-        {int i=y*window+x;float r=polar[i].X;return movie.SimulatedBackground.Interp(r)+ctf2D[i]*ctf2D[i]*movie.SimulatedScale.Interp(r)*(1-.7f*Fade(r))+.08f*MockNoise(seed,x,y,0);});
+        {int i=y*window+x;float r=polar[i].X;return movie.SimulatedBackground.Interp(r)+rings*ctf2D[i]*ctf2D[i]*movie.SimulatedScale.Interp(r)*(1-.7f*Fade(r))+.08f*MockNoise(seed,x,y,0);});
         MockPause(3000+(int)(seed%1000));movie.SaveMeta();
         Console.WriteLine($"[MOCK] Synthetic CTF, power spectrum and fit metadata for {path}");
     }

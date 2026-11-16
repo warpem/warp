@@ -350,10 +350,25 @@ extern "C" __declspec(dllexport) void FreeArray(cudaArray_t a_input);
 // TiffNative.cpp:
 
 extern "C" __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, float* h_result);
+extern "C" __declspec(dllexport) int ReadTIFFRawFromMemory(const unsigned char* data, long long size, int layer, int width, int height, void* h_result);
+extern "C" __declspec(dllexport) void RawToFloat(const void* d_raw, int type, float* d_result, int width, int height, bool flipy);
 
 // EER.cpp:
 
 extern "C" __declspec(dllexport) void ReadEERCombinedFrame(const char* path, int firstFrameInclusive, int lastFrameExclusive, int eer_upsampling, float* h_result);
+extern "C" __declspec(dllexport) int IndexEER(const char* path, const unsigned char* data, long long size, long long* offsets, long long* sizes, int maxFrames, int* compression);
+extern "C" __declspec(dllexport) long long DecodeEERFrames(const unsigned char* data, long long available, const long long* offsets, const long long* sizes, int nframes, int compression, unsigned int* positions, long long capacity);
+extern "C" __declspec(dllexport) long long EERMaxElectrons(long long size, int compression);
+
+// EERRender.cu: electrons spread onto an oversampled grid with an exponential-of-semicircle kernel, then Fourier
+// cropped with the kernel divided out (a type 1 non-uniform FFT), approximating render-at-16K-then-crop.
+extern "C" __declspec(dllexport) void* EERCreateRenderer(int outputSize, int gridSize, int kernelWidth, int slots, long long slotCapacity, float scale);
+extern "C" __declspec(dllexport) void EERRendererUpload(void* handle, const unsigned int* h_positions, const long long* h_counts, int nslots);
+extern "C" __declspec(dllexport) void EERRendererSpread(void* handle, int firstSlot, int nslots, const float* d_gain, int gainSize);
+extern "C" __declspec(dllexport) void EERRendererBatchDone(void* handle);
+extern "C" __declspec(dllexport) void EERRendererWaitForUploads(void* handle);
+extern "C" __declspec(dllexport) void EERRendererFinish(void* handle, float* d_output);
+extern "C" __declspec(dllexport) void EERDestroyRenderer(void* handle);
 
 // Post.cu:
 
@@ -933,6 +948,7 @@ extern "C" __declspec(dllexport) void DistanceMap(float* d_input, float* d_outpu
 extern "C" __declspec(dllexport) void DistanceMapExact(float* d_input, float* d_output, int3 dims, int maxdistance);
 
 extern "C" __declspec(dllexport) void PrefilterForCubic(float* d_data, int3 dims);
+extern "C" __declspec(dllexport) void PrefilterForCubicReference2D(float* d_data, int3 dims);
 extern "C" __declspec(dllexport) void CreateTexture3D(float* d_data, int3 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering);
 extern "C" __declspec(dllexport) void CreateTexture3DComplex(float2* d_data, int3 dims, unsigned long long* h_textureid, unsigned long long* h_arrayid, bool linearfiltering);
 extern "C" __declspec(dllexport) void DestroyTexture(unsigned long long textureid, unsigned long long arrayid);
@@ -971,16 +987,21 @@ extern "C" __declspec(dllexport) void OptimizeWeights(int nrecs,
                                                         float* h_weightsum2);
 
 // CUDA CTF fitting and power-spectrum preparation (owned contexts).
-extern "C" __declspec(dllexport) int CtfPowerCreate(int width, int height, int window, int fft, int batch, int patches, int bins, const int3* origins, const float* hann, const int* starts, const int* indices, const int* displayIndices, void** result);
+extern "C" __declspec(dllexport) int CtfPowerCreate(int width, int height, int window, int fft, int small, int batch, int patches, int bins, const int3* origins, const float* hann, const int* starts, const int* indices, const int* displayIndices, void** result);
 extern "C" __declspec(dllexport) int CtfPowerBegin(void* context);
 extern "C" __declspec(dllexport) int CtfPowerAdd(void* context, const float* frame);
+extern "C" __declspec(dllexport) int CtfPowerAddDevice(void* context, const float* deviceFrame);
+extern "C" __declspec(dllexport) int CtfPowerReadShared(void* context, void* source, double* power, float* display);
 extern "C" __declspec(dllexport) int CtfPowerRead(void* context, double* power, float* display);
+extern "C" __declspec(dllexport) int CtfPowerUseOwnStream(void* context);
 extern "C" __declspec(dllexport) void CtfPowerDestroy(void* context);
+extern "C" __declspec(dllexport) int CtfExposureGroupAverage(const float* d_stack, int width, int height, int frames, int groups, const int* h_starts, const int* h_ends, const float* h_shifts, float* d_output);
 extern "C" __declspec(dllexport) int CtfFitCreate(int records, int samples, int knots, const double* moments, const double* basis, const double* data, const double* counts, const double* currentWeights, void** result);
 extern "C" __declspec(dllexport) int CtfFitSearch(void* context, const double* trials, const double* offsets, int trialCount, double* scores);
 extern "C" __declspec(dllexport) int CtfFitEvaluate(void* context, const double* poses, int reweight, double* output);
 extern "C" __declspec(dllexport) int CtfFitReadWeights(void* context, double* weights);
 extern "C" __declspec(dllexport) int CtfFitReadCoefficients(void* context, float* coefficients);
+extern "C" __declspec(dllexport) int CtfFitSetWarpSolver(int enabled);
 extern "C" __declspec(dllexport) void CtfFitDestroy(void* context);
 
 #endif

@@ -446,7 +446,6 @@ WarpTools fs_motion_and_ctf \
 --c_grid 2x2 \
 --c_range_max 7 \
 --c_defocus_max 8 \
---c_use_sum \
 --out_averages \
 --out_average_halves # (1)!
 ```
@@ -475,9 +474,14 @@ the `warp_frameseries` directory.
 
 The `--m_grid 1x1x3` parameter defines the spatial and temporal resolution (`XxYxT`)
 of the motion model. `--c_grid 2x2` defines the spatial resolution (`XxY`) of the
-CTF defocus model, which has no temporal dimension. By default, fitting uses the
-average of the individual frames’ power spectra. `--c_use_sum` instead uses the
-power spectrum of the movie average.
+CTF defocus model, which has no temporal dimension.
+
+CTF fitting splits each movie into groups of about 3 e⁻/Å², shifts the frames of each
+group into register using the fitted motion, and sums the power spectra of the group
+averages. A group is short enough that motion doesn't blur the high-resolution Thon
+rings or the ice ring, and long enough for the signal to rise above each frame's shot
+noise. A tilt movie with less than 4 e⁻/Å² is a single group: its
+motion-corrected average.
 
 When processing tilt series data we typically recommend `1x1xNFrames` for motion grids
 due to the low amount of signal available per tilt and `2x2` for CTF grids to enable
@@ -487,11 +491,6 @@ checking that defocus varies as expected across the tilt axis.
 
 - `--c_range_max` is the maximum spatial resolution of information used for fitting in Å
 - `--c_defocus_max` is the maximum allowed defocus value
-
-`--c_use_sum` controls whether CTF estimation use the power spectrum from the
-motion corrected average or the sum of per-frame power spectra for estimation.
-Estimating from the motion corrected average can be useful in the absence of an
-energy filter, or generally when per frame signal is low.
 
 #### Visualizing Results
 

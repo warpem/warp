@@ -106,13 +106,10 @@ __declspec(dllexport) void ShiftGetAverage(float2* d_individual,
 											uint npositions, 
 											uint nframes)
 {
-	float2* d_shiftshalf;
-	cudaMalloc((void**)&d_shiftshalf, npositions * nframes * sizeof(float2));
-	d_ConvertTFloatTo((float*)d_shifts, (float*)d_shiftshalf, npositions * nframes * 2);
-	
+	// The shifts used to be copied (float to float) into a scratch array allocated for every call; the kernel reads them as they are.
 	int TpB = tmin(SHIFT_THREADS, NextMultipleOf(length, 32));
 	dim3 grid = dim3((length + TpB - 1) / TpB, npositions, 1);
-	ShiftGetAverageKernel <<<grid, TpB>>> (d_individual, d_average, d_shiftfactors, d_shiftshalf, length, probelength, npositions, nframes);
+	ShiftGetAverageKernel <<<grid, TpB>>> (d_individual, d_average, d_shiftfactors, d_shifts, length, probelength, npositions, nframes);
 
 	/*float2* d_averagef;
 	cudaMalloc((void**)&d_averagef, length * npositions * sizeof(float2));
@@ -128,8 +125,6 @@ __declspec(dllexport) void ShiftGetAverage(float2* d_individual,
 
 	free(h_averagef);
 	free(h_phasef);*/
-
-	cudaFree(d_shiftshalf);
 }
 
 __global__ void ShiftGetAverageKernel(float2* d_individual, float2* d_average, float2* d_shiftfactors, float2* d_shifts, uint length, uint probelength, uint npositions, uint nframes)
@@ -182,17 +177,14 @@ __declspec(dllexport) void ShiftGetDiff(float2* d_individual,
 	int TpB = tmin(SHIFT_THREADS, NextMultipleOf(probelength, 32));
 	dim3 grid = dim3(npositions, nframes, 1);
 
+	// One value per block (position, frame); an unused second array and a buffer grid.x times larger are no longer allocated.
 	float* d_diff;
-	cudaMalloc((void**)&d_diff, npositions * nframes * grid.x * sizeof(float));
-	float* d_diffreduced;
-	cudaMalloc((void**)&d_diffreduced, npositions * nframes * sizeof(float));
+	cudaMalloc((void**)&d_diff, npositions * nframes * sizeof(float));
 
 	ShiftGetDiffKernel <<<grid, TpB>>> (d_individual, d_average, d_shiftfactors, length, probelength, d_shifts, d_diff);
 
-	//d_SumMonolithic(d_diff, d_diffreduced, grid.x, npositions * nframes);
 	cudaMemcpy(h_diff, d_diff, npositions * nframes * sizeof(float), cudaMemcpyDeviceToHost);
 	
-	cudaFree(d_diffreduced);
 	cudaFree(d_diff);
 }
 
@@ -283,20 +275,14 @@ __declspec(dllexport) void ShiftGetGrad(float2* d_individual,
 	int TpB = tmin(SHIFT_THREADS, NextMultipleOf(probelength, 32));
 	dim3 grid = dim3(npositions, nframes, 1);
 
+	// One value per block (position, frame). The whole oversized buffer used to be downloaded and discarded as well.
 	float2* d_grad;
-	cudaMalloc((void**)&d_grad, npositions * nframes * grid.x * sizeof(float2));
-	float2* d_gradreduced;
-	cudaMalloc((void**)&d_gradreduced, npositions * nframes * sizeof(float2));
+	cudaMalloc((void**)&d_grad, npositions * nframes * sizeof(float2));
 
 	ShiftGetGradKernel <<<grid, TpB>>> (d_individual, d_average, d_shiftfactors, length, probelength, d_shifts, d_grad);
 
-	float2* h_grad2 = (float2*)MallocFromDeviceArray(d_grad, npositions * nframes * grid.x * sizeof(float2));
-	free(h_grad2);
-
-	//d_SumMonolithic(d_grad, d_gradreduced, grid.x, npositions * nframes);
 	cudaMemcpy(h_grad, d_grad, npositions * nframes * sizeof(float2), cudaMemcpyDeviceToHost);
 	
-	cudaFree(d_gradreduced);
 	cudaFree(d_grad);
 }
 

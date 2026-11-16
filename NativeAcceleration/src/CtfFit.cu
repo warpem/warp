@@ -2,6 +2,7 @@
 #include "CtfGpuCommon.h"
 #include <math_constants.h>
 #include <type_traits>
+#include <atomic>
 
 namespace
 {
@@ -18,16 +19,19 @@ struct FitView
     const int *starts,*indices,*destinations,*powers,*firstBasis;
     float *baseWeights,*weights,*poses,*model,*derivative,*slabDerivative;
     const double* preciseTerms;
-    int* precise;
+    // precise[p]: the FP32 solve of patch p failed and is redone in FP64. preciseList holds those patches,
+    // *preciseCount of them, so the FP64 pass runs only for them (in no particular order; patches are independent).
+    int *precise,*preciseList,*preciseCount;
     double *matrix,*coefficients,*output,*workspace;
 };
 struct FitContext
 {
-    int device, sharedBytes;
+    // warpBytes > 0: the warp-cooperative solver, with its shared memory per patch; otherwise the single-thread one.
+    int device, sharedBytes, warpBytes;
     FitView v;
     Buffer<float> moments,basis,data,baseWeights,terms,weights,poses,model,derivative,slabDerivative;
     Buffer<double> preciseTerms,matrix,coefficients,output,workspace;
-    Buffer<int> starts,indices,destinations,powers,firstBasis,precise;
+    Buffer<int> starts,indices,destinations,powers,firstBasis,precise,preciseList,preciseCount;
 };
 __device__ void Sinc(float x,float& value,float& derivative)
 {
@@ -73,7 +77,7 @@ __global__ void Model(FitView c)
 // spline functions at each frequency; its fixed products/indices are cached in CSR form.
 template<bool Precise> __global__ void NormalEquations(FitView c)
 {
-    int feature=(blockIdx.x*blockDim.x+threadIdx.x)/32,lane=threadIdx.x%32,p=blockIdx.y;
+    int feature=(blockIdx.x*blockDim.x+threadIdx.x)/32,lane=threadIdx.x%32,p=Precise?c.preciseList[blockIdx.y]:blockIdx.y;
     if(feature>=c.features || (Precise && !c.precise[p]))return;
     using Accumulator=typename std::conditional<Precise,double,float>::type;
     int destination=c.destinations[feature],power=c.powers[feature];
@@ -123,13 +127,14 @@ __device__ bool SolveSubset(const double* a,const double* b,double* output,const
     for(int i=0;i<m;i++)output[(int)ids[i]]=work[i];
     return true;
 }
+__device__ void MarkPrecise(const FitView& c,int p){c.precise[p]=1;c.preciseList[atomicAdd(c.preciseCount,1)]=p;}
 // Each patch owns a small active-set solve. Double precision is retained here to
 // resolve nearly dependent background/envelope columns without changing the ridge.
 template<bool Precise, bool BackgroundOnly=false> __global__ void SolveNuisance(FitView c,bool sharedWorkspace)
 {
     if(threadIdx.x)return;
     extern __shared__ double storage[];
-    int p=blockIdx.x,n=c.size;
+    int p=Precise?c.preciseList[blockIdx.x]:blockIdx.x,n=c.size;
     if(Precise && !c.precise[p])return;
     if(!Precise)c.precise[p]=0;
     double* l=sharedWorkspace?storage:c.workspace+(size_t)p*(n*n+4*n);
@@ -138,7 +143,7 @@ template<bool Precise, bool BackgroundOnly=false> __global__ void SolveNuisance(
     double* x=c.coefficients+(size_t)p*n;
     // Reassemble a rounded, ill-conditioned Gram matrix before attempting this patch again.
 #define SOLVE(target) if(!SolveSubset(a,b,target,active,l,work,ids,n,!Precise)) { \
-    if(!Precise)c.precise[p]=1; else for(int i=0;i<n;i++)x[i]=CUDART_NAN; return; }
+    if(!Precise)MarkPrecise(c,p); else for(int i=0;i<n;i++)x[i]=CUDART_NAN; return; }
     for(int i=0;i<n;i++)active[i]=!BackgroundOnly || i<c.knots;
     SOLVE(x)
     if(BackgroundOnly)return;
@@ -163,8 +168,167 @@ template<bool Precise, bool BackgroundOnly=false> __global__ void SolveNuisance(
             for(int i=c.knots;i<n;i++)if(active[i]&&x[i]<=1e-12){active[i]=0;x[i]=0;}
         }
     }
-    if(!Precise)c.precise[p]=1; else for(int i=0;i<n;i++)x[i]=CUDART_NAN;
+    if(!Precise)MarkPrecise(c,p); else for(int i=0;i<n;i++)x[i]=CUDART_NAN;
 #undef SOLVE
+}
+// The same constrained solves as SolveSubset/SolveNuisance, by the 32 lanes of one warp per patch instead of one
+// thread, with the patch's normal equations in shared memory. Every value is computed by the same floating-point
+// operations in the same order as there, so the results are identical: the Cholesky factor is built right-looking
+// (each entry still receives its updates k = 0, 1, ... in turn, then its division or square root), the forward
+// substitution column by column (likewise), and the backward substitution, whose order would change if it ran in
+// parallel, on one lane. Selections (entering index, step length, feasibility) are reduced exactly, with ties going
+// to the lowest index as in the sequential scans.
+struct WarpSolve
+{
+    const double *a, *b;
+    double *l, *work;
+    int *ids, n, lane;
+    __device__ bool Solve(double* output, const int* active, bool checkCondition) const
+    {
+        int m = 0;
+        for (int base = 0; base < n; base += 32)
+        {
+            int i = base + lane;
+            bool on = i < n && active[i];
+            unsigned mask = __ballot_sync(0xffffffffu, on);
+            if (on) ids[m + __popc(mask & ((1u << lane) - 1))] = i;
+            m += __popc(mask);
+        }
+        __syncwarp();
+        double maximumDiagonal = 0;
+        for (int i = lane; i < m; i += 32) maximumDiagonal = fmax(maximumDiagonal, a[ids[i] * n + ids[i]]);
+        for (int offset = 16; offset; offset >>= 1) maximumDiagonal = fmax(maximumDiagonal, __shfl_xor_sync(0xffffffffu, maximumDiagonal, offset));
+        for (int e = lane; e < m * m; e += 32) { int i = e / m, j = e % m; if (j <= i) l[i * n + j] = a[ids[i] * n + ids[j]]; }
+        __syncwarp();
+        for (int j = 0; j < m; j++)
+        {
+            double sum = l[j * n + j];
+            // FP32 Gram rounding must not overwhelm the small ridge or a weak pivot.
+            if (sum <= 0 || !isfinite(sum) || (checkCondition && sum < 1e-4 * maximumDiagonal)) return false;
+            double pivot = sqrt(fmax(1e-20, sum));
+            __syncwarp();
+            if (!lane) l[j * n + j] = pivot;
+            for (int i = j + 1 + lane; i < m; i += 32) l[i * n + j] = l[i * n + j] / pivot;
+            __syncwarp();
+            int rows = m - j - 1;
+            for (int e = lane; e < rows * rows; e += 32)
+            {
+                int i = j + 1 + e / rows, k = j + 1 + e % rows;
+                if (k <= i) l[i * n + k] -= l[i * n + j] * l[k * n + j];
+            }
+            __syncwarp();
+        }
+        for (int i = lane; i < m; i += 32) work[i] = b[ids[i]];
+        __syncwarp();
+        for (int j = 0; j < m; j++)
+        {
+            double solved = work[j] / l[j * n + j];
+            __syncwarp();
+            if (!lane) work[j] = solved;
+            for (int i = j + 1 + lane; i < m; i += 32) work[i] -= l[i * n + j] * solved;
+            __syncwarp();
+        }
+        if (!lane)
+            for (int i = m - 1; i >= 0; i--)
+            {
+                for (int j = i + 1; j < m; j++) work[i] -= l[j * n + i] * work[j];
+                work[i] /= l[i * n + i];
+            }
+        __syncwarp();
+        for (int i = lane; i < n; i += 32) output[i] = 0;
+        __syncwarp();
+        for (int i = lane; i < m; i += 32) output[ids[i]] = work[i];
+        __syncwarp();
+        return true;
+    }
+};
+// Shared memory of the warp solver for n unknowns: the normal equations (n² + n), the factor (n²), the solution,
+// trial solution and substitution vector (3n), and the active set and its indices (2n ints).
+std::atomic<bool> WarpSolverEnabled{true};
+inline size_t WarpSolveBytes(int n) { return (size_t)(2 * n * n + 4 * n) * sizeof(double) + (size_t)2 * n * sizeof(int); }
+template<bool Precise, bool BackgroundOnly=false> __global__ void SolveNuisanceWarp(FitView c)
+{
+    extern __shared__ double storage[];
+    int p = Precise ? c.preciseList[blockIdx.x] : blockIdx.x, n = c.size, lane = threadIdx.x;
+    if (Precise && !c.precise[p]) return;
+    if (!Precise && !lane) c.precise[p] = 0;
+    double *a = storage, *l = a + n * n + n, *x = l + n * n, *z = x + n, *work = z + n;
+    int *active = (int*)(work + n), *ids = active + n;
+    const double* matrix = c.matrix + (size_t)p * c.stride;
+    double* coefficients = c.coefficients + (size_t)p * n;
+    for (int i = lane; i < n * n + n; i += 32) a[i] = matrix[i];
+    for (int i = lane; i < n; i += 32) { x[i] = coefficients[i]; active[i] = !BackgroundOnly || i < c.knots; }
+    __syncwarp();
+    WarpSolve solver{a, a + n * n, l, work, ids, n, lane};
+    bool failed = false;
+    [&]
+    {
+        if (!solver.Solve(x, active, !Precise)) { failed = true; return; }
+        if (BackgroundOnly) return;
+        bool feasible = true;
+        for (int i = c.knots + lane; i < n; i += 32) feasible &= x[i] >= 0;
+        if (__all_sync(0xffffffffu, feasible)) return;
+        for (int i = c.knots + lane; i < n; i += 32) active[i] = 0;
+        __syncwarp();
+        if (!solver.Solve(x, active, !Precise)) { failed = true; return; }
+        for (int iteration = 0; iteration < 8 * n * n; iteration++)
+        {
+            int enter = -1; double best = 1e-9;
+            for (int i = c.knots + lane; i < n; i += 32) if (!active[i])
+            {
+                double w = a[n * n + i];
+                for (int j = 0; j < n; j++) w -= a[i * n + j] * x[j];
+                if (w > best) { best = w; enter = i; }
+            }
+            for (int offset = 16; offset; offset >>= 1)
+            {
+                double otherBest = __shfl_xor_sync(0xffffffffu, best, offset);
+                int otherEnter = __shfl_xor_sync(0xffffffffu, enter, offset);
+                if (otherEnter >= 0 && (enter < 0 || otherBest > best || (otherBest == best && otherEnter < enter))) { best = otherBest; enter = otherEnter; }
+            }
+            if (enter < 0) return;
+            __syncwarp();
+            if (!lane) active[enter] = 1;
+            __syncwarp();
+            for (int inner = 0; inner <= n; inner++)
+            {
+                if (!solver.Solve(z, active, !Precise)) { failed = true; return; }
+                double alpha = 1;
+                for (int i = c.knots + lane; i < n; i += 32) if (active[i] && z[i] <= 0) alpha = fmin(alpha, x[i] / fmax(1e-30, x[i] - z[i]));
+                for (int offset = 16; offset; offset >>= 1) alpha = fmin(alpha, __shfl_xor_sync(0xffffffffu, alpha, offset));
+                if (alpha == 1) { for (int i = lane; i < n; i += 32) x[i] = z[i]; __syncwarp(); break; }
+                for (int i = lane; i < n; i += 32) x[i] += alpha * (z[i] - x[i]);
+                for (int i = c.knots + lane; i < n; i += 32) if (active[i] && x[i] <= 1e-12) { active[i] = 0; x[i] = 0; }
+                __syncwarp();
+            }
+        }
+        failed = true;
+    }();
+    if (failed)
+    {
+        if (!Precise) { if (!lane) MarkPrecise(c, p); }
+        else for (int i = lane; i < n; i += 32) x[i] = CUDART_NAN;
+    }
+    __syncwarp();
+    for (int i = lane; i < n; i += 32) coefficients[i] = x[i];
+}
+template<bool Precise, bool BackgroundOnly=false> void Solve(const FitContext& c, int patches)
+{
+    if (c.warpBytes) SolveNuisanceWarp<Precise, BackgroundOnly><<<patches, 32, c.warpBytes>>>(c.v);
+    else SolveNuisance<Precise, BackgroundOnly><<<patches, 32, c.sharedBytes>>>(c.v, c.sharedBytes > 0);
+}
+// Assemble and solve every patch's normal equations in FP32, then redo in FP64 the patches whose FP32 solve failed.
+// The FP64 pass used to be launched over all patches, most of which returned at once; its count is read back first.
+template<bool BackgroundOnly=false> void SolveAll(FitContext& c)
+{
+    auto v=c.v;
+    c.preciseCount.Clear(1);
+    NormalEquations<false><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
+    Solve<false,BackgroundOnly>(c,v.records);
+    int count;c.preciseCount.Download(&count,1);
+    if(count<=0)return;
+    NormalEquations<true><<<dim3((v.features+7)/8,count),Threads>>>(v);
+    Solve<true,BackgroundOnly>(c,count);
 }
 // Fit smooth total power with count weights, then derive fixed inverse variances.
 __global__ void InitializeWeights(FitView c)
@@ -183,10 +347,7 @@ void BackgroundFit(FitContext& c)
 {
     auto v=c.v;
     Check(cudaMemset(c.model.p,0,(size_t)v.records*v.samples*sizeof(float)));
-    NormalEquations<false><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
-    SolveNuisance<false,true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
-    NormalEquations<true><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
-    SolveNuisance<true,true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
+    SolveAll<true>(c);
 }
 __global__ void BackgroundResidual(FitView c)
 {
@@ -255,16 +416,32 @@ extern "C" __declspec(dllexport) int CtfFitCreate(int records,int samples,int kn
         std::unique_ptr<FitContext> c(new FitContext());Check(cudaGetDevice(&c->device));auto& v=c->v;
         v.records=records;v.samples=samples;v.knots=knots;v.size=knots*2;v.stride=v.size*v.size+v.size;
         std::vector<int> starts(1,0),indices,destinations,powers,first(samples,0);std::vector<double> terms;
+        // Each feature lists the samples where its basis product is nonzero. B-splines overlap only locally, so
+        // the lists are gathered in one pass over the samples' nonzero (FP32) basis values rather than scanning
+        // every sample once per feature; their order and values are the same.
+        std::vector<std::vector<int>> pairIndices((size_t)knots*(knots+1));std::vector<std::vector<double>> pairTerms((size_t)knots*(knots+1));
+        {
+            std::vector<int> nonzero;std::vector<float> values;
+            for(int i=0;i<samples;i++)
+            {
+                nonzero.clear();values.clear();
+                for(int j=0;j<knots;j++){float b=(float)basis[(size_t)i*knots+j];if(b!=0){nonzero.push_back(j);values.push_back(b);}}
+                for(size_t a=0;a<nonzero.size();a++)
+                {
+                    // Exact products of the FP32 design coefficients preserve positive definiteness
+                    // in the selective FP64 assembly. A rounded product would defeat the retry.
+                    for(size_t b=0;b<nonzero.size();b++)
+                    {size_t pair=(size_t)nonzero[a]*(knots+1)+nonzero[b];pairIndices[pair].push_back(i);pairTerms[pair].push_back((double)values[a]*values[b]);}
+                    size_t single=(size_t)nonzero[a]*(knots+1)+knots;pairIndices[single].push_back(i);pairTerms[single].push_back((double)values[a]);
+                }
+            }
+        }
         auto Feature=[&](int j,int k,int destination,int power)
         {
             destinations.push_back(destination);powers.push_back(power);
-            for(int i=0;i<samples;i++)
-            {
-                // Exact products of the FP32 design coefficients preserve positive definiteness
-                // in the selective FP64 assembly. A rounded product would defeat the retry.
-                double value=(float)basis[(size_t)i*knots+j];if(k>=0)value*=(float)basis[(size_t)i*knots+k];
-                if(value!=0){indices.push_back(i);terms.push_back(value);}
-            }
+            size_t pair=(size_t)j*(knots+1)+(k>=0?k:knots);
+            indices.insert(indices.end(),pairIndices[pair].begin(),pairIndices[pair].end());
+            terms.insert(terms.end(),pairTerms[pair].begin(),pairTerms[pair].end());
             starts.push_back((int)terms.size());
         };
         for(int j=0;j<v.size;j++)for(int k=0;k<=j;k++)Feature(j%knots,k%knots,j*v.size+k,(j>=knots)+(k>=knots));
@@ -278,11 +455,12 @@ extern "C" __declspec(dllexport) int CtfFitCreate(int records,int samples,int kn
         UPLOAD(destinations,destinations.data(),destinations.size());UPLOAD(powers,powers.data(),powers.size());UPLOAD(firstBasis,first.data(),first.size());
 #undef UPLOAD
 #define ALLOC(member,count) c->member.Allocate(count);v.member=c->member.p
-        ALLOC(precise,records);
+        ALLOC(precise,records);ALLOC(preciseList,records);ALLOC(preciseCount,1);
         ALLOC(poses,(size_t)records*7);ALLOC(model,(size_t)records*samples);ALLOC(derivative,(size_t)records*samples);ALLOC(slabDerivative,(size_t)records*samples*3);
         ALLOC(matrix,(size_t)records*v.stride);ALLOC(coefficients,(size_t)records*v.size);ALLOC(output,(size_t)records*9);
         size_t bytes=(size_t)(v.size*v.size+4*v.size)*sizeof(double);
         c->sharedBytes=bytes<=48*1024?(int)bytes:0;
+        c->warpBytes=WarpSolverEnabled&&WarpSolveBytes(v.size)<=48*1024?(int)WarpSolveBytes(v.size):0;
         v.workspace=nullptr;if(!c->sharedBytes){ALLOC(workspace,(size_t)records*(v.size*v.size+4*v.size));}
 #undef ALLOC
         BackgroundFit(*c);
@@ -315,10 +493,7 @@ extern "C" __declspec(dllexport) int CtfFitEvaluate(void* context,const double* 
     {
         auto& c=*(FitContext*)context;DeviceScope scope(c.device);auto v=c.v;c.poses.UploadConverted(poses,(size_t)v.records*7);
         Model<<<dim3((v.samples+Threads-1)/Threads,v.records),Threads>>>(v);
-        NormalEquations<false><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
-        SolveNuisance<false><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
-        NormalEquations<true><<<dim3((v.features+7)/8,v.records),Threads>>>(v);
-        SolveNuisance<true><<<v.records,32,c.sharedBytes>>>(v,c.sharedBytes>0);
+        SolveAll(c);
         Score<<<v.records,Threads>>>(v,reweight!=0);Check(cudaGetLastError());
         c.output.Download(output,(size_t)v.records*9);return cudaSuccess;
     }
@@ -333,6 +508,12 @@ extern "C" __declspec(dllexport) int CtfFitReadCoefficients(void* context,float*
 {
     try{auto& c=*(FitContext*)context;DeviceScope scope(c.device);c.coefficients.DownloadConverted(coefficients,(size_t)c.v.records*c.v.size);return cudaSuccess;}
     catch(cudaError_t e){return e;}catch(...){return cudaErrorUnknown;}
+}
+// Whether batches created from now on may use the warp-cooperative nuisance solver (when its shared memory fits).
+// It is on by default; tests switch it off to compare with the single-thread solver. Returns the previous setting.
+extern "C" __declspec(dllexport) int CtfFitSetWarpSolver(int enabled)
+{
+    int previous=WarpSolverEnabled?1:0;WarpSolverEnabled=enabled!=0;return previous;
 }
 extern "C" __declspec(dllexport) void CtfFitDestroy(void* context)
 {

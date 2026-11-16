@@ -18,6 +18,11 @@ namespace Warp
         /// <summary>Training and inference sampling, Å/pixel.</summary>
         public const float PixelSize = 6;
         public const float DeconvolutionHighpass = 600;
+        /// <summary>
+        /// The deconvolution Noise2Mic's BoxNet picking corpus was made with. The denoiser and the picker trained on its
+        /// output expect micrographs deconvolved this way, so these are fixed rather than user settings.
+        /// </summary>
+        public const float DeconvolutionStrength = .9f, DeconvolutionFalloff = .1f;
 
         readonly R2UNet2D Network;
         readonly int Device;

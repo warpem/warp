@@ -181,7 +181,7 @@ public class Noise2MicParityCudaTests(ITestOutputHelper output)
         {
             GPU.SetDevice(0);
             string corpus = Pair.GetProperty("model").GetString()!;
-            string[] movies = PrepareTrainingMovies(listing, Fixture("finetune-train"));
+            var movies = PrepareTrainingPairs(listing);
             var validation = File.ReadAllLines(heldOut).Where(l => l.Trim().Length > 0).Select(line =>
             {
                 string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -216,26 +216,15 @@ public class Noise2MicParityCudaTests(ITestOutputHelper output)
         }
     }
 
-    static string[] PrepareTrainingMovies(string listing, string work)
-    {
-        Directory.CreateDirectory(work);
-        return File.ReadAllLines(listing).Where(l => l.Trim().Length > 0).Select((line, index) =>
+    static (MovieDenoising.Prepared Odd, MovieDenoising.Prepared Even)[] PrepareTrainingPairs(string listing) =>
+        File.ReadAllLines(listing).Where(l => l.Trim().Length > 0).Select(line =>
         {
             string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var ctf = new Movie(Path.ChangeExtension(parts[2], ".mrc")).CTF;
             float pixel = Warp.Headers.MapHeader.ReadFromFile(parts[0]).PixelSize.X;
-            var movie = new Movie(Path.Combine(work, $"movie{index:D4}.mrc"));
-            foreach (var (source, destination) in new[] { (parts[0], movie.DenoiseTrainingOddPath), (parts[1], movie.DenoiseTrainingEvenPath) })
-            {
-                if (File.Exists(destination)) continue;
-                var prepared = MovieDenoising.Preprocess(source, ctf, pixel, MovieDenoising.Sampling(pixel), .9f, .1f);
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                using var image = new Image(prepared.Data, new int3(prepared.Width, prepared.Height, 1));
-                image.WriteMRC(destination, 6, true);
-            }
-            return movie.Path;
+            return (MovieDenoising.Preprocess(parts[0], ctf, pixel, MovieDenoising.Sampling(pixel), .9f, .1f),
+                    MovieDenoising.Preprocess(parts[1], ctf, pixel, MovieDenoising.Sampling(pixel), .9f, .1f));
         }).ToArray();
-    }
 
     /// <summary>Warp's training recipe on the listed corpus pairs, for parity.py compare against PyTorch-trained models.</summary>
     [Noise2MicParityFact]
@@ -246,23 +235,7 @@ public class Noise2MicParityCudaTests(ITestOutputHelper output)
         lock (GPU.Sync)
         {
             GPU.SetDevice(0);
-            string work = Fixture("warp-train");
-            Directory.CreateDirectory(work);
-            var movies = File.ReadAllLines(listing).Where(l => l.Trim().Length > 0).Select((line, index) =>
-            {
-                string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                var ctf = new Movie(Path.ChangeExtension(parts[2], ".mrc")).CTF;
-                float pixel = Warp.Headers.MapHeader.ReadFromFile(parts[0]).PixelSize.X;
-                var movie = new Movie(Path.Combine(work, $"movie{index:D4}.mrc"));
-                foreach (var (source, destination) in new[] { (parts[0], movie.DenoiseTrainingOddPath), (parts[1], movie.DenoiseTrainingEvenPath) })
-                {
-                    var prepared = MovieDenoising.Preprocess(source, ctf, pixel, MovieDenoising.Sampling(pixel), .9f, .1f);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                    using var image = new Image(prepared.Data, new int3(prepared.Width, prepared.Height, 1));
-                    image.WriteMRC(destination, 6, true);
-                }
-                return movie.Path;
-            }).ToArray();
+            var movies = PrepareTrainingPairs(listing);
             var started = DateTime.UtcNow;
             MovieDenoising.Train(movies, Fixture("warp-trained.pt"), "", 8, 0, .9f, .1f);
             output.WriteLine($"Trained on {movies.Length} pairs in {(DateTime.UtcNow - started).TotalMinutes:F1} min");

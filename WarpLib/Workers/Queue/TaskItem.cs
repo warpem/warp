@@ -28,6 +28,9 @@ namespace Warp.Workers.Queue
         /// so workers can tell without reading every pending file.</summary>
         public bool Priority { get; set; }
 
+        /// <summary>The task wants its GPU to itself (training): other workers on that GPU take nothing new while it runs.</summary>
+        public bool Exclusive { get; set; }
+
         /// <summary>Main commands that finished in the latest attempt, so a caller can keep the results of a
         /// partly completed task. Written by the worker when the task fails.</summary>
         public int CompletedCommands { get; set; }

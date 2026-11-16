@@ -330,6 +330,15 @@ namespace Warp
             return FromFilePatient(attempts, mswait, path, new int2(1, 1), 0, typeof(float), layer, stream);
         }
 
+        /// <summary>Increases whenever the data is obtained for writing (GetHost, GetDevice, GetHostPinned with Intent.Write).</summary>
+        public long Version { get; private set; }
+
+        /// <summary>A device copy exists and is at least as recent as the host data, so reading it needs no transfer.</summary>
+        public bool IsDeviceCurrent
+        {
+            get { lock (Sync) return _DeviceData != IntPtr.Zero && !IsHostDirty && !IsHostPinnedDirty; }
+        }
+
         public IntPtr GetDevice(Intent intent)
         {
             lock (Sync)
@@ -350,6 +359,7 @@ namespace Warp
 
                 if ((intent & Intent.Write) > 0)
                 {
+                    Version++;
                     IsDeviceDirty = true;
                     IsHostDirty = false;
                     IsHostPinnedDirty = false;
@@ -400,6 +410,7 @@ namespace Warp
 
                 if ((intent & Intent.Write) > 0)
                 {
+                    Version++;
                     IsHostDirty = true;
                     IsDeviceDirty = false;
                     IsHostPinnedDirty = false;
@@ -429,6 +440,7 @@ namespace Warp
 
                 if ((intent & Intent.Write) > 0)
                 {
+                    Version++;
                     IsHostDirty = false;
                     IsDeviceDirty = false;
                     IsHostPinnedDirty = true;
@@ -573,22 +585,11 @@ namespace Warp
             {
                 float[][] Data = GetHost(Intent.Read);
                 float Min = float.MaxValue, Max = float.MinValue;
-
-                unsafe
+                for (int z = 0; z < Dims.Z; z++)
                 {
-                    for (int z = 0; z < Dims.Z; z++)
-                        fixed (float* DataPtr = Data[z])
-                        {
-                            int Length = Data[z].Length;
-                            float* DataP = DataPtr;
-
-                            for (int i = 0; i < Length; i++)
-                            {
-                                Min = MathF.Min(Min, *DataP);
-                                Max = MathF.Max(Max, *DataP);
-                                DataP++;
-                            }
-                        }
+                    var (SliceMin, SliceMax) = MinMax(Data[z]);
+                    Min = MathF.Min(Min, SliceMin);
+                    Max = MathF.Max(Max, SliceMax);
                 }
 
                 header.MinValue = Min;
@@ -625,6 +626,40 @@ namespace Warp
         public void WriteMRC(string path, bool doStatistics = false, HeaderMRC header = null)
         {
             WriteMRC(path, PixelSize, doStatistics, header);
+        }
+
+        /// <summary>
+        /// The smallest and largest value, both NaN if any value is, as MathF.Min and MathF.Max over every value would
+        /// give, but vectorized: a scalar pass took longer than writing a micrograph to local storage.
+        /// </summary>
+        public static (float Min, float Max) MinMax(ReadOnlySpan<float> data)
+        {
+            var Min = new System.Numerics.Vector<float>(float.MaxValue);
+            var Max = new System.Numerics.Vector<float>(float.MinValue);
+            var Ordered = System.Numerics.Vector<int>.AllBitsSet;
+            var Vectors = System.Runtime.InteropServices.MemoryMarshal.Cast<float, System.Numerics.Vector<float>>(data);
+            foreach (var V in Vectors)
+            {
+                Min = System.Numerics.Vector.Min(Min, V);
+                Max = System.Numerics.Vector.Max(Max, V);
+                Ordered &= System.Numerics.Vector.Equals(V, V); // false for NaN
+            }
+
+            float ScalarMin = float.MaxValue, ScalarMax = float.MinValue;
+            for (int i = 0; i < System.Numerics.Vector<float>.Count; i++)
+            {
+                ScalarMin = MathF.Min(ScalarMin, Min[i]);
+                ScalarMax = MathF.Max(ScalarMax, Max[i]);
+            }
+            for (int i = Vectors.Length * System.Numerics.Vector<float>.Count; i < data.Length; i++)
+            {
+                ScalarMin = MathF.Min(ScalarMin, data[i]);
+                ScalarMax = MathF.Max(ScalarMax, data[i]);
+            }
+
+            if (!System.Numerics.Vector.EqualsAll(Ordered, System.Numerics.Vector<int>.AllBitsSet))
+                return (float.NaN, float.NaN);
+            return (ScalarMin, ScalarMax);
         }
 
         public void WriteMRC16b(string path, float pixelSize, bool doStatistics = false, HeaderMRC header = null)
@@ -790,6 +825,9 @@ namespace Warp
             }
         }
 
+        /// <summary>zlib level for <see cref="WritePNG"/>; the pixels are the same at any level.</summary>
+        public const int PNGCompressionLevel = 3;
+
         public void WritePNG(string path)
         {
             if (Dims.Z > 1)
@@ -800,22 +838,22 @@ namespace Warp
                 unsafe
                 {
                     float[] Data = GetHost(Intent.Read)[0];
+                    byte* Pixels = (byte*)Image.GetPixels();
+                    int RowBytes = Image.RowBytes;
 
                     for (int y = 0; y < Dims.Y; y++)
                     {
+                        byte* Row = Pixels + (long)y * RowBytes;
+                        int Source = (Dims.Y - 1 - y) * Dims.X;
                         for (int x = 0; x < Dims.X; x++)
-                        {
-                            int i = y * Dims.X + x;
-                            byte PixelValue = (byte)Math.Max(0, Math.Min(255, (long)Data[(Dims.Y - 1 - y) * Dims.X + x]));
-                            ((byte*)Image.GetAddress(x, y))[0] = PixelValue;
-                        }
+                            Row[x] = (byte)Math.Max(0, Math.Min(255, (long)Data[Source + x]));
                     }
                 }
 
+                // PNG is lossless at any compression level; light compression encodes several times faster.
                 using (Stream s = File.Create(path))
-                {
-                    Image.Encode(s, SKEncodedImageFormat.Png, 100);
-                }
+                using (SKPixmap Pixmap = Image.PeekPixels())
+                    Pixmap.Encode(s, new SKPngEncoderOptions(SKPngEncoderFilterFlags.Sub, PNGCompressionLevel));
             }
         }
 

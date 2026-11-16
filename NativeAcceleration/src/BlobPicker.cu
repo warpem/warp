@@ -24,6 +24,7 @@ struct Plan {
 template<class T> T* Ptr(thrust::device_vector<T>& v) { return thrust::raw_pointer_cast(v.data()); }
 struct Finite { __host__ __device__ int operator()(float x) const { return isfinite(x) ? 0 : 1; } };
 struct Double { __host__ __device__ double operator()(float x) const { return double(x); } };
+struct Square { __host__ __device__ double operator()(float x) const { return double(x) * x; } };
 
 __global__ void Prepare(const float* input, float* centered, float* squared,
                         float* support, float* blob, int2 dims, float outer2, float inner2,
@@ -38,7 +39,14 @@ __global__ void Prepare(const float* input, float* centered, float* squared,
     if (y > dims.y / 2) y -= dims.y;
     float r2 = float(x) * x + float(y) * y;
     support[id] = r2 <= 4 * outer2 ? 1.f : 0.f;
-    blob[id] = r2 <= outer2 && (inner2 == 0 || r2 >= inner2) ? 1.f : 0.f;
+    if (inner2 > 0)
+        blob[id] = r2 <= outer2 && r2 >= inner2 ? 1.f : 0.f;
+    else {
+        // Difference of Gaussians, centre sigma r/2 against surround sigma r. A flat disk scores a particle
+        // equally wherever it fits inside, so its peak wanders; this peaks on the particle's dark mass.
+        float centre2 = 0.25f * outer2, surround2 = outer2;
+        blob[id] = support[id] * (expf(-r2 / (2 * centre2)) / centre2 - expf(-r2 / (2 * surround2)) / surround2);
+    }
 }
 __global__ void Template(float* blob, const float* support, float fraction, int n) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -107,7 +115,10 @@ int BlobPickerScore(const float* input, int2 dims, float radius, float innerRadi
                                     radius*radius,innerRadius*innerRadius,globalMean,n);
         double samples = thrust::transform_reduce(support.begin(),support.end(),Double(),0.0,thrust::plus<double>());
         double signal = thrust::transform_reduce(blob.begin(),blob.end(),Double(),0.0,thrust::plus<double>());
-        if (signal <= 0 || signal >= samples) return -1;
+        double energy = thrust::transform_reduce(blob.begin(),blob.end(),Square(),0.0,thrust::plus<double>());
+        // Squared norm of the zero-mean template (fraction * support - blob) over the support.
+        double templatePower = energy - signal * signal / samples;
+        if (!(templatePower > 0)) return -1;
         Template<<<blocks,Threads>>>(Ptr(blob),Ptr(support),float(signal/samples),n);
         thrust::device_vector<cufftComplex> imageFT(nf), supportFT(nf), blobFT(nf), workFT(nf);
         Plan forward, backward;
@@ -125,7 +136,7 @@ int BlobPickerScore(const float* input, int2 dims, float radius, float innerRadi
         FFTCheck(cufftExecR2C(forward.handle,Ptr(squared),Ptr(imageFT)));
         convolve(Ptr(imageFT),Ptr(supportFT),power);
         Normalize<<<blocks,Threads>>>(correlation,power,Ptr(mean),dims,int(std::ceil(2*radius)),
-                                      float(samples),float(signal-signal*signal/samples),n);
+                                      float(samples),float(templatePower),n);
         Check(cudaGetLastError());
         Check(cudaDeviceSynchronize());
         return 0;

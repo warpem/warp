@@ -308,7 +308,6 @@ namespace Warp
                 Amplitude = CTF.Amplitude,
                 DoPhase = CTF.DoPhase,
                 FitThickness = CTF.FitThickness,
-                UseMovieSum = CTF.UseMovieSum,
                 ZMin = CTF.ZMin,
                 ZMax = CTF.ZMax,
                 GridDims = new int2(Grids.CTFX, Grids.CTFY),
@@ -337,7 +336,6 @@ namespace Warp
             CTF.Amplitude = options.Amplitude;
             CTF.DoPhase = options.DoPhase;
             CTF.FitThickness = options.FitThickness;
-            CTF.UseMovieSum = options.UseMovieSum;
             CTF.ZMin = options.ZMin;
             CTF.ZMax = options.ZMax;
 
@@ -1268,15 +1266,6 @@ namespace Warp
         //    get { return _DoIce; }
         //    set { if (value != _DoIce) { _DoIce = value; OnPropertyChanged(); } }
         //}
-
-        private bool _UseMovieSum = false;
-        [WarpSerializable]
-        [JsonProperty]
-        public bool UseMovieSum
-        {
-            get { return _UseMovieSum; }
-            set { if (value != _UseMovieSum) { _UseMovieSum = value; OnPropertyChanged(); } }
-        }
 
         private decimal _ZMin = 0M;
         [WarpSerializable]

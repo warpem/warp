@@ -9,7 +9,8 @@ namespace Warp;
 
 public partial class Movie
 {
-    public void ExportParticles(Image originalStack, float2[] positions, ProcessingOptionsParticleExport options)
+    /// <param name="releaseStack">Free the stack's device copy afterwards (see <see cref="ProcessShift"/>).</param>
+    public void ExportParticles(Image originalStack, float2[] positions, ProcessingOptionsParticleExport options, bool releaseStack = true)
     {
         IsProcessing = true;
 
@@ -41,10 +42,15 @@ public partial class Movie
         int3 DimsPreflip = DimsParticle.MultXY(2);
         int3 DimsExtraction = options.PreflipPhases ? DimsPreflip : DimsParticle;
         int3 DimsResampled = options.BoxSizeResample > 0 ? new int3(options.BoxSizeResample, options.BoxSizeResample, NParticles).MultXY(options.PreflipPhases ? 2 : 1) : DimsExtraction;
+        // Resampling Fourier-crops each particle: the written box is BoxSizeResample, at a proportionally coarser pixel size.
+        if (options.BoxSizeResample > options.BoxSize)
+            throw new ArgumentOutOfRangeException(nameof(options.BoxSizeResample), "Particles can only be resampled to a smaller box.");
+        int3 DimsOutput = options.BoxSizeResample > 0 ? new int3(options.BoxSizeResample, options.BoxSizeResample, NParticles) : DimsParticle;
 
         Task WriteHalfAverageAsync = null;
 
         float PixelSize = (float)options.BinnedPixelSizeMean;
+        float PixelSizeOutput = PixelSize * options.BoxSize / DimsOutput.X;
 
         #endregion
 
@@ -226,7 +232,8 @@ public partial class Movie
             }
         }
 
-        originalStack.FreeDevice();
+        if (releaseStack)
+            originalStack.FreeDevice();
 
         #region Clean up #1
 
@@ -266,7 +273,7 @@ public partial class Movie
 
             AverageFT.Dispose();
 
-            Image AverageCropped = Average.AsPadded(new int2(DimsParticle));
+            Image AverageCropped = Average.AsPadded(new int2(DimsOutput));
             Average.Dispose();
 
             #region Subtract background plane
@@ -286,8 +293,8 @@ public partial class Movie
             if (options.Normalize)
                 GPU.NormParticles(AverageCropped.GetDevice(Intent.Read),
                     AverageCropped.GetDevice(Intent.Write),
-                    DimsParticle.Slice(),
-                    (uint)(options.Diameter / PixelSize / 2),
+                    DimsOutput.Slice(),
+                    (uint)(options.Diameter / PixelSizeOutput / 2),
                     options.Invert,
                     (uint)NParticles);
             else if (options.Invert)
@@ -297,8 +304,7 @@ public partial class Movie
 
             WriteHalfAverageAsync = new Task(() =>
             {
-                float PixelSizeResampled = (options.BoxSizeResample > 0 ? ((float)options.BoxSize / options.BoxSizeResample) : 1) * (float)options.BinnedPixelSizeMean;
-                AverageCropped.WriteMRC16b(System.IO.Path.Combine(ParticlesDir, RootName + options.Suffix + ".mrcs"), PixelSizeResampled, true);
+                AverageCropped.WriteMRC16b(System.IO.Path.Combine(ParticlesDir, RootName + options.Suffix + ".mrcs"), PixelSizeOutput, true);
                 AverageCropped.Dispose();
             });
             WriteHalfAverageAsync.Start();
@@ -335,7 +341,7 @@ public partial class Movie
 
                 AverageOddEvenFT[idenoise].Dispose();
 
-                Image AverageCropped = Average.AsPadded(new int2(DimsParticle));
+                Image AverageCropped = Average.AsPadded(new int2(DimsOutput));
                 Average.Dispose();
 
                 #region Subtract background plane
@@ -355,8 +361,8 @@ public partial class Movie
                 if (options.Normalize)
                     GPU.NormParticles(AverageCropped.GetDevice(Intent.Read),
                         AverageCropped.GetDevice(Intent.Write),
-                        DimsParticle.Slice(),
-                        (uint)(options.Diameter / PixelSize / 2),
+                        DimsOutput.Slice(),
+                        (uint)(options.Diameter / PixelSizeOutput / 2),
                         options.Invert,
                         (uint)NParticles);
                 else if (options.Invert)
@@ -366,8 +372,7 @@ public partial class Movie
 
                 WriteHalfAverageAsync = new Task(() =>
                 {
-                    float PixelSizeResampled = (options.BoxSizeResample > 0 ? ((float)options.BoxSize / options.BoxSizeResample) : 1) * (float)options.BinnedPixelSizeMean;
-                    AverageCropped.WriteMRC16b(System.IO.Path.Combine(OddEvenDir[idenoise], RootName + options.Suffix + ".mrcs"), PixelSizeResampled, true);
+                    AverageCropped.WriteMRC16b(System.IO.Path.Combine(OddEvenDir[idenoise], RootName + options.Suffix + ".mrcs"), PixelSizeOutput, true);
                     AverageCropped.Dispose();
                 });
                 WriteHalfAverageAsync.Start();

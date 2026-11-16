@@ -16,7 +16,9 @@ public static class MicrographPreview
         int factor = Math.Max(1, (int)Math.Ceiling(Math.Max(width, height) / (double)maxSize));
         int w = Math.Max(1, width / factor), h = Math.Max(1, height / factor);
         var binned = new float[w * h];
-        for (int y = 0; y < h; y++)
+        // Rows bin independently; each output pixel sums its block in the same order as a serial pass.
+        System.Threading.Tasks.Parallel.For(0, h, y =>
+        {
             for (int x = 0; x < w; x++)
             {
                 double sum = 0; int count = 0;
@@ -28,6 +30,7 @@ public static class MicrographPreview
                     }
                 binned[y * w + x] = count > 0 ? (float)(sum / count) : float.NaN;
             }
+        });
         double mean = 0, m2 = 0; long n = 0;
         foreach (float v in binned)
         {

@@ -21,6 +21,8 @@ namespace Warp.Workers.Queue
         public string Sick      => Path.Combine(Root, "sick");
         public string Blacklist => Path.Combine(Root, "blacklisted_nodes");
         public string Logs        => Path.Combine(Root, "logs");
+        /// <summary>Markers of GPUs a running exclusive task holds; see <see cref="DeviceLock"/>.</summary>
+        public string Exclusive   => Path.Combine(Root, "exclusive");
         public string Lock        => Path.Combine(Root, "pool.lock");
         public string ManagerState => Path.Combine(Root, "manager.state.json");
 
@@ -28,7 +30,7 @@ namespace Warp.Workers.Queue
 
         public void EnsureDirectories()
         {
-            foreach (string d in new[] { Pending, Running, Done, Failed, Poisoned, Heartbeat, Sick, Blacklist, Logs })
+            foreach (string d in new[] { Pending, Running, Done, Failed, Poisoned, Heartbeat, Sick, Blacklist, Logs, Exclusive })
                 Directory.CreateDirectory(d);
         }
     }

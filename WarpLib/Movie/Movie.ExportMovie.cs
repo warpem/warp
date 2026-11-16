@@ -9,7 +9,8 @@ namespace Warp;
 
 public partial class Movie
 {
-    public void ExportMovie(Image originalStack, ProcessingOptionsMovieExport options)
+    /// <param name="releaseStack">Free the stack's device copy afterwards (see <see cref="ProcessShift"/>).</param>
+    public void ExportMovie(Image originalStack, ProcessingOptionsMovieExport options, bool releaseStack = true)
     {
         Debug.WriteLine(GPU.GetFreeMemory(GPU.GetDevice()));
 
@@ -261,7 +262,8 @@ public partial class Movie
             #endregion
         }, null);
 
-        originalStack.FreeDevice();
+        if (releaseStack)
+            originalStack.FreeDevice();
 
         //GPU.DestroyFFTPlan(PlanForw);
 

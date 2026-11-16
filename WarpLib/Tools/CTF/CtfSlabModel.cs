@@ -30,6 +30,24 @@ public static class CtfSlabModel
         return (slab.Value*hx.Value*hy.Value,dt*hx.Value*hy.Value,
             slab.Value*hx.Derivative*kq2*hy.Value,slab.Value*hx.Value*hy.Derivative*kq2);
     }
+    /// <summary><see cref="Modulation"/>'s value alone. The shifted sincs of the Hann power share one sine, as sin(x ± kπ) = ±sin(x).</summary>
+    public static double ModulationValue(double kq2, double thicknessSquared, double widthX, double widthY)
+    {
+        double x = Math.Sqrt(kq2*kq2*Math.Max(0,thicknessSquared));
+        return SincValue(x,0,Math.Sin(x),1)*HannPowerValue(kq2*widthX)*HannPowerValue(kq2*widthY);
+    }
+    static double HannPowerValue(double x)
+    {
+        double s = Math.Sin(x);
+        return SincValue(x,0,s,1)+2.0/3*(SincValue(x,-Math.PI,s,-1)+SincValue(x,Math.PI,s,-1))+(SincValue(x,-2*Math.PI,s,1)+SincValue(x,2*Math.PI,s,1))/6;
+    }
+    // Sinc(x + shift) for a shift of a whole number of π, from sin(x) and the sign sin(x + shift) / sin(x).
+    static double SincValue(double x, double shift, double sine, double sign)
+    {
+        double y = x+shift;
+        if (Math.Abs(y) < .05) { double y2 = y*y; return 1-y2/6+y2*y2/120-y2*y2*y2/5040; }
+        return sign*sine/y;
+    }
     public static double Power(double gamma, double kq2, double thicknessSquared, double widthX = 0, double widthY = 0)
         => .5-.5*Math.Cos(2*gamma)*Modulation(kq2,thicknessSquared,widthX,widthY).Value;
 }

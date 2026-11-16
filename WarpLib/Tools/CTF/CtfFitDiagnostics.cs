@@ -15,7 +15,11 @@ public static class CtfFitDiagnostics
     }
     public sealed record Result(Diagnostic[] Groups, Diagnostic Global);
 
-    public sealed record Input(Image Image, CtfFitGeometry[] Geometry, int Group);
+    /// <param name="FramesSummedBy">The fitting extractor that just read this image, if its frame sums can be reused.</param>
+    /// <param name="Extraction">This image's full-spectrum extraction with the diagnostic extractor, if it was made in
+    /// advance (it does not depend on the fit); otherwise it is made here.</param>
+    public sealed record Input(Image Image, CtfFitGeometry[] Geometry, int Group, CtfPowerSpectrum.Extractor FramesSummedBy = null,
+        CtfPowerSpectrum.Extraction Extraction = null);
 
     /// <summary>Full-Nyquist diagnostics after fitting. Only nuisance curves are refitted;
     /// CTF parameters remain frozen. Stream one tilt/movie at a time to bound memory.</summary>
@@ -27,7 +31,7 @@ public static class CtfFitDiagnostics
         foreach (var display in displays) Array.Clear(display);
         foreach (var input in inputs)
         {
-            var extraction = extractor.Extract(input.Image);
+            var extraction = input.Extraction ?? extractor.Extract(input.Image, framesSummedBy: input.FramesSummedBy);
             var records = extraction.Observations.ToArray();
             if (records.Length != input.Geometry.Length) throw new ArgumentException("Diagnostic patch geometry differs from fitting geometry.");
             using var batch = new CtfGpuFitBatch(records.Select(r => r.Spectrum).ToArray());
@@ -121,14 +125,19 @@ public static class CtfFitDiagnostics
             var slab = g.SlabGeometry(fit.Parameters);
             return (Squared:fit.Parameters[g.ThicknessIndex]*slab.Factor, slab.WidthX, slab.WidthY);
         }).ToArray();
-        var modulationCache = new Dictionary<(double Squared,double WidthX,double WidthY),float[]>();
-        foreach (var key in modulationKeys.Distinct())
+        // Movie patches each have their own aperture widths, so this is patches × samples evaluations.
+        var distinctKeys = modulationKeys.Distinct().ToArray();
+        var modulationValues = new float[distinctKeys.Length][];
+        var sampleQ2 = records[0].Spectrum.Samples;
+        Parallel.For(0, distinctKeys.Length, k =>
         {
-            var values = new float[records[0].Spectrum.Samples.Length];
+            var key = distinctKeys[k];
+            var values = modulationValues[k] = new float[sampleQ2.Length];
             for (int j = 0; j < values.Length; j++)
-                values[j] = (float)CtfSlabModel.Modulation(kd*records[0].Spectrum.Samples[j].Q2,key.Squared,key.WidthX,key.WidthY).Value;
-            modulationCache.Add(key,values);
-        }
+                values[j] = (float)CtfSlabModel.ModulationValue(kd*sampleQ2[j].Q2,key.Squared,key.WidthX,key.WidthY);
+        });
+        var modulationCache = new Dictionary<(double Squared,double WidthX,double WidthY),float[]>();
+        for (int k = 0; k < distinctKeys.Length; k++) modulationCache.Add(distinctKeys[k], modulationValues[k]);
         var diagnostics = new Diagnostic[references.Length];
         Parallel.For(0, chunks.Count, chunk =>
         {

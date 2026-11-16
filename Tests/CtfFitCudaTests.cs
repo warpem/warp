@@ -25,6 +25,66 @@ public class CtfFitCudaTests
             }
         return new(samples.ToArray(), 300, 2.7, .07);
     }
+    // A spectrum out to 0.5 Å⁻¹, like the full-spectrum diagnostics: about 22 spline knots instead of 9.
+    static CtfSpectrumFit WideSpectrum(int variant)
+    {
+        var samples = new List<CtfSpectrumFit.Sample>();
+        var rng = new Random(311 + variant);
+        var options = new ProcessingOptionsMovieCTF { PixelSize = 1M, Voltage = 300, Cs = 2.7M, Amplitude = .07M };
+        var ctf = CtfFitEngine.MakeCtf(options, 1.4 + variant * .02, .03, .02, 0);
+        for (int r = 10; r < 380; r++) for (int a = 0; a < 6; a++)
+            {
+                double q = r / 768.0, q2 = q * q, angle = (a + .4) * Math.PI / 6;
+                double amplitude = ctf.Get2D(new[] { new float2((float)q, (float)angle) }, false, true, true)[0];
+                double envelope = Math.Exp(-40 * q2) * (variant == 2 ? 1e-3 : 1);
+                double power = 2 + 3 * Math.Exp(-8 * q) + envelope * amplitude * amplitude + .15 * (rng.NextDouble() - .5);
+                samples.Add(new(q2, q2 * q2, q2 * Math.Cos(2 * angle), q2 * Math.Sin(2 * angle), power, 20 + a));
+            }
+        return new(samples.ToArray(), 300, 2.7, .07);
+    }
+
+    [CtfCudaFact]
+    public void WarpNuisanceSolverMatchesTheSingleThreadSolverExactly()
+    {
+        lock (GPU.Sync)
+        {
+            GPU.SetDevice(0);
+            // Fit-band and full-spectrum spline sizes, an outlier bin, an envelope too weak to stay positive, robust
+            // reweighting, and poses far enough off to push envelope coefficients onto their bound.
+            foreach (var spectra in new[] { new[] { Spectrum(0), Spectrum(1), Spectrum(2) }, new[] { WideSpectrum(0), WideSpectrum(1), WideSpectrum(2) } })
+            {
+                CtfGpuFitBatch single, warp;
+                bool previous = CtfGpuFitBatch.SetWarpSolver(false);
+                try { single = new CtfGpuFitBatch(spectra); }
+                finally { CtfGpuFitBatch.SetWarpSolver(previous); }
+                using (single)
+                using (warp = new CtfGpuFitBatch(spectra))
+                {
+                    var random = new Random(7);
+                    double centre = spectra[0].Samples.Length > 3000 ? 1.4 : 2.3;
+                    for (int trial = 0; trial < 16; trial++)
+                    {
+                        var poses = new double[spectra.Length * 7];
+                        for (int i = 0; i < spectra.Length; i++)
+                        {
+                            poses[7 * i] = centre + (random.NextDouble() - .5) * (trial < 8 ? .02 : .6);
+                            poses[7 * i + 1] = (random.NextDouble() - .5) * .1; poses[7 * i + 2] = (random.NextDouble() - .5) * .1;
+                            poses[7 * i + 3] = random.NextDouble() * .4; poses[7 * i + 4] = random.NextDouble() * .01;
+                            poses[7 * i + 5] = (random.NextDouble() - .5) * .2; poses[7 * i + 6] = (random.NextDouble() - .5) * .2;
+                        }
+                        bool reweight = trial % 3 == 2;
+                        double[] a = (double[])single.Evaluate(poses, reweight).Clone(), b = (double[])warp.Evaluate(poses, reweight).Clone();
+                        for (int k = 0; k < a.Length; k++)
+                            Assert.True(BitConverter.DoubleToInt64Bits(a[k]) == BitConverter.DoubleToInt64Bits(b[k]), $"trial {trial}, output {k}: {a[k]:G17} vs {b[k]:G17}");
+                    }
+                    float[] x = single.ReadCoefficients(), y = warp.ReadCoefficients();
+                    for (int k = 0; k < x.Length; k++)
+                        Assert.True(BitConverter.SingleToInt32Bits(x[k]) == BitConverter.SingleToInt32Bits(y[k]), $"coefficient {k}: {x[k]:G9} vs {y[k]:G9}");
+                }
+            }
+        }
+    }
+
     // FP32 trigonometry and profiled solves need looser arithmetic parity than the CPU
     // reference; parameter recovery below is independently bounded to sub-Å defocus.
     static void Close(double expected, double actual, double relative = 1e-4)

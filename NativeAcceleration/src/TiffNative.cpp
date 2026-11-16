@@ -1,10 +1,63 @@
 #include "include/Functions.h"
 #include "liblion/liblion.h"
 #include "tiffio.h"
+#include "include/MemoryTiff.h"
 
 using namespace gtom;
 
 // Adapted from RELION's https://github.com/3dem/relion/blob/master/src/rwTIFF.h
+
+// Decodes one layer of a TIFF held in memory without conversion or flipping: rows in file order, samples in the
+// file's own type. Returns the type as ReadTIFFRawType's codes (0 uchar, 1 schar, 2 ushort, 3 short, 4 float),
+// or -1 if the file cannot be read or has an unsupported layout, so the caller can fall back to ReadTIFF.
+__declspec(dllexport) int ReadTIFFRawFromMemory(const unsigned char* data, long long size, int layer, int width, int height, void* h_result)
+{
+	MemoryTiff file = { data, (toff_t)size, 0 };
+	TIFF* ftiff = OpenMemoryTiff(&file);
+	if (ftiff == NULL)
+		return -1;
+
+	int type = -1;
+	uint32 fileWidth = 0, fileLength = 0;
+	uint16 sampleFormat = 1, bitsPerSample = 1, samplesPerPixel = 1, planar = PLANARCONFIG_CONTIG;
+	if (TIFFSetDirectory(ftiff, layer) == 1 &&
+		TIFFGetField(ftiff, TIFFTAG_IMAGEWIDTH, &fileWidth) == 1 && TIFFGetField(ftiff, TIFFTAG_IMAGELENGTH, &fileLength) == 1 &&
+		(int)fileWidth == width && (int)fileLength == height && !TIFFIsTiled(ftiff))
+	{
+		TIFFGetFieldDefaulted(ftiff, TIFFTAG_BITSPERSAMPLE, &bitsPerSample);
+		TIFFGetFieldDefaulted(ftiff, TIFFTAG_SAMPLEFORMAT, &sampleFormat);
+		TIFFGetFieldDefaulted(ftiff, TIFFTAG_SAMPLESPERPIXEL, &samplesPerPixel);
+		TIFFGetFieldDefaulted(ftiff, TIFFTAG_PLANARCONFIG, &planar);
+
+		if (samplesPerPixel == 1 && planar == PLANARCONFIG_CONTIG)
+		{
+			if (bitsPerSample == 8 && sampleFormat == 1) type = 0;
+			else if (bitsPerSample == 8 && sampleFormat == 2) type = 1;
+			else if (bitsPerSample == 16 && sampleFormat == 1) type = 2;
+			else if (bitsPerSample == 16 && sampleFormat == 2) type = 3;
+			else if (bitsPerSample == 32 && sampleFormat == 3) type = 4;
+		}
+
+		if (type >= 0)
+		{
+			tsize_t expected = (tsize_t)width * height * (bitsPerSample / 8), haveread = 0;
+			tstrip_t numberOfStrips = TIFFNumberOfStrips(ftiff);
+			for (tstrip_t strip = 0; strip < numberOfStrips && type >= 0; strip++)
+			{
+				tsize_t actually_read = TIFFReadEncodedStrip(ftiff, strip, (unsigned char*)h_result + haveread, expected - haveread);
+				if (actually_read < 0)
+					type = -1;
+				else
+					haveread += actually_read;
+			}
+			if (haveread != expected)
+				type = -1;
+		}
+	}
+
+	TIFFClose(ftiff);
+	return type;
+}
 
 __declspec(dllexport) void ReadTIFF(const char* path, int layer, bool flipy, float* h_result)
 {

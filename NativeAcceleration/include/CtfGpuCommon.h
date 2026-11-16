@@ -36,6 +36,16 @@ template<class T> struct Buffer
         std::copy(converted.begin(), converted.end(), target);
     }
     void Clear(size_t n) { Check(cudaMemset(p, 0, n*sizeof(T))); }
+    // The same on a given stream; the downloads wait for it.
+    void Clear(size_t n, cudaStream_t stream) { Check(cudaMemsetAsync(p, 0, n*sizeof(T), stream)); }
+    void Download(T* target, size_t n, cudaStream_t stream)
+    { Check(cudaMemcpyAsync(target, p, n*sizeof(T), cudaMemcpyDeviceToHost, stream)); Check(cudaStreamSynchronize(stream)); }
+    template<class U> void DownloadConverted(U* target, size_t n, cudaStream_t stream)
+    {
+        std::vector<T> converted(n);
+        Download(converted.data(), n, stream);
+        std::copy(converted.begin(), converted.end(), target);
+    }
 };
 template<class T> __device__ inline T WarpSum(T value)
 {
