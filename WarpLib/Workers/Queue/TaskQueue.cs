@@ -177,7 +177,12 @@ namespace Warp.Workers.Queue
             var recovered = new List<TaskItem>();
             if (!Directory.Exists(wdir)) return recovered;
 
-            foreach (string f in Directory.GetFiles(wdir, "*.json"))
+            string[] files;
+            // Gone, or unreadable over NFS for the moment ("Stale file handle"): the next sweep tries again.
+            try { files = Directory.GetFiles(wdir, "*.json"); }
+            catch (IOException) { return recovered; }
+
+            foreach (string f in files)
             {
                 try
                 {
@@ -220,7 +225,12 @@ namespace Warp.Workers.Queue
             int running = 0;
             if (Directory.Exists(_layout.Running))
                 foreach (string wdir in Directory.GetDirectories(_layout.Running))
-                    running += Directory.GetFiles(wdir, "*.json").Length;
+                {
+                    // A worker folder that cannot be read right now (NFS "Stale file handle", or gone) counts as busy, so
+                    // the queue never looks drained because of a failed read; the next summary reads it afresh.
+                    try { running += Directory.GetFiles(wdir, "*.json").Length; }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { running++; }
+                }
 
             return new QueueSummary
             {

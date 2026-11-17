@@ -30,9 +30,13 @@ namespace Warp.Workers.Queue
             _seq++;
             string newPath = Path.Combine(_dir, _prefix + _seq.ToString("D12"));
             File.WriteAllText(newPath, "");
-            foreach (string old in Directory.GetFiles(_dir, _prefix + "*"))
-                if (!string.Equals(old, newPath, StringComparison.Ordinal))
-                    try { File.Delete(old); } catch { }
+            // Readers only need the newest tick; older ones left by a failed listing go with the next tick.
+            string[] old;
+            try { old = Directory.GetFiles(_dir, _prefix + "*"); }
+            catch (IOException) { return; }
+            foreach (string path in old)
+                if (!string.Equals(path, newPath, StringComparison.Ordinal))
+                    try { File.Delete(path); } catch { }
         }
     }
 

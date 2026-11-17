@@ -58,6 +58,35 @@ public class SchedulerTests : IDisposable
     }
 
     [Fact]
+    public void TickSkipsAWorkerFolderItCannotReadAndSweepsTheRest()
+    {
+        // Over NFS a worker folder can fail to list ("Stale file handle") while its worker changes it; an unreadable
+        // folder stands in for that here. The tick must not fail, and must still recover the dead worker's task.
+        if (OperatingSystem.IsWindows()) return;
+        var t = new TaskItem { TaskId = "0000001-a", Main = new Warp.Tools.NamedSerializableObject[0] };
+        t.ComputeInitFingerprint();
+        _queue.Enqueue(t);
+        _queue.ClaimOne("local-dead-gpu0");
+        string unreadable = _layout.RunningFor("local-busy-gpu1");
+        Directory.CreateDirectory(unreadable);
+        File.SetUnixFileMode(unreadable, UnixFileMode.None);
+        try
+        {
+            var sched = new Scheduler(_layout, _queue, new FakeProvisioner(),
+                target: 1, workerStallTimeoutMs: 0, workerStartupGraceMs: 0);
+
+            sched.Tick();
+
+            Assert.Single(Directory.GetFiles(_layout.Pending, "*.json"));
+            Assert.False(Directory.Exists(_layout.RunningFor("local-dead-gpu0")));
+            Assert.True(Directory.Exists(unreadable));
+            // Counted as busy, so the queue does not look drained while that folder cannot be read.
+            Assert.False(sched.IsDrained());
+        }
+        finally { File.SetUnixFileMode(unreadable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
+    }
+
+    [Fact]
     public void IsDrainedWhenNoPendingNoRunning()
     {
         var sched = new Scheduler(_layout, _queue, new FakeProvisioner(), target: 1);

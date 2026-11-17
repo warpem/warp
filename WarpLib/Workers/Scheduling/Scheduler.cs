@@ -120,8 +120,9 @@ namespace Warp.Workers.Scheduling
         private void ProcessFailures()
         {
             if (!Directory.Exists(_layout.Failed)) return;
+            if (!TryList(() => Directory.GetFiles(_layout.Failed, "*.json"), out string[] failed)) return;
 
-            foreach (string f in Directory.GetFiles(_layout.Failed, "*.json"))
+            foreach (string f in failed)
             {
                 TaskItem t;
                 try { t = TaskItem.FromJson(File.ReadAllText(f)); }
@@ -149,12 +150,13 @@ namespace Warp.Workers.Scheduling
                 }
                 else
                 {
-                    // Re-pend for another attempt on a (hopefully) different worker.
+                    // Re-pend for another attempt on a (hopefully) different worker. Pending first: if removing the
+                    // failed record fails, the next tick re-pends the same task again instead of losing it.
                     t.RetryCount++;
                     t.Error = null;
                     t.FailedOnHost = null;
-                    File.Delete(f);
                     _queue.Enqueue(t);
+                    File.Delete(f);
                 }
             }
         }
@@ -201,19 +203,35 @@ namespace Warp.Workers.Scheduling
             catch { }
         }
 
+        /// <summary>
+        /// Lists a queue folder, or returns false if this tick cannot. Workers on other hosts change these folders all the
+        /// time (a heartbeat file every few seconds, claims, renames); over NFS, reading one while it changes can fail
+        /// with "Stale file handle", and a worker's folder can vanish between listing running/ and reading it. The next
+        /// tick lists it afresh, so a failed read waits for it rather than failing the tick.
+        /// </summary>
+        private static bool TryList(Func<string[]> list, out string[] entries)
+        {
+            try { entries = list(); return true; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { entries = null; return false; }
+        }
+
         private void SweepStalledWorkers()
         {
             if (!Directory.Exists(_layout.Running)) return;
+            if (!TryList(() => Directory.GetDirectories(_layout.Running), out string[] workerDirs)) return;
 
-            foreach (string wdir in Directory.GetDirectories(_layout.Running))
+            foreach (string wdir in workerDirs)
             {
                 string workerId = Path.GetFileName(wdir);
-                bool hasTasks = Directory.GetFiles(wdir, "*.json").Length > 0;
+                if (!TryList(() => Directory.GetFiles(wdir, "*.json"), out string[] taskFiles)) continue;
+                bool hasTasks = taskFiles.Length > 0;
 
                 if (!_monitors.TryGetValue(workerId, out var mon))
                     _monitors[workerId] = mon = new HeartbeatMonitor(
                         wdir, "hb-", _workerStallTimeoutMs, _workerStartupGraceMs);
-                mon.Observe();
+                // A heartbeat that cannot be read this tick is neither progress nor a stall: judge the worker next tick.
+                try { mon.Observe(); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
 
                 if (mon.IsStalled())
                 {
