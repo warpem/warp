@@ -28,16 +28,21 @@ static partial class WorkerProcess
             {
                 FinishErasure();
                 float pixelSize = (float)commands[i].Content[2];
+                bool eraseObjects = EraseObjects(commands[i], 5);
                 int device = DeviceID;
                 PendingErasure = (path, pixelSize, System.Threading.Tasks.Task.Run(() =>
                 {
                     GPU.SetDevice(device);
                     using var plans = new PrivateFftPlans();
-                    return MovieDenoising.Erase(path, pixelSize, plans);
+                    return MovieDenoising.Erase(path, pixelSize, plans, eraseObjects);
                 }));
                 return;
             }
     }
+
+    /// <summary>The optional last argument of MovieDenoise and TrainMovieDenoiser; commands from before it erase objects.</summary>
+    static bool EraseObjects(NamedSerializableObject command, int index) =>
+        command.Content.Length <= index || command.Content[index] is not bool erase || erase;
 
     /// <summary>The erasure made ahead for this movie, or null (denoising then makes it, and reports any error).</summary>
     static MovieDenoising.Erasure TakeErasure(string path, float pixelSize)
@@ -65,7 +70,8 @@ static partial class WorkerProcess
         OriginalStack?.Dispose(); OriginalStack = null; OriginalStackOwner = "";
         MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
         MovieDenoising.TrainMovies((string[])command.Content[0], (string)command.Content[1], (string)command.Content[2],
-            (int)command.Content[3], DeviceID, (float)command.Content[6], (float)command.Content[4], (float)command.Content[5]);
+            (int)command.Content[3], DeviceID, (float)command.Content[6], (float)command.Content[4], (float)command.Content[5],
+            eraseObjects: EraseObjects(command, 7));
     }
 
     [Command(WorkerCommandNames.MovieDenoise)]
@@ -82,7 +88,7 @@ static partial class WorkerProcess
         }
         string path = (string)command.Content[0];
         float pixelSize = (float)command.Content[2];
-        MovieDenoising.Denoise(path, pixelSize, (float)command.Content[3], (float)command.Content[4], MicrographDenoiserModel, TakeErasure(path, pixelSize));
+        MovieDenoising.Denoise(path, pixelSize, (float)command.Content[3], (float)command.Content[4], MicrographDenoiserModel, TakeErasure(path, pixelSize), EraseObjects(command, 5));
     }
 
     [Command(WorkerCommandNames.MovieExportParticlesFromStar)]

@@ -46,6 +46,8 @@ public static class MovieDenoising
         internal (string Path, long Length, DateTime Written)[] Sources;
         internal float[] Average, Odd, Even, Objects;
         internal int Width, Height;
+        /// <summary>Whether objects were looked for at all (<see cref="Objects"/> is also null when none were found).</summary>
+        internal bool ObjectsErased;
         internal double ResampleSeconds, MaskSeconds, EraseSeconds, HalvesSeconds;
         internal bool Halves => Odd != null;
     }
@@ -56,9 +58,9 @@ public static class MovieDenoising
         return (path, info.Length, info.LastWriteTimeUtc);
     }
 
-    static bool IsCurrent(Erasure erasure, Movie movie, string moviePath, float pixelSize)
+    static bool IsCurrent(Erasure erasure, Movie movie, string moviePath, float pixelSize, bool eraseObjects)
     {
-        if (erasure == null || erasure.MoviePath != moviePath || erasure.PixelSize != pixelSize) return false;
+        if (erasure == null || erasure.MoviePath != moviePath || erasure.PixelSize != pixelSize || erasure.ObjectsErased != eraseObjects) return false;
         bool halves = File.Exists(movie.AverageOddPath) && File.Exists(movie.AverageEvenPath);
         if (halves != erasure.Halves) return false;
         foreach (var source in erasure.Sources)
@@ -70,19 +72,20 @@ public static class MovieDenoising
     /// High-contrast objects (carbon, ice crystals, gold) are found once, on the average, and erased from the
     /// average and both halves with independent noise, so Noise2Noise learns only their smooth continuation.
     /// <paramref name="plans"/>: the calling thread's own FFT plans, when it runs beside the worker's main thread.
+    /// <paramref name="eraseObjects"/>: false only resamples, leaving every object in place.
     /// </summary>
-    public static Erasure Erase(string moviePath, float pixelSize, PrivateFftPlans plans = null)
+    public static Erasure Erase(string moviePath, float pixelSize, PrivateFftPlans plans = null, bool eraseObjects = true)
     {
         if (!float.IsFinite(pixelSize) || pixelSize <= 0) throw new ArgumentOutOfRangeException(nameof(pixelSize));
         var movie = new Movie(moviePath);
         float sampling = Sampling(pixelSize);
-        var result = new Erasure { MoviePath = moviePath, PixelSize = pixelSize };
+        var result = new Erasure { MoviePath = moviePath, PixelSize = pixelSize, ObjectsErased = eraseObjects };
         var timer = System.Diagnostics.Stopwatch.StartNew();
         var sources = new List<(string, long, DateTime)> { Stamp(movie.AveragePath) };
         var (averageData, width, height) = Resample(movie.AveragePath, pixelSize, sampling, plans);
         result.Width = width; result.Height = height;
         result.ResampleSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
-        result.Objects = ObjectMask(averageData, width, height, sampling);
+        result.Objects = eraseObjects ? ObjectMask(averageData, width, height, sampling) : null;
         result.MaskSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
         result.Average = Erased(averageData, width, height, result.Objects, 1, plans);
         result.EraseSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
@@ -102,22 +105,22 @@ public static class MovieDenoising
     /// erased, Wiener-deconvolved with the movie's current CTF and normalized. A movie with half-averages is denoised
     /// from the mean of its two prepared halves, as Noise2Mic infers; others from the prepared average. Writes only the
     /// denoised micrograph. <paramref name="erased"/>: the objects already erased from the same averages
-    /// (<see cref="Erase"/>), if available.
+    /// (<see cref="Erase"/>), if available. <paramref name="eraseObjects"/>: false denoises the averages as they are.
     /// </summary>
     /// <remarks>
     /// Without halves, the prepared average stands in as it is: on corpus data it matches Noise2Mic's paired output to a
     /// 3% relative RMS (r = 0.9998), because the normalization scale comes from low-frequency signal, which halves and
     /// average share. Scaling it as a mean of two unit-noise halves (1/√2) was tested and is 27% off.
     /// </remarks>
-    public static void Denoise(string moviePath, float pixelSize, float strength, float falloff, Noise2MicTorch network, Erasure erased = null)
+    public static void Denoise(string moviePath, float pixelSize, float strength, float falloff, Noise2MicTorch network, Erasure erased = null, bool eraseObjects = true)
     {
         if (!float.IsFinite(pixelSize) || pixelSize <= 0 || !float.IsFinite(strength) || !float.IsFinite(falloff))
             throw new ArgumentOutOfRangeException(nameof(pixelSize));
         var movie = new Movie(moviePath);
         if (movie.OptionsCTF == null) throw new InvalidOperationException("CTF must be processed before denoising.");
         float sampling = Sampling(pixelSize);
-        bool reused = IsCurrent(erased, movie, moviePath, pixelSize);
-        if (!reused) erased = Erase(moviePath, pixelSize);
+        bool reused = IsCurrent(erased, movie, moviePath, pixelSize, eraseObjects);
+        if (!reused) erased = Erase(moviePath, pixelSize, eraseObjects: eraseObjects);
         var timer = System.Diagnostics.Stopwatch.StartNew();
         int originalWidth = erased.Width, originalHeight = erased.Height;
         float[] input; int width, height;
@@ -146,7 +149,7 @@ public static class MovieDenoising
         Directory.CreateDirectory(movie.AverageDenoisedDir);
         Write(movie.AverageDenoisedPath, Noise2MicPreprocessing.Crop(denoised, width, height, outputWidth, outputHeight), outputWidth, outputHeight, sampling);
         Console.WriteLine($"Denoising{(reused ? " (objects erased while the CTF was fitted)" : "")}: resample {erased.ResampleSeconds:F3}s, " +
-                          $"objects {erased.MaskSeconds:F3}s ({(erased.Objects == null ? "none" : "erased")}), erase {erased.EraseSeconds + erased.HalvesSeconds:F3}s, " +
+                          $"objects {erased.MaskSeconds:F3}s ({(!erased.ObjectsErased ? "not erased" : erased.Objects == null ? "none" : "erased")}), erase {erased.EraseSeconds + erased.HalvesSeconds:F3}s, " +
                           $"deconvolution {deconvolveSeconds:F3}s ({(erased.Halves ? "halves" : "average")}), network {denoiseSeconds:F3}s, output {timer.Elapsed.TotalSeconds:F3}s");
     }
 
@@ -239,21 +242,21 @@ public static class MovieDenoising
     /// The deconvolution settings are saved with the model.
     /// </summary>
     public static void TrainMovies(string[] moviePaths, string outputModel, string previousModel, int epochs, int device,
-                                   float pixelSize, float strength, float falloff, int microBatch = 4, int seed = 123)
+                                   float pixelSize, float strength, float falloff, int microBatch = 4, int seed = 123, bool eraseObjects = true)
     {
         if (moviePaths == null || moviePaths.Length == 0) throw new ArgumentException("No training micrographs.");
         var timer = System.Diagnostics.Stopwatch.StartNew();
-        var pairs = PrepareHalves(moviePaths, pixelSize, strength, falloff, device);
-        Console.WriteLine($"Denoiser training: prepared {pairs.Length} half-average pairs in {timer.Elapsed.TotalSeconds:F1}s");
+        var pairs = PrepareHalves(moviePaths, pixelSize, strength, falloff, device, eraseObjects);
+        Console.WriteLine($"Denoiser training: prepared {pairs.Length} half-average pairs in {timer.Elapsed.TotalSeconds:F1}s{(eraseObjects ? "" : ", objects not erased")}");
         Train(pairs, outputModel, previousModel, epochs, device, strength, falloff, microBatch, seed);
     }
 
     /// <summary>
     /// Each movie's half-averages prepared for training: resampled, the objects found on the average erased with
-    /// independent noise, deconvolved with the movie's current CTF and normalized. A few movies at a time, each thread
-    /// with its own FFT plans.
+    /// independent noise (unless <paramref name="eraseObjects"/> is false), deconvolved with the movie's current CTF and
+    /// normalized. A few movies at a time, each thread with its own FFT plans.
     /// </summary>
-    public static (Prepared Odd, Prepared Even)[] PrepareHalves(string[] moviePaths, float pixelSize, float strength, float falloff, int device)
+    public static (Prepared Odd, Prepared Even)[] PrepareHalves(string[] moviePaths, float pixelSize, float strength, float falloff, int device, bool eraseObjects = true)
     {
         if (!float.IsFinite(pixelSize) || pixelSize <= 0 || !float.IsFinite(strength) || !float.IsFinite(falloff))
             throw new ArgumentOutOfRangeException(nameof(pixelSize));
@@ -265,7 +268,7 @@ public static class MovieDenoising
             {
                 var movie = new Movie(moviePaths[i]);
                 if (movie.OptionsCTF == null) throw new InvalidOperationException($"Training movie has no CTF: {movie.RootName}");
-                var erased = Erase(moviePaths[i], pixelSize, plans);
+                var erased = Erase(moviePaths[i], pixelSize, plans, eraseObjects);
                 if (!erased.Halves) throw new InvalidDataException($"Training movie has no half-averages: {movie.RootName}");
                 pairs[i] = (Deconvolve(erased.Odd, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff, plans),
                             Deconvolve(erased.Even, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff, plans));

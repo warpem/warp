@@ -70,8 +70,12 @@ namespace Warp.Workers
         /// Noise2Mic training for epochs over the movies' half-averages, deconvolved on the fly with each movie's CTF at
         /// <paramref name="pixelSize"/> (the averages' pixel size); the deconvolution settings are saved with the model.
         /// </summary>
-        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int epochs, float deconvStrength, float deconvFalloff, float pixelSize) =>
-            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize);
+        /// <param name="eraseObjects">False trains on the half-averages with their high-contrast objects left in. Sent only
+        /// when false, so a worker from before the option reads the command it knows.</param>
+        public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int epochs, float deconvStrength, float deconvFalloff, float pixelSize, bool eraseObjects = true) =>
+            eraseObjects
+                ? new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize)
+                : new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize, false);
 
         /// <summary>A PNG of the micrograph that fits maxSize, in the browser viewer's contrast.</summary>
         public static NamedSerializableObject MicrographCreatePreview(string micrographPath, string pngPath, int maxSize) =>
@@ -81,8 +85,11 @@ namespace Warp.Workers
         /// Denoises the movie's average with the model, deconvolving on the fly with the movie's CTF and these settings
         /// (the ones the model was trained with) at <paramref name="pixelSize"/>, the average's pixel size.
         /// </summary>
-        public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath, float pixelSize, float deconvStrength, float deconvFalloff) =>
-            new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff);
+        /// <param name="eraseObjects">False denoises the average with its high-contrast objects left in; sent only when false.</param>
+        public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath, float pixelSize, float deconvStrength, float deconvFalloff, bool eraseObjects = true) =>
+            eraseObjects
+                ? new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff)
+                : new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff, false);
 
         /// <summary>Coordinates in the picker image are converted to physical Å before extraction.</summary>
         public static NamedSerializableObject MovieExportParticlesFromStar(string moviePath, ProcessingOptionsParticleExport options,
