@@ -245,9 +245,11 @@ public static class MovieDenoising
                                    float pixelSize, float strength, float falloff, int microBatch = 4, int seed = 123, bool eraseObjects = true)
     {
         if (moviePaths == null || moviePaths.Length == 0) throw new ArgumentException("No training micrographs.");
+        // A missing pretrained model fails here, before the halves are prepared.
+        string start = string.IsNullOrWhiteSpace(previousModel) ? "from scratch" : previousModel == Noise2MicTorch.PretrainedModel ? $"from the pretrained model ({Noise2MicTorch.ResolvePath(previousModel)})" : $"from {previousModel}";
         var timer = System.Diagnostics.Stopwatch.StartNew();
         var pairs = PrepareHalves(moviePaths, pixelSize, strength, falloff, device, eraseObjects);
-        Console.WriteLine($"Denoiser training: prepared {pairs.Length} half-average pairs in {timer.Elapsed.TotalSeconds:F1}s{(eraseObjects ? "" : ", objects not erased")}");
+        Console.WriteLine($"Denoiser training: prepared {pairs.Length} half-average pairs in {timer.Elapsed.TotalSeconds:F1}s{(eraseObjects ? "" : ", objects not erased")}; training {start}");
         Train(pairs, outputModel, previousModel, epochs, device, strength, falloff, microBatch, seed);
     }
 

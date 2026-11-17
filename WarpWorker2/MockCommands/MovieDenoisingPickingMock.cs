@@ -27,7 +27,8 @@ static partial class WorkerProcess
             var odd=MapHeader.ReadFromFile(movie.AverageOddPath);var even=MapHeader.ReadFromFile(movie.AverageEvenPath);
             if(odd.Dimensions!=even.Dimensions||odd.Dimensions.Z!=1||odd.PixelSize.X!=even.PixelSize.X)throw new InvalidDataException("Mock half-averages have incompatible dimensions/sampling.");
         }
-        if(!string.IsNullOrEmpty(previous))MockValidateModel(previous);
+        // The mock has no pretrained weights to read; it accepts the token real workers resolve to their installation's model.
+        if(!string.IsNullOrEmpty(previous)&&previous!=Noise2MicTorch.PretrainedModel)MockValidateModel(previous);
         MockDirectory(output);
         // Real training reports progress beside its model; the mock walks the same file through its steps.
         for(int step=1;step<=epochs;step++){new TrainingProgress(step,epochs,step,epochs,1f/step).Write(TrainingProgress.PathFor(output));MockPause();}

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using TorchSharp;
 using TorchSharp.NN;
 using TorchSharp.Tensor;
@@ -43,7 +44,32 @@ namespace Warp
             TrainingPrecision = TorchSharp.NN.R2UNet2D.SupportsBFloat16(device) ? Precision.BFloat16 : Precision.Float32;
         }
 
-        public void Load(string path) => Network.LoadStateDict(path);
+        /// <summary>
+        /// Stands for the pretrained model wherever a model is loaded (<see cref="Load"/>): Noise2Mic trained on the BoxNet
+        /// picking corpus, which a session fine-tunes rather than training from scratch.
+        /// </summary>
+        public const string PretrainedModel = "pretrained";
+        public const string PretrainedFileName = "noise2mic_pretrained.pt";
+        public const string PretrainedVariable = "WARP_NOISE2MIC_PRETRAINED";
+
+        /// <summary>
+        /// Where this installation keeps the pretrained model: models/ beside the executables, or the file
+        /// WARP_NOISE2MIC_PRETRAINED names.
+        /// </summary>
+        public static string PretrainedPath =>
+            Environment.GetEnvironmentVariable(PretrainedVariable) is { Length: > 0 } path ? path : Path.Combine(AppContext.BaseDirectory, "models", PretrainedFileName);
+
+        /// <summary>The file a model path names: <see cref="PretrainedPath"/> for <see cref="PretrainedModel"/>, otherwise the path itself.</summary>
+        public static string ResolvePath(string path)
+        {
+            if (path != PretrainedModel) return path;
+            string pretrained = PretrainedPath;
+            if (!File.Exists(pretrained))
+                throw new FileNotFoundException($"The pretrained Noise2Mic model is not installed: put {PretrainedFileName} at {pretrained}, or set {PretrainedVariable} to its path.", pretrained);
+            return pretrained;
+        }
+
+        public void Load(string path) => Network.LoadStateDict(ResolvePath(path));
 
         public void Save(string path, float deconvStrength, float deconvFalloff) =>
             Network.SaveStateDict(path, PatchSize, Features, Depth, Recurrence, deconvStrength, deconvFalloff, DeconvolutionHighpass);
