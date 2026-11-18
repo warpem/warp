@@ -76,8 +76,8 @@ static partial class WorkerProcess
     {
         string source = (string)Command.Content[0], destination = (string)Command.Content[1];
         int maxSize = (int)Command.Content[2];
-        using Image micrograph = Image.FromFile(source);
-        var (gray, width, height) = MicrographPreview.Render(micrograph.GetHost(Intent.Read)[0], micrograph.Dims.X, micrograph.Dims.Y, maxSize);
+        string junkMask = (string)Command.Content[3];
+        var (gray, width, height) = MicrographPreview.RenderFile(source, maxSize, junkMask);
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destination)!);
         using Image preview = new Image(gray, new int3(width, height, 1));
         preview.WritePNG(destination);
@@ -128,9 +128,11 @@ static partial class WorkerProcess
     {
         string Path = (string)Command.Content[0];
         float Radius = (float)Command.Content[1];
-        float InnerRadius = Command.Content.Length > 2 ? (float)Command.Content[2] : 0;
-        float? Separation = Command.Content.Length > 3 ? (float)Command.Content[3] : null;
-        string Output = BlobPicker.Match(Path, Radius, InnerRadius, Separation);
+        float InnerRadius = (float)Command.Content[2];
+        float Separation = (float)Command.Content[3];
+        string JunkMask = (string)Command.Content[4];
+        float JunkDistance = (float)Command.Content[5];
+        string Output = BlobPicker.Match(Path, Radius, InnerRadius, Separation, JunkMask, JunkDistance);
         Console.WriteLine($"Picked blobs for {Path}: {Output}");
     }
 

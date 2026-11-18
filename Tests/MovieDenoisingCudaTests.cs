@@ -40,6 +40,10 @@ public class MovieDenoisingCudaTests
                 using (var image = new Image(a, dimensions)) image.WriteMRC(movie.AverageOddPath, 5);
                 using (var image = new Image(b, dimensions)) image.WriteMRC(movie.AverageEvenPath, 5);
                 using (var image = new Image(average, dimensions)) image.WriteMRC(movie.AveragePath, 5);
+                // A junk disc at 6 Å/pixel (266 pixels), which training and denoising erase and restore.
+                var junk = new bool[266 * 266];
+                for (int y = 0; y < 266; y++) for (int x = 0; x < 266; x++) junk[y * 266 + x] = (x - 60) * (x - 60) + (y - 60) * (y - 60) < 400;
+                MovieJunk.WriteMask(movie.MaskPath, junk, 266, 266);
                 // Training and denoising deconvolve the halves and average on the fly; nothing deconvolved is written.
                 string model = Path.Combine(root, "models", "first.pt");
                 MovieDenoising.TrainMovies([movie.Path], model, "", 2, 0, 5, .9f, .1f);

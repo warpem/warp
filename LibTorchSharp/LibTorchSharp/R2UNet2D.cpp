@@ -226,8 +226,8 @@ namespace
 
     typedef c10::Dict<c10::IValue, c10::IValue> GenericDict;
 
-    // PyTorch checkpoints are torch.save'd dicts: either a bare state dict or one under "model_state_dict"
-    // (Noise2Mic's training checkpoints). DataParallel ("module.") and torch.compile ("_orig_mod.") prefixes are dropped.
+    // PyTorch checkpoints are torch.save'd dicts: either a bare state dict or one under "model_state_dict" (Noise2Mic's
+    // training checkpoints) or "model" (JunkNet's). DataParallel ("module.") and torch.compile ("_orig_mod.") prefixes are dropped.
     void r2_load(const NNModule module, const char* location)
     {
         std::ifstream file(location, std::ios::binary);
@@ -238,9 +238,15 @@ namespace
         if (!loaded.isGenericDict())
             throw std::runtime_error("Checkpoint is not a dictionary.");
         GenericDict dict = loaded.toGenericDict();
-        c10::IValue key(std::string("model_state_dict"));
-        if (dict.contains(key))
-            dict = dict.at(key).toGenericDict();
+        for (const char* name : { "model_state_dict", "model" })
+        {
+            c10::IValue key{ std::string(name) };
+            if (dict.contains(key) && dict.at(key).isGenericDict())
+            {
+                dict = dict.at(key).toGenericDict();
+                break;
+            }
+        }
 
         auto parameters = (*module)->named_parameters(true);
         auto buffers = (*module)->named_buffers(true);

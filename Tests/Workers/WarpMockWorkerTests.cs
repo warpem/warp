@@ -38,7 +38,7 @@ public sealed class WarpMockWorkerTests : IDisposable
             WorkerCommands.TrainMovieDenoiser([path],model,"",2,.9f,.1f,1),
             WorkerCommands.MovieDenoise(path,model,1,.9f,.1f),
             WorkerCommands.MicrographPickBlobs(movie.AverageDenoisedPath,1),
-            WorkerCommands.MovieExportParticlesFromStar(path,new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_warp"},picks,5),
+            WorkerCommands.MovieExportParticlesFromStar(path,new ProcessingOptionsParticleExport{PixelSize=1,BoxSize=16,BoxSizeResample=-1,Suffix="_warp"},picks,5,0,1,0,double.MaxValue,Path.Combine(movie.ParticlesDir,movie.RootName+"_warp.star")),
             WorkerCommands.WaitAsyncTasks()
         };
         RunTask("first",commands);

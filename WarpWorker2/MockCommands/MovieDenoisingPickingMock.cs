@@ -57,6 +57,27 @@ static partial class WorkerProcess
         MockPause();Console.WriteLine($"[MOCK] Synthetic denoised micrograph for {path}");
     }
 
+    [MockCommand(WorkerCommandNames.MovieSegmentJunk)]
+    static void MockMovieSegmentJunk(NamedSerializableObject command)
+    {
+        string path=(string)command.Content[0];float inputSampling=(float)command.Content[1];
+        if(!float.IsFinite(inputSampling)||inputSampling<=0)throw new ArgumentOutOfRangeException(nameof(inputSampling));
+        var movie=new Movie(path);
+        // Real segmentation runs JunkNet on the average at 6 Å/pixel; the mock marks a disc of junk in one corner of
+        // movies whose name asks for it ("junk"), and none elsewhere, so other mock results do not change.
+        var source=MapHeader.ReadFromFile(movie.AveragePath);
+        int width=Math.Max(4,(int)Math.Round(source.Dimensions.X*inputSampling/JunkNetTorch.PixelSize/2)*2),height=Math.Max(4,(int)Math.Round(source.Dimensions.Y*inputSampling/JunkNetTorch.PixelSize/2)*2);
+        var mask=new bool[width*height];
+        if(MockVariant(path,"junk"))
+        {
+            float radius=.3f*Math.Min(width,height);
+            for(int y=0;y<height;y++)for(int x=0;x<width;x++)mask[y*width+x]=x*x+y*y<=radius*radius;
+        }
+        MovieJunk.WriteMask(movie.MaskPath,mask,width,height);
+        movie.MaskPercentage=(decimal)Math.Round(100.0*mask.Count(v=>v)/mask.Length,2);movie.SaveMeta();
+        MockPause();Console.WriteLine($"[MOCK] Synthetic junk mask ({movie.MaskPercentage}% junk) for {path}");
+    }
+
     [MockCommand(WorkerCommandNames.MicrographPickBlobs)]
     static void MockMicrographPickBlobs(NamedSerializableObject command)
     {
@@ -76,6 +97,12 @@ static partial class WorkerProcess
             if(x<margin||y<margin||x>=header.Dimensions.X-margin||y>=header.Dimensions.Y-margin)continue;
             picks.Add(new float4(x,y,.2f+.75f*((i*7+seed%19)%19)/18f,MathF.Exp(.2f+4.8f*((i*11+seed%23)%23)/22f)));
         }
+        // Like the real picker, particles near junk are dropped when a junk mask is given.
+        if(!string.IsNullOrEmpty((string)command.Content[4]))
+        {
+            bool[] keep=MovieJunk.ClearOfJunk((string)command.Content[4],header.Dimensions.X,header.Dimensions.Y,picks.Select(p=>(p.X,p.Y)).ToArray(),radius,(float)command.Content[5]);
+            picks=picks.Where((_,i)=>keep[i]).ToList();
+        }
         Directory.CreateDirectory(movie.MatchingDir);string output=Path.Combine(movie.MatchingDir,movie.RootName+"_blob.star");
         BlobPicker.WriteStar(output,movie.Name,picks.ToArray());
         File.WriteAllText(output,"# "+MockProvenance+Environment.NewLine+File.ReadAllText(output));
@@ -88,12 +115,12 @@ static partial class WorkerProcess
         float sampling=(float)command.Content[3];if(!float.IsFinite(sampling)||sampling<=0)throw new ArgumentOutOfRangeException(nameof(sampling));
         var table=new Star((string)command.Content[2]);
         if(!table.HasColumn("rlnCoordinateX")||!table.HasColumn("rlnCoordinateY"))throw new InvalidDataException("Missing mock particle coordinates.");
-        string extracted=command.Content.Length>8?(string)command.Content[8]:null;
-        if(extracted!=null)table=PickSelection.Select(table,(double)command.Content[4],(double)command.Content[5],(double)command.Content[6],(double)command.Content[7]);
+        string extracted=(string)command.Content[8];
+        table=PickSelection.Select(table,(double)command.Content[4],(double)command.Content[5],(double)command.Content[6],(double)command.Content[7]);
         foreach(string value in table.GetColumn("rlnCoordinateX").Concat(table.GetColumn("rlnCoordinateY")))
             if(!float.IsFinite(float.Parse(value,CultureInfo.InvariantCulture)))throw new InvalidDataException("Invalid mock particle coordinate.");
         MockExtract((string)command.Content[0],(ProcessingOptionsParticleExport)command.Content[1],table.RowCount);
-        if(extracted!=null)PickSelection.Write(table,extracted);
+        PickSelection.Write(table,extracted);
     }
     static void MockExtract(string path,ProcessingOptionsParticleExport options,int count)
     {

@@ -122,11 +122,21 @@ namespace Warp.Tools
         }
 
         /// <summary>Load a micrograph and always write matching/&lt;name&gt;_blob.star, including empty results.</summary>
-        public static string Match(string micrographPath, float radius, float innerRadius = 0, float? minimumSeparation = null)
+        /// <param name="junkMaskPath">With a junk mask (<see cref="MovieJunk"/>), particles whose edge comes within
+        /// <paramref name="junkDistance"/> pixels of junk are dropped.</param>
+        public static string Match(string micrographPath, float radius, float innerRadius = 0, float? minimumSeparation = null, string junkMaskPath = null, float junkDistance = 0)
         {
             Validate(radius, innerRadius, minimumSeparation);
             using Image micrograph = Image.FromFile(micrographPath);
             float4[] picks = Pick(micrograph, radius, innerRadius, minimumSeparation);
+            if (!string.IsNullOrEmpty(junkMaskPath))
+            {
+                bool[] keep = MovieJunk.ClearOfJunk(junkMaskPath, micrograph.Dims.X, micrograph.Dims.Y, Array.ConvertAll(picks, p => (p.X, p.Y)), radius, junkDistance);
+                var clear = new List<float4>(picks.Length);
+                for (int i = 0; i < picks.Length; i++) if (keep[i]) clear.Add(picks[i]);
+                Console.WriteLine($"Dropped {picks.Length - clear.Count} of {picks.Length} picks near junk");
+                picks = clear.ToArray();
+            }
             Movie movie = new Movie(micrographPath);
             Directory.CreateDirectory(movie.MatchingDir);
             string output = Path.Combine(movie.MatchingDir, movie.RootName + "_blob.star");

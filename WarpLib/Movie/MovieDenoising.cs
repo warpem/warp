@@ -34,19 +34,26 @@ public static class MovieDenoising
     public readonly record struct Prepared(float[] Data, int Width, int Height, int OriginalWidth, int OriginalHeight);
 
     /// <summary>
-    /// The part of preparing a movie that needs only the exported averages, not the CTF: the average and halves
-    /// resampled, high-contrast objects found on the average and erased from all of them. A worker computes it while
-    /// the CTF is fitted (<see cref="Erase"/>) and hands it to <see cref="Denoise(string, float, float, float, Noise2MicTorch, Erasure)"/>,
-    /// which checks that it was made from the same files, unchanged since, or computes it again.
+    /// The part of preparing a movie that needs only the exported averages and its junk mask, not the CTF: the average
+    /// and halves resampled, and the junk erased from all of them (the originals kept, to restore the junk after
+    /// deconvolution). A worker computes it while the CTF is fitted (<see cref="Erase"/>) and hands it to
+    /// <see cref="Denoise(string, float, float, float, Noise2MicTorch, Erasure, bool)"/>, which checks that it was made
+    /// from the same files, unchanged since, or computes it again.
     /// </summary>
     public sealed class Erasure
     {
         internal string MoviePath;
         internal float PixelSize;
         internal (string Path, long Length, DateTime Written)[] Sources;
-        internal float[] Average, Odd, Even, Objects;
+        internal float[] Average, Odd, Even;
+        /// <summary>The resampled images before erasure; null when nothing was erased.</summary>
+        internal float[] OriginalAverage, OriginalOdd, OriginalEven;
+        /// <summary>The soft mask junk was erased under (grown and feathered), or null when nothing was erased.</summary>
+        internal float[] Objects;
+        /// <summary>The soft mask junk is restored under after deconvolution (the junk itself, briefly feathered).</summary>
+        internal float[] Junk;
         internal int Width, Height;
-        /// <summary>Whether objects were looked for at all (<see cref="Objects"/> is also null when none were found).</summary>
+        /// <summary>Whether junk was erased at all (<see cref="Objects"/> is also null when the mask was empty).</summary>
         internal bool ObjectsErased;
         internal double ResampleSeconds, MaskSeconds, EraseSeconds, HalvesSeconds;
         internal bool Halves => Odd != null;
@@ -69,10 +76,11 @@ public static class MovieDenoising
     }
 
     /// <summary>
-    /// High-contrast objects (carbon, ice crystals, gold) are found once, on the average, and erased from the
-    /// average and both halves with independent noise, so Noise2Noise learns only their smooth continuation.
+    /// Junk (carbon, ice, gold, as the movie's JunkNet mask marks it, <see cref="MovieJunk"/>) is erased from the average
+    /// and both halves with independent noise before deconvolution, so its edges do not ring into the ice; it is restored
+    /// after deconvolution (<see cref="Deconvolve(float[], float[], float[], int, int, CTF, float, float, float, PrivateFftPlans)"/>).
     /// <paramref name="plans"/>: the calling thread's own FFT plans, when it runs beside the worker's main thread.
-    /// <paramref name="eraseObjects"/>: false only resamples, leaving every object in place.
+    /// <paramref name="eraseObjects"/>: false only resamples, leaving the junk in place; true needs the mask.
     /// </summary>
     public static Erasure Erase(string moviePath, float pixelSize, PrivateFftPlans plans = null, bool eraseObjects = true)
     {
@@ -82,18 +90,24 @@ public static class MovieDenoising
         var result = new Erasure { MoviePath = moviePath, PixelSize = pixelSize, ObjectsErased = eraseObjects };
         var timer = System.Diagnostics.Stopwatch.StartNew();
         var sources = new List<(string, long, DateTime)> { Stamp(movie.AveragePath) };
+        if (eraseObjects)
+        {
+            if (!File.Exists(movie.MaskPath)) throw new FileNotFoundException("Erasing junk needs the movie's junk mask; segment junk first.", movie.MaskPath);
+            sources.Add(Stamp(movie.MaskPath));
+        }
         var (averageData, width, height) = Resample(movie.AveragePath, pixelSize, sampling, plans);
         result.Width = width; result.Height = height;
         result.ResampleSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
-        result.Objects = eraseObjects ? ObjectMask(averageData, width, height, sampling) : null;
+        if (eraseObjects) (result.Objects, result.Junk) = JunkMasks(movie.MaskPath, width, height, sampling);
         result.MaskSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
         result.Average = Erased(averageData, width, height, result.Objects, 1, plans);
+        if (result.Objects != null) result.OriginalAverage = averageData;
         result.EraseSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
         if (File.Exists(movie.AverageOddPath) && File.Exists(movie.AverageEvenPath))
         {
             sources.Add(Stamp(movie.AverageOddPath)); sources.Add(Stamp(movie.AverageEvenPath));
-            result.Odd = ErasedHalf(movie.AverageOddPath, pixelSize, sampling, result.Objects, width, height, 2, plans);
-            result.Even = ErasedHalf(movie.AverageEvenPath, pixelSize, sampling, result.Objects, width, height, 3, plans);
+            (result.Odd, result.OriginalOdd) = ErasedHalf(movie.AverageOddPath, pixelSize, sampling, result.Objects, width, height, 2, plans);
+            (result.Even, result.OriginalEven) = ErasedHalf(movie.AverageEvenPath, pixelSize, sampling, result.Objects, width, height, 3, plans);
             result.HalvesSeconds = timer.Elapsed.TotalSeconds;
         }
         result.Sources = sources.ToArray();
@@ -126,15 +140,15 @@ public static class MovieDenoising
         float[] input; int width, height;
         if (erased.Halves)
         {
-            var odd = Deconvolve(erased.Odd, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff);
-            var even = Deconvolve(erased.Even, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff);
+            var odd = Deconvolve(erased.Odd, erased.OriginalOdd, erased.Objects, erased.Junk, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff);
+            var even = Deconvolve(erased.Even, erased.OriginalEven, erased.Objects, erased.Junk, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff);
             input = new float[odd.Data.Length];
             for (int i = 0; i < input.Length; i++) input[i] = (odd.Data[i] + even.Data[i]) / 2;
             (width, height) = (odd.Width, odd.Height);
         }
         else
         {
-            var average = Deconvolve(erased.Average, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff);
+            var average = Deconvolve(erased.Average, erased.OriginalAverage, erased.Objects, erased.Junk, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff);
             float[] cropped = Noise2MicPreprocessing.Crop(average.Data, average.Width, average.Height, originalWidth, originalHeight);
             int patch = Noise2MicTorch.PatchSize;
             int padWidth = Math.Max(0, patch - originalWidth), padHeight = Math.Max(0, patch - originalHeight);
@@ -146,39 +160,82 @@ public static class MovieDenoising
         float[] denoised = Denoise(network, input, width, height);
         double denoiseSeconds = timer.Elapsed.TotalSeconds; timer.Restart();
         int outputWidth = Math.Min(width, originalWidth), outputHeight = Math.Min(height, originalHeight);
+        float[] output = Noise2MicPreprocessing.Crop(denoised, width, height, outputWidth, outputHeight);
+        if (erased.Junk != null && erased.Objects != null)
+            output = WithJunkAsPrepared(output, Noise2MicPreprocessing.Crop(input, width, height, outputWidth, outputHeight), erased.Junk, erased.Objects, outputWidth, outputHeight, sampling);
         Directory.CreateDirectory(movie.AverageDenoisedDir);
-        Write(movie.AverageDenoisedPath, Noise2MicPreprocessing.Crop(denoised, width, height, outputWidth, outputHeight), outputWidth, outputHeight, sampling);
-        Console.WriteLine($"Denoising{(reused ? " (objects erased while the CTF was fitted)" : "")}: resample {erased.ResampleSeconds:F3}s, " +
-                          $"objects {erased.MaskSeconds:F3}s ({(!erased.ObjectsErased ? "not erased" : erased.Objects == null ? "none" : "erased")}), erase {erased.EraseSeconds + erased.HalvesSeconds:F3}s, " +
+        Write(movie.AverageDenoisedPath, output, outputWidth, outputHeight, sampling);
+        Console.WriteLine($"Denoising{(reused ? " (junk erased while the CTF was fitted)" : "")}: resample {erased.ResampleSeconds:F3}s, " +
+                          $"junk mask {erased.MaskSeconds:F3}s ({(!erased.ObjectsErased ? "not erased" : erased.Objects == null ? "no junk" : "erased and restored")}), erase {erased.EraseSeconds + erased.HalvesSeconds:F3}s, " +
                           $"deconvolution {deconvolveSeconds:F3}s ({(erased.Halves ? "halves" : "average")}), network {denoiseSeconds:F3}s, output {timer.Elapsed.TotalSeconds:F3}s");
     }
 
-    /// <summary>Feathered mask of the objects to erase before deconvolution at <paramref name="sampling"/>, or null.</summary>
-    public static float[] ObjectMask(float[] data, int width, int height, float sampling)
+    /// <summary>
+    /// The denoised image with the junk as the network got it, not denoised, under the soft mask <paramref name="junk"/>,
+    /// each region's level matched to the denoised ice at its edge. Junk is restored by heavy non-linear processing, so it
+    /// keeps its noise and stays recognizable as such rather than reading as structure in the sample.
+    /// </summary>
+    public static float[] WithJunkAsPrepared(float[] denoised, float[] prepared, float[] junk, float[] objects, int width, int height, float sampling)
     {
-        bool[] objects = MaskErasure.Detect(data, width, height, sampling);
-        if (!Array.Exists(objects, v => v)) return null;
-        return MaskErasure.Feather(objects, width, height, EraseFeatherAngstrom / sampling);
+        float[] matched = MatchAtBands(prepared, denoised, junk, objects, width, height, sampling, false);
+        var result = (float[])denoised.Clone();
+        for (int i = 0; i < result.Length; i++)
+            if (junk[i] > 0) result[i] += junk[i] * (matched[i] - result[i]);
+        return result;
     }
 
     /// <summary>
-    /// Changes whenever preparing a movie for the denoiser (resampling, erasure, deconvolution) gives different input for
-    /// the same files, so denoising keyed on it (Relay's denoising fingerprint) is redone.
-    /// 2: high-contrast objects erased before deconvolution.
+    /// The soft mask junk is erased under at <paramref name="sampling"/>: the saved JunkNet mask on this grid, grown by
+    /// <see cref="EraseMarginAngstrom"/> and feathered over <see cref="EraseFeatherAngstrom"/>; null when it has no junk.
     /// </summary>
-    public const int PreparationRevision = 2;
+    public static float[] JunkMask(string maskPath, int width, int height, float sampling) => JunkMasks(maskPath, width, height, sampling).Erase;
 
-    /// <summary>Over this many ångströms erased objects blend into the ice around them.</summary>
+    /// <summary>
+    /// The soft masks for erasing junk (<see cref="JunkMask"/>) and for restoring it after deconvolution: the junk itself,
+    /// feathered over <see cref="RestoreFeatherAngstrom"/>. Both null when the mask has no junk.
+    /// </summary>
+    public static (float[] Erase, float[] Restore) JunkMasks(string maskPath, int width, int height, float sampling)
+    {
+        bool[] junk = MovieJunk.ReadMask(maskPath, width, height);
+        if (!Array.Exists(junk, v => v)) return (null, null);
+        float[] distance = MaskErasure.DistanceTo(junk, width, height);
+        float margin = EraseMarginAngstrom / sampling;
+        var grown = new bool[junk.Length];
+        for (int i = 0; i < grown.Length; i++) grown[i] = distance[i] <= margin;
+        return (MaskErasure.Feather(grown, width, height, EraseFeatherAngstrom / sampling),
+                MaskErasure.Feather(junk, width, height, RestoreFeatherAngstrom / sampling));
+    }
+
+    /// <summary>
+    /// Changes whenever preparing a movie for the denoiser (resampling, deconvolution, normalization) gives different input
+    /// for the same files, so denoising keyed on it (Relay's denoising fingerprint) is redone.
+    /// </summary>
+    public const int PreparationRevision = 1;
+
+    /// <summary>
+    /// Changes whenever erasing junk before deconvolution, restoring it after, or showing it in the denoised image changes,
+    /// so denoising that erases junk is redone.
+    /// </summary>
+    public const int JunkRevision = 1;
+
+    /// <summary>Junk is erased this far beyond its mask, which takes in the Fresnel fringes around it.</summary>
+    public const float EraseMarginAngstrom = 36;
+
+    /// <summary>Over this many ångströms erased junk blends into the ice around it.</summary>
     public const float EraseFeatherAngstrom = 60;
+
+    /// <summary>Over this many ångströms restored junk blends into the deconvolved ice around it.</summary>
+    public const float RestoreFeatherAngstrom = 12;
 
     static float[] Erased(float[] data, int width, int height, float[] objects, int seed, PrivateFftPlans plans = null) =>
         objects == null ? data : MaskErasure.Erase(data, width, height, objects, MaskErasure.MatchedNoise(data, width, height, objects, seed, plans));
 
-    static float[] ErasedHalf(string source, float pixelSize, float sampling, float[] objects, int width, int height, int seed, PrivateFftPlans plans)
+    /// <summary>A half-average resampled and erased; the resampled original too when something was erased.</summary>
+    static (float[] Erased, float[] Original) ErasedHalf(string source, float pixelSize, float sampling, float[] objects, int width, int height, int seed, PrivateFftPlans plans)
     {
         var (data, w, h) = Resample(source, pixelSize, sampling, plans);
         if (w != width || h != height) throw new InvalidDataException("Half-averages differ in size from the average.");
-        return Erased(data, w, h, objects, seed, plans);
+        return (Erased(data, w, h, objects, seed, plans), objects == null ? null : data);
     }
 
     /// <summary>MicrographPreprocessor for one image: resampled to <paramref name="sampling"/>, deconvolved, normalized.</summary>
@@ -210,11 +267,117 @@ public static class MovieDenoising
 
     /// <summary>The Wiener deconvolution and robust normalization of a resampled micrograph.</summary>
     /// <param name="plans">The calling thread's own FFT plans, when it runs beside other threads using the GPU.</param>
-    public static Prepared Deconvolve(float[] data, int width, int height, CTF ctf, float sampling, float strength, float falloff, PrivateFftPlans plans = null)
+    public static Prepared Deconvolve(float[] data, int width, int height, CTF ctf, float sampling, float strength, float falloff, PrivateFftPlans plans = null) =>
+        Deconvolve(data, null, null, null, width, height, ctf, sampling, strength, falloff, plans);
+
+    /// <summary>Width of the bands just inside the junk and just beyond the erased zone that restored junk is matched at.</summary>
+    public const float BandAngstrom = 24;
+
+    /// <summary>
+    /// The Wiener deconvolution of an image whose junk was erased, robustly normalized, with the junk restored under the
+    /// soft mask <paramref name="junk"/> and clipped like the deconvolved image. Junk comes back as it was before
+    /// deconvolution, mapped region by region so its median and spread in a band just inside its edge match the
+    /// deconvolved ice in a band just beyond the erased zone. The filter models a weak-phase specimen; carbon, ice and gold
+    /// are not one, and deconvolving them only inflates their low frequencies until they saturate.
+    /// <paramref name="objects"/>: the mask junk was erased under. Without masks, the deconvolution of
+    /// <paramref name="data"/> alone.
+    /// </summary>
+    public static Prepared Deconvolve(float[] data, float[] original, float[] objects, float[] junk, int width, int height, CTF ctf, float sampling, float strength, float falloff, PrivateFftPlans plans = null)
     {
         var canvas = Noise2MicPreprocessing.DeconvolutionCanvas(width, height, Noise2MicTorch.PatchSize);
-        float[] padded = Noise2MicPreprocessing.ReflectPad(data, width, height, canvas.Left, canvas.Right, canvas.Top, canvas.Bottom);
         float[] filter = Noise2MicPreprocessing.WienerFilter(canvas.Width, canvas.Height, ctf, sampling, strength, falloff, Noise2MicTorch.DeconvolutionHighpass);
+        float[] deconvolved = DeconvolveOnCanvas(data, width, height, canvas, filter, plans);
+        int cw = canvas.CropWidth, ch = canvas.CropHeight;
+        var (median, scale) = Noise2MicPreprocessing.RobustStatistics(deconvolved, cw, ch);
+        var prepared = new float[deconvolved.Length];
+        for (int i = 0; i < prepared.Length; i++) prepared[i] = Math.Clamp((deconvolved[i] - median) / scale, -4, 4);
+        if (original != null && objects != null && junk != null)
+        {
+            float[] erased = OnCanvas(objects, width, height, canvas), restore = OnCanvas(junk, width, height, canvas);
+            float[] candidate = MatchAtBands(InIceUnits(OnCanvas(original, width, height, canvas), erased), prepared, restore, erased, cw, ch, sampling, true);
+            for (int i = 0; i < prepared.Length; i++)
+                if (restore[i] > 0)
+                    prepared[i] += restore[i] * (Math.Clamp(candidate[i], -4, 4) - prepared[i]);
+        }
+        return new Prepared(prepared, cw, ch, width, height);
+    }
+
+    /// <summary>An image in units of its ice's noise: centred on the median of the pixels outside the erased zone, scaled by their spread.</summary>
+    static float[] InIceUnits(float[] raw, float[] erased)
+    {
+        var ice = new List<float>(raw.Length);
+        for (int i = 0; i < raw.Length; i++) if (erased[i] <= 0) ice.Add(raw[i]);
+        // A micrograph that is nearly all junk has too little ice to measure; then the whole image stands in.
+        var (median, scale) = Noise2MicPreprocessing.MedianAndSpread(ice.Count >= raw.Length / 100 ? ice.ToArray() : raw);
+        var result = new float[raw.Length];
+        for (int i = 0; i < raw.Length; i++) result[i] = (raw[i] - median) / scale;
+        return result;
+    }
+
+    /// <summary>
+    /// Restored junk matched to the deconvolved ice around it, region by region: each pixel belongs to its nearest junk
+    /// region; the candidate's median (and spread, with <paramref name="spread"/>) in a band just inside the region's
+    /// edge is mapped to the target's in a band just beyond the erased zone. Regions with too few band pixels use all
+    /// regions' bands together.
+    /// </summary>
+    static float[] MatchAtBands(float[] candidate, float[] target, float[] restore, float[] erased, int width, int height, float sampling, bool spread)
+    {
+        int n = width * height;
+        bool[] junk = Array.ConvertAll(restore, v => v >= 0.999f);
+        int[] labels = MaskErasure.Label(junk, width, height, out int[] sizes);
+        int regions = sizes.Length - 1;
+        if (regions == 0) return candidate;
+        // The nearest region of every pixel, and its chessboard distance to it: a flood from all junk pixels at once.
+        var owner = new int[n]; var distance = new int[n]; var queue = new int[n];
+        int head = 0, tail = 0;
+        for (int i = 0; i < n; i++) { distance[i] = -1; if (junk[i]) { owner[i] = labels[i]; distance[i] = 0; queue[tail++] = i; } }
+        while (head < tail)
+        {
+            int i = queue[head++], x = i % width, y = i / width;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int xx = x + dx, yy = y + dy;
+                    if ((dx == 0 && dy == 0) || xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
+                    int j = yy * width + xx;
+                    if (distance[j] >= 0) continue;
+                    distance[j] = distance[i] + 1; owner[j] = owner[i]; queue[tail++] = j;
+                }
+        }
+        float[] inside = MaskErasure.DistanceTo(Array.ConvertAll(junk, v => !v), width, height);
+        float band = BandAngstrom / sampling, reach = (EraseMarginAngstrom + EraseFeatherAngstrom + BandAngstrom) / sampling + 1;
+        var inner = new List<float>[regions + 1]; var outer = new List<float>[regions + 1];
+        for (int k = 0; k <= regions; k++) { inner[k] = new List<float>(); outer[k] = new List<float>(); }
+        for (int i = 0; i < n; i++)
+        {
+            if (junk[i] && inside[i] <= band) { inner[owner[i]].Add(candidate[i]); inner[0].Add(candidate[i]); }
+            else if (!junk[i] && erased[i] <= 0 && distance[i] >= 0 && distance[i] <= reach) { outer[owner[i]].Add(target[i]); outer[0].Add(target[i]); }
+        }
+        if (inner[0].Count == 0 || outer[0].Count == 0) return candidate;
+        var map = new (float Scale, float Offset)[regions + 1];
+        for (int k = 0; k <= regions; k++)
+        {
+            int source = k > 0 && inner[k].Count >= 20 && outer[k].Count >= 20 ? k : 0;
+            var (mi, si) = Noise2MicPreprocessing.MedianAndSpread(inner[source].ToArray());
+            var (mo, so) = Noise2MicPreprocessing.MedianAndSpread(outer[source].ToArray());
+            float gain = spread ? so / si : 1;
+            map[k] = (gain, mo - mi * gain);
+        }
+        var result = (float[])candidate.Clone();
+        for (int i = 0; i < n; i++)
+            if (restore[i] > 0 && distance[i] >= 0) result[i] = candidate[i] * map[owner[i]].Scale + map[owner[i]].Offset;
+        return result;
+    }
+
+    /// <summary>An image reflect-padded and cropped the way <see cref="DeconvolveOnCanvas"/> pads and crops its data.</summary>
+    static float[] OnCanvas(float[] data, int width, int height, Noise2MicPreprocessing.Canvas canvas) =>
+        Noise2MicPreprocessing.Crop(Noise2MicPreprocessing.ReflectPad(data, width, height, canvas.Left, canvas.Right, canvas.Top, canvas.Bottom),
+                                    canvas.Width, canvas.Height, canvas.CropWidth, canvas.CropHeight);
+
+    /// <summary>Reflect-padded to the canvas, Wiener-filtered, cropped back; not normalized.</summary>
+    static float[] DeconvolveOnCanvas(float[] data, int width, int height, Noise2MicPreprocessing.Canvas canvas, float[] filter, PrivateFftPlans plans)
+    {
+        float[] padded = Noise2MicPreprocessing.ReflectPad(data, width, height, canvas.Left, canvas.Right, canvas.Top, canvas.Bottom);
         float[] deconvolved;
         var dims = new int3(canvas.Width, canvas.Height, 1);
         using (var image = new Image(padded, dims))
@@ -225,9 +388,7 @@ public static class MovieDenoising
             using var result = fft.AsIFFT(false, plans?.Inverse(dims) ?? 0, true);
             deconvolved = (float[])result.GetHost(Intent.Read)[0].Clone();
         }
-        float[] cropped = Noise2MicPreprocessing.Crop(deconvolved, canvas.Width, canvas.Height, canvas.CropWidth, canvas.CropHeight);
-        return new Prepared(Noise2MicPreprocessing.NormalizeRobustly(cropped, canvas.CropWidth, canvas.CropHeight),
-                            canvas.CropWidth, canvas.CropHeight, width, height);
+        return Noise2MicPreprocessing.Crop(deconvolved, canvas.Width, canvas.Height, canvas.CropWidth, canvas.CropHeight);
     }
 
     static void Write(string path, float[] data, int width, int height, float sampling)
@@ -254,9 +415,9 @@ public static class MovieDenoising
     }
 
     /// <summary>
-    /// Each movie's half-averages prepared for training: resampled, the objects found on the average erased with
-    /// independent noise (unless <paramref name="eraseObjects"/> is false), deconvolved with the movie's current CTF and
-    /// normalized. A few movies at a time, each thread with its own FFT plans.
+    /// Each movie's half-averages prepared for training as for denoising: resampled, the junk its mask marks erased with
+    /// independent noise (unless <paramref name="eraseObjects"/> is false), deconvolved with the movie's current CTF, the
+    /// junk restored, normalized. A few movies at a time, each thread with its own FFT plans.
     /// </summary>
     public static (Prepared Odd, Prepared Even)[] PrepareHalves(string[] moviePaths, float pixelSize, float strength, float falloff, int device, bool eraseObjects = true)
     {
@@ -272,8 +433,8 @@ public static class MovieDenoising
                 if (movie.OptionsCTF == null) throw new InvalidOperationException($"Training movie has no CTF: {movie.RootName}");
                 var erased = Erase(moviePaths[i], pixelSize, plans, eraseObjects);
                 if (!erased.Halves) throw new InvalidDataException($"Training movie has no half-averages: {movie.RootName}");
-                pairs[i] = (Deconvolve(erased.Odd, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff, plans),
-                            Deconvolve(erased.Even, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff, plans));
+                pairs[i] = (Deconvolve(erased.Odd, erased.OriginalOdd, erased.Objects, erased.Junk, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff, plans),
+                            Deconvolve(erased.Even, erased.OriginalEven, erased.Objects, erased.Junk, erased.Width, erased.Height, movie.CTF, sampling, strength, falloff, plans));
                 return plans;
             },
             plans => plans.Dispose());

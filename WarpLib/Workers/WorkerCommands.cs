@@ -1,3 +1,4 @@
+using System;
 using Warp;
 using Warp.Sociology;
 using Warp.Tools;
@@ -54,12 +55,22 @@ namespace Warp.Workers
             new(WorkerCommandNames.MoviePickBoxNet, path, options);
 
         /// <summary>Pick dark disk/ring blobs. All distances are in micrograph pixels.</summary>
+        /// <param name="junkMaskPath">A junk mask (<see cref="MovieJunk"/>): particles whose edge comes within
+        /// <paramref name="junkDistance"/> pixels of junk are dropped; none keeps every pick.</param>
         public static NamedSerializableObject MicrographPickBlobs(
-            string path, float radius, float innerRadius = 0, float? minimumSeparation = null)
+            string path, float radius, float innerRadius = 0, float? minimumSeparation = null, string junkMaskPath = null, float junkDistance = 0)
         {
             float separation = BlobPicker.Validate(radius, innerRadius, minimumSeparation);
-            return new(WorkerCommandNames.MicrographPickBlobs, path, radius, innerRadius, separation);
+            if (!float.IsFinite(junkDistance) || junkDistance < 0) throw new ArgumentOutOfRangeException(nameof(junkDistance));
+            return new(WorkerCommandNames.MicrographPickBlobs, path, radius, innerRadius, separation, junkMaskPath ?? "", junkDistance);
         }
+
+        /// <summary>
+        /// Segments junk in a movie's exported average with JunkNet and saves the mask (<see cref="MovieJunk.Segment"/>).
+        /// <paramref name="modelPath"/>: a model file; empty uses the one installed with WarpTools.
+        /// </summary>
+        public static NamedSerializableObject MovieSegmentJunk(string moviePath, float pixelSize, string modelPath = null) =>
+            new(WorkerCommandNames.MovieSegmentJunk, moviePath, pixelSize, modelPath ?? "");
 
         public static NamedSerializableObject MovieExportParticles(
             string path, ProcessingOptionsParticleExport options, float2[] coordinates) =>
@@ -70,34 +81,25 @@ namespace Warp.Workers
         /// Noise2Mic training for epochs over the movies' half-averages, deconvolved on the fly with each movie's CTF at
         /// <paramref name="pixelSize"/> (the averages' pixel size); the deconvolution settings are saved with the model.
         /// </summary>
-        /// <param name="eraseObjects">False trains on the half-averages with their high-contrast objects left in. Sent only
-        /// when false, so a worker from before the option reads the command it knows.</param>
+        /// <param name="eraseObjects">False trains on the half-averages with their junk left in.</param>
         public static NamedSerializableObject TrainMovieDenoiser(string[] moviePaths, string modelOutput, string previousModel, int epochs, float deconvStrength, float deconvFalloff, float pixelSize, bool eraseObjects = true) =>
-            eraseObjects
-                ? new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize)
-                : new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize, false);
+            new(WorkerCommandNames.TrainMovieDenoiser, moviePaths, modelOutput, previousModel ?? "", epochs, deconvStrength, deconvFalloff, pixelSize, eraseObjects);
 
-        /// <summary>A PNG of the micrograph that fits maxSize, in the browser viewer's contrast.</summary>
-        public static NamedSerializableObject MicrographCreatePreview(string micrographPath, string pngPath, int maxSize) =>
-            new(WorkerCommandNames.MicrographCreatePreview, micrographPath, pngPath, maxSize);
+        /// <summary>A PNG of the micrograph that fits maxSize, in the browser viewer's particle contrast (<see cref="Tools.MicrographPreview"/>).</summary>
+        /// <param name="junkMaskPath">A junk mask whose pixels the preview's contrast leaves out; none counts the whole centre.</param>
+        public static NamedSerializableObject MicrographCreatePreview(string micrographPath, string pngPath, int maxSize, string junkMaskPath = null) =>
+            new(WorkerCommandNames.MicrographCreatePreview, micrographPath, pngPath, maxSize, junkMaskPath ?? "");
 
         /// <summary>
         /// Denoises the movie's average with the model, deconvolving on the fly with the movie's CTF and these settings
         /// (the ones the model was trained with) at <paramref name="pixelSize"/>, the average's pixel size.
         /// </summary>
-        /// <param name="eraseObjects">False denoises the average with its high-contrast objects left in; sent only when false.</param>
+        /// <param name="eraseObjects">False denoises the average with its junk left in.</param>
         public static NamedSerializableObject MovieDenoise(string moviePath, string modelPath, float pixelSize, float deconvStrength, float deconvFalloff, bool eraseObjects = true) =>
-            eraseObjects
-                ? new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff)
-                : new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff, false);
-
-        /// <summary>Coordinates in the picker image are converted to physical Å before extraction.</summary>
-        public static NamedSerializableObject MovieExportParticlesFromStar(string moviePath, ProcessingOptionsParticleExport options,
-            string coordinateStarPath, float coordinatePixelSize) =>
-            new(WorkerCommandNames.MovieExportParticlesFromStar, moviePath, options, coordinateStarPath, coordinatePixelSize);
+            new(WorkerCommandNames.MovieDenoise, moviePath, modelPath, pixelSize, deconvStrength, deconvFalloff, eraseObjects);
 
         /// <summary>
-        /// Extracts only the picks whose Pearson correlation and local power lie within the bounds (inclusive,
+        /// Coordinates in the picker image are converted to physical Å before extraction. Extracts only the picks whose Pearson correlation and local power lie within the bounds (inclusive,
         /// <see cref="PickSelection"/>) and writes their rows to <paramref name="extractedStarPath"/> in the stack's order.
         /// <paramref name="maxPower"/> = <see cref="double.MaxValue"/> leaves power unbounded.
         /// </summary>
@@ -244,6 +246,7 @@ namespace Warp.Workers
         public const string MicrographPickBlobs = "MicrographPickBlobs";
         public const string TrainMovieDenoiser = "TrainMovieDenoiser";
         public const string MovieDenoise = "MovieDenoise";
+        public const string MovieSegmentJunk = "MovieSegmentJunk";
         public const string MicrographCreatePreview = "MicrographCreatePreview";
         public const string MovieExportParticlesFromStar = "MovieExportParticlesFromStar";
         public const string MovieExportParticles = "MovieExportParticles";

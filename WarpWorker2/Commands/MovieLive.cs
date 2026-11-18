@@ -11,6 +11,8 @@ static partial class WorkerProcess
 {
     static Noise2MicTorch MicrographDenoiserModel;
     static string MicrographDenoiserPath = "";
+    static JunkNetTorch JunkModel;
+    static string JunkModelPath = "";
 
     /// <summary>
     /// Denoising's object erasure needs only the exported averages, so while a task fits a movie's CTF the erasure for
@@ -28,7 +30,7 @@ static partial class WorkerProcess
             {
                 FinishErasure();
                 float pixelSize = (float)commands[i].Content[2];
-                bool eraseObjects = EraseObjects(commands[i], 5);
+                bool eraseObjects = (bool)commands[i].Content[5];
                 int device = DeviceID;
                 PendingErasure = (path, pixelSize, System.Threading.Tasks.Task.Run(() =>
                 {
@@ -40,9 +42,6 @@ static partial class WorkerProcess
             }
     }
 
-    /// <summary>The optional last argument of MovieDenoise and TrainMovieDenoiser; commands from before it erase objects.</summary>
-    static bool EraseObjects(NamedSerializableObject command, int index) =>
-        command.Content.Length <= index || command.Content[index] is not bool erase || erase;
 
     /// <summary>The erasure made ahead for this movie, or null (denoising then makes it, and reports any error).</summary>
     static MovieDenoising.Erasure TakeErasure(string path, float pixelSize)
@@ -71,7 +70,22 @@ static partial class WorkerProcess
         MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
         MovieDenoising.TrainMovies((string[])command.Content[0], (string)command.Content[1], (string)command.Content[2],
             (int)command.Content[3], DeviceID, (float)command.Content[6], (float)command.Content[4], (float)command.Content[5],
-            eraseObjects: EraseObjects(command, 7));
+            eraseObjects: (bool)command.Content[7]);
+    }
+
+    [Command(WorkerCommandNames.MovieSegmentJunk)]
+    static void MovieSegmentJunk(NamedSerializableObject command)
+    {
+        string modelPath = JunkNetTorch.ResolvePath((string)command.Content[2]);
+        if (JunkModel == null || JunkModelPath != modelPath)
+        {
+            JunkModel?.Dispose(); JunkModel = null; JunkModelPath = "";
+            var model = new JunkNetTorch(DeviceID);
+            try { model.Load(modelPath); }
+            catch { model.Dispose(); throw; }
+            JunkModel = model; JunkModelPath = modelPath;
+        }
+        MovieJunk.Segment((string)command.Content[0], (float)command.Content[1], JunkModel);
     }
 
     [Command(WorkerCommandNames.MovieDenoise)]
@@ -88,7 +102,7 @@ static partial class WorkerProcess
         }
         string path = (string)command.Content[0];
         float pixelSize = (float)command.Content[2];
-        MovieDenoising.Denoise(path, pixelSize, (float)command.Content[3], (float)command.Content[4], MicrographDenoiserModel, TakeErasure(path, pixelSize), EraseObjects(command, 5));
+        MovieDenoising.Denoise(path, pixelSize, (float)command.Content[3], (float)command.Content[4], MicrographDenoiserModel, TakeErasure(path, pixelSize), (bool)command.Content[5]);
     }
 
     [Command(WorkerCommandNames.MovieExportParticlesFromStar)]
@@ -100,10 +114,9 @@ static partial class WorkerProcess
         float sampling = (float)command.Content[3];
         if (!float.IsFinite(sampling) || sampling <= 0) throw new ArgumentOutOfRangeException(nameof(sampling));
         var table = new Star(starPath);
-        // With score bounds, only the picks within them are extracted, and their rows are recorded in stack order.
-        string extractedStarPath = command.Content.Length > 8 ? (string)command.Content[8] : null;
-        if (extractedStarPath != null)
-            table = PickSelection.Select(table, (double)command.Content[4], (double)command.Content[5], (double)command.Content[6], (double)command.Content[7]);
+        // Only the picks within the score bounds are extracted, and their rows are recorded in stack order.
+        string extractedStarPath = (string)command.Content[8];
+        table = PickSelection.Select(table, (double)command.Content[4], (double)command.Content[5], (double)command.Content[6], (double)command.Content[7]);
         string[] x = table.GetColumn("rlnCoordinateX"), y = table.GetColumn("rlnCoordinateY");
         var coordinates = new float2[table.RowCount];
         for (int i = 0; i < coordinates.Length; i++)
@@ -123,7 +136,7 @@ static partial class WorkerProcess
             options.Dimensions = OriginalStack.Dims.MultXY((float)options.BinnedPixelSizeMean);
             movie.ExportParticles(OriginalStack, coordinates, options, releaseStack: !StackResident);
         }
-        if (extractedStarPath != null) PickSelection.Write(table, extractedStarPath);
+        PickSelection.Write(table, extractedStarPath);
         Console.WriteLine($"Exported {coordinates.Length} particles for {path}");
     }
 }

@@ -108,8 +108,7 @@ static partial class WorkerProcess
     static void MockMicrographCreatePreview(NamedSerializableObject command)
     {
         string source=(string)command.Content[0],destination=(string)command.Content[1];int maxSize=(int)command.Content[2];
-        using var micrograph=Image.FromFile(source);
-        var (gray,width,height)=MicrographPreview.Render(micrograph.GetHost(Intent.Read)[0],micrograph.Dims.X,micrograph.Dims.Y,maxSize);
+        var (gray,width,height)=MicrographPreview.RenderFile(source,maxSize,(string)command.Content[3]);
         MockWritePng(destination,width,height,(x,y)=>(byte)gray[(height-1-y)*width+x]);
         Console.WriteLine($"[MOCK] Preview for {source}");
     }

@@ -86,6 +86,17 @@ public static class Noise2MicPreprocessing
     /// </summary>
     public static float[] NormalizeRobustly(float[] data, int width, int height)
     {
+        var (median, scale) = RobustStatistics(data, width, height);
+        float low = median - 4 * scale, high = median + 4 * scale;
+        var normalized = new float[data.Length];
+        for (int i = 0; i < data.Length; i++)
+            normalized[i] = (Math.Clamp(data[i], low, high) - median) / scale;
+        return normalized;
+    }
+
+    /// <summary>The median and 68th-percentile absolute deviation of the central third, as NormalizeRobustly uses them.</summary>
+    public static (float Median, float Scale) RobustStatistics(float[] data, int width, int height)
+    {
         float[] central;
         if (width < 3 || height < 3) central = (float[])data.Clone();
         else
@@ -96,19 +107,20 @@ public static class Noise2MicPreprocessing
                 for (int x = x0; x < x1; x++)
                     central[i++] = data[y * width + x];
         }
-        float median = Percentile(central, 50);
-        var deviations = new float[central.Length];
-        for (int i = 0; i < central.Length; i++) deviations[i] = Math.Abs(central[i] - median);
-        float scale = Math.Max(Percentile(deviations, 68), 1e-6f);
-        float low = median - 4 * scale, high = median + 4 * scale;
-        var normalized = new float[data.Length];
-        for (int i = 0; i < data.Length; i++)
-            normalized[i] = (Math.Clamp(data[i], low, high) - median) / scale;
-        return normalized;
+        return MedianAndSpread(central);
+    }
+
+    /// <summary>The median and 68th-percentile absolute deviation of some values.</summary>
+    public static (float Median, float Scale) MedianAndSpread(float[] values)
+    {
+        float median = Percentile(values, 50);
+        var deviations = new float[values.Length];
+        for (int i = 0; i < values.Length; i++) deviations[i] = Math.Abs(values[i] - median);
+        return (median, Math.Max(Percentile(deviations, 68), 1e-6f));
     }
 
     /// <summary>numpy's default ('linear') percentile.</summary>
-    static float Percentile(float[] values, double percent)
+    public static float Percentile(float[] values, double percent)
     {
         var sorted = (float[])values.Clone();
         Array.Sort(sorted);
