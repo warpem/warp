@@ -50,24 +50,10 @@ namespace Warp
         /// </summary>
         public const string PretrainedModel = "pretrained";
         public const string PretrainedFileName = "noise2mic_pretrained.pt";
-        public const string PretrainedVariable = "WARP_NOISE2MIC_PRETRAINED";
 
-        /// <summary>
-        /// Where this installation keeps the pretrained model: models/ beside the executables, or the file
-        /// WARP_NOISE2MIC_PRETRAINED names.
-        /// </summary>
-        public static string PretrainedPath =>
-            Environment.GetEnvironmentVariable(PretrainedVariable) is { Length: > 0 } path ? path : Path.Combine(AppContext.BaseDirectory, "models", PretrainedFileName);
-
-        /// <summary>The file a model path names: <see cref="PretrainedPath"/> for <see cref="PretrainedModel"/>, otherwise the path itself.</summary>
-        public static string ResolvePath(string path)
-        {
-            if (path != PretrainedModel) return path;
-            string pretrained = PretrainedPath;
-            if (!File.Exists(pretrained))
-                throw new FileNotFoundException($"The pretrained Noise2Mic model is not installed: put {PretrainedFileName} at {pretrained}, or set {PretrainedVariable} to its path.", pretrained);
-            return pretrained;
-        }
+        /// <summary>The file a model path names: the installed pretrained model (<see cref="InstalledModels"/>) for <see cref="PretrainedModel"/>, otherwise the path itself.</summary>
+        public static string ResolvePath(string path) =>
+            path != PretrainedModel ? path : InstalledModels.Find(PretrainedFileName, "The pretrained Noise2Mic model");
 
         public void Load(string path) => Network.LoadStateDict(ResolvePath(path));
 

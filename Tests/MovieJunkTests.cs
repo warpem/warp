@@ -173,22 +173,4 @@ public class MovieJunkTests
         Assert.Equal("", WorkerCommands.MovieSegmentJunk("a.eer", 1.2f).Content[2]);
         Assert.Equal("model.pt", WorkerCommands.MovieSegmentJunk("a.eer", 1.2f, "model.pt").Content[2]);
     }
-
-    [Fact]
-    public void TheInstalledModelIsFoundBesideTheExecutablesOrWhereTheVariableSays()
-    {
-        string previous = Environment.GetEnvironmentVariable(JunkNetTorch.ModelVariable);
-        string file = Path.Combine(Path.GetTempPath(), "junknet-" + Guid.NewGuid().ToString("N") + ".pt");
-        try
-        {
-            Environment.SetEnvironmentVariable(JunkNetTorch.ModelVariable, file);
-            Assert.Throws<FileNotFoundException>(() => JunkNetTorch.ResolvePath(null));
-            File.WriteAllText(file, "weights");
-            Assert.Equal(file, JunkNetTorch.ResolvePath(""));
-            Assert.Equal("other.pt", JunkNetTorch.ResolvePath("other.pt"));
-            Environment.SetEnvironmentVariable(JunkNetTorch.ModelVariable, null);
-            Assert.Equal(Path.Combine(AppContext.BaseDirectory, "models", JunkNetTorch.ModelFileName), JunkNetTorch.InstalledPath);
-        }
-        finally { Environment.SetEnvironmentVariable(JunkNetTorch.ModelVariable, previous); File.Delete(file); }
-    }
 }

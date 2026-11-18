@@ -5,30 +5,36 @@ using Xunit;
 
 namespace Tests;
 
-public class Noise2MicPretrainedTests
+public class InstalledModelsTests
 {
     [Fact]
-    public void PretrainedTokenResolvesToTheInstalledModelAndOtherPathsStayAsTheyAre()
+    public void ModelsAreFoundInTheFolderTheVariableNamesOrBesideTheExecutables()
     {
-        string file = Path.Combine(Path.GetTempPath(), "noise2mic-" + Guid.NewGuid().ToString("N") + ".pt");
-        string previous = Environment.GetEnvironmentVariable(Noise2MicTorch.PretrainedVariable);
+        string folder = Path.Combine(Path.GetTempPath(), "warp-models-" + Guid.NewGuid().ToString("N"));
+        string previous = Environment.GetEnvironmentVariable(InstalledModels.Variable);
         try
         {
-            Environment.SetEnvironmentVariable(Noise2MicTorch.PretrainedVariable, file);
+            Directory.CreateDirectory(folder);
+            Environment.SetEnvironmentVariable(InstalledModels.Variable, folder);
             var missing = Assert.Throws<FileNotFoundException>(() => Noise2MicTorch.ResolvePath(Noise2MicTorch.PretrainedModel));
-            Assert.Contains(file, missing.Message);
-            File.WriteAllText(file, "weights");
-            Assert.Equal(file, Noise2MicTorch.ResolvePath(Noise2MicTorch.PretrainedModel));
-            Assert.Equal("models/session.pt", Noise2MicTorch.ResolvePath("models/session.pt"));
+            Assert.Contains(folder, missing.Message);
+            Assert.Throws<FileNotFoundException>(() => JunkNetTorch.ResolvePath(null));
 
-            // Without the variable, an installation keeps it in models/ beside the executables.
-            Environment.SetEnvironmentVariable(Noise2MicTorch.PretrainedVariable, null);
-            Assert.Equal(Path.Combine(AppContext.BaseDirectory, "models", Noise2MicTorch.PretrainedFileName), Noise2MicTorch.PretrainedPath);
+            string pretrained = Path.Combine(folder, Noise2MicTorch.PretrainedFileName), junk = Path.Combine(folder, JunkNetTorch.ModelFileName);
+            File.WriteAllText(pretrained, "weights"); File.WriteAllText(junk, "weights");
+            Assert.Equal(pretrained, Noise2MicTorch.ResolvePath(Noise2MicTorch.PretrainedModel));
+            Assert.Equal(junk, JunkNetTorch.ResolvePath(""));
+            // Other paths stay as they are.
+            Assert.Equal("models/session.pt", Noise2MicTorch.ResolvePath("models/session.pt"));
+            Assert.Equal("other.pt", JunkNetTorch.ResolvePath("other.pt"));
+
+            Environment.SetEnvironmentVariable(InstalledModels.Variable, null);
+            Assert.Equal(Path.Combine(AppContext.BaseDirectory, "models"), InstalledModels.Folder);
         }
         finally
         {
-            Environment.SetEnvironmentVariable(Noise2MicTorch.PretrainedVariable, previous);
-            File.Delete(file);
+            Environment.SetEnvironmentVariable(InstalledModels.Variable, previous);
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
         }
     }
 }

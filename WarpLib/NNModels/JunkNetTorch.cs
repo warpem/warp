@@ -15,23 +15,12 @@ namespace Warp
         /// <summary>Sampling the network was trained at, Å/pixel.</summary>
         public const float PixelSize = 6;
         public const string ModelFileName = "junknet.pt";
-        public const string ModelVariable = "WARP_JUNKNET";
         /// <summary>Changes whenever the installed model or the way its input is prepared changes what it segments.</summary>
         public const int Revision = 1;
 
-        /// <summary>Where this installation keeps the model: models/ beside the executables, or the file WARP_JUNKNET names.</summary>
-        public static string InstalledPath =>
-            Environment.GetEnvironmentVariable(ModelVariable) is { Length: > 0 } path ? path : Path.Combine(AppContext.BaseDirectory, "models", ModelFileName);
-
-        /// <summary>The model file to load: <paramref name="path"/>, or the installed model when it is empty.</summary>
-        public static string ResolvePath(string path)
-        {
-            if (!string.IsNullOrEmpty(path)) return path;
-            string installed = InstalledPath;
-            if (!File.Exists(installed))
-                throw new FileNotFoundException($"The junk segmentation model is not installed: put {ModelFileName} at {installed}, or set {ModelVariable} to its path.", installed);
-            return installed;
-        }
+        /// <summary>The model file to load: <paramref name="path"/>, or the installed model (<see cref="InstalledModels"/>) when it is empty.</summary>
+        public static string ResolvePath(string path) =>
+            !string.IsNullOrEmpty(path) ? path : InstalledModels.Find(ModelFileName, "The junk segmentation model");
 
         readonly TorchSharp.NN.JunkNet Network;
         readonly int Device;

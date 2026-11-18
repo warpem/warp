@@ -30,7 +30,8 @@ public class JunkNetCudaTests
         {
             GPU.SetDevice(0);
             using var network = new JunkNetTorch(0);
-            network.Load(Environment.GetEnvironmentVariable(JunkNetTorch.ModelVariable) is { Length: > 0 } model ? model : Path.Combine(bundle, "inference-weights.pt"));
+            // The installed model, if there is one; otherwise the bundle's own weights.
+            network.Load(File.Exists(Path.Combine(InstalledModels.Folder, JunkNetTorch.ModelFileName)) ? null : Path.Combine(bundle, "inference-weights.pt"));
             foreach (var entry in handoff.RootElement.GetProperty("cases").EnumerateArray())
             {
                 var files = entry.GetProperty("files");
