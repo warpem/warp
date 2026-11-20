@@ -755,11 +755,18 @@ namespace Warp
 
         public void RemoveRows(int[] indices)
         {
-            List<int> IndicesSorted = indices.ToList();
-            IndicesSorted.Sort();
-
-            for (int i = IndicesSorted.Count - 1; i >= 0; i--)
-                Rows.RemoveAt(IndicesSorted[i]);
+            // One compacting pass: removing rows one at a time shifts the rest of the list each time, which takes
+            // minutes for a large share of a million-row table.
+            if (indices == null || indices.Length == 0)
+                return;
+            bool[] Remove = new bool[Rows.Count];
+            foreach (int i in indices)
+                Remove[i] = true;
+            int Kept = 0;
+            for (int r = 0; r < Rows.Count; r++)
+                if (!Remove[r])
+                    Rows[Kept++] = Rows[r];
+            Rows.RemoveRange(Kept, Rows.Count - Kept);
         }
 
         public void RemoveRowsWhere(string columnName, Func<string, bool> match)
