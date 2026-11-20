@@ -37,35 +37,7 @@ public partial class TiltSeries
         Movie[] TiltMovies;
         Image[] TiltData;
         Image[] TiltMasks;
-        LoadMovieData(options, out TiltMovies, out TiltData, false, out _, out _);
-        LoadMovieMasks(options, out TiltMasks);
-        for (int z = 0; z < NTilts; z++)
-        {
-            EraseDirt(TiltData[z], TiltMasks[z]);
-            TiltMasks[z]?.FreeDevice();
-
-            if (options.NormalizeInput)
-            {
-                TiltData[z].SubtractMeanGrid(new int2(1));
-                TiltData[z].Bandpass(1f / SizeSub, 1f, false, 0f);
-
-                GPU.Normalize(TiltData[z].GetDevice(Intent.Read),
-                    TiltData[z].GetDevice(Intent.Write),
-                    (uint)TiltData[z].ElementsReal,
-                    1);
-            }
-            else
-            {
-                TiltData[z].Bandpass(1f / SizeSub, 1f, false, 0f);
-            }
-
-            if (options.Invert)
-                TiltData[z].Multiply(-1f);
-
-            TiltData[z].FreeDevice();
-
-            //TiltData[z].Multiply(TiltMasks[z]);
-        }
+        LoadTiltsForParticles(options, SizeSub, out TiltMovies, out TiltData, out TiltMasks);
 
         #endregion
 
@@ -119,6 +91,29 @@ public partial class TiltSeries
                 TiltWeights[IndicesSortedDose[t]] = 1 * (UseTilt[t] ? 1 : 0);
         else
             TiltWeights = UseTilt.Select(v => v ? 1f : 0f).ToArray();
+
+        // Subtomograms are written in the background while the next ones are reconstructed; a few at a time, to bound
+        // the memory their copies hold.
+        var WriteSlots = new System.Threading.SemaphoreSlim(4);
+        var Writes = new System.Collections.Generic.List<System.Threading.Tasks.Task>();
+        void WriteInBackground(Image volume, string path)
+        {
+            WriteSlots.Wait();
+            Image Copy = volume.GetCopy();
+            lock (Writes)
+                Writes.Add(System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        Copy.WriteMRC16b(path, (float)options.BinnedPixelSizeMean, true);
+                    }
+                    finally
+                    {
+                        Copy.Dispose();
+                        WriteSlots.Release();
+                    }
+                }));
+        }
 
         Helper.ForCPU(0, positions.Length / NTilts, NThreads,
             threadID => GPU.SetDevice(GPUID),
@@ -203,7 +198,7 @@ public partial class TiltSeries
 
                 SumAllParticles[threadID].Add(VolumeCropped[threadID]);
 
-                VolumeCropped[threadID].WriteMRC16b(System.IO.Path.Combine(SubtomoDir, $"{RootName}{options.Suffix}_{p:D7}_{options.BinnedPixelSizeMean:F2}A.mrc"), (float)options.BinnedPixelSizeMean, true);
+                WriteInBackground(VolumeCropped[threadID], System.IO.Path.Combine(SubtomoDir, $"{RootName}{options.Suffix}_{p:D7}_{options.BinnedPixelSizeMean:F2}A.mrc"));
 
                 #endregion
 
@@ -270,13 +265,15 @@ public partial class TiltSeries
                     VolumeCTFCropped[threadID].Multiply(SubtomoSparsityMask[threadID]);
                 }
 
-                VolumeCTFCropped[threadID].WriteMRC16b(System.IO.Path.Combine(SubtomoDir, $"{RootName}{options.Suffix}_{p:D7}_ctf_{options.BinnedPixelSizeMean:F2}A.mrc"), (float)options.BinnedPixelSizeMean, true);
+                WriteInBackground(VolumeCTFCropped[threadID], System.IO.Path.Combine(SubtomoDir, $"{RootName}{options.Suffix}_{p:D7}_ctf_{options.BinnedPixelSizeMean:F2}A.mrc"));
 
                 #endregion
 
                 //Console.WriteLine(SizeSubSuper);
                 //Timing.PrintMeasurements();
             }, null);
+
+        System.Threading.Tasks.Task.WaitAll(Writes.ToArray());
 
         // Write the sum of all particles
         {
@@ -321,8 +318,9 @@ public partial class TiltSeries
 
         CTFCoords.Dispose();
         //CTFCoordsPadded.Dispose();
+        // The filtered tilts are not needed again; they are reloaded next time.
         foreach (var image in TiltData)
-            image.FreeDevice();
+            image.DiscardDevice();
         foreach (var tiltMask in TiltMasks)
             tiltMask?.FreeDevice();
 

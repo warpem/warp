@@ -30,36 +30,7 @@ public partial class TiltSeries
         Movie[] TiltMovies;
         Image[] TiltData;
         Image[] TiltMasks;
-        LoadMovieData(options, out TiltMovies, out TiltData, false, out _, out _);
-        LoadMovieMasks(options, out TiltMasks);
-        for (int z = 0; z < NTilts; z++)
-        {
-            EraseDirt(TiltData[z], TiltMasks[z]);
-            TiltMasks[z]?.FreeDevice();
-
-            if (options.NormalizeInput)
-            {
-                TiltData[z].SubtractMeanGrid(new int2(1));
-                TiltData[z].Bandpass(1f / SizeSub, 1f, false, 0f);
-
-                GPU.Normalize(TiltData[z].GetDevice(Intent.Read),
-                    TiltData[z].GetDevice(Intent.Write),
-                    (uint)TiltData[z].ElementsReal,
-                    1);
-            }
-            else
-            {
-                TiltData[z].Bandpass(1f / SizeSub, 1f, false, 0f);
-            }
-
-            if (options.Invert)
-                TiltData[z].Multiply(-1f);
-
-            TiltData[z].FreeDevice();
-
-            //TiltData[z].Multiply(TiltMasks[z]);
-        }
-
+        LoadTiltsForParticles(options, SizeSub, out TiltMovies, out TiltData, out TiltMasks);
         #endregion
 
         #region Memory and FFT plan allocation
@@ -109,11 +80,11 @@ public partial class TiltSeries
         Image AverageParticles = new Image(new int3(SizeSub, SizeSub, UsedTilts.Count));
         float[][] AverageParticlesData = AverageParticles.GetHost(Intent.Write);
 
-        // RELION pairs its compact list of visible ExpImage records with the
-        // physical slices in each particle stack. Reuse a host buffer while
-        // keeping its depth equal to the current particle's visible-frame count.
-        Image VisibleParticles = null;
-        float[][] VisibleParticlesData = null;
+        // RELION pairs its compact list of visible ExpImage records with the physical slices in each particle stack, so
+        // each stack holds only the particle's visible frames. Stacks are written in the background while the next
+        // particles are extracted; a few at a time, to bound the memory they hold.
+        var WriteSlots = new System.Threading.SemaphoreSlim(4);
+        var Writes = new List<System.Threading.Tasks.Task>();
 
         Image SumAllParticles = new Image(new int3(SizeSub, SizeSub, NTilts));
 
@@ -176,24 +147,16 @@ public partial class TiltSeries
                 Visibility[t] = Visibility[t] && UseTilt[t];
             Visibility = Helper.IndexedSubset(Visibility, UsedTilts.ToArray());
 
-            float[][] ImagesData = Images.GetHost(Intent.Read);
             int[] VisibleTilts = RelionParticleSeriesExport.GetVisibleTiltIndices(UsedTilts, Visibility);
             int NVisible = VisibleTilts.Length;
+            Image VisibleParticles = null;
             if (NVisible > 0)
             {
-                if (VisibleParticles == null || VisibleParticles.Dims.Z != NVisible)
-                {
-                    VisibleParticles?.Dispose();
-                    VisibleParticles = new Image(new int3(SizeSub, SizeSub, NVisible));
-                    VisibleParticlesData = VisibleParticles.GetHost(Intent.Write);
-                }
-
+                WriteSlots.Wait();
+                VisibleParticles = new Image(new int3(SizeSub, SizeSub, NVisible));
+                float[][] VisibleParticlesData = VisibleParticles.GetHost(Intent.Write);
                 for (int i = 0; i < VisibleTilts.Length; i++)
-                    Array.Copy(ImagesData[VisibleTilts[i]],
-                               0,
-                               VisibleParticlesData[i],
-                               0,
-                               ImagesData[0].Length);
+                    GPU.CopyDeviceToHost(Images.GetDeviceSlice(VisibleTilts[i], Intent.Read), VisibleParticlesData[i], Images.ElementsSliceReal);
             }
 
 
@@ -225,7 +188,21 @@ public partial class TiltSeries
             // A zero-visible particle is removed from the final STAR table by
             // the manager, so it intentionally has no physical stack.
             if (NVisible > 0)
-                VisibleParticles.WriteMRC16b(SeriesPath, (float)options.BinnedPixelSizeMean, true);
+            {
+                Image ToWrite = VisibleParticles;
+                Writes.Add(System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        ToWrite.WriteMRC16b(SeriesPath, (float)options.BinnedPixelSizeMean, true);
+                    }
+                    finally
+                    {
+                        ToWrite.Dispose();
+                        WriteSlots.Release();
+                    }
+                }));
+            }
 
             if (IsCanceled)
                 break;
@@ -243,11 +220,11 @@ public partial class TiltSeries
             AverageParticles.WriteMRC16b(SumPath, (float)options.BinnedPixelSizeMean, true);
         }
 
+        System.Threading.Tasks.Task.WaitAll(Writes.ToArray());
         #region Teardown
 
         RelionWeights.Dispose();
         SumAllParticles.Dispose();
-        VisibleParticles?.Dispose();
         AverageParticles.Dispose();
         Images.Dispose();
         ImagesFT.Dispose();
@@ -257,11 +234,50 @@ public partial class TiltSeries
         GPU.DestroyFFTPlan(PlanForwParticle);
         GPU.DestroyFFTPlan(PlanBackParticle);
 
+        // The filtered tilts are not needed again; they are reloaded next time.
         foreach (var image in TiltData)
-            image.FreeDevice();
+            image.DiscardDevice();
         foreach (var tiltMask in TiltMasks)
             tiltMask?.FreeDevice();
 
         #endregion
+    }
+
+    /// <summary>
+    /// The tilt averages for particle export, scaled to the options' pixel size, with masked dirt erased and filtered:
+    /// band-passed from the box size up, normalized if asked and inverted if asked. They stay on the GPU (discard
+    /// them with DiscardDevice when done). Dirt erasure and plane subtraction run on several threads on the host
+    /// while the GPU filters one tilt at a time.
+    /// </summary>
+    void LoadTiltsForParticles(ProcessingOptionsTomoSubReconstruction options, int boxSize, out Movie[] tiltMovies, out Image[] tiltData, out Image[] tiltMasks)
+    {
+        LoadMovieData(options, out tiltMovies, out tiltData, false, out _, out _, keepOnDevice: true);
+        LoadMovieMasks(options, out tiltMasks);
+
+        Image[] Data = tiltData, Masks = tiltMasks;
+        int Device = GPU.GetDevice();
+        object GPULock = new object();
+        Helper.ForCPUGreedy(0, NTilts, Math.Min(NTilts, 6), threadID => GPU.SetDevice(Device), (z, threadID) =>
+        {
+            EraseDirt(Data[z], Masks[z]);
+            Masks[z]?.FreeDevice();
+
+            if (options.NormalizeInput)
+                Data[z].SubtractMeanGrid(new int2(1));
+
+            lock (GPULock)
+            {
+                Data[z].Bandpass(1f / boxSize, 1f, false, 0f);
+
+                if (options.NormalizeInput)
+                    GPU.Normalize(Data[z].GetDevice(Intent.Read),
+                                  Data[z].GetDevice(Intent.Write),
+                                  (uint)Data[z].ElementsReal,
+                                  1);
+
+                if (options.Invert)
+                    Data[z].Multiply(-1f);
+            }
+        }, null);
     }
 }

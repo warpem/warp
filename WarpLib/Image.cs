@@ -549,6 +549,31 @@ namespace Warp
             return this;
         }
 
+        /// <summary>
+        /// Frees the device copy without copying it back, for data whose current values are no longer needed. The host
+        /// copy stays as it was, stale if the device copy was newer, and becomes the current one again.
+        /// </summary>
+        public Image DiscardDevice()
+        {
+            lock (Sync)
+            {
+                if (_DeviceData != IntPtr.Zero)
+                {
+                    GPU.FreeDevice(_DeviceData);
+                    GPU.OnMemoryChanged();
+                    _DeviceData = IntPtr.Zero;
+                    IsDeviceDirty = false;
+
+                    lock (GlobalSync)
+                        OnDeviceObjects.Remove(this);
+                }
+
+                IsHostDirty = true;
+            }
+
+            return this;
+        }
+
         public Image AndFreeParent()
         {
             Parent?.FreeDevice();

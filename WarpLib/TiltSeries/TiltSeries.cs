@@ -1441,13 +1441,13 @@ namespace Warp
 
         #region Data loading
 
-        static Image[] _RawDataBuffers = null;
-        static Image[] RawDataBuffers
+        static Image[][] _RawDataBuffers = null;
+        static Image[][] RawDataBuffers
         {
             get
             {
                 if (_RawDataBuffers == null)
-                    _RawDataBuffers = new Image[GPU.GetDeviceCount()];
+                    _RawDataBuffers = new Image[GPU.GetDeviceCount()][];
                 return _RawDataBuffers;
             }
         }
@@ -1482,7 +1482,9 @@ namespace Warp
             }
         }
 
-        public void LoadMovieData(ProcessingOptionsBase options, out Movie[] movies, out Image[] movieData, bool doOddEven, out Image[] movieDataOdd, out Image[] movieDataEven, bool useDenoised = false)
+        /// <param name="keepOnDevice">Leave the scaled tilts on the GPU (as their current copy) instead of downloading
+        /// them, for callers that work on them there; otherwise they are on the host.</param>
+        public void LoadMovieData(ProcessingOptionsBase options, out Movie[] movies, out Image[] movieData, bool doOddEven, out Image[] movieDataOdd, out Image[] movieDataEven, bool useDenoised = false, bool keepOnDevice = false)
         {
             if (TiltMoviePaths.Length != NTilts)
                 throw new Exception("A valid path is needed for each tilt.");
@@ -1521,14 +1523,19 @@ namespace Warp
 
             int CurrentDevice = GPU.GetDevice();
 
+            // The averages are read (and converted from their file type) by several threads at once, which network
+            // storage serves much faster than one file after another; the GPU scales them one at a time.
+            int NReaders = Math.Max(1, Math.Min(NTilts, 6));
+
             #region Make sure reusable buffers are there and have correct dimensions
 
-            if (RawDataBuffers[CurrentDevice] == null || RawDataBuffers[CurrentDevice].ElementsReal != Header.Dimensions.Elements())
+            if (RawDataBuffers[CurrentDevice] == null || RawDataBuffers[CurrentDevice].Length < NReaders || RawDataBuffers[CurrentDevice][0].ElementsReal != Header.Dimensions.Elements())
             {
                 if (RawDataBuffers[CurrentDevice] != null)
-                    RawDataBuffers[CurrentDevice].Dispose();
+                    foreach (var item in RawDataBuffers[CurrentDevice])
+                        item.Dispose();
 
-                RawDataBuffers[CurrentDevice] = new Image(Header.Dimensions);
+                RawDataBuffers[CurrentDevice] = Helper.ArrayOfFunction(i => new Image(Header.Dimensions), NReaders);
             }
 
             if (ScaledTiltBuffers[CurrentDevice] == null ||
@@ -1560,110 +1567,65 @@ namespace Warp
 
             #endregion
 
-            for (int t = 0; t < NTilts; t++)
+            Image[] RawBuffers = RawDataBuffers[CurrentDevice];
+            Image[] Scaled = ScaledTiltBuffers[CurrentDevice];
+            Image[] ScaledOdd = ScaledTiltBuffersOdd[CurrentDevice];
+            Image[] ScaledEven = ScaledTiltBuffersEven[CurrentDevice];
+            object GPULock = new object();
+            Movie[] Movies = movies;
+
+            void LoadOne(string path, Image raw, Image target)
             {
                 IOHelper.ReadMapFloatPatient(50, 500,
-                                             useDenoised ? movies[t].AverageDenoisedPath : movies[t].AveragePath,
+                                             path,
                                              new int2(1),
                                              0,
                                              typeof(float),
                                              new[] { 0 },
                                              null,
-                                             RawDataBuffers[CurrentDevice].GetHost(Intent.Write));
+                                             raw.GetHost(Intent.Write));
 
-                if (DoScale)
+                lock (GPULock)
                 {
-                    GPU.Scale(RawDataBuffers[CurrentDevice].GetDevice(Intent.Read),
-                              ScaledTiltBuffers[CurrentDevice][t].GetDevice(Intent.Write),
-                              Header.Dimensions,
-                              new int3(DimsScaled),
-                              1,
-                              PlanForw,
-                              PlanBack,
-                              IntPtr.Zero,
-                              IntPtr.Zero);
-
-                    ScaledTiltBuffers[CurrentDevice][t].FreeDevice();
-                }
-                else
-                {
-                    Array.Copy(RawDataBuffers[CurrentDevice].GetHost(Intent.Read)[0], 0,
-                               ScaledTiltBuffers[CurrentDevice][t].GetHost(Intent.Write)[0], 0,
-                               (int)Header.Dimensions.Elements());
-                }
-
-                if (doOddEven)
-                {
+                    if (DoScale)
                     {
-                        if (!File.Exists(movies[t].AverageOddPath))
-                            throw new Exception("No odd/even frame averages found for this tilt series. Please re-process the movies with that export option checked.");
+                        GPU.Scale(raw.GetDevice(Intent.Read),
+                                  target.GetDevice(Intent.Write),
+                                  Header.Dimensions,
+                                  new int3(DimsScaled),
+                                  1,
+                                  PlanForw,
+                                  PlanBack,
+                                  IntPtr.Zero,
+                                  IntPtr.Zero);
 
-                        IOHelper.ReadMapFloatPatient(50, 500,
-                                                     movies[t].AverageOddPath,
-                                                     new int2(1),
-                                                     0,
-                                                     typeof(float),
-                                                     new[] { 0 },
-                                                     null,
-                                                     RawDataBuffers[CurrentDevice].GetHost(Intent.Write));
-
-                        if (DoScale)
-                        {
-                            GPU.Scale(RawDataBuffers[CurrentDevice].GetDevice(Intent.Read),
-                                      ScaledTiltBuffersOdd[CurrentDevice][t].GetDevice(Intent.Write),
-                                      Header.Dimensions,
-                                      new int3(DimsScaled),
-                                      1,
-                                      PlanForw,
-                                      PlanBack,
-                                      IntPtr.Zero,
-                                      IntPtr.Zero);
-
-                            ScaledTiltBuffersOdd[CurrentDevice][t].FreeDevice();
-                        }
-                        else
-                        {
-                            Array.Copy(RawDataBuffers[CurrentDevice].GetHost(Intent.Read)[0], 0,
-                                       ScaledTiltBuffersOdd[CurrentDevice][t].GetHost(Intent.Write)[0], 0,
-                                       (int)Header.Dimensions.Elements());
-                        }
+                        if (!keepOnDevice)
+                            target.FreeDevice();
                     }
+                    else
                     {
-                        if (!File.Exists(movies[t].AverageEvenPath))
-                            throw new Exception("No odd/even frame averages found for this tilt series. Please re-process the movies with that export option checked.");
-
-                        IOHelper.ReadMapFloatPatient(50, 500,
-                                                     movies[t].AverageEvenPath,
-                                                     new int2(1),
-                                                     0,
-                                                     typeof(float),
-                                                     new[] { 0 },
-                                                     null,
-                                                     RawDataBuffers[CurrentDevice].GetHost(Intent.Write));
-
-                        if (DoScale)
-                        {
-                            GPU.Scale(RawDataBuffers[CurrentDevice].GetDevice(Intent.Read),
-                                      ScaledTiltBuffersEven[CurrentDevice][t].GetDevice(Intent.Write),
-                                      Header.Dimensions,
-                                      new int3(DimsScaled),
-                                      1,
-                                      PlanForw,
-                                      PlanBack,
-                                      IntPtr.Zero,
-                                      IntPtr.Zero);
-
-                            ScaledTiltBuffersEven[CurrentDevice][t].FreeDevice();
-                        }
-                        else
-                        {
-                            Array.Copy(RawDataBuffers[CurrentDevice].GetHost(Intent.Read)[0], 0,
-                                       ScaledTiltBuffersEven[CurrentDevice][t].GetHost(Intent.Write)[0], 0,
-                                       (int)Header.Dimensions.Elements());
-                        }
+                        Array.Copy(raw.GetHost(Intent.Read)[0], 0,
+                                   target.GetHost(Intent.Write)[0], 0,
+                                   (int)Header.Dimensions.Elements());
+                        if (keepOnDevice)
+                            target.GetDevice(Intent.Read);
                     }
                 }
             }
+
+            Helper.ForCPUGreedy(0, NTilts, NReaders, threadID => GPU.SetDevice(CurrentDevice), (t, threadID) =>
+            {
+                LoadOne(useDenoised ? Movies[t].AverageDenoisedPath : Movies[t].AveragePath, RawBuffers[threadID], Scaled[t]);
+
+                if (doOddEven)
+                {
+                    if (!File.Exists(Movies[t].AverageOddPath) || !File.Exists(Movies[t].AverageEvenPath))
+                        throw new Exception("No odd/even frame averages found for this tilt series. Please re-process the movies with that export option checked.");
+
+                    LoadOne(Movies[t].AverageOddPath, RawBuffers[threadID], ScaledOdd[t]);
+                    LoadOne(Movies[t].AverageEvenPath, RawBuffers[threadID], ScaledEven[t]);
+                }
+            }, null);
 
             if (DoScale)
             {
@@ -1671,11 +1633,11 @@ namespace Warp
                 GPU.DestroyFFTPlan(PlanBack);
             }
 
-            movieData = ScaledTiltBuffers[CurrentDevice].Take(NTilts).ToArray();
+            movieData = Scaled.Take(NTilts).ToArray();
             if (doOddEven)
             {
-                movieDataOdd = ScaledTiltBuffersOdd[CurrentDevice].Take(NTilts).ToArray();
-                movieDataEven = ScaledTiltBuffersEven[CurrentDevice].Take(NTilts).ToArray();
+                movieDataOdd = ScaledOdd.Take(NTilts).ToArray();
+                movieDataEven = ScaledEven.Take(NTilts).ToArray();
             }
             else
             {
@@ -1819,7 +1781,9 @@ namespace Warp
         public static void FreeDeviceBuffers()
         {
             foreach (var item in RawDataBuffers)
-                item?.FreeDevice();
+                if (item != null)
+                    foreach (var subitem in item)
+                        subitem?.FreeDevice();
             foreach (var item in ScaledTiltBuffers)
                 if (item != null)
                     foreach (var subitem in item)
