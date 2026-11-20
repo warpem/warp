@@ -287,6 +287,17 @@ public class EerRenderCudaTests : IDisposable
                     for (int g = 0; g < 2; g++)
                         Assert.Equal(actual[g], again.GetHost(Intent.Read)[g]);
 
+                    // Groups handed over as they are rendered are the same groups.
+                    var streamed = new float[2][];
+                    EerRenderer.RenderStack(path, memory, index, 2, 2, gain, size, 3, IntPtr.Zero, null, width,
+                                            onGroup: (z, frame) =>
+                                            {
+                                                streamed[z] = new float[size * size];
+                                                GPU.CopyDeviceToHost(frame, streamed[z], size * size);
+                                            });
+                    for (int g = 0; g < 2; g++)
+                        Assert.Equal(actual[g], streamed[g]);
+
                     for (int g = 0; g < 2; g++)
                     {
                         var (error, meanRatio) = Compare(actual[g], expected[g]);

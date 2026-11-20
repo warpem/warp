@@ -45,7 +45,8 @@ static partial class WorkerProcess
                 try
                 {
                     TaskItem next = queue.PeekOne(allowed);
-                    string path = next?.Main?.FirstOrDefault(c => c.Name == WorkerCommandNames.LoadStack)?.Content?[0] as string;
+                    string path = next?.Main?.FirstOrDefault(c => c.Name == WorkerCommandNames.LoadStack ||
+                                                                  c.Name == WorkerCommandNames.MovieExportParticlesFromFile)?.Content?[0] as string;
                     if (path == null || path == currentPath || !FileInMemory.IsMovie(path)) return;
                     var info = new FileInfo(path);
                     if (info.Length > FileInMemory.MaxBytes) return;

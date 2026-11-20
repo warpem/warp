@@ -76,6 +76,16 @@ namespace Warp.Workers
             string path, ProcessingOptionsParticleExport options, float2[] coordinates) =>
             new(WorkerCommandNames.MovieExportParticles, path, options, coordinates);
 
+        /// <summary>
+        /// Extracts particles straight from a movie file (<paramref name="dataPath"/>, loaded as by LoadStack), frame by
+        /// frame as it is decoded, without a stack; <paramref name="moviePath"/> names its metadata and output. The worker
+        /// reads the next task's movie meanwhile, as after LoadStack.
+        /// </summary>
+        public static NamedSerializableObject MovieExportParticlesFromFile(
+            string dataPath, decimal scaleFactor, int eerGroupFrames, bool correctGain,
+            string moviePath, ProcessingOptionsParticleExport options, float2[] coordinates) =>
+            new(WorkerCommandNames.MovieExportParticlesFromFile, dataPath, scaleFactor, eerGroupFrames, correctGain, moviePath, options, coordinates);
+
         /// <summary>Prepare deconvolved averages and independent training halves at >=5 Å/pixel.</summary>
         /// <summary>
         /// Noise2Mic training for epochs over the movies' half-averages, deconvolved on the fly with each movie's CTF at
@@ -250,6 +260,7 @@ namespace Warp.Workers
         public const string MicrographCreatePreview = "MicrographCreatePreview";
         public const string MovieExportParticlesFromStar = "MovieExportParticlesFromStar";
         public const string MovieExportParticles = "MovieExportParticles";
+        public const string MovieExportParticlesFromFile = "MovieExportParticlesFromFile";
 
         // --- Tilt series ---
         public const string TomoStack = "TomoStack";

@@ -100,9 +100,6 @@ namespace WarpTools.Commands.Frameseries
 
             #region Validate options
 
-            if (CLI.StarPattern == null || !CLI.StarPattern.Any())
-                CLI.StarPattern = new string[] { "*.star" };
-
             if (string.IsNullOrEmpty(Path.GetFileName(CLI.StarOut)))
                 throw new Exception("Please specify a file name for --output");
             CLI.StarOut = Helper.PathCombine(Environment.CurrentDirectory, CLI.StarOut);
@@ -182,11 +179,22 @@ namespace WarpTools.Commands.Frameseries
             if (File.Exists(CLI.StarFolder))
             {
                 if (CLI.StarPattern != null && CLI.StarPattern.Any())
-                    throw new Exception("Can't specify --files when --star already points to a single file");
+                    throw new Exception("Can't specify --patterns when --input already points to a single file");
 
                 CLI.StarPattern = new string[] { Path.GetFileName(CLI.StarFolder) };
                 CLI.StarFolder = Path.GetDirectoryName(CLI.StarFolder);
             }
+            else if (!Directory.Exists(CLI.StarFolder))
+            {
+                throw new Exception($"--input {CLI.StarFolder} is neither a STAR file nor a folder");
+            }
+            else if (CLI.StarPattern == null || !CLI.StarPattern.Any())
+            {
+                CLI.StarPattern = new string[] { "*.star" };
+            }
+
+            if (string.IsNullOrEmpty(CLI.StarFolder))
+                CLI.StarFolder = Environment.CurrentDirectory;
 
             List<string> AllStarPaths = new List<string>();
             foreach (var pattern in CLI.StarPattern)
@@ -205,17 +213,30 @@ namespace WarpTools.Commands.Frameseries
 
             Console.WriteLine($"Found {AllStarPaths.Count} STAR files");
 
+            // Per-item STAR files are named {movie name}{suffix}.star. The longest movie name the file name starts with
+            // is its movie, so e.g. ..._1_suffix.star doesn't go to ..._10.
+            var MoviesByRootName = CLI.InputSeries.GroupBy(m => m.RootName).ToDictionary(g => g.Key, g => g.First());
+            Movie MovieForStar(string starPath)
+            {
+                string StarName = Path.GetFileNameWithoutExtension(starPath);
+                for (int length = StarName.Length; length > 0; length--)
+                    if (MoviesByRootName.TryGetValue(StarName.Substring(0, length), out Movie m))
+                        return m;
+                return null;
+            }
+
             // Figure out if we're dealing with a RELION 3-style STAR file, and if files are per-item
             {
                 Relion3 = Star.ContainsTable(AllStarPaths.First(), "particles");
 
-                Star FirstTable = Relion3 ? new Star(AllStarPaths.First(), "particles") : new Star(AllStarPaths.First());
+                // Only the columns are needed here; all rows are read below.
+                Star FirstTable = Relion3 ? new Star(AllStarPaths.First(), "particles", nrows: 1) : new Star(AllStarPaths.First(), nrows: 1);
 
                 if (!FirstTable.HasColumn("rlnMicrographName"))
                 {
                     Console.Write("No rlnMicrographName column found, trying to match file names to movies... ");
 
-                    if (CLI.InputSeries.Any(s => Path.GetFileNameWithoutExtension(AllStarPaths.First()).Contains(s.RootName)))
+                    if (AllStarPaths.Any(p => MovieForStar(p) != null))
                     {
                         Console.WriteLine("Succeeded");
                         PerItemStar = true;
@@ -227,7 +248,7 @@ namespace WarpTools.Commands.Frameseries
                                             "or that the STAR file names are of the format {movie name}{suffix}.star");
                     }
 
-                    AllStarPaths = AllStarPaths.Where(p => CLI.InputSeries.Any(s => Path.GetFileNameWithoutExtension(p).Contains(s.RootName))).ToList();
+                    AllStarPaths = AllStarPaths.Where(p => MovieForStar(p) != null).ToList();
                     Console.WriteLine($"Found {AllStarPaths.Count} matching STAR files");
                 }
 
@@ -239,12 +260,11 @@ namespace WarpTools.Commands.Frameseries
             Helper.ForCPU(0, AllStarPaths.Count, 8, null, (istar, threadID) =>
             {
                 Star ThisTable = Relion3 ? new Star(AllStarPaths[istar], "particles") : new Star(AllStarPaths[istar]);
-                Star ThisOptics = Relion3 ? new Star(AllStarPaths[istar], "optics") : null;
+                Star ThisOptics = Relion3 && Star.ContainsTable(AllStarPaths[istar], "optics") ? new Star(AllStarPaths[istar], "optics") : null;
 
                 if (PerItemStar)
                 {
-                    string StarName = Path.GetFileNameWithoutExtension(AllStarPaths[istar]);
-                    string MicrographName = Path.GetFileName(CLI.InputSeries.First(s => StarName.Contains(s.RootName)).DataPath);
+                    string MicrographName = Path.GetFileName(MovieForStar(AllStarPaths[istar]).DataPath);
 
                     ThisTable.AddColumn("rlnMicrographName", MicrographName);
                 }
@@ -268,46 +288,72 @@ namespace WarpTools.Commands.Frameseries
 
             #region Optics table
 
-            if (!CLI.KeepCTF && CLI.InputSeries.First().CTF != null)
+            // Optics groups that come with the input (e.g. by beam shift) are kept: a refinement may model each group's
+            // beam tilt and aberrations. Their image parameters describe the new particles, and the microscope's come
+            // from the movies' CTF unless --keep_ctf keeps the input's. Without input groups, all particles form one.
+            CTF FirstCTF = CLI.InputSeries.First().CTF;
+            if (!CLI.KeepCTF)
             {
-                if (!TableIn.HasColumn("rlnDefocusU"))
-                    TableIn.AddColumn("rlnDefocusU", "0.0");
-                if (!TableIn.HasColumn("rlnDefocusV"))
-                    TableIn.AddColumn("rlnDefocusV", "0.0");
-                if (!TableIn.HasColumn("rlnDefocusAngle"))
-                    TableIn.AddColumn("rlnDefocusAngle", "0.0");
-                if (!TableIn.HasColumn("rlnPhaseShift"))
-                    TableIn.AddColumn("rlnPhaseShift", "0.0");
+                foreach (var name in new[] { "rlnDefocusU", "rlnDefocusV", "rlnDefocusAngle", "rlnPhaseShift" })
+                    if (!TableIn.HasColumn(name))
+                        TableIn.AddColumn(name, "0.0");
                 if (!TableIn.HasColumn("rlnCtfMaxResolution"))
                     TableIn.AddColumn("rlnCtfMaxResolution", "999");
+            }
 
-                if (!TableIn.HasColumn("rlnOpticsGroup"))
-                    TableIn.AddColumn("rlnOpticsGroup", "1");
-                else
-                    TableIn.SetColumn("rlnOpticsGroup", Helper.ArrayOfConstant("1", TableIn.RowCount));
+            {
+                Star OpticsGroups = null;
+                if (OpticsIn.RowCount > 0 && OpticsIn.HasColumn("rlnOpticsGroup") && TableIn.HasColumn("rlnOpticsGroup"))
+                {
+                    // Per-item STAR files repeat their optics table; each group is kept once.
+                    var Seen = new HashSet<string>();
+                    var Duplicates = new List<int>();
+                    string[] Groups = OpticsIn.GetColumn("rlnOpticsGroup");
+                    for (int r = 0; r < Groups.Length; r++)
+                        if (!Seen.Add(Groups[r]))
+                            Duplicates.Add(r);
+                    OpticsIn.RemoveRows(Duplicates.ToArray());
 
-                OpticsIn = new Star(new string[]
+                    var Known = new HashSet<string>(OpticsIn.GetColumn("rlnOpticsGroup"));
+                    if (TableIn.GetColumn("rlnOpticsGroup").All(Known.Contains))
+                        OpticsGroups = OpticsIn;
+                }
+
+                if (OpticsGroups == null)
                 {
-                    "rlnVoltage",
-                    "rlnImagePixelSize",
-                    "rlnSphericalAberration",
-                    "rlnAmplitudeContrast",
-                    "rlnOpticsGroup",
-                    "rlnImageSize",
-                    "rlnImageDimensionality",
-                    "rlnOpticsGroupName"
-                });
-                OpticsIn.AddRow(new string[]
+                    OpticsGroups = new Star(new[] { "rlnOpticsGroup", "rlnOpticsGroupName" });
+                    OpticsGroups.AddRow(new[] { "1", "opticsGroup1" });
+
+                    if (!TableIn.HasColumn("rlnOpticsGroup"))
+                        TableIn.AddColumn("rlnOpticsGroup", "1");
+                    else
+                        TableIn.SetColumn("rlnOpticsGroup", Helper.ArrayOfConstant("1", TableIn.RowCount));
+                }
+
+                void SetOptics(string name, string value)
                 {
-                    CLI.InputSeries.First().CTF.Voltage.ToString("F6", CultureInfo.InvariantCulture),
-                    Options.Tasks.Export2DPixel.ToString("F6", CultureInfo.InvariantCulture),
-                    CLI.InputSeries.First().CTF.Cs.ToString("F6", CultureInfo.InvariantCulture),
-                    CLI.InputSeries.First().CTF.Amplitude.ToString("F6", CultureInfo.InvariantCulture),
-                    "1",
-                    Options.Tasks.Export2DBoxSize.ToString(),
-                    "2",
-                    "opticsGroup1"
-                });
+                    if (!OpticsGroups.HasColumn(name))
+                        OpticsGroups.AddColumn(name, value);
+                    else
+                        OpticsGroups.SetColumn(name, Helper.ArrayOfConstant(value, OpticsGroups.RowCount));
+                }
+
+                if (!OpticsGroups.HasColumn("rlnOpticsGroupName"))
+                    OpticsGroups.AddColumn("rlnOpticsGroupName", OpticsGroups.GetColumn("rlnOpticsGroup").Select(g => "opticsGroup" + g).ToArray());
+
+                if (FirstCTF != null && (!CLI.KeepCTF || !OpticsGroups.HasColumn("rlnVoltage")))
+                {
+                    SetOptics("rlnVoltage", FirstCTF.Voltage.ToString("F6", CultureInfo.InvariantCulture));
+                    SetOptics("rlnSphericalAberration", FirstCTF.Cs.ToString("F6", CultureInfo.InvariantCulture));
+                    SetOptics("rlnAmplitudeContrast", FirstCTF.Amplitude.ToString("F6", CultureInfo.InvariantCulture));
+                }
+
+                SetOptics("rlnImagePixelSize", Options.Tasks.Export2DPixel.ToString("F6", CultureInfo.InvariantCulture));
+                SetOptics("rlnImageSize", Options.Tasks.Export2DBoxSize.ToString());
+                SetOptics("rlnImageDimensionality", "2");
+                SetOptics("rlnCtfDataAreCtfPremultiplied", "0");
+
+                OpticsIn = OpticsGroups;
             }
 
             #endregion
@@ -333,6 +379,27 @@ namespace WarpTools.Commands.Frameseries
 
             if (RowGroups.Count == 0)
                 throw new Exception("No rows found matching any of the input movies' names in the rlnMicrographName column");
+
+            // Particles are extracted from motion-corrected frames, and their CTF comes from the movie unless --keep_ctf
+            // keeps the input's; movies without those results are left out with their particles.
+            {
+                var Unprocessed = CLI.InputSeries.Where(m => RowGroups.ContainsKey(m.RootName) &&
+                                                             (m.OptionsMovement == null || (!CLI.KeepCTF && m.OptionsCTF == null))).ToArray();
+                if (Unprocessed.Length > 0)
+                {
+                    Console.WriteLine($"Leaving out {Unprocessed.Length} movies without motion{(CLI.KeepCTF ? "" : " or CTF")} results " +
+                                      $"and their {Unprocessed.Sum(m => RowGroups[m.RootName].Count)} particles, e.g. {Unprocessed.First().Name}");
+                    foreach (var m in Unprocessed)
+                        RowGroups.Remove(m.RootName);
+                }
+
+                if (RowGroups.Count == 0)
+                    throw new Exception("None of the movies with particles have motion and CTF results");
+
+                int NMatched = RowGroups.Sum(g => g.Value.Count);
+                Console.WriteLine($"Extracting {NMatched} particles from {RowGroups.Count} movies; " +
+                                  $"{TableIn.RowCount - NMatched} particles in other movies are left out");
+            }
 
             List<int> RowsNotIncluded = new List<int>();
             {
@@ -482,7 +549,15 @@ namespace WarpTools.Commands.Frameseries
             {
                 decimal ScaleFactor = 1M / (decimal)Math.Pow(2, (double)ExportOptions.BinTimes);
 
-                CLI.DistributeItems<Movie>(
+                // Particles come from gain-corrected frames, like the averages motion correction made: each worker loads
+                // the gain reference and defect map once (all tasks share the init fingerprint).
+                var loadGainRef = WorkerCommands.LoadGainRef(Options.Import.GainPath,
+                                                             Options.Import.GainFlipX,
+                                                             Options.Import.GainFlipY,
+                                                             Options.Import.GainTranspose,
+                                                             Options.Import.DefectsPath);
+
+                var (_, Failed) = CLI.DistributeItems<Movie>(
                     buildTask: (m, i) =>
                     {
                         // No STAR rows for this movie — skip it entirely.
@@ -497,17 +572,25 @@ namespace WarpTools.Commands.Frameseries
                             TaskId = $"{i:D7}-exportparticles-{m.RootName}",
                             Stage = "preprocess",
                             RequiresGpu = true,
-                            Init = System.Array.Empty<NamedSerializableObject>(),
+                            Init = new[] { loadGainRef },
                             Main = new[]
                             {
-                                WorkerCommands.LoadStack(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames),
-                                WorkerCommands.MovieExportParticles(m.Path, ExportOptions, positions.ToArray()),
+                                // Streamed from the file: no stack is loaded (see the worker command).
+                                WorkerCommands.MovieExportParticlesFromFile(m.DataPath, ScaleFactor, Options.Import.EERGroupFrames, true,
+                                                                            m.Path, ExportOptions, positions.ToArray()),
+                                // The stacks are written in the background; the task is done once they are.
+                                WorkerCommands.WaitAsyncTasks(),
                                 WorkerCommands.GcCollect(),
                             },
                         };
                         task.ComputeInitFingerprint();
                         return task;
                     });
+
+                // A movie that failed has no particle stack, so its rows go too.
+                foreach (var m in Failed)
+                    if (RowGroups.TryGetValue(m.RootName, out var rows))
+                        RowsNotIncluded.AddRange(rows);
             }
 
             #endregion

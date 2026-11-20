@@ -66,7 +66,7 @@ static partial class WorkerProcess
     static void TrainMovieDenoiser(NamedSerializableObject command)
     {
         // Training is a standalone queue task; release a prior movie/model before allocating its batches.
-        OriginalStack?.Dispose(); OriginalStack = null; OriginalStackOwner = "";
+        OriginalStack?.Dispose(); OriginalStack = null; OriginalStackOwner = ""; OriginalStackSource = null;
         MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
         MovieDenoising.TrainMovies((string[])command.Content[0], (string)command.Content[1], (string)command.Content[2],
             (int)command.Content[3], DeviceID, (float)command.Content[6], (float)command.Content[4], (float)command.Content[5],

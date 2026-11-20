@@ -44,6 +44,8 @@ namespace WarpWorker2
         static float[][] RawLayers = null;
         static string OriginalStackOwner = "";
         static Image OriginalStack = null;
+        // What LoadStack loaded OriginalStack from, and in which task; null while it holds no complete load.
+        static StackSource OriginalStackSource = null;
         // LoadStack left OriginalStack on the GPU; movie commands then keep it there rather than freeing it.
         static bool StackResident = false;
         // The queue and stages this worker claims from, for LoadStack to prefetch the next movie (see MoviePrefetch).
@@ -395,7 +397,7 @@ namespace WarpWorker2
         {
             GainRef?.Dispose(); GainRef = null;
             MicrographDenoiserModel?.Dispose(); MicrographDenoiserModel = null; MicrographDenoiserPath = "";
-            OriginalStack?.Dispose(); OriginalStack = null;
+            OriginalStack?.Dispose(); OriginalStack = null; OriginalStackSource = null;
             DefectMap?.Dispose(); DefectMap = null;
             if (Reconstructions != null)
             {

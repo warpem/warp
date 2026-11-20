@@ -70,8 +70,11 @@ static partial class WorkerProcess
 
         HeaderEER.GroupNFrames = EERGroupFrames;
 
+        // A load that fails half-way leaves a stack that holds no movie in full.
+        OriginalStackSource = null;
         OriginalStack = LoadAndPrepareStack(Path, ScaleFactor, CorrectGain);
         OriginalStackOwner = Helper.PathToNameWithExtension(Path);
+        OriginalStackSource = new StackSource(System.IO.Path.GetFullPath(Path), ScaleFactor, EERGroupFrames, CorrectGain, _currentTask?.TaskId);
         // Storage is idle while this movie is processed: read the next one meanwhile.
         MoviePrefetch.StartNext(PrefetchQueue, PrefetchStages, Path);
 

@@ -89,6 +89,79 @@ public class EerWorkerEndToEndTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// Particles streamed from the file, and from the stack an earlier command of the same task loaded with the same
+    /// settings (which the worker takes instead of decoding the movie again), are the same particles. A stack loaded
+    /// at another scale is not taken.
+    /// </summary>
+    [EerEndToEndFact]
+    public void ParticlesFromTheLoadedStackAreTheStreamedOnes()
+    {
+        string data = Environment.GetEnvironmentVariable("WARP_EER_E2E");
+        string movie = Directory.GetFiles(Path.Combine(data, "movies"), "*.eer").OrderBy(p => p).First();
+        var layout = new QueueLayout(Path.Combine(root, "queue"));
+        layout.EnsureDirectories();
+        var queue = new TaskQueue(layout);
+
+        // The historical metadata (motion and CTF) beside a link to the movie, as WarpTools sets it up.
+        string link = Path.Combine(root, Path.GetFileName(movie));
+        File.CreateSymbolicLink(link, movie);
+        File.Copy(Path.Combine(data, "warp_metadata", Path.GetFileNameWithoutExtension(movie) + ".xml"), Path.ChangeExtension(link, ".xml"));
+
+        float2[] positions = Helper.Combine(Helper.ArrayOfFunction(i => Helper.ArrayOfFunction(j => new float2(300 + i * 330, 300 + j * 330), 10), 10));
+        ProcessingOptionsParticleExport Options(string suffix) => new()
+        {
+            PixelSize = 0.9M, BinTimes = 1, BoxSize = 96, BoxSizeResample = -1, Diameter = 150, Normalize = true, Invert = true,
+            DoAverage = true, DosePerAngstromFrame = -30, Suffix = suffix
+        };
+        var streamed = WorkerCommands.MovieExportParticlesFromFile(link, 0.5M, -40, true, link, Options("_streamed"), positions);
+        var reused = WorkerCommands.MovieExportParticlesFromFile(link, 0.5M, -40, true, link, Options("_reused"), positions);
+        var otherScale = WorkerCommands.MovieExportParticlesFromFile(link, 0.5M, -40, true, link, Options("_other"), positions);
+        var tasks = new (string Id, NamedSerializableObject[] Main)[]
+        {
+            ("streamed", [streamed, WorkerCommands.WaitAsyncTasks()]),
+            ("reused", [WorkerCommands.LoadStack(link, 0.5M, -40), reused, WorkerCommands.WaitAsyncTasks()]),
+            ("otherscale", [WorkerCommands.LoadStack(link, 0.25M, -40), otherScale, WorkerCommands.WaitAsyncTasks()])
+        };
+        foreach (var (id, main) in tasks)
+        {
+            var task = new TaskItem { TaskId = id, RequiresGpu = true, Init = [WorkerCommands.LoadGainRef("", false, false, false, "")], Main = main };
+            task.ComputeInitFingerprint();
+            queue.Enqueue(task);
+        }
+
+        var info = new ProcessStartInfo { FileName = Worker(), UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (string arg in new[] { "--device", "0", "--queue-dir", layout.Root })
+            info.ArgumentList.Add(arg);
+        using (var process = System.Diagnostics.Process.Start(info)!)
+        {
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            bool exited = process.WaitForExit(600_000);
+            if (!exited) process.Kill(true);
+            Assert.True(exited && process.ExitCode == 0, $"worker exit {(exited ? process.ExitCode : -1)}\n{stdout.Result[^Math.Min(4000, stdout.Result.Length)..]}\n{stderr.Result}");
+        }
+        foreach (var (id, _) in tasks)
+            Assert.True(File.Exists(Path.Combine(layout.Done, id + ".json")), File.Exists(Path.Combine(layout.Failed, id + ".json")) ? File.ReadAllText(Path.Combine(layout.Failed, id + ".json")) : id);
+
+        bool FromLoadedStack(string id) => File.ReadAllText(Path.Combine(layout.Root, "logs", id + ".log")).Contains("from the stack already loaded");
+        Assert.False(FromLoadedStack("streamed"));
+        Assert.True(FromLoadedStack("reused"));
+        Assert.False(FromLoadedStack("otherscale"));
+
+        var processed = new Movie(link);
+        using var a = Image.FromFile(Path.Combine(processed.ParticlesDir, processed.RootName + "_streamed.mrcs"));
+        using var b = Image.FromFile(Path.Combine(processed.ParticlesDir, processed.RootName + "_reused.mrcs"));
+        Assert.Equal(new int3(96, 96, positions.Length), b.Dims);
+        float[][] da = a.GetHost(Intent.Read), db = b.GetHost(Intent.Read);
+        double worst = 0;
+        for (int p = 0; p < positions.Length; p++)
+            for (int i = 0; i < da[p].Length; i++)
+                worst = Math.Max(worst, Math.Abs(da[p][i] - db[p][i]));
+        output.WriteLine($"Largest difference between streamed and reused particles: {worst:E2} (unit variance)");
+        Assert.True(worst < 1e-2, $"streamed and reused particles differ by up to {worst}");
+    }
+
     /// <summary>Runs one worker over the movies (WARP_EER_KERNEL_WIDTH set to kernelWidth if given) and reads the fits.</summary>
     (double Defocus, double Resolution, int3 Dims)[] Process(string[] movies, OptionsWarp options, string name, string kernelWidth)
     {

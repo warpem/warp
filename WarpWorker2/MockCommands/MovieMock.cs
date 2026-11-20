@@ -118,4 +118,6 @@ static partial class WorkerProcess
     { new Movie((string)command.Content[0]).SaveMeta();Console.WriteLine("[MOCK] Legacy BoxNet inference skipped; use blob picking for synthetic coordinates."); }
     [MockCommand(WorkerCommandNames.MovieExportParticles)]
     static void MockMovieExportParticles(NamedSerializableObject command)=>MockExtract((string)command.Content[0],(ProcessingOptionsParticleExport)command.Content[1],((float2[])command.Content[2]).Length);
+    [MockCommand(WorkerCommandNames.MovieExportParticlesFromFile)]
+    static void MockMovieExportParticlesFromFile(NamedSerializableObject command)=>MockExtract((string)command.Content[4],(ProcessingOptionsParticleExport)command.Content[5],((float2[])command.Content[6]).Length);
 }

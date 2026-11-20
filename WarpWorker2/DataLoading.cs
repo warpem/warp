@@ -97,7 +97,7 @@ static partial class WorkerProcess
     {
         if (!StackResident || OriginalStack == null) return;
         OriginalStack.Dispose();
-        OriginalStack = null; OriginalStackOwner = ""; StackResident = false;
+        OriginalStack = null; OriginalStackOwner = ""; OriginalStackSource = null; StackResident = false;
     }
 
     /// <summary>The movie file of the current LoadStack, when it was read into memory (TIFF or EER).</summary>
@@ -132,11 +132,24 @@ static partial class WorkerProcess
         }
     }
 
-    static Image LoadAndPrepareStack(string path, decimal scaleFactor, bool correctGain, int maxThreads = 8)
+    /// <summary>Frames a streamed load hands over at the same time, each from its own thread (see LoadAndPrepareStack).</summary>
+    const int StreamLanes = 2;
+
+    /// <summary>
+    /// Loads a movie's frames, gain- and defect-corrected and scaled, into the stack (OriginalStack's buffer) and returns
+    /// it. With <paramref name="frameSink"/>, the frames are streamed instead: no stack is made (null is returned), and
+    /// the sink, made once the frames' size and count are known, takes each frame on the GPU as it is ready, with its
+    /// index and lane (one of <see cref="StreamLanes"/>), from up to that many threads at a time. The frame's memory is
+    /// reused once the sink returns. <paramref name="afterRead"/> runs once the file is read (or found unreadable into
+    /// memory), before the frames are decoded.
+    /// </summary>
+    static Image LoadAndPrepareStack(string path, decimal scaleFactor, bool correctGain, int maxThreads = 8,
+                                     Func<int3, Action<int, IntPtr, int>> frameSink = null, Action afterRead = null)
     {
         Image stack = null;
 
         MapHeader header = TryReadMovieIntoMemory(path);
+        afterRead?.Invoke();
         bool InMemory = header != null;
         header ??= MapHeader.ReadFromFilePatient(10, 500,
                                                  path,
@@ -145,7 +158,7 @@ static partial class WorkerProcess
                                                  ImageFormatsHelper.StringToType(HeaderlessType));
 
         if (header is HeaderEER eer)
-            return LoadAndPrepareEerStack(path, eer, InMemory, scaleFactor, correctGain, maxThreads);
+            return LoadAndPrepareEerStack(path, eer, InMemory, scaleFactor, correctGain, maxThreads, frameSink);
 
         bool TiffInMemory = InMemory;
         bool IsTiff = header.GetType() == typeof(HeaderTiff);
@@ -157,7 +170,7 @@ static partial class WorkerProcess
         int2 SourceDims = new int2(header.Dimensions);
 
         int NThreads = IsTiff ? maxThreads : 1;
-        int GPUThreads = 2;
+        int GPUThreads = StreamLanes;
 
         int CurrentDevice = GPU.GetDevice();
 
@@ -220,9 +233,11 @@ static partial class WorkerProcess
         {
             if (scaleFactor == 1M)
             {
-                stack = PrepareStack(header.Dimensions);
-                float[][] OriginalStackData = StackResident ? null : stack.GetHost(Intent.Write);
-                IntPtr DeviceStack = StackResident ? stack.GetDevice(Intent.Write) : IntPtr.Zero;
+                Action<int, IntPtr, int> Sink = frameSink?.Invoke(header.Dimensions);
+                stack = Sink == null ? PrepareStack(header.Dimensions) : null;
+                bool Resident = Sink == null && StackResident;
+                float[][] OriginalStackData = Sink != null || Resident ? null : stack.GetHost(Intent.Write);
+                IntPtr DeviceStack = Resident ? stack.GetDevice(Intent.Write) : IntPtr.Zero;
 
                 object[] Locks = Helper.ArrayOfFunction(i => new object(), GPUThreads);
 
@@ -255,7 +270,9 @@ static partial class WorkerProcess
                         //         new int2(header.Dimensions),
                         //         1);
 
-                        if (StackResident)
+                        if (Sink != null)
+                            Sink(z, GPULayers[GPUThreadID].GetDevice(Intent.Read), GPUThreadID);
+                        else if (Resident)
                             GPU.CopyDeviceToDevice(GPULayers[GPUThreadID].GetDevice(Intent.Read),
                                                    new IntPtr((long)DeviceStack + header.Dimensions.ElementsSlice() * z * sizeof(float)),
                                                    header.Dimensions.ElementsSlice());
@@ -273,9 +290,11 @@ static partial class WorkerProcess
                                             (int)Math.Round(header.Dimensions.Y * scaleFactor) / 2 * 2,
                                             header.Dimensions.Z);
 
-                stack = PrepareStack(ScaledDims);
-                float[][] OriginalStackData = StackResident ? null : stack.GetHost(Intent.Write);
-                IntPtr DeviceStack = StackResident ? stack.GetDevice(Intent.Write) : IntPtr.Zero;
+                Action<int, IntPtr, int> Sink = frameSink?.Invoke(ScaledDims);
+                stack = Sink == null ? PrepareStack(ScaledDims) : null;
+                bool Resident = Sink == null && StackResident;
+                float[][] OriginalStackData = Sink != null || Resident ? null : stack.GetHost(Intent.Write);
+                IntPtr DeviceStack = Resident ? stack.GetDevice(Intent.Write) : IntPtr.Zero;
 
                 int[] PlanForw = Helper.ArrayOfFunction(i => GPU.CreateFFTPlan(new int3(SourceDims), 1), GPUThreads);
                 int[] PlanBack = Helper.ArrayOfFunction(i => GPU.CreateIFFTPlan(ScaledDims.Slice(), 1), GPUThreads);
@@ -324,7 +343,9 @@ static partial class WorkerProcess
                                   GPULayersInputFT[GPUThreadID].GetDevice(Intent.Write),
                                   GPULayersOutputFT[GPUThreadID].GetDevice(Intent.Write));
 
-                        if (StackResident)
+                        if (Sink != null)
+                            Sink(z, GPULayersScaled[GPUThreadID].GetDevice(Intent.Read), GPUThreadID);
+                        else if (Resident)
                             GPU.CopyDeviceToDevice(GPULayersScaled[GPUThreadID].GetDevice(Intent.Read),
                                                    new IntPtr((long)DeviceStack + ScaledDims.ElementsSlice() * z * sizeof(float)),
                                                    ScaledDims.ElementsSlice());
@@ -370,7 +391,8 @@ static partial class WorkerProcess
     /// scaleFactor, whatever the gain's size, and the gain (4K, 8K or 16K) multiplies each electron by its pixel's value.
     /// Defects are not corrected in EER movies, as before.
     /// </summary>
-    static Image LoadAndPrepareEerStack(string path, HeaderEER header, bool inMemory, decimal scaleFactor, bool correctGain, int maxThreads)
+    static Image LoadAndPrepareEerStack(string path, HeaderEER header, bool inMemory, decimal scaleFactor, bool correctGain, int maxThreads,
+                                        Func<int3, Action<int, IntPtr, int>> frameSink = null)
     {
         int rawFrames = header.DimensionsUngrouped.Z;
         int groupFrames = HeaderEER.GroupNFrames > 0 ? HeaderEER.GroupNFrames :
@@ -384,7 +406,9 @@ static partial class WorkerProcess
         Image gain = correctGain ? GainRef : null;
         EerRenderer.CheckGain(gain);
 
-        Image stack = PrepareStack(dims);
+        Action<int, IntPtr, int> sink = frameSink?.Invoke(dims);
+        Image stack = sink == null ? PrepareStack(dims) : null;
+        bool resident = sink == null && StackResident;
 
         // A file still being written, or a read that failed, gets another chance with a fresh read.
         for (int attempt = 1; ; attempt++)
@@ -394,12 +418,14 @@ static partial class WorkerProcess
                 var timer = Stopwatch.StartNew();
                 var index = EerIndex.Read(path, inMemory ? MovieFile : null, rawFrames);
                 long electrons = EerRenderer.RenderStack(path, inMemory ? MovieFile : null, index, groupFrames, groups, gain, size, maxThreads,
-                                                         StackResident ? stack.GetDevice(Intent.Write) : IntPtr.Zero,
-                                                         StackResident ? null : stack.GetHost(Intent.Write));
+                                                         resident ? stack.GetDevice(Intent.Write) : IntPtr.Zero,
+                                                         sink == null && !resident ? stack.GetHost(Intent.Write) : null,
+                                                         onGroup: sink == null ? null : (z, frame) => sink(z, frame, 0));
                 Console.WriteLine($"Rendered {groups} EER groups of {groupFrames} frames at {size}x{size}, {electrons / (double)(groups * groupFrames) / 1e3:F0}k electrons a frame, in {timer.Elapsed.TotalMilliseconds:F0} ms");
                 return stack;
             }
-            catch (Exception e) when (attempt < 3 && e is IOException or NotSupportedException)
+            // A streamed render can't start over: its sink already took the groups rendered before the failure.
+            catch (Exception e) when (attempt < 3 && sink == null && e is IOException or NotSupportedException)
             {
                 Console.WriteLine($"Rendering {path} failed, trying again: {e.Message}");
                 System.Threading.Thread.Sleep(500);

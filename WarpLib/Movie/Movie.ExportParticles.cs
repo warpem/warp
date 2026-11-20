@@ -12,111 +12,177 @@ public partial class Movie
     /// <param name="releaseStack">Free the stack's device copy afterwards (see <see cref="ProcessShift"/>).</param>
     public void ExportParticles(Image originalStack, float2[] positions, ProcessingOptionsParticleExport options, bool releaseStack = true)
     {
-        IsProcessing = true;
+        // A stack on the GPU is read in place; a host stack goes up a frame at a time instead of all at once, which
+        // needs no device copy of the whole movie.
+        bool OnDevice = originalStack.IsDeviceCurrent;
+        float[][] HostFrames = OnDevice ? null : originalStack.GetHost(Intent.Read);
+        IntPtr Staging = OnDevice ? IntPtr.Zero : GPU.MallocDevice(originalStack.ElementsSliceReal);
+        try
+        {
+            using var Export = new MovieParticleExport(this, options, positions, originalStack.Dims, 1);
+            for (int z = Export.FirstFrame; z < Export.LastFrameExclusive; z++)
+            {
+                IntPtr Frame = Staging;
+                if (OnDevice)
+                    Frame = originalStack.GetDeviceSlice(z, Intent.Read);
+                else
+                    GPU.CopyHostToDevice(HostFrames[z], Staging, originalStack.ElementsSliceReal);
+                Export.AddFrame(z, Frame, 0);
+            }
 
-        options.PreflipPhases &= OptionsCTF != null;
+            if (releaseStack)
+                originalStack.FreeDevice();
 
-        #region Make sure all directories are there
+            Export.Finish();
+        }
+        finally
+        {
+            if (Staging != IntPtr.Zero)
+                GPU.FreeDevice(Staging);
+        }
+    }
+}
 
-        if (options.DoAverage && !Directory.Exists(ParticlesDir))
-            Directory.CreateDirectory(ParticlesDir);
+/// <summary>
+/// Extracts particles from a movie's frames as they come, one frame at a time, so a movie can be streamed from its
+/// file without holding the whole stack (see Movie.ExportParticles for a loaded stack). Each frame's boxes follow the
+/// particles' local motion; they are weighted by exposure (and pre-flipped by the CTF's sign if asked), shifted by
+/// their sub-pixel remainder in Fourier space and summed. <see cref="Finish"/> writes the stacks and the metadata.
+/// Frames may arrive in any order and from several threads, each with its own lane (buffers and FFT plan); all GPU
+/// work goes to the legacy default stream, which orders the sums.
+/// </summary>
+public sealed class MovieParticleExport : IDisposable
+{
+    readonly Movie Owner;
+    readonly ProcessingOptionsParticleExport Options;
+    readonly int NParticles;
+    readonly int Chunk;
+    readonly int3 DimsFrame, DimsExtraction, DimsResampled, DimsOutput;
+    readonly float PixelSizeOutput;
 
+    /// <summary>The stack's frames that are extracted (the rest are skipped), in stack indices.</summary>
+    public readonly int FirstFrame, LastFrameExclusive;
+
+    readonly int[][] FrameOrigins;      // Per extracted frame, each particle's box corner (interleaved int3)
+    readonly float[][] FrameShifts;     // Per extracted frame, each particle's sub-pixel remainder (interleaved float3)
+
+    Image CTFSign;
+    Image[] DoseWeights;
+    Image AverageFT;
+    Image[] AverageOddEvenFT;
+
+    sealed class Lane
+    {
+        public Image Extracted, ExtractedFT, ExtractedFTResampled;
+        public int Plan;
+    }
+    Lane[] Lanes;
+
+    /// <param name="stackDims">The movie's frame size and number of frames as loaded, at the options' binned pixel size.</param>
+    /// <param name="lanes">How many threads may add frames at the same time.</param>
+    public MovieParticleExport(Movie movie, ProcessingOptionsParticleExport options, float2[] positions, int3 stackDims, int lanes)
+    {
+        Owner = movie;
+        Options = options;
+        Owner.IsProcessing = true;
+
+        options.PreflipPhases &= movie.OptionsCTF != null;
+
+        if (options.DoAverage)
+            Directory.CreateDirectory(movie.ParticlesDir);
         if (options.DoDenoisingPairs)
         {
-            Directory.CreateDirectory(ParticlesDenoisingOddDir);
-            Directory.CreateDirectory(ParticlesDenoisingEvenDir);
+            Directory.CreateDirectory(movie.ParticlesDenoisingOddDir);
+            Directory.CreateDirectory(movie.ParticlesDenoisingEvenDir);
         }
 
-        #endregion
+        NParticles = positions.Length;
+        int NFramesStack = stackDims.Z;
+        FirstFrame = Math.Max(0, Math.Min(NFramesStack - 1, options.SkipFirstN));
+        LastFrameExclusive = Math.Min(NFramesStack, NFramesStack - options.SkipLastN);
+        int NFrames = Math.Max(0, LastFrameExclusive - FirstFrame);
 
-        #region Helper variables
-
-        int NParticles = positions.Length;
-
-        int3 DimsMovie = originalStack.Dims;
-        int FirstFrame = Math.Max(0, Math.Min(DimsMovie.Z - 1, options.SkipFirstN));
-        int LastFrameExclusive = Math.Min(DimsMovie.Z, DimsMovie.Z - options.SkipLastN);
-        DimsMovie.Z = LastFrameExclusive - FirstFrame;
-
-        int3 DimsParticle = new int3(options.BoxSize, options.BoxSize, NParticles);
-        int3 DimsPreflip = DimsParticle.MultXY(2);
-        int3 DimsExtraction = options.PreflipPhases ? DimsPreflip : DimsParticle;
-        int3 DimsResampled = options.BoxSizeResample > 0 ? new int3(options.BoxSizeResample, options.BoxSizeResample, NParticles).MultXY(options.PreflipPhases ? 2 : 1) : DimsExtraction;
-        // Resampling Fourier-crops each particle: the written box is BoxSizeResample, at a proportionally coarser pixel size.
         if (options.BoxSizeResample > options.BoxSize)
             throw new ArgumentOutOfRangeException(nameof(options.BoxSizeResample), "Particles can only be resampled to a smaller box.");
-        int3 DimsOutput = options.BoxSizeResample > 0 ? new int3(options.BoxSizeResample, options.BoxSizeResample, NParticles) : DimsParticle;
 
-        Task WriteHalfAverageAsync = null;
+        DimsFrame = stackDims.Slice();
+        DimsExtraction = new int3(options.BoxSize, options.BoxSize, 1).MultXY(options.PreflipPhases ? 2 : 1);
+        // Resampling Fourier-crops each particle: the written box is BoxSizeResample, at a proportionally coarser pixel size.
+        DimsResampled = options.BoxSizeResample > 0 ? new int3(options.BoxSizeResample, options.BoxSizeResample, 1).MultXY(options.PreflipPhases ? 2 : 1) : DimsExtraction;
+        DimsOutput = options.BoxSizeResample > 0 ? new int3(options.BoxSizeResample, options.BoxSizeResample, 1) : new int3(options.BoxSize, options.BoxSize, 1);
 
         float PixelSize = (float)options.BinnedPixelSizeMean;
-        float PixelSizeOutput = PixelSize * options.BoxSize / DimsOutput.X;
+        PixelSizeOutput = PixelSize * options.BoxSize / DimsOutput.X;
 
-        #endregion
+        // Boxes in chunks, so the per-frame buffers stay small however many particles a movie has.
+        Chunk = Math.Max(1, Math.Min(NParticles, 256));
 
-        #region Figure out where to extract, and how much to shift afterwards
+        #region Where to extract in each frame, and how much to shift afterwards
 
-        float3[] ParticleCenters = positions.Select(p => new float3(p) / (float)options.BinnedPixelSizeMean).ToArray(); // From Angstrom to binned pixels
-
-        float3[][] ParticleOrigins = Helper.ArrayOfFunction(z =>
+        float2[] Centers = positions.Select(p => p / PixelSize).ToArray(); // From Angstrom to binned pixels
+        FrameOrigins = new int[NFrames][];
+        FrameShifts = new float[NFrames][];
+        Parallel.For(0, NFrames, f =>
         {
-            float Z = (z + FirstFrame) / (float)Math.Max(1, originalStack.Dims.Z - 1);
-            return ParticleCenters.Select(p =>
+            float Z = (f + FirstFrame) / (float)Math.Max(1, NFramesStack - 1);
+            int[] Origins = new int[NParticles * 3];
+            float[] Shifts = new float[NParticles * 3];
+            for (int p = 0; p < NParticles; p++)
             {
-                float2 LocalShift = GetShiftFromPyramid(new float3(p.X * PixelSize / options.Dimensions.X, // ParticleCenters are in binned pixels, Dimensions are in Angstrom
-                    p.Y * PixelSize / options.Dimensions.Y, Z)) / PixelSize; // Shifts are in physical Angstrom, convert to binned pixels
-                return new float3(p.X - LocalShift.X - DimsExtraction.X / 2, p.Y - LocalShift.Y - DimsExtraction.Y / 2, 0);
-            }).ToArray();
-        }, DimsMovie.Z);
-
-        int3[][] ParticleIntegerOrigins = ParticleOrigins.Select(a => a.Select(p => new int3(p.Floor())).ToArray()).ToArray();
-        float3[][] ParticleResidualShifts = Helper.ArrayOfFunction(z =>
-                Helper.ArrayOfFunction(i =>
-                        new float3(ParticleIntegerOrigins[z][i]) - ParticleOrigins[z][i],
-                    NParticles),
-            ParticleOrigins.Length);
+                float2 c = Centers[p];
+                // Centers are in binned pixels, Dimensions in Angstrom; shifts are in Angstrom, converted to binned pixels.
+                float2 LocalShift = movie.GetShiftFromPyramid(new float3(c.X * PixelSize / options.Dimensions.X, c.Y * PixelSize / options.Dimensions.Y, Z)) / PixelSize;
+                float OriginX = c.X - LocalShift.X - DimsExtraction.X / 2, OriginY = c.Y - LocalShift.Y - DimsExtraction.Y / 2;
+                int IntX = (int)MathF.Floor(OriginX), IntY = (int)MathF.Floor(OriginY);
+                Origins[p * 3 + 0] = IntX;
+                Origins[p * 3 + 1] = IntY;
+                Shifts[p * 3 + 0] = IntX - OriginX;
+                Shifts[p * 3 + 1] = IntY - OriginY;
+            }
+            FrameOrigins[f] = Origins;
+            FrameShifts[f] = Shifts;
+        });
 
         #endregion
 
-        #region Pre-calc phase flipping and dose weighting
+        #region Phase flipping and exposure weighting
 
-        Image CTFSign = null;
         Image CTFCoords = CTF.GetCTFCoords(DimsExtraction.X, DimsExtraction.X);
-        Image GammaCorrection = CTF.GetGammaCorrection((float)options.BinnedPixelSizeMean, DimsExtraction.X);
-        Image[] DoseWeights = null;
+        Image GammaCorrection = movie.CTF.GetGammaCorrection(PixelSize, DimsExtraction.X);
 
-        if (options.PreflipPhases || options.DoDenoisingPairs)
+        if (NParticles > 0 && (options.PreflipPhases || options.DoDenoisingPairs))
         {
             CTFStruct[] Params = positions.Select(p =>
             {
-                CTF Local = CTF.GetCopy();
-                Local.Defocus = (decimal)GridCTFDefocus.GetInterpolated(new float3(p.X / options.Dimensions.X, p.Y / options.Dimensions.Y, 0));
+                CTF Local = movie.CTF.GetCopy();
+                Local.Defocus = (decimal)movie.GridCTFDefocus.GetInterpolated(new float3(p.X / options.Dimensions.X, p.Y / options.Dimensions.Y, 0));
                 return Local.ToStruct();
             }).ToArray();
 
-            CTFSign = new Image(DimsExtraction, true);
+            CTFSign = new Image(new int3(DimsExtraction.X, DimsExtraction.Y, NParticles), true);
             GPU.CreateCTF(CTFSign.GetDevice(Intent.Write),
-                CTFCoords.GetDevice(Intent.Read),
-                GammaCorrection.GetDevice(Intent.Read),
-                (uint)CTFCoords.ElementsSliceComplex,
-                Params,
-                false,
-                (uint)CTFSign.Dims.Z);
+                          CTFCoords.GetDevice(Intent.Read),
+                          GammaCorrection.GetDevice(Intent.Read),
+                          (uint)CTFCoords.ElementsSliceComplex,
+                          Params,
+                          false,
+                          (uint)CTFSign.Dims.Z);
 
             GPU.Sign(CTFSign.GetDevice(Intent.Read),
-                CTFSign.GetDevice(Intent.Write),
-                CTFSign.ElementsReal);
+                     CTFSign.GetDevice(Intent.Write),
+                     CTFSign.ElementsReal);
         }
 
-        if (options.DosePerAngstromFrame != 0)
+        if (options.DosePerAngstromFrame != 0 && NFrames > 0)
         {
             float DosePerFrame = (float)options.DosePerAngstromFrame;
             if (options.DosePerAngstromFrame < 0)
-                DosePerFrame = -(float)options.DosePerAngstromFrame / originalStack.Dims.Z;
+                DosePerFrame = -(float)options.DosePerAngstromFrame / NFramesStack;
 
-            DoseWeights = Helper.ArrayOfFunction(z =>
+            DoseWeights = Helper.ArrayOfFunction(f =>
             {
-                Image Weights = new Image(IntPtr.Zero, DimsExtraction.Slice(), true);
+                int z = f + FirstFrame;
+                Image Weights = new Image(IntPtr.Zero, DimsExtraction, true);
 
                 CTF CTFBfac = new CTF
                 {
@@ -125,24 +191,21 @@ public partial class Movie
                     Amplitude = 1,
                     Cs = 0,
                     Cc = 0,
-                    Bfactor = GridDoseBfacs.Values.Length == 1 ? -(decimal)(DosePerFrame * (z + FirstFrame + 0.5f) * 4) : (decimal)GridDoseBfacs.Values[z + FirstFrame],
-                    Scale = GridDoseWeights.Values.Length == 1 ? 1 : (decimal)GridDoseWeights.Values[z + FirstFrame]
+                    Bfactor = movie.GridDoseBfacs.Values.Length == 1 ? -(decimal)(DosePerFrame * (z + 0.5f) * 4) : (decimal)movie.GridDoseBfacs.Values[z],
+                    Scale = movie.GridDoseWeights.Values.Length == 1 ? 1 : (decimal)movie.GridDoseWeights.Values[z]
                 };
                 GPU.CreateCTF(Weights.GetDevice(Intent.Write),
-                    CTFCoords.GetDevice(Intent.Read),
-                    IntPtr.Zero,
-                    (uint)CTFCoords.ElementsSliceComplex,
-                    new[] { CTFBfac.ToStruct() },
-                    false,
-                    1);
-
-                //if (z % 2 == 1)
-                //    Weights.Multiply(0);
+                              CTFCoords.GetDevice(Intent.Read),
+                              IntPtr.Zero,
+                              (uint)CTFCoords.ElementsSliceComplex,
+                              new[] { CTFBfac.ToStruct() },
+                              false,
+                              1);
 
                 return Weights;
-            }, DimsMovie.Z);
+            }, NFrames);
 
-            Image DoseWeightsSum = new Image(DimsExtraction.Slice(), true);
+            Image DoseWeightsSum = new Image(DimsExtraction, true);
             foreach (var weights in DoseWeights)
                 DoseWeightsSum.Add(weights);
             DoseWeightsSum.Max(1e-6f);
@@ -158,250 +221,215 @@ public partial class Movie
 
         #endregion
 
-        #region Make FFT plans and memory
+        #region Sums and per-lane buffers
 
-        Image Extracted = new Image(IntPtr.Zero, DimsExtraction);
-        Image ExtractedFT = new Image(IntPtr.Zero, DimsExtraction, true, true);
-        Image ExtractedFTResampled = options.BoxSizeResample > 0 ? new Image(IntPtr.Zero, DimsResampled, true, true) : ExtractedFT;
+        int3 DimsSums = new int3(DimsResampled.X, DimsResampled.Y, Math.Max(1, NParticles));
+        Image NewSums()
+        {
+            // On the GPU only: a host copy of the sums would never be read.
+            var Sums = new Image(IntPtr.Zero, DimsSums, true, true);
+            Sums.Fill(0);
+            return Sums;
+        }
+        AverageFT = options.DoAverage ? NewSums() : null;
+        AverageOddEvenFT = options.DoDenoisingPairs ? Helper.ArrayOfFunction(i => NewSums(), 2) : null;
 
-        Image AverageFT = options.DoAverage ? new Image(DimsResampled, true, true) : null;
-        Image[] AverageOddEvenFT = options.DoDenoisingPairs ? Helper.ArrayOfFunction(i => new Image(DimsResampled, true, true), 2) : null;
-
-        int BatchSize = Math.Min(NParticles, 128);
-        int PlanForw = GPU.CreateFFTPlan(DimsExtraction.Slice(), (uint)BatchSize);
-
-        int3 DimsBuffer = new int3(Math.Max(DimsExtraction.X, DimsResampled.X), Math.Max(DimsExtraction.Y, DimsResampled.Y), BatchSize);
-        Image BufferFFTSource = new Image(IntPtr.Zero, DimsBuffer);
-        Image BufferFFTTarget = new Image(IntPtr.Zero, DimsBuffer, true, true);
+        Lanes = Helper.ArrayOfFunction(i => new Lane
+        {
+            Extracted = new Image(IntPtr.Zero, new int3(DimsExtraction.X, DimsExtraction.Y, Chunk)),
+            ExtractedFT = new Image(IntPtr.Zero, new int3(DimsExtraction.X, DimsExtraction.Y, Chunk), true, true),
+            ExtractedFTResampled = options.BoxSizeResample > 0 ? new Image(IntPtr.Zero, new int3(DimsResampled.X, DimsResampled.Y, Chunk), true, true) : null,
+            Plan = GPU.CreateFFTPlan(DimsExtraction, (uint)Chunk)
+        }, Math.Max(1, lanes));
 
         #endregion
+    }
 
-        #region Extract and process everything
+    /// <summary>Adds the boxes from one frame (stack index z, on the GPU, of the stack's frame size); lane identifies the calling thread.</summary>
+    public void AddFrame(int z, IntPtr frame, int lane)
+    {
+        if (z < FirstFrame || z >= LastFrameExclusive || NParticles == 0)
+            return;
 
-        for (int nframe = 0; nframe < DimsMovie.Z; nframe++)
+        int f = z - FirstFrame;
+        Lane L = Lanes[lane];
+        long ElementsFTExtraction = DimsExtraction.ElementsFFTSlice();    // complex
+        long ElementsFTResampled = DimsResampled.ElementsFFTSlice();      // complex
+        IntPtr Extracted = L.Extracted.GetDevice(Intent.Write);
+        IntPtr ExtractedFT = L.ExtractedFT.GetDevice(Intent.Write);
+        IntPtr Resampled = L.ExtractedFTResampled != null ? L.ExtractedFTResampled.GetDevice(Intent.Write) : ExtractedFT;
+
+        for (int b = 0; b < NParticles; b += Chunk)
         {
-            GPU.Extract(originalStack.GetDeviceSlice(nframe + FirstFrame, Intent.Read),
-                Extracted.GetDevice(Intent.Write),
-                DimsMovie.Slice(),
-                DimsExtraction.Slice(),
-                Helper.ToInterleaved(ParticleIntegerOrigins[nframe]),
-                false,
-                (uint)NParticles);
+            int CurChunk = Math.Min(Chunk, NParticles - b);
 
-            for (int b = 0; b < NParticles; b += BatchSize)
-            {
-                int CurBatch = Math.Min(BatchSize, NParticles - b);
+            GPU.Extract(frame,
+                        Extracted,
+                        DimsFrame,
+                        DimsExtraction,
+                        FrameOrigins[f].AsSpan(b * 3, CurChunk * 3).ToArray(),
+                        false,
+                        (uint)CurChunk);
 
-                GPU.CopyDeviceToDevice(Extracted.GetDeviceSlice(b, Intent.Read),
-                    BufferFFTSource.GetDevice(Intent.Write),
-                    CurBatch * DimsExtraction.ElementsSlice());
-
-                GPU.FFT(BufferFFTSource.GetDevice(Intent.Read),
-                    BufferFFTTarget.GetDevice(Intent.Write),
-                    DimsExtraction.Slice(),
-                    (uint)BatchSize,
-                    PlanForw);
-
-                GPU.CopyDeviceToDevice(BufferFFTTarget.GetDevice(Intent.Read),
-                    ExtractedFT.GetDeviceSlice(b, Intent.Write),
-                    CurBatch * DimsExtraction.ElementsFFTSlice() * 2);
-            }
+            // The plan's batch is a whole chunk; boxes past the last particle are left over from before, and ignored.
+            GPU.FFT(Extracted, ExtractedFT, DimsExtraction, (uint)Chunk, L.Plan);
 
             if (CTFSign != null)
-                ExtractedFT.Multiply(CTFSign);
+                GPU.MultiplyComplexSlicesByScalar(ExtractedFT,
+                                                  CTFSign.GetDeviceSlice(b, Intent.Read),
+                                                  ExtractedFT,
+                                                  ElementsFTExtraction * CurChunk,
+                                                  1);
 
-            if (options.DosePerAngstromFrame != 0)
-                ExtractedFT.MultiplySlices(DoseWeights[nframe]);
+            if (DoseWeights != null)
+                GPU.MultiplyComplexSlicesByScalar(ExtractedFT,
+                                                  DoseWeights[f].GetDevice(Intent.Read),
+                                                  ExtractedFT,
+                                                  ElementsFTExtraction,
+                                                  (uint)CurChunk);
 
-            ExtractedFT.ShiftSlices(ParticleResidualShifts[nframe]);
+            GPU.ShiftStackFT(ExtractedFT, ExtractedFT, DimsExtraction, FrameShifts[f].AsSpan(b * 3, CurChunk * 3).ToArray(), (uint)CurChunk);
 
-            if (options.BoxSizeResample > 0)
-                GPU.CropFT(ExtractedFT.GetDevice(Intent.Read),
-                    ExtractedFTResampled.GetDevice(Intent.Write),
-                    DimsExtraction.Slice(),
-                    DimsResampled.Slice(),
-                    (uint)NParticles);
+            if (L.ExtractedFTResampled != null)
+                GPU.CropFT(ExtractedFT, Resampled, DimsExtraction, DimsResampled, (uint)CurChunk);
 
-            if (options.DoAverage || options.DoDenoisingPairs)
+            if (AverageFT != null)
             {
-                if (options.DoAverage)
-                    AverageFT.Add(ExtractedFTResampled);
+                IntPtr Sum = AverageFT.GetDeviceSlice(b, Intent.ReadWrite);
+                GPU.AddToSlices(Sum, Resampled, Sum, ElementsFTResampled * 2 * CurChunk, 1);
+            }
 
-                if (options.DoDenoisingPairs)
-                    AverageOddEvenFT[nframe % 2].Add(ExtractedFTResampled);
+            if (AverageOddEvenFT != null)
+            {
+                IntPtr Sum = AverageOddEvenFT[f % 2].GetDeviceSlice(b, Intent.ReadWrite);
+                GPU.AddToSlices(Sum, Resampled, Sum, ElementsFTResampled * 2 * CurChunk, 1);
             }
         }
+    }
 
-        if (releaseStack)
-            originalStack.FreeDevice();
+    /// <summary>
+    /// Writes the particle stacks (in the background, see GlobalTasks) and saves the movie's metadata. Particles
+    /// are inverted and normalized as the options say, after their background plane is subtracted.
+    /// </summary>
+    public void Finish()
+    {
+        FreeLanes();
 
-        #region Clean up #1
-
-        Extracted.Dispose();
-        ExtractedFT.Dispose();
-        if (options.BoxSizeResample > 0)
-            ExtractedFTResampled.Dispose();
-        GPU.DestroyFFTPlan(PlanForw);
-
-        #endregion
-
-        int PlanBack = GPU.CreateIFFTPlan(DimsResampled.Slice(), (uint)BatchSize);
-
-        if (options.DoAverage)
+        if (NParticles > 0)
         {
-            Image Average = new Image(IntPtr.Zero, DimsResampled);
+            int BatchSize = Math.Min(NParticles, 128);
+            int PlanBack = GPU.CreateIFFTPlan(DimsResampled, (uint)BatchSize);
+            Image BufferFFTSource = new Image(IntPtr.Zero, new int3(DimsResampled.X, DimsResampled.Y, BatchSize));
+            Image BufferFFTTarget = new Image(IntPtr.Zero, new int3(DimsResampled.X, DimsResampled.Y, BatchSize), true, true);
 
-            for (int b = 0; b < NParticles; b += BatchSize)
+            void WriteSums(Image sumsFT, string path)
             {
-                int CurBatch = Math.Min(BatchSize, NParticles - b);
-
-                GPU.CopyDeviceToDevice(AverageFT.GetDeviceSlice(b, Intent.Read),
-                    BufferFFTTarget.GetDevice(Intent.Write),
-                    CurBatch * DimsResampled.ElementsFFTSlice() * 2);
-
-                GPU.IFFT(BufferFFTTarget.GetDevice(Intent.Read),
-                    BufferFFTSource.GetDevice(Intent.Write),
-                    DimsResampled.Slice(),
-                    (uint)BatchSize,
-                    PlanBack,
-                    false);
-
-                GPU.CopyDeviceToDevice(BufferFFTSource.GetDevice(Intent.Read),
-                    Average.GetDeviceSlice(b, Intent.Write),
-                    CurBatch * DimsResampled.ElementsSlice());
-            }
-
-            AverageFT.Dispose();
-
-            Image AverageCropped = Average.AsPadded(new int2(DimsOutput));
-            Average.Dispose();
-
-            #region Subtract background plane
-
-            AverageCropped.FreeDevice();
-            float[][] AverageData = AverageCropped.GetHost(Intent.ReadWrite);
-            for (int p = 0; p < NParticles; p++)
-            {
-                float[] ParticleData = AverageData[p];
-                float[] Background = MathHelper.FitAndGeneratePlane(ParticleData, new int2(AverageCropped.Dims));
-                for (int i = 0; i < ParticleData.Length; i++)
-                    ParticleData[i] -= Background[i];
-            }
-
-            #endregion
-
-            if (options.Normalize)
-                GPU.NormParticles(AverageCropped.GetDevice(Intent.Read),
-                    AverageCropped.GetDevice(Intent.Write),
-                    DimsOutput.Slice(),
-                    (uint)(options.Diameter / PixelSizeOutput / 2),
-                    options.Invert,
-                    (uint)NParticles);
-            else if (options.Invert)
-                AverageCropped.Multiply(-1f);
-
-            AverageCropped.FreeDevice();
-
-            WriteHalfAverageAsync = new Task(() =>
-            {
-                AverageCropped.WriteMRC16b(System.IO.Path.Combine(ParticlesDir, RootName + options.Suffix + ".mrcs"), PixelSizeOutput, true);
-                AverageCropped.Dispose();
-            });
-            WriteHalfAverageAsync.Start();
-            GlobalTasks.Add(WriteHalfAverageAsync);
-        }
-
-        if (options.DoDenoisingPairs)
-        {
-            string[] OddEvenDir = { ParticlesDenoisingOddDir, ParticlesDenoisingEvenDir };
-
-            for (int idenoise = 0; idenoise < 2; idenoise++)
-            {
-                Image Average = new Image(IntPtr.Zero, AverageOddEvenFT[idenoise].Dims); // AverageOddEvenFT[idenoise].AsIFFT(false, PlanBack, true);
+                Image Average = new Image(IntPtr.Zero, new int3(DimsResampled.X, DimsResampled.Y, NParticles));
 
                 for (int b = 0; b < NParticles; b += BatchSize)
                 {
                     int CurBatch = Math.Min(BatchSize, NParticles - b);
 
-                    GPU.CopyDeviceToDevice(AverageOddEvenFT[idenoise].GetDeviceSlice(b, Intent.Read),
-                        BufferFFTTarget.GetDevice(Intent.Write),
-                        CurBatch * DimsResampled.ElementsFFTSlice() * 2);
+                    GPU.CopyDeviceToDevice(sumsFT.GetDeviceSlice(b, Intent.Read),
+                                           BufferFFTTarget.GetDevice(Intent.Write),
+                                           CurBatch * DimsResampled.ElementsFFTSlice() * 2);
 
                     GPU.IFFT(BufferFFTTarget.GetDevice(Intent.Read),
-                        BufferFFTSource.GetDevice(Intent.Write),
-                        DimsResampled.Slice(),
-                        (uint)BatchSize,
-                        PlanBack,
-                        false);
+                             BufferFFTSource.GetDevice(Intent.Write),
+                             DimsResampled,
+                             (uint)BatchSize,
+                             PlanBack,
+                             false);
 
                     GPU.CopyDeviceToDevice(BufferFFTSource.GetDevice(Intent.Read),
-                        Average.GetDeviceSlice(b, Intent.Write),
-                        CurBatch * DimsResampled.ElementsSlice());
+                                           Average.GetDeviceSlice(b, Intent.Write),
+                                           CurBatch * DimsResampled.ElementsSlice());
                 }
-
-                AverageOddEvenFT[idenoise].Dispose();
 
                 Image AverageCropped = Average.AsPadded(new int2(DimsOutput));
                 Average.Dispose();
 
-                #region Subtract background plane
-
+                // Subtract each particle's background plane
                 AverageCropped.FreeDevice();
                 float[][] AverageData = AverageCropped.GetHost(Intent.ReadWrite);
-                for (int p = 0; p < NParticles; p++)
+                Parallel.For(0, NParticles, p =>
                 {
                     float[] ParticleData = AverageData[p];
                     float[] Background = MathHelper.FitAndGeneratePlane(ParticleData, new int2(AverageCropped.Dims));
                     for (int i = 0; i < ParticleData.Length; i++)
                         ParticleData[i] -= Background[i];
-                }
+                });
 
-                #endregion
-
-                if (options.Normalize)
+                if (Options.Normalize)
                     GPU.NormParticles(AverageCropped.GetDevice(Intent.Read),
-                        AverageCropped.GetDevice(Intent.Write),
-                        DimsOutput.Slice(),
-                        (uint)(options.Diameter / PixelSizeOutput / 2),
-                        options.Invert,
-                        (uint)NParticles);
-                else if (options.Invert)
+                                      AverageCropped.GetDevice(Intent.Write),
+                                      DimsOutput,
+                                      (uint)(Options.Diameter / PixelSizeOutput / 2),
+                                      Options.Invert,
+                                      (uint)NParticles);
+                else if (Options.Invert)
                     AverageCropped.Multiply(-1f);
 
                 AverageCropped.FreeDevice();
 
-                WriteHalfAverageAsync = new Task(() =>
+                Task WriteAsync = new Task(() =>
                 {
-                    AverageCropped.WriteMRC16b(System.IO.Path.Combine(OddEvenDir[idenoise], RootName + options.Suffix + ".mrcs"), PixelSizeOutput, true);
+                    AverageCropped.WriteMRC16b(path, PixelSizeOutput, true);
                     AverageCropped.Dispose();
                 });
-                WriteHalfAverageAsync.Start();
-                GlobalTasks.Add(WriteHalfAverageAsync);
+                WriteAsync.Start();
+                GlobalTasks.Add(WriteAsync);
             }
+
+            string FileName = Owner.RootName + Options.Suffix + ".mrcs";
+            if (AverageFT != null)
+                WriteSums(AverageFT, Path.Combine(Owner.ParticlesDir, FileName));
+            if (AverageOddEvenFT != null)
+            {
+                WriteSums(AverageOddEvenFT[0], Path.Combine(Owner.ParticlesDenoisingOddDir, FileName));
+                WriteSums(AverageOddEvenFT[1], Path.Combine(Owner.ParticlesDenoisingEvenDir, FileName));
+            }
+
+            GPU.DestroyFFTPlan(PlanBack);
+            BufferFFTSource.Dispose();
+            BufferFFTTarget.Dispose();
         }
 
-        #endregion
+        Owner.OptionsParticlesExport = Options;
+        Owner.SaveMeta();
 
-        #region Clean up #2
+        Owner.IsProcessing = false;
+    }
 
-        GPU.DestroyFFTPlan(PlanBack);
-        BufferFFTSource.Dispose();
-        BufferFFTTarget.Dispose();
+    void FreeLanes()
+    {
+        if (Lanes == null)
+            return;
+        foreach (var lane in Lanes)
+        {
+            lane.Extracted.Dispose();
+            lane.ExtractedFT.Dispose();
+            lane.ExtractedFTResampled?.Dispose();
+            GPU.DestroyFFTPlan(lane.Plan);
+        }
+        Lanes = null;
+    }
 
+    public void Dispose()
+    {
+        FreeLanes();
         CTFSign?.Dispose();
+        CTFSign = null;
         if (DoseWeights != null)
-            foreach (var doseWeight in DoseWeights)
-                doseWeight.Dispose();
-
-        #endregion
-
-        // Wait for all async IO to finish
-        //WriteAverageAsync?.Wait();
-
-        OptionsParticlesExport = options;
-        SaveMeta();
-
-        IsProcessing = false;
+            foreach (var weights in DoseWeights)
+                weights.Dispose();
+        DoseWeights = null;
+        AverageFT?.Dispose();
+        AverageFT = null;
+        if (AverageOddEvenFT != null)
+            foreach (var sums in AverageOddEvenFT)
+                sums.Dispose();
+        AverageOddEvenFT = null;
     }
 }
 

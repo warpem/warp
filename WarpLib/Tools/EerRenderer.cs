@@ -226,14 +226,16 @@ namespace Warp.Tools
         /// electron count.
         /// </summary>
         public static long RenderStack(string path, FileInMemory memory, EerIndex index, int groupFrames, int groups, Image gain,
-                                       int outputSize, int threads, IntPtr deviceStack, float[][] hostStack, int kernelWidth = -1)
+                                       int outputSize, int threads, IntPtr deviceStack, float[][] hostStack, int kernelWidth = -1,
+                                       Action<int, IntPtr> onGroup = null)
         {
             CheckGain(gain);
             int frames = groupFrames * groups;
             if (groupFrames < 1 || groups < 1 || frames > index.Frames)
                 throw new ArgumentOutOfRangeException(nameof(groups), $"{groups} groups of {groupFrames} frames do not fit in {index.Frames} frames.");
-            if ((deviceStack == IntPtr.Zero) == (hostStack == null))
-                throw new ArgumentException("Render into either a device or a host stack.");
+            // onGroup takes each group on the GPU as it is rendered, instead of a stack.
+            if ((deviceStack != IntPtr.Zero ? 1 : 0) + (hostStack != null ? 1 : 0) + (onGroup != null ? 1 : 0) != 1)
+                throw new ArgumentException("Render into either a device or a host stack, or hand each group over.");
 
             threads = Math.Max(1, threads);
             int batchFrames = Math.Min(Math.Min(32, MaxBatchFrames), frames);
@@ -247,7 +249,7 @@ namespace Warp.Tools
 
                 using SafeFileHandle file = memory == null ? File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete) : null;
                 using var renderer = new EerRenderer(outputSize, batchFrames, slotCapacity, groupFrames, LargestGain(gain), kernelWidth);
-                IntPtr scratch = hostStack != null ? GPU.MallocDevice(sliceElements) : IntPtr.Zero;
+                IntPtr scratch = deviceStack == IntPtr.Zero ? GPU.MallocDevice(sliceElements) : IntPtr.Zero;
 
                 Task Decode(int first, Batch batch) => Task.Run(() => DecodeBatch(path, memory, file, index, first, Math.Min(batchFrames, frames - first), slotCapacity, threads, batch));
 
@@ -280,9 +282,11 @@ namespace Warp.Tools
                             if ((first + end) % groupFrames != 0)
                                 continue;
                             int z = (first + end) / groupFrames - 1;
-                            renderer.Finish(hostStack != null ? scratch : (IntPtr)((long)deviceStack + z * sliceElements * sizeof(float)));
+                            renderer.Finish(scratch != IntPtr.Zero ? scratch : (IntPtr)((long)deviceStack + z * sliceElements * sizeof(float)));
                             if (hostStack != null)
                                 GPU.CopyDeviceToHost(scratch, hostStack[z], sliceElements);
+                            else
+                                onGroup?.Invoke(z, scratch);
                         }
                         renderer.BatchDone();
                     }
