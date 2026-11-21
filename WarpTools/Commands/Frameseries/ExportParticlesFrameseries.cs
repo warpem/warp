@@ -352,6 +352,10 @@ namespace WarpTools.Commands.Frameseries
                 SetOptics("rlnImageSize", Options.Tasks.Export2DBoxSize.ToString());
                 SetOptics("rlnImageDimensionality", "2");
                 SetOptics("rlnCtfDataAreCtfPremultiplied", "0");
+                // rlnCoordinateX/Y are written back in --angpix_coords units; record them as the micrograph pixel
+                // size, alongside the movies' unbinned pixel size.
+                SetOptics("rlnMicrographPixelSize", CLI.AngpixCoords.ToString("F6", CultureInfo.InvariantCulture));
+                SetOptics("rlnMicrographOriginalPixelSize", Options.Import.PixelSize.ToString("F6", CultureInfo.InvariantCulture));
 
                 OpticsIn = OpticsGroups;
             }
